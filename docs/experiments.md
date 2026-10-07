@@ -1619,6 +1619,81 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   ball's shell is one closed sphere within 0.1 pitch of the old one — the first form of the test asserted the shell
   lies inside the old one and failed: on a jittered unit ball it lies 0.017 outside, the direction is
   state-dependent); the suite on `repo_r102` (= repo_r101 + this, `tmp/d123_tests_final.log`): 294 passed, 2 skipped, exit 0.
+  **Result of the second stage (runs 06:12–07:29 CDT on `repo_r102`, read to 09:00; `tmp/d123/d123_run.sh`,
+  `d123_eval.sh`, `d123_rows.py`; `output/gpu/d123`: `{mesh}300k_{LR,PR}.{json,log}`, `*_frames12.npz`, the
+  runeval3 logs `t3_/e3_/a_/m_/o_` (the old r = 3 probes, comparable with D105's), `o25_/e25_/o3_` (the scratch
+  probes at 2.5 and 3 on the end frame), `bands25_/bands3_{mesh}.log`, `rows_`, `twin_{mesh}.{png,log}`, `mom_`,
+  `thin_`, `apart_`, `tail/flicker_stage2.txt`): the runs with the loss's field at 2.5 pitches end where D105's
+  do; the relief the finer field reads is the same on the new runs as on D105's frames (the loss's radius neither
+  adds nor costs relief: it is in the particles, as the measurement said); the render arm keeps its lead over its
+  twin on the dragon by D105's margins and more, on the bunny by two thirds of them; momentum mixed; thin,
+  roughness, flicker and wall time within the bounds.** LR = the render arm, PR = the twin, both `--exterior_radius
+  2.5`, the D105 recipe otherwise, seed 97; LV / PV = D105's runs. The runs: bunny LR 74 windows, 24.7 min (LV 72,
+  25.5), PR 63, 21.5 (PV 79, 27.0); dragon LR 113, 42.8 (LV 101, 43.0), PR 101, 39.1 (PV 106, 44.2); the exterior on
+  the target: bunny 174 717 discs at 2.5 against 168 279 at 3, the lattice unchanged (0.54 pitches, the render
+  pixel's half); g_share 0.37 / 0.33 (bunny, LV 0.38 / 0.37), 0.36 / 0.29 (dragon, LV 0.36 / 0.31).
+
+  | relief kept at 2.7 / 5.4 / 10.8 (family B) | bunny LR · PR | bunny LV · PV (D105) | dragon LR · PR | dragon LV · PV |
+  |---|---|---|---|---|
+  | read through the field at 2.5 (the new loss's) | 0.37 / 0.63 / 0.87 · 0.37 / 0.64 / 0.87 | 0.38 / 0.61 / 0.86 · 0.37 / 0.62 / 0.88 | 0.34 / 0.61 / 0.87 · 0.34 / 0.62 / 0.87 | 0.33 / 0.61 / 0.86 · 0.36 / 0.62 / 0.87 |
+  | read through the field at 3 (D105's) | 0.29 / 0.58 / 0.85 · 0.29 / 0.59 / 0.86 | 0.28 / 0.55 / 0.84 · 0.29 / 0.57 / 0.87 | 0.24 / 0.56 / 0.86 · 0.25 / 0.57 / 0.87 | 0.24 / 0.56 / 0.86 · 0.27 / 0.57 / 0.87 |
+  | the sample's cap at 2.5 / at 3 | 0.49 / 0.74 / 0.90 · 0.36 / 0.66 / 0.86 | | 0.38 / 0.68 / 0.89 · 0.27 / 0.60 / 0.87 | |
+
+  End values (the r = 3 probes, as D122's table; yardstick = t3 exterior silhouette / shading against the
+  independent sample; display = e3 front / crop / back 1 − IoU; roughness = e3 angle rms; thin on the base set;
+  COM = largest displacement, pitches; ang. = net-over-gross angular move, largest):
+
+  | | sil IoU | chamfer | thin | yardstick | display front / crop / back | roughness | mean offset r 3 / r 2.5 | kin | COM | ang. | min |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | bunny LR / PR | 0.9886 / 0.9870 | 0.0549 / 0.0550 | 3.5 / 3.2 % | 8.3e-4 5.0e-4 / 1.19e-3 6.0e-4 | .0093 .0192 .0088 / .0106 .0242 .0120 | 3.42 / 3.37° | +0.317 +0.292 / +0.292 +0.264 | 5.0e-6 / 4.4e-6 | 0.0004 / 0.0005 | 0.0196 / 0.0256 | 24.7 / 21.5 |
+  | bunny LV / PV (D105) | 0.9878 / 0.9869 | 0.0550 / 0.0550 | 3.5 / 3.3 % | 6.8e-4 4.8e-4 / 1.08e-3 5.9e-4 | .0084 .0181 .0084 / .0104 .0234 .0116 | 3.47 / 3.35° | +0.290 +0.264 / +0.285 +0.257 | 5.2e-6 / 4.1e-6 | 0.0004 / 0.0005 | 0.0187 / 0.0252 | 25.5 / 27.0 |
+  | dragon LR / PR | 0.9874 / 0.9876 | 0.0542 / 0.0544 | 2.9 / 2.9 % | 5.7e-4 4.5e-4 / 1.24e-3 6.5e-4 | .0090 .0201 .0088 / .0139 .0271 .0140 | 5.82 / 6.23° | +0.678 +0.654 / +0.699 +0.672 | 2.5e-5 / 4.6e-5 | 0.0003 / 0.0003 | 0.0146 / 0.0139 | 42.8 / 39.1 |
+  | dragon LV / PV (D105) | 0.9875 / 0.9875 | 0.0543 / 0.0544 | 3.2 / 3.4 % | 5.2e-4 4.5e-4 / 1.10e-3 6.1e-4 | .0092 .0226 .0088 / .0126 .0246 .0134 | 6.14 / 6.00° | +0.674 +0.649 / +0.698 +0.671 | 2.0e-5 / 2.2e-5 | 0.0003 / 0.0003 | 0.0144 / 0.0133 | 43.0 / 44.2 |
+
+  The display at the runs' own field (e25, the reference drawn at 2.5 too; the floor = two samples): bunny LR
+  0.0106 / 0.0217 / 0.0103, PR 0.0120 / 0.0261 / 0.0129, floor 0.0122 / 0.0274 / 0.0123 (D105's frames read at 2.5:
+  LV 0.0106 / 0.0236 / 0.0105, PV 0.0124 / 0.0256 / 0.0132); dragon LR 0.0104 / 0.0216 / 0.0098, PR 0.0139 / 0.0263 /
+  0.0133, floor 0.0110 / 0.0237 / 0.0103 (LV 0.0106 / 0.0244 / 0.0100, PV 0.0135 / 0.0261 / 0.0132): the render arms
+  sit at or below the floor on all three views at 2.5. Closure of the new runs' end frames at 2.5: bunny LR
+  pockets 0, sets 2, 88 apart, PR 0 / 1 / 0; dragon LR 1 pocket node, sets 10, 80 apart (D105's LV at 2.5: 11 /
+  269: the render at 2.5 sees the stray beads and takes them in), PR 1 / 13 / 243. Over the common range after
+  window 10 (render_twin_plot, mean / last; LR against PR, with LV against PV in brackets): bunny yardstick
+  silhouette −39 / −31 % (−45 / −37), shading −22 / −18 % (−23 / −19), display front −19 / −12 % (−30 / −19), crop
+  −19 / −21 % (−31 / −23), back −27 / −27 % (−32 / −27); dragon silhouette −59 / −54 % (−63 / −53), shading −36 /
+  −30 % (−38 / −27), front −32 / −35 % (−35 / −27), crop −38 / −26 % (−39 / −8), back −33 / −37 % (−37 / −34). LR
+  against LV: bunny yardstick silhouette +11 / +22 %, shading 0 / +3 %, display +14 / +11 %, +13 / +6 %, +8 / +5 %
+  (the particle-cloud silhouette −20 / −22 %); dragon +9 / +9 %, +3 / +1 %, +6 / −2 %, +3 / −11 %, +7 / 0 % (the
+  particle-cloud silhouette −16 / −17 %). Momentum (`mom_*.log`; LR against LV, PR against PV): angular momentum
+  at the window starts end / largest / mean bunny −20 / −6 / −12 %, dragon −19 / −4 / −14 %; the net-over-gross
+  angular move bunny −6 %, dragon −12 %; the centre of mass level; the late linear move (lin_last20) bunny −9 %,
+  dragon +59 % (2.8e-5 against 1.8e-5); the kinetic energy at the end +13–15 % (bunny), +22–26 % (dragon); LR
+  against PR: ahead on every measure but the late linear move (bunny +31 %, dragon +24 %) and the bunny's last-ten
+  centre-of-mass velocity (+140 %, 3e-8 absolute). Thin: bunny 3.5 / 3.2 % (LV 3.5, PV 3.3), dragon 2.9 / 2.9 %
+  (3.2, 3.4). Early apart particles (windows 3–10, max): bunny LR 5364 (LV 5305), PR 3924 (PV 3745); dragon LR
+  12793 (13053), PR 4245 (4245). Tail flicker (the last 30 % of the kept frames, `child_detail_morph +fit=0`):
+  bunny LR at r = 3 ALT 0.000633 (D105 LV 0.000615, ×1.03), at 2.5 0.000681 (D105's tail at 2.5: 0.000667, ×1.02),
+  PR at 2.5 0.000627; dragon LR 0.001066 at 3, 0.001103 at 2.5 (×1.03; D116's dragon twin 0.001098), PR at 2.5
+  0.001133 (ALT / DRIFT 1.17–1.36 throughout). Space: the twins' frames12 and the tail cuts removed after their
+  readings (`cleanup.log` 08:59; output 44 GB).
+  Against the criteria: relief bands — met (at the loss's field within 0.02 of the measurement's reading, the
+  twins alike; through the old field the new runs equal D105's, bunny +0.03 at 5.4 with the twin +0.02 = the
+  run-to-run spread: the finer loss field does not make the physics carry more relief, the finer display reads
+  what it carries); twin lead — met on the dragon by D105's margins or more on every measure, on the bunny at two
+  thirds of D105's margins over the common range (front −19 % against −30 %) and within a few points at the end
+  on the crop and the back; momentum — mixed (angular momentum ahead of D105's same arm on both meshes, the late
+  linear move and the end kinetic energy behind); thin — met (equal or −0.3 points); roughness — met (at r = 3
+  3.42 / 5.82° against 3.47 / 6.14°; at 2.5 6.23 / 8.55° against D105's frames at 2.5 6.16 / 9.28°); flicker — met
+  (×1.02–1.03); wall time — met (0.97–1.00 × on the render arms, 0.80–0.88 × on the twins). The render arm's r = 3
+  display is 5–14 % behind LV's on the bunny and level or ahead on the dragon; on the bunny its surface sits 0.027
+  pitches farther out than LV's under either reading (+0.317 / +0.292 against +0.290 / +0.264) while the twins
+  agree (+0.292 / +0.264 against +0.285 / +0.257): the render term at 2.5 pushes the bunny's surface out by that
+  much more (the mean of eight rougher target exteriors, 15° against 10°, has a wider soft edge — a hypothesis,
+  not measured). Not adopted by this entry: `--exterior_radius` stays at 3 by default, the user's call. What the
+  two stages establish: the relief at 2.7–5.4 pitches is in the uniform 300k body (0.61–0.64 of the mesh's at 5.4,
+  82–90 % of the sample's own cap through the same field), the exterior's kernel radius 3 hides a third of it at
+  2.7 and a tenth at 5.4, 2.5 is the smallest radius that still closes the surface of today's samples and runs
+  (the runs alone close at 2.25 with the offset fixed), and the loss can be read through the finer field at no cost
+  in closure, thin parts, roughness, flicker or time.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
