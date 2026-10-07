@@ -1233,9 +1233,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   | D105 LV (ours) | (101) | 43.0 | 0.9875 | 0.0543 | 0 / 0.13 | 5.2e-4 / 4.5e-4 | 0.0092 / 0.0226 / 0.0088 | 2.0e-5 | 5 / 12 |
   | D105 PV (twin) | (106) | 44.2 | 0.9875 | 0.0544 | 0 / 0.14 | 1.10e-3 / 6.1e-4 | 0.0126 / 0.0246 / 0.0134 | 2.2e-5 | 9 / 31 |
   | D112 XP (Xu's loss, our protocol) | (3 of 300) | 39.7 | 0.6173 | 0.5296 | 2.44 / 5.74 | 0.168 / 0.055 | 0.287 / 0.870 / 0.385 | 1.44 | 145 / 3885 |
-  | XPP (Xu et al. as published) | 95 | 5.3 | 0.9408 | 0.1220 | 17.8 / 6.17 | 0.015 / 0.011 | 0.160 / 0.443 / 0.197 | 8.2e-3 | 515 / 25909 |
-  | XPZ (ζ = 0.5) | 95 | 5.3 | 0.9409 | 0.1197 | (evaluation running) | | | 8.3e-3 | |
-  | XPS (+ spray cleanup) | 95 | 12.1 (shared GPU) | 0.9520 | 0.1219 | (evaluation running) | | | 7.6e-3 | |
+  | XPP (Xu et al. as published) | 95 | 5.3 | 0.9408 | 0.1220 | 17.8 / 6.17 | 0.015 / 0.011 | (not the end frame: see the sweep's correction) | 8.2e-3 | (see there) |
+  | XPZ (ζ = 0.5) | 95 | 5.3 | 0.9409 | 0.1197 | (see the sweep's table) | | | 8.3e-3 | |
+  | XPS (+ spray cleanup) | 95 | 12.1 (shared GPU) | 0.9520 | 0.1219 | (see the sweep's table) | | | 7.6e-3 | |
 
   D112's oracle-form runs (XSB: bunny 0.952 / 0.060, dragon 0.768 / 0.169) are not in the tables: their evaluations
   were stopped part-way. The loss: bunny 6493 → 1392 (−79 %), dragon 17080 → 2638 (−85 %), both still falling 2–3 %
@@ -1247,10 +1247,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   display are not. The log loss explains the preference: an empty target node costs ½ ln(76)² ≈ 9.4, a node at
   twice the target mass 0.24, so mass is first sent into empty nodes, a particle at a time. Against D105, XPP is
   behind both arms on every measure: yardstick silhouette 50 × the twin's (bunny) and 14 × (dragon), front display
-  13 × on both; its end kinetic energy is 980 × (bunny) and 375 × (dragon) the twin's. Against D112's XP (the same
-  loss in our protocol, 6 / 3 delivered windows) it is slightly behind on the bunny (front 0.132 against 0.125,
-  yardstick 0.054 against 0.047) and ahead on the dragon (front 0.160 against 0.287, yardstick 0.015 against 0.168),
-  at 1/170 of the kinetic energy.
+  13 × (bunny; the dragon's display: see the correction under the sweep); its end kinetic energy is 980 × (bunny)
+  and 375 × (dragon) the twin's. Against D112's XP (the same loss in our protocol, 6 / 3 delivered windows) it is
+  slightly behind on the bunny (front 0.132 against 0.125, yardstick 0.054 against 0.047) and ahead on the dragon's
+  yardstick (0.015 against 0.168), at 1/170 of the kinetic energy.
   Criteria of the prediction: no stall, |v| max below 1: met (0.51 / 0.56). Bunny silhouette IoU 0.80–0.92: met
   (0.866); dragon 0.60–0.80: not met (0.941, the haze). Chamfer above the twin's and behind LV and PV on every
   yardstick and display measure: met. Few detached particles: refuted (2.8 / 6.2 % at the rest spacing, 23–26
@@ -1300,7 +1300,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   | α 1e-3 (XPP) | 2.2 | 1391.6 | 0.8658 | 0.0795 | 4.89 / 2.76 | .054 / .020 | .132 / .429 / .137 | 4.1e-3 | 0.51 | .0000 / .0015 / .0024 | 0 |
   | α 3e-3 (XPA3) | 2.3 | 115.6 | 0.9658 | 0.0595 | 1.02 / 0.74 | 9.2e-3 / 4.9e-3 | .075 / .241 / .047 | 0.088 | 2.10 | .0001 / .0039 / .0375 | 0 |
   | **α 1e-2 (XPA), best Xu** | 5.2 | **51.2** | 0.9597 | 0.0589 | 0.60 / 0.30 | 9.9e-3 / 3.8e-3 | .039 / .098 / .035 | 0.39 | 7.19 | .0016 / .0066 / .0623 | 0 |
-  | α 3e-2 (XPA30) | 2.6 | 96.5 | 0.5836 | 0.0677 | 2.85 / 0.59 | .091 / .048 | .296 / .447 / .207 | 0.91 | 17.0 | .492 / .0115 / .198 | 273 |
+  | α 3e-2 (XPA30) | 2.6 | 96.5 | 0.5836 | 0.0677 | 2.85 / 0.59 | (end frame: below) | (end frame: below) | 0.91 | 17.0 | .492 / .0115 / .198 | 273 |
 
   XPA3's loss is still falling at the end (131.1, 115.6 over the last two episodes); XPA30 is the only run whose line search halved
   (13 of 517 trials), its loss rose over the last three episodes (57.2, 70.6, 96.5), its body drifted half a pitch
@@ -1314,6 +1314,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Xu's. Prediction (bunny): 3e-3 between XPP and XPA: on the loss and the kinetic energy yes, its loss 115.6 below
   the predicted 150–600 and its silhouette IoU 0.966 above the predicted 0.92–0.95 (and above XPA's); 3e-2 unstable:
   met (halving, |v| 17, loss rising, end loss above XPA's), no non-finite end; best Xu 1e-2: met.
+  **Reproduction at the paper's own scale (pre-registered 2026-10-06 21:00 CDT; the user: "아예 지금 구현이 제대로 안
+  되고 있는거야?").** Whether the reimplementation reproduces the paper where the paper ran, so that the 300k gap is
+  scale, not a bug. Sphere → bunny at the paper's particle count: Table II gives 1.116e4 and 0.92e4 for this pair (the
+  first number follows the start mesh in every row, so the simulated sphere has 11 160 particles; our pipeline takes
+  one N for source and target, N = 11 160); the grid as theirs, about 15 cells across the sphere (dx = diag / 26 at
+  any N); the paper's 420 timesteps (42 episodes); everything else XPP's; α = 1e-3 (repo_r97x, tag XPP) and 1e-2
+  (repo_r97x_a01, tag XPA); seed 97; `output/gpu/d118/bunny11k_*`. Measures: the loss start → end against the paper's
+  5302.69 → 91.09 (−98.3 %, Tables I and III), silhouette IoU and chamfer, and a point projection of the end state
+  beside the paper's Fig. 5. The scale argument: the Adam step is m̂ / (√v̂ + ε) on the gradient divided by its norm
+  over 9 N entries, so a typical entry is about 1 / √(9 N): 6e-4 at 300k, below ε = 1e-3 (the step shrinks to about
+  α g / ε), and 3e-3 at 11 160, above it (the step about α, sign-like); the same α then moves the 11k body further.
+  Prediction: α = 1e-3 reaches −90 to −98 % at N = 11 160 (against −79 % at 300k), α = 1e-2 −98 to −99.5 %. If α =
+  1e-3 comes within 5 points of −98 %, the implementation reproduces the paper at its scale and the 300k shortfall is
+  the method's step at a higher N; if it stays near the 300k figure, an implementation difference is looked for
+  before anything else.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
