@@ -1694,6 +1694,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   2.7 and a tenth at 5.4, 2.5 is the smallest radius that still closes the surface of today's samples and runs
   (the runs alone close at 2.25 with the offset fixed), and the loss can be read through the finer field at no cost
   in closure, thin parts, roughness, flicker or time.
+- **D124, the u channel switched off (an ablation for the paper; pre-registered 2026-10-07 13:38 CDT; the user, after
+  the reviewer's reading of the surface claim: "u = 0 ablation … 진행할까요?" — "ㅇㅇ 그러자", and the pipeline frozen at
+  D105's recipe + D120 + D123's reading; code: `config.u_off`, `--u_off` (an A/B flag: the u gate zero on every
+  particle, `window/objective.py`; the leaf stays with a zero gradient, nothing else changes); server `repo_r103`
+  (HEAD's code); `output/gpu/d124`).** The question a reviewer will ask of the outer layer: u is a position control
+  applied inside the driven steps, so how much of the delivered shape is u's, and does the physics hold what u puts
+  there? Runs: bunny and dragon 300k, seed 97, `--layer_relief --u_off`, the render arm (LU) and the twin (PU,
+  `--render_weight_scale 0`), runeval3, the end frame's discs, the bands at r = 3 and r = 2.5 (`aref` the base
+  pitch), `d120_apart.py`; against D105's LV / PV (and D120's LE / PE, the same end). The hold measure read first on the
+  runs with u (`tmp/d116_pulse.py`, the last 30 %: the outer layer's normal excursion within a window against the net
+  move to the next window's start): D105 LV 0.029 / 0.021 pitches (72 % held), D120 LE 0.031 / 0.021 (69 %), D105
+  dragon LV 0.045 / 0.032 (69 %), D120 LE 0.045 / 0.033 (72 %); the same on the u = 0 runs says how much of that
+  excursion is u's. Prediction: without u the thin parts fall behind (thin uncovered bunny 3.5 → 8–15 %, dragon 3.2 →
+  10–20 %; the D-era record: u is the only channel with sub-cell mobility), the silhouette IoU 0.988 → 0.975–0.985,
+  the relief at 2.7 / 5.4 pitches (r = 3) 0.28 / 0.55 → 0.15–0.22 / 0.40–0.50, the display and the yardstick 1.5–3×
+  worse; the render arm still ahead of its twin (the render gradient also acts through dFc, D121); the angular
+  momentum put in by the position updates lower without u (D102: u carried +0.45 to +0.62 of it), so the momentum
+  margins between the arms narrow or reverse; the windows end at a similar count or earlier (less to gain). What it
+  establishes for the paper: u's share of the arrival, the thin parts and the relief (an ablation row), and that
+  what u puts there is held by the released physics to the measured degree.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

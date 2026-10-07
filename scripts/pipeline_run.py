@@ -62,6 +62,8 @@ def parse_args():
     ap.add_argument("--exterior_radius", type=float, default=3.0,
                     help="D123 A/B: the exterior field's kernel radius in pitches, its offset in proportion (0.8 at 3); "
                          "3 = D59's field, the code as it was")
+    ap.add_argument("--u_off", action="store_true",
+                    help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
@@ -189,7 +191,7 @@ def main():
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               lambda_ema=cfg0.lambda_ema if args.lambda_ema is None else args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
-                              min_spacing=args.min_spacing, exterior_radius=args.exterior_radius,
+                              min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,

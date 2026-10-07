@@ -102,6 +102,8 @@ class PipelineConfig:
     exterior_radius: float = 3.0    # D123 A/B: the exterior field's kernel radius in pitches (D59's 3 = the old path bit
                                     #   for bit); its offset follows in proportion, 0.8 x radius / 3, the rule that keeps the
                                     #   surface's mean offset from the mesh where the radius 3 has it (D123)
+    u_off: bool = False             # D124 A/B (ablation): u's gate is zero on every particle, so u never acts; the leaf
+                                    #   stays (zero gradient) and everything else is as it is
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)
     render_res: int = 64

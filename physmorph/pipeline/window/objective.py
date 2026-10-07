@@ -85,6 +85,8 @@ class Objective:
         dn = disp.norm(dim=1)
         print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
         gate = (dn <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float() * (win.lmask > 0.5).float()
+        if cfg.u_off:                                 # D124 ablation: u never acts (its gate zero on every particle)
+            gate = torch.zeros_like(gate)
         win.set_u_gate(gate)
         on_layer = win.lmask > 0.5
         self.u_gate_frac = float(gate[on_layer].mean()) if bool(on_layer.any()) else 0.0
