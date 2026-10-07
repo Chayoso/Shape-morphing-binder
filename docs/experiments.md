@@ -1150,6 +1150,69 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   dragon LV / PV: 13053 / 4245 at the peak (windows 3.6–4.2), 3190 / 3068 at window 10, 359 / 489 at window 20. The
   render arm's excess over its twin is the render's part: dragon 3.1x at the peak, bunny 1.4x; the twin's count is the
   floor (b) can reach, so (b) reads as LV's excess over the twin at most half D105's.
+- **D121, the render gradient's reach and effect (a visualisation and a counterfactual; pre-registered 2026-10-06
+  23:10 CDT, before the launch; the user: a figure that proves the render gradient reaches the physics of the whole
+  body, not only its surface; server scratch copy `repo_r100g` (= repo_r100 = HEAD f002693 plus the dump and
+  counterfactual hooks below, not committed), `tmp/d121/`, `output/gpu/d121_proof`; local
+  `output/video_2026-10-06/render_proof`).** D95 showed the render's POSITION gradient (the covector at the released
+  end) on the outer layer (85–95 % of its squared norm) and in few particles; what the figure must show is the
+  gradient on the CONTROL, dFc per particle and step, which the adjoint carries back through 2T MPM steps and the
+  grid, and what the render changes in where the body ends. One run: bunny 300k, D105's recipe (`--support_form
+  proximity --loss_follows_n --layer_relief`, seed 97, the render arm; `tmp/run12.sh`-style), with
+  (A) the gradient dump at windows 1, 2, 3, 5, 10, 20, 40 and every 5th after (the last dump stands for the last
+  window): the first gradient of the window per particle, |g_render| and |g_phys| on dFc (the raw render gradient
+  before PCGrad, the projected one, the cleanup's; Frobenius over the 3×3, summed over the driven steps, and the
+  root of the sum of squares), the position gradients of both channels, and u's; and (B) the counterfactual at
+  windows 1, 5, 10, 20 and 40: before the normal window the same window is optimised from the same start state,
+  with the same warm start and step scale, with the render weight at zero (`render_weight_scale` 0: the twin's
+  objective, same iterations and step rule; the balancer a copy, the settled step restored, nothing committed), and
+  the two released end states are saved: Δx = x_end(render) − x_end(λ = 0) per particle. Read: (A) the reach =
+  the share of all particles, and of the interior (farther than two pitches from the outer layer, by
+  neighbourhood asymmetry at the window start), whose |g_render| on dFc exceeds 1 % of the outer layer's median
+  |g_render| that window; cross-sections through the body's centre (two planes), log |g_render| beside log |g_phys|
+  at windows 1, 5, 20, each window on its own scale (p99 red). (B) the share of particles (all / interior) with
+  |Δx| > 0.1 pitch and the median |Δx| on the outer layer and in the interior; |Δx| on the same cross-sections.
+  (C) over the run: g_share and λ per window, cos(g_phys, g_render) per window (the new run and D105 LV
+  overlaid), and the render arm against the twin per kept frame from D105's t3_/e3_/m_ logs (yardstick silhouette
+  and shading, display front 1 − IoU, the momentum measure; render arm blue, twin orange). Pitch = the target
+  sample's (0.708 × its median 8th-neighbour distance, D95's).
+  Prediction: reach of |g_render| > 1 % of the surface median: 50–90 % of all particles, 30–80 % of the interior
+  (the adjoint through the grid spreads it); counterfactual: the median |Δx| on the surface 0.05–0.3 pitch at
+  windows 1–10, interior 0.02–0.15, falling toward the tail; g_share 0.33 at calibration, 0.46–0.70 at windows
+  3–11 (D105's records; the moving average, D120); cos 0.1–0.4. No pass or fail: the figure states the numbers.
+  Risk: a second 300k window in the same iteration (the counterfactual) on a card shared with a D120 run; the
+  counterfactual runs first and its window is dropped before the normal one, so the peak is one window's.
+  **Result (run 23:12–00:07 CDT, 52.8 min with 12 dumps and 5 counterfactuals, 62 committed windows, deliverable to
+  the best commit at window 64; silhouette IoU 0.9872, chamfer 0.0549, thin uncovered 3.5 %: D105 LV's 0.9878 /
+  0.0550 / 3.5 %; read 00:11; `output/gpu/d121_proof/{proof,rowA,rowB,rowC}.png`, `numbers.csv`, `numbers.txt`,
+  `d121_figure.py`; local `output/video_2026-10-06/render_proof/` with a README): the render gradient reaches
+  every particle, and early in the run it moves the whole body.** (A) Reach above 1 % of the outer layer's median
+  |g_render| on dFc: 93–100 % of all particles and 92–100 % of the interior at every dumped window (1, 2, 3, 5, 10,
+  20, 40, 45–65), above the prediction (50–90 / 30–80 %); above 10 %: 70 / 66 % at window 1, 52 / 45 % at window 5,
+  67 / 61 % at window 20, 64 / 57 % at window 65. The median |g_render| by depth, relative to the layer's (window
+  5; windows 20–65 in brackets): 0.85 (1.0) at 0–1 pitch, 0.48 (0.63–0.68) at 1–2, 0.37 (0.44–0.46) at 2–4, 0.24
+  (0.28–0.30) at 4–6, 0.17 (0.20) at 6–8, 0.10 (0.13–0.14) at 8–12, 0.02 (0.03–0.04) beyond 12; the physics
+  gradient's interior median is 0.34–0.55 of its layer's. The render's POSITION gradient keeps 81–94 % of its
+  squared norm on the outer layer (D95), but on the CONTROL dFc, after the 2T-step adjoint through the grid, the
+  layer holds 20 % (window 1) to 33–49 % (later): 51–80 % of the render gradient's energy on the stress control is
+  below the outer layer. (B) Counterfactual, |x_end(render) − x_end(λ = 0)| after the same window from the same
+  start (both arms 6 / 6 iterations at window 1, 8 / 8 after; replay noise 3e-7 to 1.4e-6 pitches rms, max 2e-5):
+  moved by more than 0.1 pitch, all / interior / layer: 84 / 82 / 97 % at window 1, 94 / 93 / 99 % at window 5, 23 /
+  15 / 79 % at window 10, 4 / 0 / 51 % at window 20, 1 / 0 / 19 % at window 40; median |Δx| on the layer / in the
+  interior 0.943 / 0.226, 0.549 / 0.234, 0.174 / 0.050, 0.103 / 0.013, 0.045 / 0.004 pitches (the window's own
+  move 0.76, 1.65, 0.18, 0.028, 0.007 pitches median: the render's part is 0.15–0.67 of it). Above the predicted
+  0.05–0.3 / 0.02–0.15 at windows 1–5 (the arrival: the render holds 0.33–0.62 of the step while the body moves a
+  pitch a window), within it at window 10, and falling toward the tail as predicted, where the difference sits on
+  the layer alone. With the render on the same window ends with its silhouette term 14–72 % lower (0.1256 against
+  0.1454, 0.0172 / 0.0247, 0.0042 / 0.0053, 5.5e-4 / 2.0e-3, 2.6e-4 / 8.9e-4) at a transport energy within ±7 %
+  (+0.6, −0.2, +6, +7, +2 %). (C) g_share 0.33 at calibration, 0.57–0.69 in windows 3–11 (peak 0.69 at window 4),
+  median 0.34 from window 20 (predicted 0.33, 0.46–0.70); cos(g_phys, g_render) after PCGrad 0.15, 0.01, 0.11,
+  0.33, 0.35, 0.40, 0.35, 0.45, 0.39, 0.40 in windows 1–10 (median 0.35; predicted 0.1–0.4), 0.01 median over the
+  run (near 0 from window 20, D95); the curves of this run and D105 LV coincide. D105 LV against PV, mean over the
+  common range after window 10 / last frame: yardstick silhouette −44 / −41 %, shading −22 / −21 %, display front
+  1 − IoU −29 / −21 %, |L| at the window starts mean −9 %, end −7 %. The figure draws no rendered bodies (the
+  cross-sections are colour-coded particle scatter maps); the per-window numbers are in `numbers.csv`. Server
+  output 46 GB after the run (the dumps 1.9 GB); nothing deleted.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
