@@ -2083,6 +2083,73 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   to the body through the particles, a different change. Space: D124's four frames12 (3.0 GB, after their eval3 and
   probe lines) and D120's twin frames12 (2.1 GB; readings in the logs and D125's files) removed before the launch
   (cleanup.log), output 47 → 42 GB; each new run's frames12 is removed after its own evaluation and probes.
+- **D128, the particles apart from the body: continuum stretch or sub-cell rearrangement? (a measurement, no fix;
+  pre-registered 2026-10-07 18:45 CDT, before the runs; the user: the answer decides where the floating Gaussians get
+  fixed; scratch `tmp/d128/` on hyde06 (`d128_measure.py`, `run_d128.sh`, `fg_hook.patch`, the full archives),
+  `output/gpu/d128/`; server probe copy `repo_r104g`, not committed).** D125: every particle apart from the body in
+  windows 2–8 is coupled to it by the grid (class (ii)), of two kinds: (ii-a) the thin parts' material in transit, ≥ 8
+  pitches from the target, the same in both arms; (ii-b) the render arm's flakes, < 2 pitches from the target. Two
+  readings of the gap. H1, CONTINUUM STRETCH: the particle's deformation gradient is stretched along the gap, the
+  material between it and the body is the same material thinned at the cell scale → the fix is the exterior field's
+  kernel following each particle's deformation gradient (display and loss). H2, SUB-CELL REARRANGEMENT: the
+  particle's spacing grew much more than its deformation gradient says → the fix is a sub-cell cohesion rule (pairs
+  pulled toward their F-predicted distance). Neither is implemented here.
+  Read first, in the code: the archived F (`F_samples`) is the physics F the constitutive law reads, not the motion's
+  deformation: `k_update` blends F_out = (1 − s) F_new + s F_in with s = `prm.smoothing` = 0.955 (eq. 9) and F_new =
+  (I + dt C)(F + dFc) (`k_g2p`), so per step F takes 4.5 % of the velocity gradient's increment and accumulates the stress
+  control. The motion's continuum deformation is the geometric Fg_{t+1} = (I + dt C_{t+1}) Fg_t (`k_geom_update`, the
+  PhysGaussian kinematics: "no control, no smoothing"), which the settled path does not track. Both are read: Fg comes
+  from an archive-only probe on `repo_r104g` (= repo_r104 + `runner._geom_F`: Fg integrated in torch from the committed
+  rollout's per-step C, the eval trajectory's own buffers, read after the commit; `FrameStore.Fg` at F's frames; the
+  archive's `Fg_samples`; nothing the run reads is written). Check (40k bunny, 2 windows, `tmp/d128/smoke_*`): the probe
+  copy's frames differ from repo_r104's by 2.4e-5 / 2.0e-4 / 1.7e-3 wu mean at raws 12 / 40 / 80, a second repo_r104 run
+  from the first by 1.7e-4 / 1.2e-3 / 2.6e-3 (the replay noise; the hook changes nothing beyond it); Fg finite, Fg(0) = I.
+  What the check also showed (the instrument, seen before this entry): at raw 80 the physics F has λ1 median 1.013 on
+  every population, Fg 1.16 (interior) to 2.6 (apart); so the decision is read on Fg, and F's numbers are reported
+  beside it as asked.
+  Runs: bunny and dragon 300k, D120's state (D105's recipe + `--layer_relief --lambda_ema 1`, seed 97), `--animations
+  12 --save_F_stride 12` (F and Fg every 12th step = the kept frames of earlier entries, and the window ends 120, 240,
+  360, 480), the render arm (LF) and the twin (PF, `--render_weight_scale 0`), one GPU each (`run_d128.sh`: waits for
+  ≥ 24 GB free); the full archives (≈ 2.2 GB each) in the scratch dir `tmp/d128`, kept until the reading is done, then
+  deleted (cleanup.log; output/ stays below 45 GB).
+  Measures, at every archived frame of windows 2–8 (raws 48–312, every 12th: 23 frames; raw r ↔ window ⌈r / 40⌉), for
+  the particles apart from the body (outside the largest connected set at 1.5 base pitches, pitch = 0.708 × the target
+  sample's median 8th-neighbour distance, `d120_apart.py` / D125) and, as controls, 5000 random body-surface particles
+  (outer layer by neighbourhood asymmetry, D125's `layer_mask_cpu`) and 5000 random interior ones (body, > 2 pitches
+  from the layer) per frame; each for F and for Fg: (1) the polar decomposition F = R S: λ1 ≥ λ2 ≥ λ3, J = det F, e1 =
+  R × S's top eigenvector (= U[:, 0] of the SVD; an axis, so |cos| below); (2) the gap g = nearest body particle −
+  particle, |g| in base pitches, |cos(e1, g)|; (3) s8 = the 8th-neighbour distance now over at window 0 (the source);
+  sF = the mean over the 8 rest neighbours j of |F_i (X_j − X_i)| / |X_j − X_i|; (4) test H1 per particle: λ1 · r ≥ |g|
+  and |cos| ≥ 0.7, r = 3 base pitches (the exterior field's radius) and 2.5; (5) test H2: s8 / sF per population
+  (apart / body surface / interior); (6) split by D125's populations (distance to the target sample < 2 pitches = ii-b,
+  2–8, ≥ 8 = ii-a transit) and by arm; (7) the rest neighbours' fate: how many of the window-0 8 are still within 1.5
+  pitches, and where the 8 are (in the body / in the particle's own apart set / in another apart set). Auxiliary reads,
+  pre-registered with their reason: under an anisotropic F the mean bond stretch sF exceeds the 8th-neighbour growth of
+  an exact continuum map (the 40k check: Fg λ 2.6 / 1.1 / 0.93 on the apart gives sF 1.67 where the F-mapped rest
+  neighbourhood's own 8th distance grows 1.37), so s8 / sF reads below 1 under pure stretch; hence also s8 / sF8 (sF8
+  = the 8th smallest |F_i dX| over the 32 rest neighbours over the rest 8th distance, commensurable with s8), sB / sF
+  (sB = the rest bonds' actual mean stretch |x_j − x_i| / |X_j − X_i|: the quantity the cohesion rule would act on)
+  and the bonds' vector misfit |F_i dX − dx| / |dX|. Test 4's reach condition: |g| ≥ 1.5 pitches by construction and
+  D125's median gap 1.6–2.3 < r, so λ1 · r ≥ |g| holds for λ1 ≥ 0.77 at the median and the test mostly reads the
+  alignment, whose chance level for a random axis is 30 %; the share with |g| > r (where an isotropic kernel of radius
+  r does not reach and the F-kernel must) and its pass share are reported beside it.
+  Decision rule (per mesh, read on Fg, pooled over the apart particle-frames of windows 2–8 per arm; the same rule per
+  population, ii-a and ii-b): H1 if ≥ 80 % of the apart particles pass test 4 (r = 3) in both arms and their median
+  s8 / sF is within 1 ± 0.15; H2 if the apart particles' median s8 / sF ≥ 1.3 while the body's (surface and interior)
+  medians are within 1 ± 0.15 and fewer than 50 % pass test 4; mixed otherwise, with each share reported. If the body
+  controls' median s8 / sF lies outside 1 ± 0.15, that F does not describe the body's own spacing and the rule is void
+  for it (said so). The same rule is read with s8 / sF8 and sB / sF; where they disagree with s8 / sF the conclusion says
+  so and names the read each fix acts on (the kernel: λ1 and e1; the cohesion: sB / sF). The fix's reach = the share of
+  the apart particle-frames the rule assigns to it (by population), and per particle the test-4 pass share (kernel)
+  and the s8 / sF ≥ 1.3 share (cohesion).
+  Prediction (the user's, written before the runs): mixed, leaning H2 for the transit stream (D125: its 8th-neighbour
+  distance at 1.5–1.7 × the median; the record's "no sub-cell ordering term") and H1 for the render flakes; on Fg the
+  transit's s8 / sF 1.3–1.6 with 30–50 % passing test 4, the flakes' 1.0–1.2 with 60–85 % passing, the body ≈ 1; on the
+  physics F λ1 < 1.05 nearly everywhere, so s8 / sF ≈ s8 and the H2 side on every stretched set (its body control
+  decides whether it is read). Against it, the 40k check seen above (window 2, not the test): on Fg the apart particles'
+  s8 / sF8 1.00 and sB / sF 1.03 like the body's (0.99–1.00, 1.05–1.10), s8 / sF 0.81 (the anisotropy), test 4 passing
+  27–43 % (|g| < 3 pitches on all of them: the alignment alone); on the physics F s8 / sF 1.38 (apart) against 1.01
+  (interior) and 1.16 (surface).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
