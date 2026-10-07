@@ -55,14 +55,20 @@ z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]
 ref = next((s[4:] for s in sys.argv[5:] if s.startswith("ref=")), None)
 ref_at_run_pitch = "refpitch=run" in sys.argv[5:]               # draw the reference with the run's pitch, not its own
-states = [s for s in sys.argv[5:] if not s.startswith(("ref=", "refpitch="))] or ["target"] + [str(r) for r in raws]
+states = [s for s in sys.argv[5:] if not s.startswith(("ref=", "refpitch=", "pitch="))] or ["target"] + [str(r) for r in raws]
 W, H = 3840, 2160
 target = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
 # the sample the states are read against: the run's own target, or (ref=NPZ) another file's, drawn with its own pitch
 reference = target if ref is None else torch.as_tensor(np.asarray(np.load(ref, allow_pickle=True)["tgt"], np.float32), device=dev)
 center = reference.mean(0)
 radius = float((reference - center).norm(dim=1).max())
-td = knn_self_torch(target, 9)[0]
+# pitch=base (D122, a surface-dense run): the run's spacings (its field's pitch, the base display's reach) are read
+# from the file's `tgt_base`, the uniform sample of the same seed in the same frame, as a uniform run's are
+scale_src = target
+if "pitch=base" in sys.argv[5:]:
+    scale_src = torch.as_tensor(np.asarray(z["tgt_base"], np.float32), device=dev)
+    assert len(scale_src) == len(target), "pitch=base needs the archive's tgt_base (a --surface_density run)"
+td = knn_self_torch(scale_src, 9)[0]
 sp, cov_r = float(td[:, 1].median()), float(td[:, 8].median())
 a = .708 * cov_r                                               # the volume sample's pitch
 a_ref = a if ref_at_run_pitch else .708 * float(knn_self_torch(reference, 9)[0][:, 8].median())
@@ -240,7 +246,7 @@ drawn = kind != "measure"                                      # `measure`: the 
 with torch.no_grad():                                          # the field's gradient re-enables autograd where it needs it
     if kind != "poisson":                                       # the pitch at which a sample's surface takes M discs
         h = .4 * a
-        h *= (len(lattice(field_of(target), h)[0]) / M) ** .5
+        h *= (len(lattice(field_of(scale_src), h)[0]) / M) ** .5
         h_ref = .4 * a_ref
         h_ref *= (len(lattice(field_of(reference, a_ref), h_ref)[0]) / M) ** .5
         print(f"lattice pitch {h / a:.3f} a" + ("" if ref is None else f"; reference {ref}: N {len(reference)}, pitch {a_ref:.4f} wu, lattice {h_ref / a_ref:.3f} of it"))

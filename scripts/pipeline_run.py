@@ -69,6 +69,9 @@ def parse_args():
                          "xu_spray: the same with our spray cleanup, the ejection guard")
     ap.add_argument("--layer_relief", action="store_true",
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
+    ap.add_argument("--surface_density", type=float, default=1.0,
+                    help="D122 A/B: the sampling density within the outer band (layer_h_sp spacings deep) this many times "
+                         "the interior's, at the same N, source and target alike; 1 = the uniform sample, the code as it was")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
@@ -156,10 +159,15 @@ def main():
     material = {k: getattr(args, k) for k in ("young", "poisson", "assim") if getattr(args, k) is not None}
     cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
                           loss_follows_n=args.loss_follows_n, **material)
+    if args.surface_density < 1.0:
+        raise SystemExit("--surface_density must be 1 (the uniform sample) or more")
+    if args.surface_density > 1.0 and args.baseline:
+        raise SystemExit("--surface_density is not defined for the baseline (its loss has no masses of its own)")
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
-                   surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws)
+                   surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws,
+                   surface_density=args.surface_density, band_sp=cfg0.layer_h_sp)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -190,18 +198,19 @@ def main():
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)
     print(f"[v2run] baseline chamfer (undeformed) = {metrics.chamfer(src, tgt):.4f}", flush=True)
-    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc}, "arms": {}}
+    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc, "sampling": prep.sampling}, "arms": {}}
     cfg_dump = dataclasses.asdict(cfg)                 # before the run: c2f edits render_res
     print(f"\n[v2run] ===== ARM {ARM} =====", flush=True)
     t_thin = time.time()
-    ts = thin_set(tgt, prm.dx, cfg.mass_ref_n)                 # the thin part of the target (measurement)
+    ts = thin_set(tgt, prm.dx, cfg.mass_ref_n, prep.w_tgt)     # the thin part of the target (measurement)
     print(f"[v2run] thin set: {len(ts.points)} of {ts.n_outer} outer target points below two MPM cells "
           f"({time.time() - t_thin:.1f} s)", flush=True)
     on_commit, on_iter = live_hooks(args, src, tgt, prm, cfg)
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws)
+                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
+                       w_src=prep.w_src, w_tgt=prep.w_tgt, tgt_base=prep.tgt_base)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")
@@ -219,6 +228,9 @@ def main():
              frames=np.stack(frames.x), deliver_n=np.int64(dn), truncation=json.dumps(res["truncation"]),
              F_samples=np.stack(F_samples), F_sample_idx=np.array(idx),
              render_mask=np.ones(len(src), bool), s=np.zeros(0, np.float32),
+             w_src=np.zeros(0, np.float32) if prep.w_src is None else prep.w_src,     # D122: the rest-volume weights
+             w_tgt=np.zeros(0, np.float32) if prep.w_tgt is None else prep.w_tgt,
+             tgt_base=np.zeros((0, 3), np.float32) if prep.tgt_base is None else prep.tgt_base,
              Fg_commit_idx=np.zeros(0, np.int64), Fg_commits=np.zeros((0, 0, 3, 3), np.float32))
     out["arms"][ARM] = {"config": cfg_dump, "metrics": met,
                         "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v) for k, v in gates.items()},

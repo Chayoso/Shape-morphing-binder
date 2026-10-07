@@ -20,8 +20,9 @@ import torch
 from . import gpu
 
 
-def local_thickness(tgt: torch.Tensor, sp: float) -> torch.Tensor:
-    """h at every target point (world units): max-ball thickness on a voxel grid of the target spacing."""
+def local_thickness(tgt: torch.Tensor, sp: float, local: torch.Tensor | None = None) -> torch.Tensor:
+    """h at every target point (world units): max-ball thickness on a voxel grid of the target spacing. local (N,)
+    (D122): each point's spacing over the base; the covering radius is then the base sample's."""
     from .render.knn_gpu import knn_self_torch
     lo = tgt.min(0).values - 3 * sp
     dims = [int(math.ceil(float(v))) for v in ((tgt.max(0).values + 3 * sp - lo) / sp)]
@@ -32,7 +33,8 @@ def local_thickness(tgt: torch.Tensor, sp: float) -> torch.Tensor:
     # inside the sampled volume: within the sampling's covering radius (0.75 x the median 8th-neighbour
     # distance, about 1.06 fill pitches on a jittered lattice); interior voxels the jitter misses are enclosed
     # and filled, or h would be capped by the distance to such a hole
-    r_cover = 0.75 * gpu.median(knn_self_torch(tgt, 9)[0][:, 8])
+    d8 = knn_self_torch(tgt, 9)[0][:, 8]
+    r_cover = 0.75 * gpu.median(d8 if local is None else d8 / local.to(d8.dtype))
     occ = gpu.fill_holes((d <= r_cover).reshape(dims))
     D = gpu.edt(occ)                                           # voxels to the outside
     thick = torch.zeros(dims, dtype=torch.float64, device=tgt.device)
@@ -48,10 +50,14 @@ def local_thickness(tgt: torch.Tensor, sp: float) -> torch.Tensor:
     return torch.where(h > 0, h, torch.full_like(h, 2 * sp))   # a point off the closed volume: thinnest
 
 
-def outer_mask(P: torch.Tensor, sp: float) -> torch.Tensor:
+def outer_mask(P: torch.Tensor, sp: float, local: torch.Tensor | None = None) -> torch.Tensor:
+    """Outer points: fewer than 0.6 of the median count of points within two spacings. local (N,) (D122): each
+    point's spacing over the base; the ball is then two of the point's OWN spacings, so the count is the same
+    number at either pitch and the rule keeps its meaning."""
     from .render.knn_gpu import knn_self_torch
     d, _ = knn_self_torch(P, 41)
-    c = (d[:, 1:] < 2.0 * sp).sum(1).float()
+    reach = 2.0 * sp if local is None else (2.0 * sp * local.to(d.dtype))[:, None]
+    c = (d[:, 1:] < reach).sum(1).float()
     return c < 0.6 * c.median()
 
 
@@ -64,11 +70,16 @@ class ThinSet:
     n_outer: int
 
 
-def thin_set(target, cell: float, ref_n: int) -> ThinSet:
+def thin_set(target, cell: float, ref_n: int, w=None) -> ThinSet:
+    """w (N,) (D122, --surface_density > 1): each target point's rest volume over the mean; the spacing is then the
+    base sample's (the same world threshold as the uniform sample's, so runs of either sampling read alike) and the
+    outer set is taken at each point's own spacing."""
     tgt = gpu.tensor(target)
-    sp = gpu.median(gpu.knn(tgt, 2)[0][:, 1])
-    h = local_thickness(tgt, sp) / cell
-    outer = outer_mask(tgt, sp)
+    local = None if w is None else gpu.tensor(w).pow(1.0 / 3.0)
+    d1 = gpu.knn(tgt, 2)[0][:, 1]
+    sp = gpu.median(d1 if local is None else d1 / local.to(d1.dtype))
+    h = local_thickness(tgt, sp, local) / cell
+    outer = outer_mask(tgt, sp, local)
     sel = outer & (h < 2.0)
     world = 1.5 * sp * (len(tgt) / float(ref_n)) ** (1.0 / 3.0)
     return ThinSet(points=tgt[sel], thickness=h[sel], spacing=sp, world=world, n_outer=int(outer.sum()))

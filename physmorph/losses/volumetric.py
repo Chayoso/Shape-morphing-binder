@@ -83,14 +83,18 @@ def d_w1(x: torch.Tensor, m: torch.Tensor, dt_grid: torch.Tensor,
 
 
 def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
-                   k: int = 8) -> torch.Tensor:
+                   k: int = 8, local: torch.Tensor | None = None) -> torch.Tensor:
     """Per-particle kNN-isolation gate of the W1 term, detached and frozen per window:
     a ramp of d_kNN / median(d_kNN) from lo to hi, so only true singletons feel the
-    full pull and dense rim mass none."""
+    full pull and dense rim mass none. local (N,) (D122, a sample of two pitches): each
+    particle's spacing over the base; its distance is read in its own spacing, so a coarser
+    interior particle is not an isolated one."""
     from ..render.knn_gpu import knn_self_torch
     with torch.no_grad():
         d_t, _ = knn_self_torch(x, k + 1)
         dk_t = d_t[:, -1]
+        if local is not None:
+            dk_t = dk_t / local.to(dk_t.dtype)
         ratio_t = dk_t / torch.clamp(dk_t.median(), min=1e-12)
         return torch.clamp((ratio_t - lo) / max(hi - lo, 1e-6), 0.0, 1.0).to(x.dtype)
 

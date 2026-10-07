@@ -35,15 +35,22 @@ class Prepared:
     ppc: float
     tgt_surface: tuple | None = None    # (points, normals) of the target mesh's surface in the target's frame
     tgt_draws: list | None = None       # further independent samples of the target in its frame (the render's target)
+    w_src: np.ndarray | None = None     # D122 (--surface_density > 1): each particle's rest volume relative to the mean
+    w_tgt: np.ndarray | None = None     #   (sampling.mesh.stratified_draws); None = the uniform sample, every path as before
+    sampling: dict | None = None        # the surface-dense sampler's report (band depth, shares, pitches), for the log
+    tgt_base: np.ndarray | None = None  # the uniform (F = 1) target sample in the same frame: the probes' pitch and mesh fit
 
 
-def sampling_berth(target: np.ndarray) -> float:
+def sampling_berth(target: np.ndarray, w=None) -> float:
     """The near-band berth in target spacings: median 8th-neighbour distance / median
-    nearest-neighbour distance (the sampling's own scale)."""
+    nearest-neighbour distance (the sampling's own scale). w (D122): each point's relative rest volume; the
+    distances are read at the base density (divided by w^(1/3)) so the ratio is the uniform sample's."""
     target = np.asarray(target)
     if target.ndim != 2 or target.shape[1] != 3 or len(target) < 9 or not np.isfinite(target).all():
         raise ValueError("the sampling berth needs at least nine finite target points")
     d = gpu.knn(gpu.tensor(target), 9)[0]
+    if w is not None:
+        d = d / gpu.tensor(np.asarray(w, np.float32)).to(d.dtype).pow(1.0 / 3.0)[:, None]
     spacing = gpu.median(d[:, 1])
     if not spacing > 0:
         raise ValueError("the sampling berth needs a positive target nearest-neighbour spacing")
@@ -55,16 +62,31 @@ def sampling_berth(target: np.ndarray) -> float:
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
-            draws: int = 1) -> Prepared:
-    src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified")
+            draws: int = 1, surface_density: float = 1.0, band_sp: float = 0.0) -> Prepared:
+    # surface_density F > 1 (D122): the same sampler F times denser in the outer band of band_sp spacings, source
+    # and target alike (the transport needs samples of one kind); each sample's rest-volume weights come back in w
+    dense = surface_density > 1.0
+    r_src, r_tgt = ({} if dense else None), ({} if dense else None)
+    src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified",
+                                 surface_density=surface_density, band_sp=band_sp, rest=r_src)
     frame = {}
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
-                                 return_volume=True, frame=frame)
+                                 return_volume=True, frame=frame, surface_density=surface_density, band_sp=band_sp,
+                                 rest=r_tgt)
+    sampling = None
+    if dense:
+        sampling = {"source": r_src["report"], "target": r_tgt["report"]}
+        for name, rep in sampling.items():
+            log(f"[sampling] {name}: surface density {rep['surface_density']:g} in a band {rep['band_depth']:.4f} wu deep "
+                f"({rep['band_sp']:g} spacings of the base pitch {rep['pitch_base']:.4f} wu); band {rep['band_volume_share'] * 100:.1f} % "
+                f"of the volume, {rep['band_particle_share'] * 100:.1f} % of the particles; pitch band "
+                f"{rep['band_pitch_over_base']:.3f}, interior {rep['interior_pitch_over_base']:.3f} of the base")
     # surface > 0: that many points of the target mesh's own surface, for the relaxation's reference
     tgt_surface = surface_in_frame(tgt_path, frame, surface) if surface > 0 else None
     # draws > 1: that many samples of the target in all, the pipeline's and draws - 1 further independent ones (seeds
     # seed + 1 + 100 k; seed + 2 is left to the evaluation's independent reference), for the render's target
-    tgt_draws = (draws_in_frame(tgt_path, frame, n, [seed + 1 + 100 * k for k in range(1, draws)])
+    tgt_draws = (draws_in_frame(tgt_path, frame, n, [seed + 1 + 100 * k for k in range(1, draws)],
+                                surface_density, band_sp)
                  if draws > 1 else None)
     floor_y = None
     if floor:                                 # both shapes stand on one floor, at the source's lowest point
@@ -76,11 +98,16 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
             tgt_surface[0][:, 1] += lift
         for d in tgt_draws or []:
             d[:, 1] += lift
+        if dense:
+            r_tgt["base"][:, 1] += lift
         log(f"[v2run] floor at y = {floor_y:.3f} wu; the target stands on it")
     log(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
         f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})")
     prm = MPMParams()
-    diag_src = float(np.linalg.norm(src.max(0) - src.min(0)))
+    # the discretisation from the uniform samples' extents when the sampling is surface-dense (the F sample's extremes
+    # lie on a finer lattice): the same dx, domain and loss grid as the F = 1 run's
+    g_src, g_tgt = (src, tgt) if not dense else (r_src["base"], r_tgt["base"])
+    diag_src = float(np.linalg.norm(g_src.max(0) - g_src.min(0)))
     dx_req = diag_src / float(cell_diag)
     ppc = float(n * dx_req ** 3 / v_src)
     log(f"[disc] cell from the shape: dx = diag {diag_src:.3f} / {cell_diag:g} = {dx_req:.4f} wu "
@@ -88,7 +115,7 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     # the domain: the box leash the objective assumes (1.25 x max |x|, w_box pulls back
     # inside it) plus the 4^3 stencil margin; nothing outside receives grid forces
     dx0 = float((v_src * ppc / n) ** (1.0 / 3.0))
-    leash = 1.25 * float(max(np.abs(src).max(), np.abs(tgt).max()))
+    leash = 1.25 * float(max(np.abs(g_src).max(), np.abs(g_tgt).max()))
     domain_half = leash + 2.0 * dx0
     # the loss grid: the MPM cell, or (loss_ref_n > 0) refined with the particle spacing above
     # loss_ref_n particles, so the transport resolves what the sampling resolves
@@ -109,8 +136,10 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     log(report(disc, tgt).splitlines()[-1].replace("[disc] measured", "[disc] TARGET measured"))
     log(f"[disc] loss_res {disc.loss_res} (" + (f"{per_dx:.3f} loss cells per dx, following N above {loss_ref_n}"
                                                 if per_dx > 1.0 else "the MPM cell") + ")")
-    berth = sampling_berth(tgt)
+    berth = sampling_berth(tgt, None if not dense else r_tgt["w"])
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
-                    tgt_surface=tgt_surface, tgt_draws=tgt_draws)
+                    tgt_surface=tgt_surface, tgt_draws=tgt_draws,
+                    w_src=None if not dense else r_src["w"], w_tgt=None if not dense else r_tgt["w"], sampling=sampling,
+                    tgt_base=None if not dense else r_tgt["base"])

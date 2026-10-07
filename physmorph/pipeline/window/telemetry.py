@@ -147,6 +147,8 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
     tr, T, N = win.tr, win.T, win.N
     dt, frac = float(tr.prm.dt), 1.0 / float(tr.control_steps)
     nbr = wp.to_torch(tr.space_nbr).reshape(N, -1).long() if tr.space_K > 0 else None
+    rp = wp.to_torch(tr.space_r) if tr.space_K > 0 else None          # (N,) each particle's spacing (the kernel's)
+    space_r = None if rp is None else 0.5 * (rp[:, None] + rp[nbr])[..., None]   # a pair's: the mean of the two
     grid, below, space = (torch.zeros(N, 3, device=du.device) for _ in range(3))
     c0 = win.x0.mean(0)
     aff = float(tr.prm.dx) ** 2 / 3.0                           # APIC's D_p for the cubic kernel
@@ -172,7 +174,7 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
         if nbr is not None:
             d = x[:, None, :] - x[nbr]
             L = d.norm(dim=2, keepdim=True)
-            push = 0.5 * frac * torch.where((L < tr.space_r) & (L > 1e-9), (tr.space_r - L) * d / L.clamp_min(1e-9), 0.).sum(1)
+            push = 0.5 * frac * torch.where((L < space_r) & (L > 1e-9), (space_r - L) * d / L.clamp_min(1e-9), 0.).sum(1)
             space += push
             L_space += torch.linalg.cross(push, v, dim=1).sum(0).double()
     r = win.x0 - win.x0.mean(0)

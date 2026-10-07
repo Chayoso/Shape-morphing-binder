@@ -45,20 +45,28 @@ class Window:
         # the dynamics mass of the discretisation: the body's mass does not depend on N, so a
         # unit control moves the 300k body as it moves the 40k one (loss-side masses are unit)
         m = float(cfg.mass_ref_n) / N if cfg.mass_ref_n > 0 and N != cfg.mass_ref_n else 1.0
+        # D122 (--surface_density > 1): the body's particles carry their rest volume relative to the mean (tgt.body_w,
+        # the sampler's) and the spacing of their own, body_local = w^(1/3); the mass is that of a uniform material,
+        # m w (its total unchanged), and every length counted in spacings below is the particle's own
+        local = tgt.body_local
+        if tgt.body_w is not None:
+            m = m * tgt.body_w
         # the outer layer: relaxed toward its neighbours' plane over one window (fraction
         # 1/T per driven step) and carrying the u control
-        self.sp0 = layer_spacing(start.x)
+        self.sp0 = layer_spacing(start.x, local)
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
-                                                           h_sp=cfg.layer_h_sp)
+                                                           h_sp=cfg.layer_h_sp, local=local)
         # the relaxation's reference: its own operator on the layer's feet on the target's surface (target.relief)
-        ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw)
+        ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw, local)
         relax = 0.0 if cfg.baseline.startswith("xu") else 1.0 / float(cfg.T)   # the baseline has no relaxation
         layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, 0.0, None, ref)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
-        # rest volume gives, among each particle's 16 nearest at the window's start
+        # rest volume gives, among each particle's 16 nearest at the window's start (a pair's distance is the mean of
+        # the two particles' own, which is the one pitch of a uniform sample)
         spacing = None
         if cfg.min_spacing > 0:
-            spacing = (gpu.knn(start.x, 17)[1][:, 1:], cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0))
+            r = cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0)
+            spacing = (gpu.knn(start.x, 17)[1][:, 1:], r if local is None else r * local)
         nbr, rest, frag = bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,

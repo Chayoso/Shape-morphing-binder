@@ -35,13 +35,19 @@ z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]
 keep = next((s[5:] for s in sys.argv[3:] if s.startswith("save=")), None)      # save=DIR: the discs of each state, for a closer look
 peel = int(next((s[5:] for s in sys.argv[3:] if s.startswith("peel=")), 0))      # peel=K: the K outermost particle layers are taken off first
-states = [s for s in sys.argv[3:] if not s.startswith(("save=", "peel="))] or ["target"] + [str(r) for r in raws]
+states = [s for s in sys.argv[3:] if not s.startswith(("save=", "peel=", "pitch="))] or ["target"] + [str(r) for r in raws]
 tgt = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
-td = knn_self_torch(tgt, 9)[0]
+# pitch=base (D122, a surface-dense run): the pitch, the lattice and the mesh's fit are read from the file's `tgt_base`,
+# the uniform sample of the same seed in the same frame, so the run is measured exactly as a uniform one is
+scale_src = tgt
+if "pitch=base" in sys.argv[3:]:
+    scale_src = torch.as_tensor(np.asarray(z["tgt_base"], np.float32), device=dev)
+    assert len(scale_src) == len(tgt), "pitch=base needs the archive's tgt_base (a --surface_density run)"
+td = knn_self_torch(scale_src, 9)[0]
 cov_r = float(td[:, 8].median())
 a = .708 * cov_r                                               # the volume sample's pitch
-center = tgt.mean(0)
-lattice = Lattice(center, 2.8 * float((tgt - center).norm(dim=1).max()))
+center = scale_src.mean(0)
+lattice = Lattice(center, 2.8 * float((scale_src - center).norm(dim=1).max()))
 h = .92 * a
 
 # the target mesh, fitted to the target sample as layer_roughness.py fits it, as surface samples with normals
@@ -50,9 +56,9 @@ mesh.merge_vertices()
 o = orient_name(sys.argv[2])
 if o != "id":
     mesh.vertices = np.asarray(mesh.vertices, np.float64) @ rotation(o).T
-t_np = tgt.cpu().numpy().astype(np.float64)
+t_np = scale_src.cpu().numpy().astype(np.float64)
 vb = np.asarray(mesh.bounds, np.float64)
-step = float(knn_self_torch(tgt, 7)[0][:, 6].median())
+step = float(knn_self_torch(scale_src, 7)[0][:, 6].median())
 mesh.vertices = (np.asarray(mesh.vertices, np.float64) - vb.mean(0)) * float(np.mean((t_np.max(0) - t_np.min(0) + step) / (vb[1] - vb[0]))) \
     + 0.5 * (t_np.max(0) + t_np.min(0))
 points, face = trimesh.sample.sample_surface(mesh, 3000000, seed=0)

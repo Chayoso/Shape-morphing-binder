@@ -147,20 +147,28 @@ class SurfaceProximity:
     exceed half of it. The sampling pitch does not collapse at thin features. Mass supply is the transport's part;
     this term places the surface. No bound and no weight."""
 
-    def __init__(self, target: torch.Tensor):
+    def __init__(self, target: torch.Tensor, local: torch.Tensor | None = None):
+        """local (N,) (D122, a sample of two pitches): each target point's spacing over the base; the medians are then
+        the base sample's, the outer set is taken at each point's own spacing, and the kernel at an outer point y is
+        the base kernel at y's own scale (h_y = h local_y; the floor K(sp_y) / 2 is the same number at every scale), so
+        the question "is there body material at this target sample" is asked at the sample's own pitch there."""
         from ..thin import outer_mask
         target = gpu.tensor(target, torch.float64)
         if target.ndim != 2 or target.shape[1] != 3 or len(target) < 2 or not bool(torch.isfinite(target).all()):
             raise ValueError('proximity target must be finite (N,3), N >= 2')
         self.k = k = min(32, len(target) - 1)
         d = gpu.KNN(target).query(target, k + 1)[0][:, 1:]
+        if local is not None:
+            d = d / local.to(d.dtype)[:, None]
         self.radius = gpu.median(d[:, min(7, k - 1)])
         if not self.radius > 0:
             raise ValueError('proximity target must have positive neighbor spacing')
         self.h = .5 * self.radius
         self.spacing = gpu.median(d[:, 0])
         self.floor = .5 * math.exp(-self.spacing ** 2 / (2 * self.h * self.h))   # K(sp) / 2
-        self.y = target[outer_mask(target.float(), self.spacing)]                # (M, 3) float64
+        outer = outer_mask(target.float(), self.spacing, local)
+        self.y = target[outer]                                                   # (M, 3) float64
+        self.h_y = None if local is None else (self.h * local.to(target.dtype)[outer]).contiguous()
         self.weight = None                                                       # no weight, no bound
 
     def nearest_kernel(self, x):
@@ -170,6 +178,8 @@ class SurfaceProximity:
         idx = gpu.KNN(x.detach()).query(self.y, k)[1].to(x.device)
         y = self.y.to(device=x.device, dtype=x.dtype)
         d2 = (x[idx] - y[:, None]).square().sum(2).min(1).values
+        if self.h_y is not None:
+            return torch.exp(-d2 / (2 * self.h_y.to(device=x.device, dtype=x.dtype).square()))
         return torch.exp(-d2 / (2 * self.h * self.h))
 
     def penalty_per_point(self, x):

@@ -232,9 +232,11 @@ class Trajectory:
         # MATERIAL RE-COUPLING of decoupled particles (kernels.k_p2g / k_update): bonds =
         # (nbr (N,K) int, rest (N,K) float, frag (N,)) frozen for this rollout; the decoupling
         # test is the 3^3-cell count of the support-gate kernels (outside the tape).
-        # MINIMUM SPACING (kernels.k_update): (nbr (N,K) int, r) frozen for this rollout
+        # MINIMUM SPACING (kernels.k_update): (nbr (N,K) int, r) frozen for this rollout; r one float (every
+        # particle's) or (N,) per particle (D122, a sample of two pitches); the kernel reads a pair's as the mean
         self.space_K = 0 if spacing is None else int(spacing[0].shape[1])
-        self.space_r = 0.0 if spacing is None else float(spacing[1])
+        self.space_r = (wp.zeros(1, dtype=wp.float32, device=device) if spacing is None
+                        else scalar_or_array(spacing[1], N, device))
         self.space_nbr = None if spacing is None else to_wp_int(spacing[0], device)
         self.bonds = None
         self.bond_K = 0

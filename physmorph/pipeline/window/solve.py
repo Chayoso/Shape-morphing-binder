@@ -265,7 +265,11 @@ class WindowOptimizer:
                 if cfg.dfc_clip > 0:
                     n = self.dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
                     self.dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
-                self.u.clamp_(-win.sp0, win.sp0)           # one spacing per window
+                if win.tgt.body_local is None:
+                    self.u.clamp_(-win.sp0, win.sp0)       # one spacing per window
+                else:                                      # (D122) one spacing of the particle's own
+                    bound = win.sp0 * win.tgt.body_local.to(self.u.dtype)
+                    self.u.copy_(torch.minimum(torch.maximum(self.u, -bound), bound))
                 self.free_of_rigid()
             e_n = self.eval()
             with torch.no_grad():

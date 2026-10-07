@@ -1213,6 +1213,108 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   1 − IoU −29 / −21 %, |L| at the window starts mean −9 %, end −7 %. The figure draws no rendered bodies (the
   cross-sections are colour-coded particle scatter maps); the per-window numbers are in `numbers.csv`. Server
   output 46 GB after the run (the dumps 1.9 GB); nothing deleted.
+- **D122, surface-adaptive sampling: the particle budget moved into the outer band, so the body carries finer relief
+  physically at the same N (pre-registered 2026-10-07 01:34 CDT, after the 40k smoke was started at 01:28 and before any
+  300k run; the user: the relief should come from the physics, not from the display-only detail layer (D111/D115);
+  code: `sampling/mesh.py` (`stratified_draws`, `_band_centers`, `_surface_dense_draws`, `load_normalized`,
+  `draws_in_frame`), `prepare.py`, `pipeline/target.py`, `window/layer.py`, `window/setup.py`, `window/solve.py`,
+  `window/objective.py`, `losses/support.py` (SurfaceProximity), `losses/volumetric.py` (isolation_gate), `thin.py`,
+  `mpm/kernels.py` (k_update's spacing per particle), `mpm/traj.py`, `gpu.py` (median_kth_spacing with `local`),
+  `scripts/pipeline_run.py --surface_density F`; the probes `exterior_offset_probe.py` and `surface_layer_probe.py`
+  take `pitch=base`; `tests/test_surface_density.py` (6 tests), the suite 293 passed / 2 skipped with the flag off
+  (exit 0, `tmp/d122_tests.log`); server `repo_r101` (= ddaacaa + this), `tmp/d122_run12.sh`, `tmp/d122_frames12.py`,
+  `tmp/d122.sh`; `output/gpu/d122`).** At 300k the run already carries 80–95 % of the relief its own 300k volume sample
+  can carry (D105: 0.28 / 0.55 at 2.7 / 5.4 pitches against the sample's 0.36 / 0.66, `output/gpu/d105/bands_bunny.log`,
+  family B); the finer relief is below the pitch, and no definition of the loss or the relaxation puts it into 300k
+  uniformly spaced positions. Nine tenths of the particles are interior (D12's addendum: 4.5–6 % within one lattice
+  step of the surface), where at ppc 200 the MPM needs none of that resolution and the shape lives in none of it.
+  The hypothesis: with the budget moved into the outer band the surface pitch falls at the same N, one more octave of
+  relief becomes representable, and the layer's own channels (u, and the relaxation's relief reference, D105) carry it.
+  The definition (one A/B flag, no other constant): `--surface_density F`, the stratified sampler with its density F
+  times higher within the outer band than in the interior, N fixed, source and target alike (the transport needs
+  samples of one kind). The band is the one the pipeline already has: `layer_h_sp` = 2 spacings deep (the
+  relaxation's neighbour width; a spacing = the base pitch / 0.708, the pipeline's 8th-neighbour constant), measured
+  from the surface of the fill (each voxel centre's Euclidean distance to the fill's boundary), the base pitch being the
+  one F = 1 gives at that N. The fill is refined by the same bisection until its band voxels plus 1 / F of its interior
+  voxels hold N; the band keeps every voxel it can (n_b = N F V_b / (F V_b + V_i), one jittered particle per voxel), the
+  interior a uniform subset, so the two densities are in the ratio F exactly; the order is shuffled. F = 1 is the old
+  code path, the same calls on the same generator (a test holds the sample bit for bit against the sampler as it was
+  written out). The F sample stands in the base sample's frame (its centroid and bounding box, not its own: a
+  shell-dense sample's centroid sits nearer the surface), and the discretisation (dx, domain, loss grid), the render's
+  extent and the exterior's lattice origin are taken from the base samples too, so a run differs from the F = 1 run
+  in its particles alone. Each particle carries w, its rest volume over the mean (band V_b / n_b, interior V_i / n_i,
+  over V / N; mean 1); the archive keeps `w_src`, `w_tgt` and `tgt_base` (the uniform sample of the same seed in the
+  same frame).
+  Every quantity derived from a pitch, a spacing or N, and what it does at F > 1 (F = 1: every one as before, w = 1):
+  (1) rest volumes vol0: per particle as before (`compute_rest_volumes` with the masses w; the grid density is uniform
+  by construction, so vol0 = w V / N). (2) The dynamics mass: m w per particle, total unchanged (a uniform material:
+  the body's inertia is where its volume is, not where its particles are; with unit masses the band would be an F
+  times heavier material and the momentum measures would differ from D105's by construction). (3) The loss-side
+  masses: the body's w for the body, the target's w for the target's grids (transport, gate, W1 distance field): the
+  rasterised densities are the uniform ones, the transport problem is the F = 1 one with more points at the surface.
+  (4) `--min_spacing`: per particle, r_p = 0.9 (mean vol0 · w_p)^(1/3) (the sampler's w, not vol0's own value, whose
+  surface bias of half-empty cells would swell the layer at F = 1 too); the kernel reads a pair's spacing as the mean
+  of the two (the one value of a uniform sample, bit for bit). (5) The layer: its spacing is the BASE spacing (the
+  median 8th-neighbour distance read at the base density, d / w^(1/3)); the layer's depth (0.5 spacings), the
+  relaxation's neighbour width (2 spacings), the relief reference's reach (1 spacing) and u's bound (1 spacing per
+  window) are each particle's own, base × w^(1/3) — a global spacing at F = 2 would leave the band's surface particles
+  below the asymmetry threshold and the layer nearly empty. (6) The exterior (the render's field and lattice): the
+  BASE pitch, 0.708 × the base 8th-neighbour spacing, and the shading blur with it — a shell-dense sample would
+  otherwise move the lattice and the field's radius, which changes the loss, not the physics; so the render reads the
+  denser band through the same operator (its kernel of 3 pitches is as deep as the band, so the field's zero set hardly
+  moves). (7) loss_res / `loss_follows_n`: from N alone, unchanged (the loss cell is about 3 base pitches; the band's
+  finer spacing is below it either way). (8) The near band: its berth and its outer edge (one loss cell) at the base
+  spacing (the berth measures where the transport's sub-cell information ends, which is set by the loss grid; a
+  per-point berth was considered and not taken: a change of the band's reach, not of its definition). (9) The spray
+  cleanup's isolation gate: each particle's 8th-neighbour distance in its own spacing (d / w^(1/3)) against the median
+  of the same — with the global median a coarser interior particle at 1.26–1.59 of the band's spacing would fall into
+  the 1.2–1.8 ramp and be pulled down the target's distance field as spray. (10) The surface proximity: the outer
+  target set at each point's own spacing (the count within two spacings is then the same number in either region),
+  the kernel width h_y = h w_y^(1/3) at each outer point, the floor K(sp)/2 the same number at any scale, the penalty's
+  radius² the base's: the question "is there body material at this target sample" asked at the sample's own pitch
+  there. (11) The thin set (a measurement): the base spacing for its threshold (the same world distance as D105's)
+  and the voxel grid, the outer set at each point's own spacing; the thin counts of the F samples differ from the
+  base's (40k bunny: 640 of 2859 outer points at F = 1, 575 of 4573 at F = 2, 500 of 5074 at F = 4), so the criterion
+  (c) is read with the base sample's thin set on every end frame (`tgt_base`, a script). (12) The probes: the display
+  (`surface_layer_probe`), the offsets (`exterior_offset_probe`) and the bands (`ag2_bands` with `aref=`) read their
+  pitch, lattice and the mesh's fit from `tgt_base` (`pitch=base`), so an F run is measured as the uniform one is; the
+  yardstick (`render_terms_probe ref=`) already reads the independent sample's. Left as they are, with the caveat
+  noted: the released-motion and drift terms, the kinetic records and the momentum probe are per-particle means
+  (number-weighted; the band holds 55–80 % of the particles), the telemetry's angular momentum is per unit mass;
+  `TransportSupport` (the log / ratio forms, not the recipe) keeps its global medians; the in-run `surface_roughness`
+  and `metrics.summarize` keep the sample's own medians.
+  What the sampler gives (40k bunny, the smoke): source band 37.6 % of the volume, 54.7 % of the particles at F = 2
+  (69.5 % at F = 4); target 52.5 % / 68.9 % (81.1 %); the band's pitch 0.883 (source) and 0.914 (target) of the base
+  at F = 2, 0.805 / 0.861 at F = 4, the interior's 1.11–1.15 and 1.28–1.37. The band is 2.83 base pitches deep, so
+  at 40k it is half the bunny; at 300k (pitch 0.049 wu, band 0.14 wu) a smaller share, and the band's pitch should
+  come to about 0.85 of the base at F = 2 and 0.75 at F = 4 — not the 0.7–0.8 at F = 2 the proposal expected: with
+  the band this deep, halving the surface pitch would need eight times its density, more than N holds. The
+  density-normalised base spacing came out within 0.5 % (F = 2) and 1.2 % (F = 4) of F = 1's, the exterior's pitch
+  with it (0.0969 / 0.0977 against 0.0964 wu).
+  Runs (seed 97, the D105 recipe `--support_form proximity --loss_follows_n --layer_relief`, `tmp/d122_run12.sh`
+  → `runeval3.sh` (repo_r101's probes, `pitch=base`) → `exterior_offset_probe.py … pitch=base save=discs`; then
+  `d122_bands.py` (ag2_bands with the base pitch, `aref=` D105's) against D105's discs and `d120_apart.py`): the 40k
+  bunny at F = 1, 2, 4 (the smoke, render arm); then the 300k bunny and dragon at F = 2, render arm (`L2`) and twin
+  (`P2`), the bunny's F = 1 render arm on the same copy (`L1`, the control), and F = 4 (`L4`, `P4`) if F = 2 meets (a)
+  at 40k. Output `output/gpu/d122`.
+  Criteria: (a) the relief carried at 2.7 / 5.4 pitches of the BASE pitch (bands counted in D105's pitch, `aref=`)
+  at least +0.08 / +0.05 over D105's same arm (LV 0.28 / 0.55, PV 0.29 / 0.57); (b) the display against the
+  independent sample and the yardstick not worse than D105's beyond the seed spread (D102), the render arm still
+  ahead of its twin by D105's margins, momentum not worse; (c) thin uncovered not above D105's + 1 point (on the base
+  thin set), the roughness (e3 angle rms) not above 1.3 × D105's, the early apart particles (`d120_apart.py`) not
+  above D105's; (d) wall time at most 1.5 × D105's; (e) the F = 1 run on repo_r101 reproduces D105's numbers within
+  the spread (the control: the F = 1 path is the old code bit for bit, so this reads the server's run-to-run spread).
+  Prediction: (a) holds at F = 2 by a small margin at 5.4 pitches (the band's pitch 0.85: a 0.85-pitch surface
+  carries at 5.4 base pitches what a uniform one carries at 6.4 of its own, 0.55 → about 0.62) and at 2.7 pitches
+  (0.28 → 0.36–0.40); stronger at F = 4. Risks, written before the runs: the interior at 1.1–1.4 times the base
+  pitch roughens the field under the surface (D70's density evenness) and the ears' tips lose material (fewer interior
+  particles to feed them: the sphere's interior holds the mass that becomes the ears); the band's inner edge is a
+  density step that the asymmetry test reads as a weak surface (a 32-neighbour centroid offset of about 0.2 band
+  spacings at F = 2, 0.46 at F = 4 against the threshold 0.5), so at F = 4 part of the band's inner edge may be
+  taken as layer and relaxed; the spray cleanup's threshold is held by (9), the proximity's by (10). Tempted and not
+  done: a graded band (the density falling from F at the surface to 1 at the band's depth, which would soften the
+  inner edge but add a profile), a per-point berth for the near band (8), mass-weighted stability terms, a
+  per-particle field radius for the exterior (6, refused: the loss would change).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

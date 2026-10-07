@@ -53,7 +53,8 @@ def _host(t):
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                 on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None):
+                 on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None,
+                 w_src=None, w_tgt=None, tgt_base=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
@@ -61,7 +62,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     every committed window records (measurement only). surface: (points, normals) of the target
     mesh's surface in the target's frame; with it the outer layer's relaxation keeps the target's
     own relief (target.target_relief). draws: further independent samples of the target in its
-    frame; the render's target pictures are then the mean over all samples (target.build_target)."""
+    frame; the render's target pictures are then the mean over all samples (target.build_target). w_src, w_tgt
+    (D122, --surface_density > 1): each particle's rest volume relative to the mean, source and target (the
+    sampler's): the masses, rest volumes and every length counted in spacings follow them (target.TargetPack)."""
     gpu.require_cuda()
     cfg = dataclasses.replace(cfg)                      # c2f edits render_res on this copy
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
@@ -70,9 +73,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     N = src.shape[0]
     if len(target_x) != N:
         raise ValueError(f"source and target need the same particle count (got {N} vs {len(target_x)})")
-    tgt = build_target(target_x, prm, cfg, draws=draws)
+    tgt = build_target(target_x, prm, cfg, draws=draws, w=w_tgt, w_body=w_src, base=tgt_base)
     if surface is not None:
-        tgt.relief = target_relief(tgt.pts, surface, cfg)
+        tgt.relief = target_relief(tgt.pts, surface, cfg, tgt.local)
     calibrate_units(tgt, src, cfg)
     log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = {tgt.unit_ratio:.4g} "
         f"(weights), gradient ratio = {tgt.unit_grad_ratio:.4g} (eps/target_norm), "
@@ -81,7 +84,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, None, cap_rel=20.0)
     lo, hi = domain_bounds(prm)
     x = src.clone()
-    vol0 = compute_rest_volumes(src, 1.0, prm, cfg.device)
+    vol0 = compute_rest_volumes(src, 1.0 if tgt.body_w is None else tgt.body_w, prm, cfg.device)
     coh_nbr = gpu.knn(src, cfg.coh_k + 1)[1][:, 1:]    # frozen source-material neighbours
     bond_rest = None
     F = v = C = None

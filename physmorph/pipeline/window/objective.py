@@ -71,7 +71,7 @@ class Objective:
             win.eps_eff /= tgt.ot_scale
             win.target_norm_eff /= tgt.ot_scale
             if self.spray_only:                       # the spray cleanup's isolation gate, frozen per window as ours
-                self.m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi)
+                self.m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi, local=tgt.body_local)
                 self.dt_idx = torch.nonzero(self.m_dt > 0).squeeze(1)
             return
         # the transport gate of u: u acts only on layer particles whose remaining transport
@@ -106,7 +106,7 @@ class Objective:
             tgt.ot_scale = float(gd / gt.clamp_min(1e-30))
         # frozen per window
         self.knn_ctrl = gpu.knn(x0, 9)[1][:, 1:]      # eight neighbours, for the control-roughness record only
-        m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi)
+        m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi, local=tgt.body_local)
         self.dt_idx = torch.nonzero(m_dt > 0).squeeze(1)
         self.m_dt = m_dt
         # the near band: between the sampling berth and one loss cell from the target (the transport's blur length;
@@ -205,7 +205,7 @@ class Objective:
             if not self.spray_only:
                 return xT.sum() * 0.0
             if common_geometry:
-                m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi)
+                m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local)
                 return wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims) / t.ot_scale
             if self.dt_idx.numel() == 0:
                 return xT.sum() * 0.0
@@ -213,7 +213,7 @@ class Objective:
                                                      self.m_dt.index_select(0, self.dt_idx),
                                                      t.dt3, t.dtgmin, t.dtdx, t.dtdims)
         if common_geometry:
-            m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi)
+            m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local)
             L = wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
             return L + wu * cfg.w_nn * d_nn_band_current(xT, t.m, t.pts, torch.ones_like(t.m),
                                                          self.berth, t.knn, far=float(t.ldx))
@@ -245,7 +245,7 @@ class Objective:
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         with torch.no_grad():
             whole = d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
-            gated = d_w1(xT, t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi), t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+            gated = d_w1(xT, t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local), t.dt3, t.dtgmin, t.dtdx, t.dtdims)
         return float(wu * cfg.w_dt * (whole - gated))
 
     def scale_record(self, xT) -> dict:

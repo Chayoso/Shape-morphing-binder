@@ -332,7 +332,7 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              dt: float, s: float,
              nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
              frag: wp.array(dtype=float), bond_K: int, bond_frac: float,
-             snbr: wp.array(dtype=int), space_K: int, space_r: float):
+             snbr: wp.array(dtype=int), space_K: int, space_r: wp.array(dtype=float)):
     p = wp.tid()
     F_out[p] = (1.0 - s) * F_new[p] + s * F_in[p]   # blend new with OLD F
     xp = x_in[p] + dt * v[p]
@@ -353,13 +353,17 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
         # MINIMUM SPACING (D70): the grid holds about 200 particles a cell and cannot see two of them pressed
         # together, so where the material is stretched and torn the arrangement under the surface ends uneven
         # (D68, D69). A particle is moved away from each of its frozen neighbours (the nearest at the window's
-        # start) that is nearer than space_r, by half the overlap, over one window like the bonds
+        # start) that is nearer than the pair's spacing, by half the overlap, over one window like the bonds. The
+        # spacing is per particle (space_r[p], the pitch of its own rest volume: a surface-dense sample, D122, has
+        # two) and a pair's is the mean of the two, the one value of a uniform sample
         push = wp.vec3(0.0, 0.0, 0.0)
         for a in range(space_K):
-            d = x_in[p] - x_in[snbr[p * space_K + a]]
+            q = snbr[p * space_K + a]
+            d = x_in[p] - x_in[q]
             L = wp.length(d)
-            if L < space_r and L > 1.0e-9:
-                push = push + (space_r - L) * d / L
+            r = 0.5 * (space_r[p] + space_r[q])
+            if L < r and L > 1.0e-9:
+                push = push + (r - L) * d / L
         xp = xp + bond_frac * 0.5 * push
     x_out[p] = xp
 
