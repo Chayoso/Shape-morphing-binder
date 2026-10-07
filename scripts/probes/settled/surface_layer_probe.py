@@ -39,9 +39,7 @@ import numpy as np                                             # noqa: E402
 import torch                                                   # noqa: E402
 import torch.nn.functional as nnf                              # noqa: E402
 from PIL import Image, ImageDraw                               # noqa: E402
-from scipy.sparse import coo_matrix                            # noqa: E402
-from scipy.sparse.csgraph import connected_components          # noqa: E402
-from physmorph.render.exterior import Lattice, ZhuBridson      # noqa: E402
+from physmorph.render.exterior import Lattice, ZhuBridson, connected_sets  # noqa: E402  (the e3 rule, D127 reads it too)
 from physmorph.render.knn_gpu import knn_self_torch            # noqa: E402
 from physmorph.render.studio import DensityNormals, StudioRaster  # noqa: E402
 from physmorph.render.support import live_support, normal_filter_size  # noqa: E402
@@ -196,15 +194,6 @@ def roughness(pts, normals):
     height = ((pts - pts[nb[:, 1:]].mean(1)) * mean).sum(1)
     return dict(reach_over_a=float(d[:, -1].median()) / a, angle_rms=float(angle.square().mean().sqrt()), angle_99=float(torch.quantile(angle[::7], .99)),
                 opposed=int((angle > 90.).sum()), height_rms_over_a=float(height.square().mean().sqrt()) / a)
-
-
-def connected_sets(pts, r):
-    """The layer's connected sets (discs linked within 2.2 r): their number, and the discs outside the largest."""
-    d, nb = knn_self_torch(pts, 9)
-    link = d[:, 1:] < 2.2 * r
-    i = torch.arange(len(pts), device=dev)[:, None].expand_as(link)[link].cpu().numpy()
-    n, label = connected_components(coo_matrix((np.ones(len(i), bool), (i, nb[:, 1:][link].cpu().numpy())), shape=(len(pts),) * 2), directed=False)
-    return n, torch.as_tensor(label != np.bincount(label).argmax(), device=dev)
 
 
 def in_box(image):

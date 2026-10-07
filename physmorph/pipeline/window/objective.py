@@ -21,7 +21,7 @@ from ... import gpu
 from ...prof import timed
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
-                                  isolation_gate, nn_band_assign)
+                                  nn_band_assign, spray_gate)
 from ...render.exterior import Tracked, ZhuBridson
 from ..render_loss import d_exterior, d_pbr, d_render
 from .setup import Window
@@ -52,6 +52,7 @@ class Objective:
         cfg, tgt, prm = win.cfg, win.tgt, win.prm
         self.win, self.cfg, self.tgt = win, cfg, tgt
         self.discs, self.ext_builds = None, 0         # the exterior's discs and how often this window looked for them
+        self.ext_apart = 0                            # D127: the discs apart from the body dropped at the last search
         x0 = win.x0
         eps = float(tgt.ldx) ** 2                     # blur: one loss cell
         self.xu = cfg.baseline in ("xu", "xu_spray")
@@ -71,7 +72,7 @@ class Objective:
             win.eps_eff /= tgt.ot_scale
             win.target_norm_eff /= tgt.ot_scale
             if self.spray_only:                       # the spray cleanup's isolation gate, frozen per window as ours
-                self.m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi, local=tgt.body_local)
+                self.m_dt = tgt.m * self.spray_gate(x0)
                 self.dt_idx = torch.nonzero(self.m_dt > 0).squeeze(1)
             return
         # the transport gate of u: u acts only on layer particles whose remaining transport
@@ -108,7 +109,7 @@ class Objective:
             tgt.ot_scale = float(gd / gt.clamp_min(1e-30))
         # frozen per window
         self.knn_ctrl = gpu.knn(x0, 9)[1][:, 1:]      # eight neighbours, for the control-roughness record only
-        m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi, local=tgt.body_local)
+        m_dt = tgt.m * self.spray_gate(x0)
         self.dt_idx = torch.nonzero(m_dt > 0).squeeze(1)
         self.m_dt = m_dt
         # the near band: between the sampling berth and one loss cell from the target (the transport's blur length;
@@ -118,6 +119,14 @@ class Objective:
         self.berth = cfg.nn_berth_k * tgt.nn_spacing
         if not self.berth < float(tgt.ldx):
             raise ValueError("the near band is empty: the sampling berth reaches the loss cell")
+
+    def spray_gate(self, x):
+        """The spray cleanup's isolation gate at a state (frozen at the window start for the term, read at the state
+        for the selection merit's form): cfg.spray_gate "knn", the ramp dt_iso_lo..hi of the 8th-neighbour distance
+        over its median in the particle's own spacing (the code as it was); "grid" (D126), the MPM's own decoupling
+        test (losses/volumetric.grid_isolation_gate), no constant."""
+        cfg, t = self.cfg, self.tgt
+        return spray_gate(x, cfg.spray_gate, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local, prm=self.win.prm)
 
     # ---- terms ----
     def dvol_density(self, xT):
@@ -181,6 +190,8 @@ class Objective:
         if self.discs is None:
             with torch.no_grad(), timed("exterior"):
                 self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch, radius=e.radius, offset=e.offset), e.lattice, e.h, e.skin)
+                if cfg.render_body_only:          # D127: the body's largest connected disc set alone (the display's rule)
+                    self.ext_apart = self.discs.body_only(e.h)
             self.ext_builds += 1
             p, n, move = self.discs.read(xT)
         return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
@@ -207,7 +218,7 @@ class Objective:
             if not self.spray_only:
                 return xT.sum() * 0.0
             if common_geometry:
-                m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local)
+                m_cur = t.m * self.spray_gate(xT)
                 return wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims) / t.ot_scale
             if self.dt_idx.numel() == 0:
                 return xT.sum() * 0.0
@@ -215,7 +226,7 @@ class Objective:
                                                      self.m_dt.index_select(0, self.dt_idx),
                                                      t.dt3, t.dtgmin, t.dtdx, t.dtdims)
         if common_geometry:
-            m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local)
+            m_cur = t.m * self.spray_gate(xT)
             L = wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
             return L + wu * cfg.w_nn * d_nn_band_current(xT, t.m, t.pts, torch.ones_like(t.m),
                                                          self.berth, t.knn, far=float(t.ldx))
@@ -247,7 +258,7 @@ class Objective:
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         with torch.no_grad():
             whole = d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
-            gated = d_w1(xT, t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local), t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+            gated = d_w1(xT, t.m * self.spray_gate(xT), t.dt3, t.dtgmin, t.dtdx, t.dtdims)
         return float(wu * cfg.w_dt * (whole - gated))
 
     def scale_record(self, xT) -> dict:

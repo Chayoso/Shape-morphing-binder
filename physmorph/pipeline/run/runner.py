@@ -42,7 +42,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "g_transport", "g_surf", "g_spray", "g_near", "n_spray", "n_near", "n_near_active", "ot_scale",
                 "active_set", "ctrl_mag", "ctrl_rough", "prof",
                 "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio",
-                "ext_discs", "ext_builds")
+                "ext_discs", "ext_builds", "ext_apart")
 _NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe",
                 "iter_probe", "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason")

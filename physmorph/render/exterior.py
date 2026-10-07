@@ -25,6 +25,22 @@ def cube(lo, hi, device):
     return torch.stack(torch.meshgrid(r, r, r, indexing="ij"), -1).reshape(-1, 3)
 
 
+def connected_sets(pts, r):
+    """The display's rule (scripts/probes/settled/surface_layer_probe.py, the e3 records): the connected sets of the
+    discs, each linked to those of its 8 nearest within 2.2 r (r: the lattice pitch): their number, and a mask of the
+    discs outside the largest set."""
+    import numpy as np
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    from .knn_gpu import knn_self_torch
+    d, nb = knn_self_torch(pts, 9)
+    link = d[:, 1:] < 2.2 * r
+    i = torch.arange(len(pts), device=pts.device)[:, None].expand_as(link)[link].cpu().numpy()
+    j = nb[:, 1:][link].cpu().numpy()
+    n, label = connected_components(coo_matrix((np.ones(len(i), bool), (i, j)), shape=(len(pts),) * 2), directed=False)
+    return n, torch.as_tensor(label != np.bincount(label).argmax(), device=pts.device)
+
+
 class Bins:
     """The particles in cells of a given side: the particles within that distance of a point are in the 27 cells
     around it."""
@@ -116,6 +132,18 @@ class Tracked:
         self.p0, self.n0, self.slope = pts, nnf.normalize(g, dim=1), g.norm(dim=1).clamp_min(1e-6)
         self.idx = field.neighbours(pts, skin)
         self.radius, self.offset, self.h = field.radius, field.offset, h
+
+    def keep(self, mask):
+        """Restrict the tracked set to the discs where `mask` holds; the kept discs read exactly as before."""
+        self.p0, self.n0, self.slope, self.idx = self.p0[mask], self.n0[mask], self.slope[mask], self.idx[mask]
+        return self
+
+    def body_only(self, h) -> int:
+        """D127: keep the discs of the largest connected set alone (connected_sets at the lattice pitch, the display's
+        rule), so discs apart from the body carry no term; returns the number dropped."""
+        _, apart = connected_sets(self.p0, h)
+        self.keep(~apart)
+        return int(apart.sum())
 
     def read(self, x):
         """(points, unit normals, displacement along n0) of the discs at the particles x."""

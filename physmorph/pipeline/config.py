@@ -69,6 +69,10 @@ class PipelineConfig:
 
     # ---- cleanup (fixed weights, outside the render balance) ----
     w_dt: float = 0.2               # W1 pull of isolated particles down the target DT
+    spray_gate: str = "knn"         # D126 A/B: which particles the spray cleanup acts on: "knn", the kNN-ratio ramp below
+                                    #   (the code as it was); "grid", the MPM's own decoupling test (mpm/kernels.k_frag_step,
+                                    #   the one the material bonds use: no other particle in the 3^3 cells around its own, or
+                                    #   the runner's commit-time fragment mask), binary, no constant (dt_iso_lo/hi unused)
     dt_iso_lo: float = 1.2          # isolation gate ramp, in median kNN distances
     dt_iso_hi: float = 1.8
     dt_res: int = 160               # the target DT's own fine grid
@@ -104,6 +108,10 @@ class PipelineConfig:
                                     #   surface's mean offset from the mesh where the radius 3 has it (D123)
     u_off: bool = False             # D124 A/B (ablation): u's gate is zero on every particle, so u never acts; the leaf
                                     #   stays (zero gradient) and everything else is as it is
+    render_body_only: bool = False  # D127 A/B: the render terms read only the discs of the body's largest connected set
+                                    #   (the display's rule, render/exterior.connected_sets: discs linked within 2.2 lattice
+                                    #   pitches), decided once per search of the window's discs; a flake of discs apart from
+                                    #   the body earns the render nothing. The target's discs are unchanged
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)
     render_res: int = 64
@@ -149,6 +157,8 @@ class PipelineConfig:
             raise ValueError("support_form must be \"log\", \"ratio\" or \"proximity\"")
         if self.xu_form not in ("oracle", "paper"):
             raise ValueError("xu_form must be \"oracle\" or \"paper\"")
+        if self.spray_gate not in ("knn", "grid"):
+            raise ValueError("spray_gate must be \"knn\" or \"grid\"")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

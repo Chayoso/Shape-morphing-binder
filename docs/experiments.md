@@ -1968,6 +1968,89 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   counterfactual at windows 3–4 with and without the rule. Not addressed by either: the late thin-part population
   (the 300k sample's density in parts 1–2 dx thick), which is D122's question, not an ejection. Space: output 47 GB
   (D124's 3.0 GB joined since D123; D125 adds 20 MB; nothing deleted while D124 runs).
+- **D126, the spray cleanup's isolation gate is the MPM's own decoupling test (D125's P1; pre-registered 2026-10-07
+  14:58 CDT, before the launch; code: `config.spray_gate` / `--spray_gate {knn,grid}` (A/B; `knn` = the kNN-ratio ramp,
+  the code as it was bit for bit), `losses/volumetric.grid_isolation_gate` (the support-gate kernel's 3³-cell count
+  through `mpm/step.gate_omega` exactly as `traj._bond_args` calls it, `ncount <= 1` = `k_frag_step`'s per-step
+  criterion, OR the runner's commit-time `run/state.fragment_mask`; binary; no constant: `dt_iso_lo` / `dt_iso_hi`
+  are unused under `grid`), `Objective.spray_gate` (the one place for the six reads of the gate: the window-start gate
+  the term is frozen on, the selection merit's form at the state, the `xu_spray` baseline's, the `merit_w1_gap`
+  record), `--w_dt` exposed (the config's weight, 0 = the cleanup off: the gate's limit); server `repo_r104` (HEAD +
+  this and D127; `tmp/d126_tests.log`); `tmp/d126.sh`, `output/gpu/d126`).** Why: D125 (3b): the kNN gate (1.2–1.8 ×
+  the median 8th-neighbour distance) is open on stretched material the grid still couples: 0.3–0.6 on the particles
+  about to separate while still in the body, on 64–77 % of the outer layer, on 10 % of all particles; the cleanup is
+  then the largest pull on 43–83 % of the stream population (3–7 × the layer's mean at the peak, 5–11 × at window 6)
+  and points along the stream at the target, not at the body. The simulator's own test of decoupling, the one the
+  material bonds act on, flagged 0 particles in 7 runs × 41 frames: under it the cleanup acts on nothing of the
+  stream and on exactly what it was written for (true strays: SF's dragon strays, the 40k beast ejections). Runs
+  (`tmp/run12.sh` on repo_r104 = D105's recipe, `--layer_relief --lambda_ema 1` = D120's state, seed 97; bunny and
+  dragon 300k; one chain per GPU, D124's four runs finished first): (a) `--spray_gate grid`, the render arm LG and the
+  twin PG (`--render_weight_scale 0`); (d) the twin PW with `--w_dt 0`, the gate's limit. Read against D120 LE / PE
+  (the same recipe on repo_r100): `runeval3.sh` (t3_/e3_/a_/m_/o_), the end discs (pend_, bands at r = 3 through
+  `d122_bands.py` beside D105's and D120's), `d120_apart.py`, D125's `d125_classify.py` (R 1.5, raws ≤ 480) →
+  `d125_split.py` at raws 108–156, 240, 384 → `d125_fate.py`, `early_gauss.py` on the e3 logs, `d118_rows.py`, the run
+  log's `[gates]` line (G4_ejection) and its "fragments" count. Baselines read before any D126 frame existed (D125's
+  classify rows; the 1.5–3-pitch columns summed per kept frame, raws 108–240 = windows 3–6): bunny LE max 3035 / mean
+  2076, PE 2398 / 1900; dragon LE 7009 / 5676, PE 3609 / 2722 (D105 LV 3283 / 2295, dragon 8846 / 7325); the > 3-pitch
+  rest bunny LE 1555 / 996, PE 1375 / 954, dragon LE 2271 / 1693, PE 675 / 383; apart at window 10 (raws 372–396) bunny
+  377–424 / 424–449, dragon 3264–3606 / 3340–3568; the ≥ 8-pitch-from-target bin at the peak 2992 / 2986 (bunny),
+  3774 / 3754 (dragon); e3 apart discs in the first 10 % (max) bunny 9158 / 8126, dragon 6254 / 5891. Criteria (P1):
+  (1) the 1.5–3-pitch apart count in windows 3–6 (max and mean over raws 108–240) down ≥ 30 % against D120's same arm
+  in BOTH arms; (2) the ≥ 8-pitch transit bin at the peak within ± 20 % of D120's and the late thin-part population at
+  window 10 within ± 25 %; (3) the end within the seed spread (silhouette IoU ± 0.002, thin uncovered ± 1 point,
+  display and yardstick ± 15 %, relief at 5.4 pitches ± 0.03, windows ± 20 %); (4) no stray-gate failure (G4_ejection
+  PASS, fragments 0 at every window); (5) the e3 apart discs in the first 10 % down in proportion to (1). Prediction
+  (D125's P1): the stream's spray pull is gone, so (1) falls 30–50 % in both arms; the far tail (> 3 pitches, the
+  transport's) and the late population change little; (5) in proportion; the end unchanged (the spray's gradient is
+  zero on arrived particles, the distance field flat inside the target); PW (w_dt 0) equals PG within the seed spread
+  (the grid gate is empty at 300k whenever the fragment count is 0: the only difference is the cleanup on true
+  strays, none here), so the `fragments` count in LG / PG's logs is the direct check that the gate stays empty. If
+  (1) does NOT fall, the spray's position pull on the stream was not followed by the control and the stream is the
+  transport's alone: the gate change is then neutral (kept for the two constants it removes) and the stream becomes
+  the transport definition's question. Risk: ejected particles at 1.5–6 pitches that still share cells with the body
+  (the 40k beast, SF's dragon strays under knn at gate 1.00) are left to the transport until they are alone in their
+  3³ cells (≈ 6 pitches at 300k, 2 at 40k): the 40k gallery (V / W) is read before adoption; a stretched piece that the
+  commit mask flags is bonded AND pulled, as before. Simplification it opens (not done here): under `grid` the gate
+  and the bonds share one test, so `dt_iso_lo/hi` go, and the per-step flag's frozen copy at the window start is the
+  one the cleanup reads.
+- **D127, the render terms read only the body's connected exterior (D125's P2; pre-registered 2026-10-07 14:58 CDT,
+  before the launch; code: `config.render_body_only` / `--render_body_only` (A/B; off = the old path), `render/exterior.
+  connected_sets` (the display's rule moved from `scripts/probes/settled/surface_layer_probe.py`, which now imports
+  it: each disc linked to those of its 8 nearest within 2.2 lattice pitches, scipy components, the e3 records' `apart`),
+  `Tracked.keep` / `Tracked.body_only(h)` (p0, n0, slope and the particle lists sliced to the largest set: the kept
+  discs read exactly as before, the dropped ones contribute nothing), applied in `Objective.render_terms` once per
+  search of the window's discs (`ext_builds`, not per iteration), the dropped count recorded per window as `ext_apart`;
+  the target's discs unchanged; tests: `test_exterior_discs.py` (with a detached cluster the kept discs are the
+  ball's own to 1e-9 and the render terms equal the ball-alone terms; nothing detached: nothing dropped, the old terms
+  bit for bit; default off), `test_w1_cleanup.py` (D126: a particle with no grid neighbour is 1 under `grid`, a pair
+  stretched to 0.8 cells but sharing cells and nodes is 0, the body 0; `knn` is `isolation_gate` bit for bit, with and
+  without `local`; default `knn`); the suite on repo_r104 with both flags off; server repo_r104, `output/gpu/d126`).**
+  Why: D125 (ii-b): the render arm's excess over its twin (bunny +690, dragon +4260 at the peak) sits within 2
+  pitches of the TARGET: flakes of 1–100 particles that reach the target surface ahead of the body through the
+  per-particle stress control, because they earn silhouette and shading credit where the body has not arrived; once
+  there no physics term acts on them (spray 0, near band 0, transport 1 ×) and the render's control gradient on the
+  particles already apart is 1.8–2.7 × the layer's mean. Under the rule a disc set apart from the body's largest
+  connected set carries no term, so a flake earns nothing and the gradient has no reason to send one. Runs (as
+  D126's chains): (b) `--render_body_only`, the render arm LB on bunny and dragon (the twin is unaffected by
+  construction: no render term); (c) both flags, LGB (its twin is D126's PG). Read as D126's, plus `ext_apart` per
+  window from the JSON (the discs the rule dropped at each search). Criteria (P2): (1) the render arm's excess over its
+  twin within 2 pitches of the target at the peak (D120: bunny 923 against PE's 231 at raw 132, dragon 4520 against 256
+  at raw 156; `d125_split.py`'s < 2 bin) down to the twin's level: LB's bin ≤ 1.2 × PE's at the same raw (reading also
+  raws 120–156); (2) LB's e3 apart discs in the first 10 % (max) ≤ 1.2 × the twin's (bunny 8126, dragon 5891); (3) the
+  end display / yardstick lead over the twin unchanged within spread (D120: yardstick silhouette −32 % / −55 %,
+  display front −16 % / −28 %; within 10 points); (4) thin uncovered at the end ≤ D120 LE's + 1 point (bunny 3.7 →
+  ≤ 4.7 %, dragon 2.8 → ≤ 3.8 %); (5) windows within 20 % of D120 LE's (65 / 112). (both, LGB) P2's (1)–(2) and P1's (1)
+  together: the < 2-pitch bin at the twin's level and the 1.5–3-pitch count down ≥ 30 %, i.e. additive. Prediction:
+  (1) and (2) hold (the only way a flake earns credit is through the term; without it the flake's control gradient is
+  the physics's alone, which does not send it); the end lead unchanged (no apart disc sets at the end beyond the
+  sample's own: the e3 apart at the end ≈ the target row's); thin unchanged or + 0.5 point; windows within 10 %;
+  `ext_apart` in the thousands in windows 1–5 (the flakes and the stretched body's own pieces, D125 (5): 4554–9431 at
+  the peak) and down to the sample's own level after window 10. Risk (D125's): an ear or horn tip whose early discs are
+  not yet linked to the body's at the lattice pitch loses the render's pull for a few windows: thin uncovered up and
+  more windows; if so the rule's radius (the display's 2.2 h) is not tuned — the definition would move to sets linked
+  to the body through the particles, a different change. Space: D124's four frames12 (3.0 GB, after their eval3 and
+  probe lines) and D120's twin frames12 (2.1 GB; readings in the logs and D125's files) removed before the launch
+  (cleanup.log), output 47 → 42 GB; each new run's frames12 is removed after its own evaluation and probes.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

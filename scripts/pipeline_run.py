@@ -64,6 +64,14 @@ def parse_args():
                          "3 = D59's field, the code as it was")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
+    ap.add_argument("--spray_gate", default="knn", choices=["knn", "grid"],
+                    help="D126 A/B: the spray cleanup's isolation gate: knn, the kNN-ratio ramp (the code as it was); grid, "
+                         "the MPM's own decoupling test (k_frag_step / the commit's fragment mask), no constant")
+    ap.add_argument("--render_body_only", action="store_true",
+                    help="D127 A/B: the render terms read only the discs of the body's largest connected set (the display's "
+                         "rule), decided at each search of the window's discs; discs apart from the body carry no term")
+    ap.add_argument("--w_dt", type=float, default=None,
+                    help="the spray cleanup's weight (config 0.2); 0 = the cleanup off, the limit of --spray_gate grid")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
@@ -192,6 +200,8 @@ def main():
                               lambda_ema=cfg0.lambda_ema if args.lambda_ema is None else args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
+                              spray_gate=args.spray_gate, render_body_only=args.render_body_only,
+                              w_dt=cfg0.w_dt if args.w_dt is None else args.w_dt,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,

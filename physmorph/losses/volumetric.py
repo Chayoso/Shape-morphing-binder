@@ -99,6 +99,38 @@ def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
         return torch.clamp((ratio_t - lo) / max(hi - lo, 1e-6), 0.0, 1.0).to(x.dtype)
 
 
+def grid_isolation_gate(x: torch.Tensor, prm) -> torch.Tensor:
+    """D126 (spray_gate "grid"): the W1 term's gate is the MPM's own decoupling test, the one the material bonds
+    act on (mpm/kernels.k_frag_step): a particle is isolated iff no other particle lies in the 3^3 cells around
+    its own (the support-gate kernel's count, mpm/step.gate_omega: the grid cannot act on it) or its cell is in a
+    connected piece of the dilated cell occupancy other than the largest (the runner's commit-time test,
+    pipeline/run/state.fragment_mask). 1 on the isolated, 0 elsewhere; no constant. Stretched material that still
+    shares grid nodes with the body is left to the transport (D125: the kNN ratio opened on 64-77 % of the outer
+    layer while the stream was still coupled, and the cleanup then pulled along it)."""
+    import warp as wp
+    from ..mpm.step import gate_omega
+    from ..pipeline.run.state import fragment_mask
+    with torch.no_grad():
+        xf = x.detach().float().contiguous()
+        dev = wp.device_from_torch(x.device)
+        omega = wp.zeros(len(xf), dtype=wp.float32, device=dev)
+        ncount = wp.zeros(len(xf), dtype=wp.float32, device=dev)
+        cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=dev)
+        gate_omega(wp.from_torch(xf, dtype=wp.vec3), prm, 1.0, omega, ncount, cnt)   # as traj._bond_args calls it
+        wp.synchronize_device(dev)
+        alone = wp.to_torch(ncount) <= 1.0                                          # k_frag_step's per-step criterion
+        return (alone | fragment_mask(xf, prm)).to(x.dtype)
+
+
+def spray_gate(x: torch.Tensor, kind: str, lo: float, hi: float, local: torch.Tensor | None = None,
+               prm=None) -> torch.Tensor:
+    """The spray cleanup's isolation gate at a state by the config's choice: "knn", isolation_gate's ramp (the code
+    as it was, bit for bit); "grid", grid_isolation_gate (D126; lo, hi and local unused)."""
+    if kind == "grid":
+        return grid_isolation_gate(x, prm)
+    return isolation_gate(x, lo, hi, local=local)
+
+
 def nn_band_assign(x0: torch.Tensor, target_knn: gpu.KNN, spacing: float,
                    berth_k: float, far_k: float):
     """Frozen per-window assignment of the near-band cleanup: each particle's nearest
