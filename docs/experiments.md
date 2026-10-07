@@ -1466,6 +1466,66 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the uniform run read through a finer field: 0.60–0.62 at 5.4 pitches against the base field's 0.55–0.57 and the
   sample's 0.62–0.64 through that field; the relief is in the uniform body, and the display field's radius (3
   pitches) is what hides it (D104's cap is the field's). Not adopted; the flag stays at 1 by default.
+- **D123, the exterior field's kernel radius: does it hide the relief the particles carry, and what is the smallest
+  radius that still closes the surface (a measurement first; pre-registered 2026-10-07 05:16 CDT, before any probe is
+  run; scratch copies of the probes under the server's `tmp/d123/`, the repo untouched; `output/gpu/d123`).** D122's
+  last finding: the same uniform 300k run read through a field at 0.845 of the base pitch carries 0.60–0.62 of the
+  mesh's relief at 5.4 pitches against 0.55–0.57 through the base field, and the 300k sample's own cap through the
+  finer field is 0.62–0.67: the relief is in the particles, the field (`physmorph/render/exterior.py`,
+  `ZhuBridson(x, pitch, radius=3., offset=.8)`, Zhu and Bridson's mean within 3 pitches, offset 0.8) blurs it. The
+  same field builds the loss's exterior (`pipeline/target.py`, `render_loss.py`), so the render term cannot ask the
+  physics for relief below what the field resolves. The radius 3 was set in D59 to close the gaps between the
+  particles (R = 2 "bumpy at the particles' scale", pockets and opposed discs on the end frames) before the minimum
+  spacing (D70, 0.9 pitch) evened the density under the surface; it may be larger than the particles now need.
+  The question: at which radius does the field of today's particles still close, and how much of the relief does
+  each radius below 3 give back. No pipeline run in this stage; the existing end frames and samples.
+  The sweep: r ∈ {3.0, 2.5, 2.25, 2.0, 1.75, 1.5} pitches, on D105's end frames (bunny and dragon, LV and PV, the
+  last kept frame of `output/gpu/d105/*_frames12.npz`) and on the two 300k target samples; two offset rules, the
+  offset fixed at 0.8 pitches (as now) and the offset in proportion, 0.8 · r / 3; the rule kept is the one that
+  holds the display's mean offset from the mesh where r = 3 has it (the radius alone must not move the surface).
+  Per radius, with the existing probes copied to `tmp/d123/` and given a radius and an offset argument
+  (`exterior_offset_probe.py`, `surface_layer_probe.py` in `measure` mode against the independent sample
+  `d90/{mesh}_ind300k.npz`, `d122_bands.py` = `ag2_bands.py` on the saved discs, `child_detail_morph.py +fit=0` for
+  the tail video, `d116_flicker.py`):
+  (1) closure: the display's holes (front and far-side cameras of the e3 drawing: pixels not solid inside the
+  solid region's filled outline, `binary_fill_holes` minus the solid region — a judgement call, the e3 probe has no
+  hole count), the connected sets of discs and the discs apart from the largest set (e3), the discs whose normal
+  opposes their neighbours' (`opposed`), and the lattice nodes inside the body at r = 3 (field < 0 there) that have no
+  particle within r (the field is undefined there: an opening the smaller kernel makes);
+  (2) the relief bands (family B) at 2.7 / 5.4 / 10.8 base pitches, the run's end frame and the sample's cap at the
+  same radius (`d122_bands.py` with `aref` = the base pitch, so the bands are D105's);
+  (3) the roughness (e3 field-normal angle rms) and the mean offset from the mesh (`exterior_offset_probe`);
+  (4) the display against the independent sample, front / crop / back 1 − IoU, the run and the sample both drawn at
+  that radius (like for like: the reference is drawn at the same radius);
+  (5) on D105 LV's tail (bunny, kept frames 163–233, `d116/tail_bunny_LV_orig.npz`), the base-display flicker:
+  the frames drawn by `child_detail_morph.py +fit=0` with the field at r, then `d116_flicker.py` (D116's value at
+  r = 3: ALT 0.000615, ALT / DRIFT 1.2–1.4).
+  The choice: the smallest r that keeps the surface closed on all four end frames and both samples — holes 0 on
+  front and back, sets and apart no more than at r = 3 (the samples have a few sets apart at r = 3: D59's sheets in
+  the mouth and between the horns; those may shrink and do not count against a radius), opposed discs and empty
+  nodes within what r = 3 has — and the relief it gives back. The rule rather than the number: the closing radius
+  expressed in the measured local spacing, the 8th-neighbour distance's median and 95th percentile over the
+  outer layer's particles (and over all particles, for the record), so that the definition reads "the smallest
+  radius that closes the sample's surface" and the constant 3 is replaced by a multiple of a spacing the sample
+  itself gives; both the number and the rule are reported, and the rule is checked for the bunny and the dragon
+  alike (one multiple for both, or it is not a rule).
+  Prediction: closure holds down to about 2.0–2.25 pitches at the 0.9-pitch minimum spacing (the surface
+  particles' 8th-neighbour distance is about 1.4 pitches, so a kernel of 2 pitches still averages 8–12 particles
+  at a surface point) and opens below (1.5: pockets and opposed discs as D59 found at R = 2 before the spacing
+  rule); the relief at 5.4 pitches rises from 0.55 to 0.60–0.64 and at 2.7 from 0.28 to 0.35–0.40 at the closing
+  radius (the fine field of D122 gave 0.60–0.62 at an effective radius of 2.5 pitches); the roughness rises at most
+  1.3 × (3.5° → ≤ 4.5° bunny, 6.1° → ≤ 8° dragon); the flicker at most 1.3 × (ALT ≤ 0.0008); the fixed offset of 0.8
+  moves the surface outward as r falls (the mean of fewer, nearer particles sits nearer the surface point), so the
+  offset in proportion is the rule that keeps the mean offset, if either does.
+  Second stage, only if the measurement passes (closure at some r < 3 with the relief up by at least 0.03 at 5.4
+  pitches): a 300k run pair, render arm and twin, bunny then dragon, D105's recipe (`--support_form proximity
+  --loss_follows_n --layer_relief`, seed 97), with the LOSS's exterior field at the new radius too, through one A/B
+  flag `--exterior_radius` (default 3 = the old path bit for bit; the offset follows the rule the measurement
+  chose; no other constant). Criteria: the relief bands up by the amount the measurement gives (at 5.4 pitches,
+  within 0.02 of the end frame read at that radius); the render arm's lead over its twin on the yardstick and the
+  display held (D105's margins within D102's seed spread); momentum and angular momentum not worse than D105's
+  same arm; thin uncovered within +1 point, roughness ≤ 1.3 ×, flicker ≤ 1.3 ×; wall time ≤ 1.2 × D105's. One card
+  per run, ≥ 24 GB free, nothing else disturbed. The flag's old path is checked by the test suite before the runs.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
