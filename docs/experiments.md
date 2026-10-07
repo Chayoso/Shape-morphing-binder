@@ -1150,6 +1150,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   dragon LV / PV: 13053 / 4245 at the peak (windows 3.6–4.2), 3190 / 3068 at window 10, 359 / 489 at window 20. The
   render arm's excess over its twin is the render's part: dragon 3.1x at the peak, bunny 1.4x; the twin's count is the
   floor (b) can reach, so (b) reads as LV's excess over the twin at most half D105's.
+  **Result (runs 22:27–23:34 CDT 2026-10-06, read 01:40 2026-10-07; `output/gpu/d120`: the runs, `t3_/e3_/m_/a_/o_`,
+  `pend_*`, `bands_{bunny,dragon}.log`, `apart_*.log`, `rows_*.txt`): (a) met exactly, (d) met, (b)/(c) met on the
+  dragon's display and missed by a few points elsewhere; the render's part of the early ejection falls by 43–46 % and
+  the end is D105's. Adoption is the user's call (recorded below).** (a) The share is 0.33 at every window of both
+  render arms (D105: 0.46–0.70 in windows 3–11). (b) Particles apart from the body at the peak (windows 3–4), render
+  arm / twin / the render's excess: bunny D105 5305 / 3745 / 1560, D120 4590 / 3744 / 846 (54 % of D105's); dragon D105
+  13053 / 4245 / 8808, D120 9234 / 4245 / 4989 (57 %); at window 10 unchanged (bunny 377 / 424, dragon 3264 / 3340; D105
+  322 / 392, 3190 / 3068). (c) Display apart discs in the first 10 % (max), render arm / twin / excess: bunny D105 9707 /
+  8116 / 1591, D120 9158 / 8126 / 1032 (65 %); dragon D105 10758 / 5779 / 4979, D120 6254 / 5891 / 363 (7 %); folded
+  discs dragon D105 22344 / 10081, D120 12498 / 9779 (the excess 22 % of D105's); bunny folds 8483 / 7503 (D105 9371 /
+  7534). (d) End values (as D119's table; twins PE = D105's PV within spread, as the definition implies):
+
+  | | sil IoU | chamfer | thin | yardstick sil / shade | display front / crop | roughness | relief 5.4 | kin | com / ang. largest / rot | windows / min |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | bunny LV / PV (D105) | 0.9878 / 0.9869 | 0.0550 / 0.0550 | 3.5 / 3.3 % | 6.8e-4 4.8e-4 / 1.08e-3 5.9e-4 | 0.0084 0.0181 / 0.0104 0.0234 | 3.5 / 3.4° | 0.55 / 0.57 | 5.2e-6 / 4.1e-6 | 0.0004 0.0187 0.0039° / 0.0005 0.0252 0.0033° | 72 25.5 / 79 27.0 |
+  | bunny LE / PE (D120) | 0.9870 / 0.9875 | 0.0550 / 0.0549 | 3.7 / 3.8 % | 7.1e-4 4.9e-4 / 1.05e-3 5.8e-4 | 0.0082 0.0175 / 0.0098 0.0224 | 3.3 / 3.3° | 0.54 / 0.57 | 8.2e-6 / 5.8e-6 | 0.0004 0.0238 0.0041° / 0.0005 0.0258 0.0033° | 65 23.7 / 78 (53, shared GPU) |
+  | dragon LV / PV (D105) | 0.9875 / 0.9875 | 0.0543 / 0.0544 | 3.2 / 3.4 % | 5.2e-4 4.5e-4 / 1.10e-3 6.1e-4 | 0.0092 0.0226 / 0.0126 0.0246 | 6.1 / 6.0° | 0.56 / 0.57 | 2.0e-5 / 2.2e-5 | 0.0003 0.0144 0.0118° / 0.0003 0.0133 0.0109° | 101 43.0 / 106 44.2 |
+  | dragon LE / PE (D120) | 0.9867 / 0.9871 | 0.0543 / 0.0543 | 2.8 / 3.5 % | 5.3e-4 4.4e-4 / 1.17e-3 6.4e-4 | 0.0089 0.0200 / 0.0125 0.0250 | 6.5 / 6.0° | 0.57 / 0.58 | 1.9e-5 / 2.5e-5 | 0.0004 0.0124 0.0113° / 0.0003 0.0118 0.0111° | 112 46.6 / 106 (66, shared GPU) |
+
+  The render arm's lead over its twin holds (yardstick silhouette bunny −32 %, dragon −55 %; D105 −37 %, −53 %; display
+  front −16 % / −28 % against −19 % / −27 %); momentum as D105's (the bunny's end kinetic energy above its twin's in
+  both, 8.2e-6 against 5.8e-6 here, 5.2e-6 against 4.1e-6 in D105; angular momentum and rotation within spread); the
+  relief at 5.4 pitches and the roughness within spread; the windows 65 / 112 against 72 / 101. (e) The dragon's side
+  view: not rendered (the displays' counts stand in). What it shows: the moving average held the render at 0.46–0.70
+  of the step for ten windows and that part of the early ejection is gone with it; the half that remains follows from
+  the render gradient's concentration on protruding particles (D95: the top 5 % carry 98–99 %) through the per-particle
+  stress control, which the weight does not touch (D109's grid control was refuted; the definition that removes it is
+  still open). The change removes a constant (the EMA) and leaves the end unchanged; the flag stays an A/B flag until
+  the user decides, then the 40k gallery (V/W) before it becomes the default.
 - **D121, the render gradient's reach and effect (a visualisation and a counterfactual; pre-registered 2026-10-06
   23:10 CDT, before the launch; the user: a figure that proves the render gradient reaches the physics of the whole
   body, not only its surface; server scratch copy `repo_r100g` (= repo_r100 = HEAD f002693 plus the dump and
