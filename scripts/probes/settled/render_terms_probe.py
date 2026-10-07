@@ -31,7 +31,9 @@ tgt = torch.as_tensor(np.asarray(np.load(ref)["tgt"] if ref else z["tgt"], np.fl
 set_kernel("cic")
 views = make_views(cfg.render_views, cfg.render_elevs)
 extent = float(tgt.abs().max()) * 1.25
-sp_t = gpu.median_kth_spacing(tgt, 8, subsample=20000)
+# pitch=WU (D122): the field's pitch and the shading blur at that pitch (a reference that is a surface-dense sample has no one median)
+pitch_opt = next((s[6:] for s in opts if s.startswith("pitch=")), None)
+sp_t = gpu.median_kth_spacing(tgt, 8, subsample=20000) if pitch_opt is None else float(pitch_opt) / .708
 pdx = 2. * extent / res
 gmin = torch.full((3,), -1.5 * extent, device=dev)
 pdims = (int(np.ceil(3. * extent / pdx)),) * 3

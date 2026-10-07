@@ -1344,6 +1344,128 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   done: a graded band (the density falling from F at the surface to 1 at the band's depth, which would soften the
   inner edge but add a profile), a per-point berth for the near band (8), mass-weighted stability terms, a
   per-particle field radius for the exterior (6, refused: the loss would change).
+  **Result (runs 01:28–04:10 CDT, read 04:30; `output/gpu/d122`: the runs, `t3_/e3_/a_/m_/o_` logs, `mw_*` (mass-weighted
+  momentum), `bands_*.log` (base field), `bands_fine_*.log` (field at the band's pitch), `bands40k_*.log`, `rows_*.log`,
+  `twin_*.{log,png}`, `mom_*.log`, `apart_*`, `thin_*`, `layer_*`, `t3f_/e3f_` (the like-for-like reference,
+  `*_ind300k_F2.npz`); `tmp/d122*.{sh,py}`): refuted on (a) and (b); the surface-dense body carries LESS of the
+  mesh's relief at every band, at 40k and at 300k, in both arms, read through the base field or through a field at
+  the band's own pitch; the code stays as the A/B flag (default 1, the old path bit for bit, the control reproduced
+  D105).** Before any reading, one fix after the pre-registration: the first 300k attempt (bunny L2/P2 complete,
+  dragon L2 stopped by me at window 65) lost its archives to the post-run `surface_roughness`, whose outer set with
+  the global median took the whole interior of a two-density sample (cusolver's batched eigh refused it);
+  `surface.py` now reads the outer sets and reaches at each particle's own spacing (w), and `pipeline_run.py` logs
+  a failed measurement instead of dying before the archive is saved (`cleanup.log`, 02:15). The sampler at 300k:
+  source band 20.8 % of the volume, 34.4 % of the particles, pitch 0.845 of the base; bunny target 30.4 % / 46.6 %,
+  0.867; dragon target 44.3 % / 61.4 %, 0.897 (the fill's lattice pitch 0.0537–0.0540 wu; the probes' pitch
+  0.708 × d8 = 0.0489 / 0.0482, so the band is 3.1 of those and 2.2 of the pipeline's 8th-neighbour spacings). The
+  density-normalised base spacing came out within 0.4 % of F = 1's (bunny 0.0682 against 0.0679 wu), the loss
+  lattice and the near band with it (what (6) and (8) promised). The runs (committed windows, minutes): bunny L2 75, 28.5;
+  P2 76, 29.0; L1 67, 24.3; dragon L2 110, 49.7; P2 105, 50.2 (D105: LV 72, 25.5; PV 79, 27.0; dragon 101, 43.0; 106, 44.2).
+  The relief (family B kept share at 2.7 / 5.4 / 10.8 base pitches, the end frame; `bands_*`, `bands_fine_*`):
+
+  | | base field (D105's discs) | field at the band's pitch (0.845 base) | sample's cap, fine field |
+  |---|---|---|---|
+  | bunny PV / LV (D105) | 0.29 / 0.57 / 0.87 · 0.28 / 0.55 / 0.84 | 0.38 / 0.62 / 0.89 · 0.38 / 0.60 / 0.87 | F = 1: 0.36 / 0.66 / 0.86 (base field) |
+  | bunny P2 / L2 | 0.22 / 0.49 / 0.81 · 0.21 / 0.48 / 0.77 | 0.31 / 0.55 / 0.84 · 0.30 / 0.55 / 0.81 | F = 2: 0.40 / 0.69 / 0.89 |
+  | bunny L1 (control) | 0.29 / 0.55 / 0.84 | — | — |
+  | dragon PV / LV | 0.27 / 0.57 / 0.87 · 0.24 / 0.56 / 0.85 | 0.37 / 0.64 / 0.89 · 0.35 / 0.62 / 0.88 | F = 1: 0.27 / 0.60 / 0.87 (base field) |
+  | dragon P2 / L2 | 0.24 / 0.53 / 0.85 · 0.19 / 0.48 / 0.83 | 0.34 / 0.59 / 0.87 · 0.27 / 0.55 / 0.85 | F = 2: 0.34 / 0.67 / 0.90 |
+
+  End values as D119's table (yardstick = t3 exterior silhouette / shading against the uniform independent sample;
+  display = e3 front 1 − IoU; roughness = e3 angle rms; relief = family B at 5.4 pitches, base field; thin = on the
+  base thin set; kin = end mean |v|²; COM = the mass-weighted centre of mass's largest displacement, pitches; ang. =
+  the mass-weighted net-over-gross angular move, largest):
+
+  | | sil IoU | chamfer | thin | yardstick | display front | roughness | relief 5.4 | mean offset | kin | COM | ang. largest | min |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | bunny D105 LV / PV | 0.9878 / 0.9869 | 0.0550 / 0.0550 | 3.5 / 3.3 % | 6.8e-4 / 1.08e-3 | 0.0084 / 0.0104 | 3.5 / 3.4° | 0.55 / 0.57 | 0.290 / 0.285 | 5.2e-6 / 4.1e-6 | 0.0004 / 0.0005 | 0.0187 / 0.0252 | 25.5 / 27.0 |
+  | bunny D122 L2 / P2 | 0.9885 / 0.9882 | 0.0552 / 0.0552 | 4.4 / 4.1 % | 1.41e-3 / 1.65e-3 | 0.0115 / 0.0123 | 2.8 / 3.0° | 0.48 / 0.49 | 0.202 / 0.230 | 2.8e-6 / 3.6e-6 | 0.0007 / 0.0011 | 0.0162 / 0.0228 | 28.5 / 29.0 |
+  | bunny D122 L1 (control) | 0.9873 | 0.0550 | 3.2 % | 6.7e-4 | 0.0082 | 3.4° | 0.55 | 0.29 | 5.5e-6 | 0.0004 | 0.0193 | 24.3 |
+  | dragon D105 LV / PV | 0.9875 / 0.9875 | 0.0543 / 0.0544 | 3.2 / 3.4 % | 5.2e-4 / 1.10e-3 | 0.0092 / 0.0126 | 6.1 / 6.0° | 0.56 / 0.57 | 0.674 / 0.698 | 2.0e-5 / 2.2e-5 | 0.0003 / 0.0003 | 0.0144 / 0.0133 | 43.0 / 44.2 |
+  | dragon D122 L2 / P2 | 0.9886 / 0.9884 | 0.0550 / 0.0553 | 3.9 / 3.7 % | 9.4e-4 / 1.28e-3 | 0.0114 / 0.0128 | 5.9 / 6.0° | 0.48 / 0.53 | 0.643 / 0.690 | 1.3e-5 / 1.3e-5 | 0.0047 / 0.0036 | 0.0168 / 0.0128 | 49.7 / 50.2 |
+
+  (a) is not met anywhere: −0.07 / −0.07 / −0.07 (bunny L2 against LV), −0.07 / −0.08 / −0.06 (P2 against PV),
+  −0.05 / −0.08 / −0.02 and −0.03 / −0.04 / −0.02 on the dragon, where +0.08 / +0.05 was asked; the same through
+  the finer field (−0.05 to −0.08 at 2.7 and 5.4). The 40k smoke had said so first (bunny render arm, base field:
+  L1 0.18 / 0.55 / 0.86, L2 0.16 / 0.50 / 0.84, L4 0.12 / 0.41 / 0.79; at matched windows 12–30 the F runs are
+  0.05 (F = 2) and 0.11 (F = 4) below L1 at 5.4 pitches, so it is not the earlier stop), and F = 4 was not run at
+  300k by the plan. What the denser band does show: the SAMPLE's own exterior sits nearer the mesh (bunny 40k:
+  +0.222 pitches at F = 1, +0.157 at F = 2, +0.107 at F = 4 through the base field; 300k through the fine field
+  +0.084 at F = 2), and so does the run's (bunny L2 +0.202 against LV +0.290, P2 +0.230 against PV +0.285; dragon
+  L2 +0.643 against +0.674, P2 +0.690 against +0.698), and the sample's cap through the fine field is 0.03–0.07
+  higher at 5.4 pitches than the uniform sample's through the base field — but the runs do not take it: the F
+  run's surface is smoother than the mesh at 2.7–10.8 pitches by more than the uniform run's. The field, not the
+  sample, sets the cap (D104 generalised): the uniform F = 1 sample read through the finer field gives 0.64–0.67 at
+  5.4 pitches (40k) where the base field gives 0.58, and the uniform RUN read through the finer field 0.59–0.62
+  (300k 0.60–0.62) — the uniform body already holds that relief, the base-pitch field hides it; and F = 2's and F =
+  4's samples through the same fine field give no more (0.63, 0.63 at 40k).
+  (b) Against the uniform independent sample (the pre-registered reading, end / mean over the common range after
+  window 10): the yardstick's exterior silhouette bunny L2 1.41e-3 / 1.43e-3 against LV 6.8e-4 / 8.1e-4 (+109 / +76 %),
+  shading 6.4e-4 against 4.8e-4 (+33 %); dragon L2 9.4e-4 against 5.2e-4 (+80 %), 5.6e-4 against 4.5e-4 (+26 %);
+  the display's front 1 − IoU bunny 0.0115 against 0.0084 (+36 %), dragon 0.0114 against 0.0092 (+23 %), the crop
+  bunny +34 %, dragon −8 %. The twins: bunny P2 1.65e-3 against PV 1.08e-3 (+53 %), dragon +16 %; display front
+  +17 % and +2 %. Not met, far beyond D102's seed spread. The render arm against its twin: bunny L2 / P2 yardstick
+  silhouette −14 % (end) / −23 % (mean), shading −8 / −16 %, display front −6 %, crop +6 %, back −7 %; dragon −26 /
+  −63 %, −18 / −44 %, front −12 %, crop −16 %, back −17 % (D105's margins: bunny −37 / −45 %, −19 / −23 %, −19 to
+  −27 %; dragon −53 / −63 %, −27 / −38 %, −27 to −34 %): the lead is kept on the dragon's course and halved at the
+  bunny's end. Not by D105's margins. What the uniform reference does here: the two samples' exteriors differ by
+  construction (the F = 2 target against the uniform reference, front / crop / back 1 − IoU 0.0120 / 0.0255 /
+  0.0120 where two uniform samples differ by 0.0093 / 0.0206 / 0.0096: the finer fill puts the F sample's surface
+  0.065 pitches nearer the mesh), and the silhouette term weighs a deficit inside the reference twice an excess
+  outside it; D105's runs stand outside the reference (+0.29 against the sample's +0.22), the F runs inside it
+  (+0.20). Read against an independent F = 2 sample of the mesh (seed 99 in the target's frame, `d122_ind.py`;
+  both drawn at the base pitch; `t3f_/e3f_`, the end frame): bunny L2's yardstick 2.9e-4 / 2.8e-4, P2's 8.9e-4 /
+  4.3e-4; the display front / crop / back 1 − IoU L2 0.0063 / 0.0143 / 0.0053 at its own target's floor against
+  that reference (0.0066 / 0.0142 / 0.0060), P2 0.0103 / 0.0239 / 0.0091; dragon L2 6.9e-4 / 3.8e-4, P2 1.34e-3 /
+  5.8e-4, display L2 0.0070 / 0.0212 / 0.0072 (floor 0.0069 / 0.0200 / 0.0067), P2 0.0116 / 0.0258 / 0.0133. Like for
+  like the render arm leads its twin by D105's margins or more (bunny silhouette −68 %, shading −33 %, display −39
+  to −42 %; dragon −49 %, −35 %, −18 to −46 %), and the F = 2 render arm ends at its floor where D105's LV ends
+  0.001–0.002 below its own (LV against the uniform reference 0.0084 / 0.0181 / 0.0084 at a floor of 0.0093 /
+  0.0206 / 0.0096): the pre-registered reading against the uniform sample measures the two samplings' different
+  offsets from the mesh more than the two bodies. Momentum, mass-weighted (`d122_momw.py`, the momentum probe with the
+  archive's w; the number-weighted probe and the in-run L_start read a two-population body's moving surface share
+  as a moving centroid, 0.4 pitches, and are not the physics' quantity here): the centre of mass's largest
+  displacement bunny L2 0.0007 pitches against LV 0.0004, path 0.0029 against 0.0004; dragon L2 0.0047 against
+  0.0003; the net-over-gross linear move 11–68 times D105's (bunny 3.6e-3 against 3.2e-4; dragon 8.4e-3 against
+  1.2e-4); the angular move bunny −13 % (largest) / −11 % (mean), dragon +17 / +20 %; the net rotation bunny 0.0028°
+  against 0.0039°, dragon 0.0115° against 0.0118°; the end kinetic energy −36 / −36 % (bunny L2 / dragon L2). Linear
+  momentum is worse by an order of magnitude (still 0.005 pitches of centre-of-mass motion), and the cause is in
+  the definition: the position updates below the grid (the minimum spacing's half-overlap each, the bonds, the
+  relaxation) move particles by equal displacements whatever their mass, which with two masses injects momentum.
+  (c) Thin uncovered on the base thin set (`d122_thin.py`; the runs' own thin sets are smaller and read 0.1–1.0 %,
+  not comparable): bunny L2 4.4 %, P2 4.1 % against LV 3.5, PV 3.3 (+0.9 / +0.8); dragon L2 3.9, P2 3.7 against 3.2,
+  3.4 (+0.7 / +0.3): within +1. Roughness (e3 angle rms, end): bunny 2.83 / 3.02° against 3.47 / 3.35°, dragon
+  5.85 / 6.03° against 6.14 / 6.00°: smoother, met. The early apart particles (`d122_apart.py`, windows 3–10, max):
+  bunny L2 3071 against LV 5305, P2 2681 against PV 3745 (met); dragon L2 11196 against 13053 (met), P2 4990
+  against PV 4245 (+18 %: not met for the twin). (d) Wall time 1.07–1.16 of D105's (met). (e) The F = 1 control on
+  repo_r101 (bunny L1): 0.9873 / 0.0550 / 3.2 % / 24.3 min, yardstick 6.7e-4 / 4.8e-4, display 0.0082 / 0.0177 /
+  0.0089, relief 0.29 / 0.55 / 0.84, momentum as LV's: D105 reproduced (met; the F = 1 path is the old code, the
+  remainders are the GPU's run-to-run noise).
+  What the surface-dense body is made of (`d122_layer.py`): at the end the bunny's outer layer is 99.2 % source-band
+  material (the band's own pitch, nearest-neighbour median 0.0441 wu against the uniform run's 0.0489-pitch layer),
+  the dragon's 85 % band and 15 % interior-origin material (its surface needs 61 % of the particles where the
+  sphere's band holds 34 %), with the two spacings interleaved (nearest-neighbour medians 0.0441 and 0.0553, the
+  layer's spread of it 0.10 against the bunny's 0.06).
+  Why the relief falls, what was tested and what is left. The relaxation's reference (its own operator on the feet
+  on the mesh) reads less relief on a denser layer: rms 0.1122 own spacings (= 0.103 base) at F = 2 against 0.1274
+  at F = 1 (40k), 0.0740 against 0.0885 (300k). One mechanism was tested at once on a server copy (`repo_r101b`,
+  D122b, the 40k bunny render arm `bunny40k_L2b`, 04:03): the relaxation's neighbourhood held at the BASE world
+  scale (its width 2 base spacings, 31 nearest = the base patch's count at the band's density) instead of the
+  particle's own — the relief did not come back at matched windows (0.15 / 0.47 / 0.83 at window 30 against L2's
+  0.16 / 0.47 / 0.81 and L1's 0.19 / 0.52 / 0.85) and reached L1's 0.54 at 5.4 pitches only after 96 windows (the run
+  no longer stopped: 102 windows, 17.5 min); refuted, the copy is not committed. Left as the open reading: the
+  transport's density at the loss cell is the same, the proximity's kernel finer, the layer's own operator finer;
+  the F run ends nearer the mesh and smoother than the mesh at 2.7–10.8 pitches, and its transport energy at the
+  end is 1.8–2.8 times the uniform run's (bunny 5.6e-5 against 2.3e-5, dragon 8.8e-5 against 5.0e-5; the 40k F = 4
+  run 22 times): with two rest volumes the body's rasterised density is uniform only where each population keeps
+  its own spacing, and where the two interleave (the dragon's layer; every band / interior boundary as the body
+  deforms) the transport sees a density error the shape does not have, and pushes. That is the finding to carry:
+  a two-density discretisation of one material costs the transport its uniform-density premise, and the
+  particle-count rules (the layer, the relaxation, u, the proximity) can be made local without making the body's
+  relief finer. The hypothesis — that the pitch of the positions is what caps the relief — is contradicted by
+  the uniform run read through a finer field: 0.60–0.62 at 5.4 pitches against the base field's 0.55–0.57 and the
+  sample's 0.62–0.64 through that field; the relief is in the uniform body, and the display field's radius (3
+  pitches) is what hides it (D104's cap is the field's). Not adopted; the flag stays at 1 by default.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

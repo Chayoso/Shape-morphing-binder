@@ -38,14 +38,19 @@ peel = int(next((s[5:] for s in sys.argv[3:] if s.startswith("peel=")), 0))     
 states = [s for s in sys.argv[3:] if not s.startswith(("save=", "peel=", "pitch="))] or ["target"] + [str(r) for r in raws]
 tgt = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
 # pitch=base (D122, a surface-dense run): the pitch, the lattice and the mesh's fit are read from the file's `tgt_base`,
-# the uniform sample of the same seed in the same frame, so the run is measured exactly as a uniform one is
+# the uniform sample of the same seed in the same frame, so the run is measured exactly as a uniform one is; pitch=WU: the
+# field's pitch (its radius 3 and offset 0.8 of it, the lattice 0.92) set to that number, the fit and the frame from the base
+pitch_opt = next((s[6:] for s in sys.argv[3:] if s.startswith("pitch=")), None)
 scale_src = tgt
-if "pitch=base" in sys.argv[3:]:
+if pitch_opt is not None and "tgt_base" in z.files and len(z["tgt_base"]):            # a uniform run: tgt is the base
     scale_src = torch.as_tensor(np.asarray(z["tgt_base"], np.float32), device=dev)
     assert len(scale_src) == len(tgt), "pitch=base needs the archive's tgt_base (a --surface_density run)"
 td = knn_self_torch(scale_src, 9)[0]
 cov_r = float(td[:, 8].median())
 a = .708 * cov_r                                               # the volume sample's pitch
+if pitch_opt not in (None, "base"):
+    a = float(pitch_opt)
+    cov_r = a / .708
 center = scale_src.mean(0)
 lattice = Lattice(center, 2.8 * float((scale_src - center).norm(dim=1).max()))
 h = .92 * a
@@ -70,19 +75,15 @@ surface_tree = gpu.KNN(surface)
 coarse, coarse_normal = surface[::30].contiguous(), surface_normal[::30].contiguous()
 coarse_tree = gpu.KNN(coarse)
 
-
 def relief(sigma, k):
     d, i = coarse_tree.query(coarse, k)
     w = torch.exp(-.5 * (d.float() / sigma) ** 2)
     return (((w[..., None] * coarse[i]).sum(1) / w.sum(1, keepdim=True) - coarse) * coarse_normal).sum(1) / a
 
-
 relief1, relief25 = -relief(1. * a, 64), -relief(2.5 * a, 256)
-
 
 def rms(v):
     return float(v.double().pow(2).mean().sqrt())
-
 
 def gmean(P, s, sigma, k):
     """Gaussian-weighted mean of s over each disc's k nearest discs (itself included)."""
@@ -90,10 +91,8 @@ def gmean(P, s, sigma, k):
     w = torch.exp(-.5 * (d.float() / sigma) ** 2)
     return (w * s[i]).sum(1) / w.sum(1)
 
-
 def angle(n, m):
     return torch.rad2deg(torch.acos((n * m).sum(1).clamp(-1., 1.)))
-
 
 print(f"N {len(tgt)}; pitch a {a:.4f} wu; lattice {h / a:.2f} a; mesh {len(mesh.faces)} faces, {len(surface)} surface samples")
 with torch.no_grad():

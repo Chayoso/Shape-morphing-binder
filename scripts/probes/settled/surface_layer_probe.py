@@ -65,7 +65,7 @@ radius = float((reference - center).norm(dim=1).max())
 # pitch=base (D122, a surface-dense run): the run's spacings (its field's pitch, the base display's reach) are read
 # from the file's `tgt_base`, the uniform sample of the same seed in the same frame, as a uniform run's are
 scale_src = target
-if "pitch=base" in sys.argv[5:]:
+if "pitch=base" in sys.argv[5:] and "tgt_base" in z.files and len(z["tgt_base"]):      # a uniform run: tgt is the base
     scale_src = torch.as_tensor(np.asarray(z["tgt_base"], np.float32), device=dev)
     assert len(scale_src) == len(target), "pitch=base needs the archive's tgt_base (a --surface_density run)"
 td = knn_self_torch(scale_src, 9)[0]

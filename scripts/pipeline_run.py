@@ -218,7 +218,11 @@ def main():
     detF_min = min([1.0] + [h["Jmin_traj"] for h in delivered])
     met = metrics.summarize(frames.x[:dn], tgt, n_held=res["n_held"], detF_min=detF_min)
     met.update(thin_metrics(frames.x[dn - 1], ts))
-    met.update(surface_roughness(frames.x[dn - 1], tgt))
+    try:                                                    # a measurement; its failure must not cost the archive
+        met.update(surface_roughness(frames.x[dn - 1], tgt, prep.w_src, prep.w_tgt))
+    except Exception as e:                                  # noqa: BLE001  (D122: the first surface-dense 300k run died here)
+        print(f"[v2run] surface_roughness failed: {e!r}", flush=True)
+        met.update(surf_rough=None, surf_rough_p90=None)
     mv = [h["move"] for h in res["history"] if "move" in h]
     met["move_cv"] = float(np.std(mv) / max(np.mean(mv), 1e-9)) if len(mv) > 2 else float("inf")
     met["move_first_frac"] = float(sum(mv[:3]) / max(sum(mv), 1e-9)) if mv else 1.0
