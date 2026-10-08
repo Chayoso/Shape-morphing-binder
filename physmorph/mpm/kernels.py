@@ -120,6 +120,17 @@ def k_volume_update_motion(C: wp.array(dtype=wp.mat33), J_in: wp.array(dtype=flo
     J_out[p] = J_in[p] * wp.determinant(wp.identity(n=3, dtype=float) + dt * C[p])
 
 
+@wp.kernel
+def k_volume_carry(F_in: wp.array(dtype=wp.mat33), J: wp.array(dtype=float), F_out: wp.array(dtype=wp.mat33)):
+    """The smoothed F carries the motion's volume (D131, --volume_exact carried): after the blend (k_update) F is
+    rescaled to det F = J (k_volume_update_motion's), F_out = (J / det F)^(1/3) F; its isochoric part, the smoothing's
+    shape, is unchanged. The stress then reads F + dFc as on the old path. D130 read (J / det F)^(1/3) (F + dFc) on an F
+    whose volume nothing held: F -> lam F changed only the control's weight (F + dFc / lam) and the descent shrank lam
+    (det F 0.41 -> 0.03 on the 300k dragon), until the trajectory check rejected the trials."""
+    p = wp.tid()
+    F_out[p] = volume_scale(F_in[p], J[p]) * F_in[p]
+
+
 # ── guidance velocity injection (distributed over substeps) ─────────────────
 # Adds a small per-particle velocity each substep so elasticity can resist
 # overshoot, instead of a single large velocity override (anti-ejection).

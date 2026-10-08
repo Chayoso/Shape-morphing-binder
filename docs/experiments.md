@@ -2605,6 +2605,63 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   drift (det F 0.41 → 0.03) that the stress no longer reads; then one definition change per cause (candidates: keep
   the smoothed F's volume consistent with J so the stress form stops reweighting the control; D127's
   `--render_body_only` if the remaining pieces are render flakes).
+- **D131, the smoothed F carries the motion's volume (pre-registered 2026-10-08 16:35 CDT, before any D131 stage run; the
+  coordinator, on the user's instruction to keep going until the drawn pieces are gone and the end quality holds; code:
+  `config.volume_exact` "carried" / `--volume_exact carried`, `mpm/kernels.k_volume_carry`, `mpm/traj` (`Fs`, the blend's
+  buffer; `stress_reads_J`); tests `tests/test_volume_exact.py` (35); server `repo_r107` (HEAD + this), probe copy
+  `repo_r107g` (+ the Fg hook); `tmp/d131/`, `output/gpu/d131/`).** The D130 forensic first (the re-runs of `tmp/d131/
+  d131pre.sh` with every 12th frame, det Fg and J kept; `d131_forensic.py` per kept frame: D125's populations, set sizes,
+  the base display's apart discs at r = 3 on the e3 lattice and whether each lies on an apart particle or on the body;
+  the side views rendered and read by eye; `output/gpu/d131pre/`): (1) what the display draws apart is the body: 93–99 %
+  of the apart discs lie on body particles (bunny LM / PM 98–100 % and 93–99 %, dragon 94 / 93 % in windows 7–21, 81–83 %
+  after), as disc sets in folds and creases the disc graph cuts off from the main sheet, hidden in the rendered surface
+  (the overlay `overlay_dragon_LM/` and the 4K crops: the marked spots render as smooth surface); the apart particle sets
+  the display draws are few (11–49 on the bunny over the run, 468 / 469 on the dragon in windows 7–21, sets of 1–10, all
+  < 2 pitches from the target, det Fg = J 0.95–1.07); none is a render flake (the twin has as many as the render arm), so
+  D127's `--render_body_only` is not indicated. (2) What the viewer sees: the side view of D130 is whole from 0 to 3 s;
+  the pieces the user saw are in one place, the crevice between the tail / hind leg and the belly, a gap the dragon has and
+  the sphere has not: in D130 the material bridging it stays as a membrane at 2.8–3.95 s, tears into foam, opens with
+  crumbs on its edge at 4.5 s and leaves a thread at its foot to 6.2 s (`crevice_d120_d130.jpg`); D120 opened the same gap
+  by 2.8 s with a few crumbs at its foot. The forensic's drawn set there: windows 27–29, J 1.21–1.30 (the bridge drawn
+  thin). (3) The thin regression at matched windows (`d131_thin.py`, `thin_matched.log`; the same target sample):
+  already at the same window D130 is 2.5–3 points above the flag-off twin on the dragon (window 45: 7.04 % against 4.14;
+  window 71: 6.14 against 3.21) and 0.5–1.5 on the bunny; not the earlier stop, not missing material (the body within a
+  cell of the thin set + 0.5 to + 3 %), the extra uncovered points scattered pairs at 1.52–1.65 spacings, the material
+  there 4 % denser (8th-neighbour ratio 0.931–0.933 against 0.944–0.946). (4) The smoothed F's volume drift (D130 stage 2:
+  det F 0.41 → 0.03 on the dragon, 0.80 → 0.70 on the bunny), which the stress form turns into a weight on the control.
+  The definition change for (4) (the clearest defect of D130's definition, and a candidate for the not-at-rest end and
+  for the crevice's late opening): the volume the stress reads is the motion's, as in D130, but carried in the smoothed F
+  itself: after the blend of k_update, F ← (J / det F)^(1/3) F (`k_volume_carry`), so det F = J (the motion's,
+  `k_volume_update_motion`) at every step and the stress reads F + dFc with the old kernels. The shape (F's isochoric part)
+  is the smoothing's as before; the control's volume acts within its own step (det(F + dFc) / det F) and leaves nothing
+  in F's volume; F's scale cannot drift, so the control is weighed as on the old path. No constant. Tests: in every mode
+  test above with carried added (J = det Fg with a volumetric control in every step, and det F = J; a control in one step
+  leaves no pressure in the next; the dilation resisted; the adjoint against the bridge and finite differences, CPU and
+  CUDA; split rollouts; the pipeline's carry with det F = J; the replay; the bit-for-bit eval trajectory), and the drift
+  itself: at rest a compressive control in 40 steps leaves det F 0.95 under motion and 1.00000 under carried; the
+  window-objective gradient check (`gradcheck.py --volume_exact carried`, 40k bunny): dFc ratios 0.96–1.014 (flag off
+  0.99–1.06); the suite on repo_r107 331 passed, 2 skipped, exit 0 (`tmp/d131_tests.log`; the replay test made robust to
+  the atomics' own noise: the commit's score ten times closer to the accepted candidate's than the same state on the
+  re-searched discs, fails with the fix removed).
+  Stage 1 (40k, as D130's: carried at seeds 97, 98, both arms, both meshes; 12-window archives (carried, both arms) read
+  by d128_measure / d129_jx / d130_jmin; the flag-off references are D130 stage 1's runs on the fixed code (L0f / P0f
+  seeds 97–99, the archives LA0f / PA0f), the flag-off path being unchanged): (1) every run completes; J ≥ 0.01 and
+  det F = J (the drift gone: the smoothed F's minimum det per window equal to J's); (2) the stream's det Fg ≤ 0.5 × the
+  flag-off archive's; (3) the end silhouette IoU, chamfer, thin not worse than the flag-off three-seed range by more than
+  its width; (4) wall ≤ 1.3 ×; (5) the end at rest: the last window's kinetic energy not above the flag-off seeds' largest
+  × 1.25. Stage 2 (only if stage 1 passes; 300k, D130's chain with carried; the 12-window archives; the side view D130 |
+  D131 of the whole morph in the studio look, base display, into `output/results_2026-10-08/` with a line in
+  `output/README.md`): D130's (a)–(d) against D120 (apart w3–6 ≤ 0.5 × D120's and ≤ D130's; the e3 apart discs in the
+  first 10 % ≤ 0.5 × D120's; the stream's det Fg ≤ 2; J ≥ 0.01; sil IoU ± 0.002, chamfer ± 0.0005, thin ± 1 point,
+  yardstick and display ± 15 %, relief at 5.4 pitches ± 0.03, roughness ± 1°, the end kinetic energy and the largest
+  angular momentum not above the larger of D105 / D120 + 25 %, windows ± 25 %, the render arm's lead by D120's margins);
+  read beside: the crevice in the side view at 3–6 s. Stage 3 (only if stage 2 passes): the 40k gallery.
+  Prediction: det F = J, the trajectory check no longer binds, the dragon runs to its own stop (windows within 25 % of
+  D120's); the end kinetic energy falls toward D120's if the agitation was the reweighted control (if it does not, the
+  agitation is the stiff volume's own and is the next question); the stream stays gone (J is D130's); the thin
+  regression mostly stays (the conserved volume, marginal points; a little less if the agitation goes); the crevice opens
+  earlier than in D130 if the control was what held the bridge, else the membrane stays (then the topology change under a
+  conserved volume is the next definition question).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

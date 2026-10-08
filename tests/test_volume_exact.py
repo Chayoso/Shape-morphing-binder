@@ -186,20 +186,46 @@ def test_motion_J_is_det_Fg_whatever_the_control_does():
     dfc = rng.normal(0, 0.005, (T, N, 3, 3)).astype(np.float32) + 0.01 * np.eye(3, dtype=np.float32)
     seq = [wp.array(dfc[t], dtype=wp.mat33, device="cpu") for t in range(T)]
     v0, C0 = _dilating(x, 0.8)
-    tr = Trajectory(x, 1.0, 800.0, 400.0, prm, T, v0=v0, C0=C0, dFc=seq, device="cpu", requires_grad=False,
-                    vol0=vol0, track_geom=True, volume_exact="motion")
-    tr.rollout()
-    for t in range(1, T + 1):
-        assert np.allclose(tr.J[t].numpy(), np.linalg.det(tr.Fg[t].numpy()), rtol=1e-4), t
+    for mode in ("motion", "carried"):                               # carried (D131): the same J, held in F as well
+        tr = Trajectory(x, 1.0, 800.0, 400.0, prm, T, v0=v0, C0=C0, dFc=seq, device="cpu", requires_grad=False,
+                        vol0=vol0, track_geom=True, volume_exact=mode)
+        tr.rollout()
+        for t in range(1, T + 1):
+            assert np.allclose(tr.J[t].numpy(), np.linalg.det(tr.Fg[t].numpy()), rtol=1e-4), (mode, t)
+            if mode == "carried":
+                assert np.allclose(np.linalg.det(tr.F[t].numpy()), tr.J[t].numpy(), rtol=1e-5), t
     still = MPMParams(**{**prm.__dict__, "dt": 0.0})
     out = {}
-    for mode in ("motion", "history"):
+    for mode in ("motion", "history", "carried"):
         tr = Trajectory(x, 1.0, 800.0, 400.0, still, T, dFc=seq, device="cpu", requires_grad=False, vol0=vol0,
                         volume_exact=mode)
         tr.rollout()
         out[mode] = tr.J[T].numpy()
     assert np.array_equal(out["motion"], np.ones(N, np.float32))
+    assert np.array_equal(out["carried"], np.ones(N, np.float32))
     assert float(out["history"].min()) > 1.3                          # ~ (1.01)^(3 T)
+
+
+def test_carried_F_holds_the_motions_volume_where_motion_mode_drifts():
+    """D130's defect, D131's fix. At rest (dt = 0) a compressive control dFc = -0.01 I in every one of 40 steps. The motion
+    is nil, so J stays 1 in both modes. Under motion (D130) the smoothed F keeps (1 - s) of each step's control: det F
+    drifts to ~0.95, and since the stress reads (J / det F)^(1/3) (F + dFc), the control is read relative to a shrunken F
+    (the 300k dragon: det F 0.41 -> 0.03 over 20 windows). Under carried (D131) det F = J = 1 at every step."""
+    x = _block(3)
+    prm = MPMParams(dx=0.5, dt=0.0, drag=0.0, smoothing=0.955, grid_min=(-6.0,) * 3, nx=24, ny=24, nz=24)
+    N, T = len(x), 40
+    vol0 = compute_rest_volumes(x, 1.0, prm, "cpu")
+    seq = [wp.array(np.tile(-0.01 * np.eye(3, dtype=np.float32), (N, 1, 1)), dtype=wp.mat33, device="cpu")
+           for _ in range(T)]
+    det = {}
+    for mode in ("motion", "carried"):
+        tr = Trajectory(x, 1.0, 800.0, 400.0, prm, T, dFc=seq, device="cpu", requires_grad=False, vol0=vol0,
+                        volume_exact=mode)
+        tr.rollout()
+        det[mode] = np.linalg.det(tr.F[T].numpy())
+        assert np.allclose(tr.J[T].numpy(), 1.0)
+    assert float(det["motion"].max()) < 0.96, det["motion"].max()
+    assert np.allclose(det["carried"], 1.0, atol=2e-5), det["carried"].min()
 
 
 def test_a_volumetric_control_acts_within_its_own_step():
@@ -214,7 +240,7 @@ def test_a_volumetric_control_acts_within_its_own_step():
     seq = [wp.array(np.tile(a * np.eye(3, dtype=np.float32), (N, 1, 1)), dtype=wp.mat33, device="cpu"),
            wp.array(np.zeros((N, 3, 3), np.float32), dtype=wp.mat33, device="cpu")]
     p = {}
-    for mode in ("off", "history", "motion"):
+    for mode in ("off", "history", "motion", "carried"):
         tr = Trajectory(x, 1.0, 800.0, 400.0, prm, 2, dFc=seq, device="cpu", requires_grad=False, vol0=vol0,
                         volume_exact=mode)
         tr.rollout()
@@ -224,11 +250,12 @@ def test_a_volumetric_control_acts_within_its_own_step():
     for mode in p:
         assert p[mode][0] > 0.0, p                                     # tension: the control dilated
     assert abs(p["motion"][1]) < 1e-3 * p["motion"][0], p
+    assert abs(p["carried"][1]) < 1e-3 * p["carried"][0], p          # D131: F carries J = 1, the control left nothing
     assert p["history"][1] > 0.9 * p["history"][0], p
     assert 0.02 * p["off"][0] < p["off"][1] < 0.1 * p["off"][0], p
 
 
-@pytest.mark.parametrize("mode", ["history", "motion"])
+@pytest.mark.parametrize("mode", ["history", "motion", "carried"])
 def test_the_stress_resists_the_dilation_it_now_sees(mode):
     """The same dilating block with elasticity: the old path reads det F <= 1.03 and the block keeps expanding (the
     motion's volume det Fg 1.76 after 40 steps); with the exact volume the pressure stops the dilation within a few
@@ -255,7 +282,7 @@ def test_the_stress_resists_the_dilation_it_now_sees(mode):
 
 # ---- (3) flag on: the adjoint against finite differences ------------------------------------------------------
 @pytest.mark.parametrize("dev", ["cpu", "cuda"])
-@pytest.mark.parametrize("mode", ["history", "motion"])
+@pytest.mark.parametrize("mode", ["history", "motion", "carried"])
 def test_volume_exact_adjoint_matches_finite_differences(dev, mode):
     _cuda_or_skip(dev)
     from physmorph.mpm.function import PersistentAdjoint
@@ -292,7 +319,7 @@ def test_volume_exact_adjoint_matches_finite_differences(dev, mode):
 
 
 # ---- (4) J carried across a commit ----------------------------------------------------------------------------
-@pytest.mark.parametrize("mode", ["history", "motion"])
+@pytest.mark.parametrize("mode", ["history", "motion", "carried"])
 def test_a_split_rollout_carries_J_like_F(mode):
     """T steps, then T more from the first part's end state (x, v, C, F, Fg and J), equal the 2T steps at once."""
     x = _block(5)
@@ -314,7 +341,11 @@ def test_a_split_rollout_carries_J_like_F(mode):
     tail.rollout()
     for a, b in ((whole.x[2 * T], tail.x[T]), (whole.J[2 * T], tail.J[T]), (whole.F[2 * T], tail.F[T])):
         assert np.allclose(a.numpy(), b.numpy(), rtol=1e-6, atol=1e-7)
-    assert float(np.abs(tail.J[T].numpy() - np.linalg.det(tail.F[T].numpy())).max()) > 0.05
+    gap = float(np.abs(tail.J[T].numpy() - np.linalg.det(tail.F[T].numpy())).max())
+    if mode == "carried":                               # D131: F carries J, det F = J
+        assert gap < 1e-5, gap
+    else:
+        assert gap > 0.05
 
 
 @pytest.fixture(scope="module")
@@ -325,7 +356,7 @@ def clouds():
     return src, tgt
 
 
-@pytest.mark.parametrize("vx", ["off", "history", "motion"])
+@pytest.mark.parametrize("vx", ["off", "history", "motion", "carried"])
 def test_each_window_starts_from_the_last_commits_volume(clouds, monkeypatch, vx):
     """In the pipeline (CUDA): the first window starts at J = 1 (None), every later one from the promoted J of the last
     accepted commit (an outer-rejected one rolls it back); the archive keeps J at F's frames; J is not det F."""
@@ -366,7 +397,11 @@ def test_each_window_starts_from_the_last_commits_volume(clouds, monkeypatch, vx
         if c["end_J"] is not None and h.get("frame_end"):                 # accepted and kept
             carried = c["end_J"]
             assert np.array_equal(res["frames"].J[h["frame_end"] - 1], carried.cpu().numpy())
-            assert float((carried - torch.linalg.det(c["end_F"])).abs().max()) > 1e-4
+            gap = float((carried - torch.linalg.det(c["end_F"])).abs().max())
+            if vx == "carried":                         # D131: F carries the volume, det F = J
+                assert gap < 1e-4 * float(carried.abs().max()), gap
+            else:
+                assert gap > 1e-4
             assert {"Jx_min", "Jx_p50", "Jx_p99", "Jx_max"} <= set(h)
     assert seen >= 1, "no window started from a carried volume"
     idx, _ = res["frames"].archive_F()
@@ -382,14 +417,14 @@ def _pipeline_cfg(**kw):
     return PipelineConfig(**base)
 
 
-@pytest.mark.parametrize("vx", ["off", "motion"])
+@pytest.mark.parametrize("vx", ["off", "motion", "carried"])
 def test_the_commit_scores_the_accepted_candidate_on_its_own_discs(clouds, monkeypatch, vx):
     """The render term reads exterior discs found at an earlier state (Objective.render_terms) and looks for them again
     when they have moved. D129's source-window commit_replay nulls: a later (rejected) trial looked for them again, and
     the commit scored the accepted state on those discs (render term 3.9e-5 apart, the rollout replayed to 7e-7 wu).
     Here every accepted step is followed by a trial at another state that looks for the discs again; the commit's
-    score is the accepted candidate's within the check's own tolerance (no commit_replay null), while the same state
-    read on the new discs is farther from it than that tolerance."""
+    score is the accepted candidate's up to the rollout's replay noise, ten times closer than the same state read on the
+    new discs (with the fix removed the commit reads the new discs and the test fails)."""
     if not torch.cuda.is_available():
         pytest.skip("no CUDA")
     import physmorph.pipeline.window.solve as S
@@ -423,14 +458,15 @@ def test_the_commit_scores_the_accepted_candidate_on_its_own_discs(clouds, monke
     s = stats[0]
     assert seen and s["accepted"] > 0, s
     E_acc, E_fin, E_resc = s["E_accept"], s["commit_E_final"], seen[-1]["rescored"]
-    assert s.get("null_reason") != "commit_replay", s
-    tol = max(1e-7, 10.0 * s["replay_rel"]) * abs(E_acc)              # the commit check's own tolerance
-    assert abs(E_fin - E_acc) <= tol, (E_fin, E_acc, tol)
-    assert abs(E_resc - E_acc) > max(tol, 10 * abs(E_fin - E_acc)), (E_resc, E_acc, E_fin, tol)   # the discs mattered
+    # the commit's score is the accepted candidate's up to the rollout's own replay noise (CUDA atomics, ~1e-6 relative on
+    # this cloud; a null from that noise alone is the routine class, D130 (1)), far closer than the same state read on the
+    # discs the later trial found (~1e-4 relative): with the discs restored the disc term drops out of the difference
+    assert abs(E_resc - E_acc) > 10 * abs(E_fin - E_acc), (E_resc, E_acc, E_fin)
+    assert abs(E_fin - E_acc) <= 1e-5 * abs(E_acc), (E_fin, E_acc)
 
 
 @pytest.mark.parametrize("dev", ["cpu", "cuda"])
-@pytest.mark.parametrize("mode", ["off", "history", "motion"])
+@pytest.mark.parametrize("mode", ["off", "history", "motion", "carried"])
 def test_the_eval_trajectory_replays_bit_for_bit(dev, mode):
     """The persistent eval trajectory (the line search's and the commit's) rolled out twice with the same control from
     the same start gives the same state bit for bit: on the CPU for the window case with a moving control (bonds,

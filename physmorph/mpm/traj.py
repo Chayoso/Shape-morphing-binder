@@ -138,15 +138,18 @@ class Trajectory:
         if control_steps is not None and (int(control_steps) != control_steps or not 1 <= control_steps <= T):
             raise ValueError("control_steps must be an integer between 1 and T")
         self.control_steps = T if control_steps is None else int(control_steps)
-        # the stress reads a tracked volume J (kernels.k_stress_vx): "history" (D129, True), J of the unsmoothed history,
-        # the control's volume included (k_volume_update); "motion" (D130), the motion's own, det Fg (k_volume_update_motion);
-        # off (False / "off"), the kernels and launches are the old path's, unchanged
+        # a tracked volume J: "history" (D129, True), J of the unsmoothed history, the control's volume included
+        # (k_volume_update), read by the stress as (J / det F)^(1/3) (F + dFc) (k_stress_vx); "motion" (D130), the motion's
+        # own, det Fg (k_volume_update_motion), read the same way; "carried" (D131), the motion's own carried in the smoothed
+        # F itself (k_volume_carry: det F = J after every step), the stress reading F + dFc (the old kernels); off (False /
+        # "off"), the kernels and launches are the old path's, unchanged
         mode = {False: "off", None: "off", "": "off", True: "history"}.get(volume_exact, volume_exact)
-        if mode not in ("off", "history", "motion"):
-            raise ValueError(f"volume_exact must be off, history or motion, got {volume_exact!r}")
+        if mode not in ("off", "history", "motion", "carried"):
+            raise ValueError(f"volume_exact must be off, history, motion or carried, got {volume_exact!r}")
         self.volume_mode = mode
         self.volume_exact = mode != "off"
-        if self.volume_exact:
+        self.stress_reads_J = mode in ("history", "motion")
+        if self.stress_reads_J:
             self.stress_kernel = K.k_stress_polar_vx if polar_adjoint else K.k_stress_vx
         else:
             self.stress_kernel = K.k_stress_polar if polar_adjoint else K.k_stress
@@ -225,6 +228,9 @@ class Trajectory:
             if J0 is not None:
                 raise ValueError("J0 is the state of volume_exact; it has no meaning without it")
             self.J = None
+        # D131 ("carried"): the blend of k_update lands in Fs[t+1] and k_volume_carry writes F[t+1] = (J / det Fs)^(1/3) Fs
+        # (a separate buffer: an in-place write would break the tape)
+        self.Fs = scratch(lambda: ID(rg), T + 1) if mode == "carried" else None
         # GEOMETRIC deformation gradient (render kinematics; kernels.k_geom_update):
         # transported by the velocity gradient only, no control, no smoothing. Optional
         # so the physics-only paths pay nothing for it.
@@ -396,7 +402,7 @@ class Trajectory:
         if self.share_grid or self.persistent:       # P2G accumulates: fresh grid per step
             self.gm[t].zero_()
             self.gmom[t].zero_()
-        if self.volume_exact:
+        if self.stress_reads_J:
             wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.J[t], self.lam, self.mu, self.P[t]],
                       device=dev)
         else:
@@ -413,14 +419,19 @@ class Trajectory:
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
         if self.volume_mode == "history":
             wp.launch(K.k_volume_update, dim=N, inputs=[self.F[t], self.Fraw[t + 1], self.J[t], self.J[t + 1]], device=dev)
-        elif self.volume_mode == "motion":
+        elif self.volume_mode in ("motion", "carried"):
             wp.launch(K.k_volume_update_motion, dim=N, inputs=[self.C[t + 1], self.J[t], self.J[t + 1], prm.dt], device=dev)
         x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
-        F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
+        if self.volume_mode == "carried":
+            F_next = self.Fs[t + 1]
+        else:
+            F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
                   bnb, brest, bnc, bK, 1.0 / float(self.control_steps),
                   self.space_nbr if self.space_K > 0 else self.nbr0, self.space_K, self.space_r], device=dev)
+        if self.volume_mode == "carried":
+            wp.launch(K.k_volume_carry, dim=N, inputs=[self.Fs[t + 1], self.J[t + 1], self.F[t + 1]], device=dev)
         if self.layer:
             layer_u = self.layer_u if t < self.control_steps else self.release_u
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,

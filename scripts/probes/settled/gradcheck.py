@@ -24,7 +24,7 @@ ap.add_argument("--src", default="assets/isosphere.obj"); ap.add_argument("--tgt
 ap.add_argument("--n", type=int, default=40000); ap.add_argument("--seed", type=int, default=97)
 ap.add_argument("--scales", default="1e-3,3e-3", help="steps: relative change of the checked value")
 ap.add_argument("--leaves", default="dFc,u")
-ap.add_argument("--volume_exact", nargs="?", const="history", default="off", choices=["off", "history", "motion"],
+ap.add_argument("--volume_exact", nargs="?", const="history", default="off", choices=["off", "history", "motion", "carried"],
                 help="D129 (history) / D130 (motion): the stress reads a tracked volume")
 ap.add_argument("--J0", type=float, default=1.0,
                 help="D129: the start state's tracked volume (a uniform value; 1 = the source's)")
