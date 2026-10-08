@@ -2594,6 +2594,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   be read at matched windows, the next step). Next: a D125-style forensic of the pieces still drawn (populations, set
   sizes, the display's drawn ones and where they are in the side view, their det Fg and J) and of the thin regression at
   matched windows, then one definition change per cause.
+  **D131 (in progress at 2026-10-08 00:45 CDT, the local session stopped; the user: "살짝 조금 보이긴 하는데, 저거만
+  없애면 되것다").** Running detached on hyde06 (`tmp/d131/d131pre.sh`, probe copy `repo_r106g`): the D130 300k runs
+  again (bunny and dragon, render arm LM and twin PM, `--volume_exact motion --telemetry --save_F_stride 12`) with
+  their frames kept in `tmp/d131/`, each archive reduced to its kept frames + det Fg + J (`d131_reduce.py`), then
+  the flag-off twins the same way; JSON and logs in `output/gpu/d131pre/`, status in `output/gpu/d131pre/status.txt`.
+  Next reading (`tmp/d131/forensic.sh GPU MESH ARM R`, `d131_forensic.py`, `d131_thin.py`, `d131_overlay.py`): the
+  pieces the display still draws apart (by D125's populations, set size, body region and window in the side view;
+  their det Fg and J), the thin regression at matched windows against the flag-off runs, and the smoothed F's volume
+  drift (det F 0.41 → 0.03) that the stress no longer reads; then one definition change per cause (candidates: keep
+  the smoothed F's volume consistent with J so the stress form stops reweighting the control; D127's
+  `--render_body_only` if the remaining pieces are render flakes).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
