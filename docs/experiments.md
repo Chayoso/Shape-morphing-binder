@@ -2497,6 +2497,52 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   it in both arms; J's minimum far above 0.01 (the motion compresses nothing to a tenth against K); the arrival slower by
   0–3 windows (the material resists being drawn thin and must flow isochorically into the thin parts); the thin parts at
   risk (thin uncovered up); the end otherwise within the spread; the source window no longer null.
+  **Stage 1 result (runs 20:26–20:48 CDT, read 20:50; `output/gpu/d130`: run JSON and logs, `apart_*`, `meas_* / jx_* /
+  jmin_*` of the archives, `s1_read.log`, `s1_nulls.log`, `thin_{bunny,dragon}.log`, `thinpack.log`; `tmp/d130/s1.sh`,
+  `s1.queue`, `s1_read.py`, `d130_jmin.py`, `d130_thin.py`, `d130_thinpack.py`; archives and frames12 removed after
+  their readings, cleanup.log; output 43 GB): (1), (2), (4) met; (3) missed on 4 of 24 values by small margins; by the
+  pre-registered rule stage 1 FAILS and stage 2 is not run. The floating material is gone at 40k.** The stream (12-window
+  archives, apart particles pooled over windows 2–8, flag off on the fixed code against motion):
+
+  | 40k | apart / frame off → motion | det Fg apart off → motion | ii-a (≥ 8 pitches) / frame | J's minimum (every archived frame) |
+  |---|---|---|---|---|
+  | bunny L | 247 → 14 | 4.43 → 1.00 | 25 → 0 | 0.915 |
+  | bunny P | 224 → 15 | 4.95 → 1.00 | 31 → 0 | 0.927 |
+  | dragon L | 707 → 12 | 4.38 → 1.01 | 57 → 0 | 0.884 |
+  | dragon P | 388 → 6 | 4.25 → 1.00 | 84 → 0 | 0.921 |
+
+  (2) met with room (0.23 × at most); the remaining apart particles sit < 2 pitches from the target (D125's ii-b) at the
+  body's volume; nothing in transit. The full runs (seeds 97 / 98 with motion, 97 / 98 / 99 off; d120_apart, max over
+  windows 3–6):
+
+  | 40k | sil IoU off / motion | chamfer off / motion | thin % off / motion | windows | min | apart w3–6 off / motion |
+  |---|---|---|---|---|---|---|
+  | bunny L | 0.9735 0.9723 0.9748 / 0.9743 0.9740 | 0.1100 0.1094 0.1099 / 0.1101 0.1097 | 5.6 5.4 5.3 / 4.5 4.6 | 30 46 23 / 39 29 | 2.1 3.1 1.8 / 2.4 1.9 | 524 643 870 / 32 20 |
+  | bunny P | 0.9704 0.9713 0.9716 / 0.9723 0.9718 | 0.1096 0.1095 0.1096 / **0.1101** 0.1097 | 6.9 5.7 6.6 / 4.2 6.2 | 60 28 42 / 32 30 | 3.5 2.0 2.8 / 2.0 2.1 | 523 474 482 / 43 31 |
+  | dragon L | 0.9739 0.9752 0.9750 / 0.9747 0.9754 | 0.1116 0.1106 0.1105 / 0.1118 0.1117 | 6.7 6.9 6.1 / **7.9** 7.6 | 40 55 62 / 43 47 | 3.0 3.7 4.2 / 2.8 3.1 | 1081 1094 1201 / 8 11 |
+  | dragon P | 0.9731 0.9728 0.9724 / 0.9731 0.9746 | 0.1109 0.1107 0.1105 / **0.1120** 0.1111 | 7.8 8.4 7.2 / 7.5 **9.8** | 71 44 58 / 41 44 | 4.6 3.1 4.1 / 2.6 3.2 | 550 508 626 / 5 2 |
+
+  (1) met: every run completes, guards 0, no leading null (the source window commits in all 16 motion runs), J's
+  minimum 0.85–0.90 per window (p01 ≥ 0.95) and ≥ 0.88 in every archived frame, no J below 0.1 anywhere (D129: below
+  0.01 in half the dragon's windows). (3) missed by the values in bold, each against the flag-off three-seed range
+  widened by its width: bunny P chamfer 0.1101 (limit 0.1097), dragon L thin 7.92 (7.64), dragon P chamfer 0.1120
+  (0.1113), dragon P thin 9.83 (9.64); the silhouette IoU is higher in every arm (+0.0003 to +0.0011 on the means), the
+  bunny's thin uncovered lower (− 0.9 / − 1.2 points), the dragon's higher (+ 1.2 / + 0.9) and its chamfer + 0.0009
+  (0.8 %). (4) met (0.67–1.04 × in total, 0.88–1.01 × per window; the motion runs need fewer windows on the dragon, 41–47
+  against 40–71). The apart particles in windows 3–6 fall by 94–99 % (dragon 8 / 11 / 5 / 2 against 508–1201).
+  The cause of (3), measured on the delivered ends at the same seed (the same target sample; `d130_thin.py`,
+  `d130_thinpack.py`): no thin part is missing. The thin points left uncovered with motion but covered without are
+  70–92 scattered clusters of 1–2 points on the dragon (19–29 on the bunny), at 1.54–1.56 target spacings from the body,
+  i.e. at the 1.5-spacing threshold; as many flip the other way (dragon L s97: 87 uncovered with motion only, 71
+  without only, 20 both); the body particles within one cell of the thin set are as many or more (dragon + 1.5 to + 3 %)
+  and packed the same (their 8th-neighbour distance over the sample's 0.997–1.024 in both). What differs is the
+  interior: the old path ends with it denser (dragon 8th-neighbour ratio 0.906 against 0.932–0.935 with motion, about 9 %
+  more mass per volume; bunny 0.935–0.939 against 0.944–0.946): under the old path the volume was not conserved (the
+  stream dilated fourfold while the interior compressed), with motion it is, and the dragon's surface sits slightly
+  farther out (chamfer + 0.8 %). No definition change is indicated by these readings: the remaining differences are
+  the consequence of conserving the volume, not a defect of the definition; whether the 40k end margins above
+  (dragon chamfer + 0.0009, thin + 0.9 to + 1.2 points; bunny better) may pass to stage 2, where the pre-registered
+  tolerances are fixed (chamfer ± 0.0005, thin ± 1 point), is the user's call.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
