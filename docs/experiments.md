@@ -2372,6 +2372,62 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   it: the same direction at 40k; `Jx_max` below 2 at every window (so the tangent number stays below 0.27); the body's
   own surface and interior J (Fg) near 1 (D128: 1.15–1.88 and 1.00–1.19 under the old path); the wall time per window
   within + 5 % (one kernel per step), the total set by the window count.
+  **Stage 1 result (runs 19:39–20:01 CDT, read 20:02; `output/gpu/d129`: the run JSON and logs, `apart_*`, `meas_*` /
+  `jx_*` of the archives, `s1_read.log`, `s1_nulls.log`; `tmp/d129/s1.sh`, `s1.queue`, `s1_read.py`, `s1_nulls.py`,
+  `ctl_old.py`; the archives and the 40k frames12 removed after their readings, cleanup.log; output 43 GB): FAILED on
+  (1), (2) and (3); the stream's dilation is unchanged or larger, because the volume the stress reads is the control's
+  to set, and with the control at its full size in J it sets it to 1. Stages 2 and 3 not run.** The stream's volume
+  (12-window archives, apart particles pooled over windows 2–8; "ctl" = J / det Fg, the control's cumulative volume
+  factor, exact since both start at 1 and det Fg = Π det(I + dt C); for the flag-off runs the same factor estimated from
+  ln det F = (1 − s)(ln det Fg + Σ tr(dFc F⁻¹)), which on the flag-on dragon archive gives 0.219 against the exact 0.216):
+
+  | 40k run | apart / frame | det Fg apart (ii-a) | J the stress reads (tracked; F's det off) | ctl apart | surface det Fg / J | interior det Fg / J |
+  |---|---|---|---|---|---|---|
+  | bunny L off / on (repeat) | 230 / 294 (301) | 4.54 (4.78) / 4.25 (4.33), 4.23 | 1.008 / 0.994, 0.994 | ≈ 0.27 / 0.23 | 1.25 / 1.30, 0.99 | 1.03 / 1.02, 1.00 |
+  | bunny P off / on (repeat) | 226 / 238 (238) | 4.90 (4.92) / 4.79 (4.31), 4.79 | 1.009 / 0.991, 0.991 | ≈ 0.25 / 0.20 | 1.28 / 1.28, 0.99 | 1.02 / 1.05, 1.00 |
+  | dragon L off / on | 700 / 1484 | 3.62 (4.18) / 4.50 (4.37) | 1.008 / 0.977 | ≈ 0.34 / 0.22 | 2.15 / 1.73, 0.98 | 1.44 / 1.31, 1.00 |
+  | dragon P off / on | 391 / 740 | 4.24 (4.25) / 4.78 (4.48) | 1.005 / 0.974 | ≈ 0.27 / 0.20 | 1.54 / 1.56, 0.98 | 1.13 / 1.24, 1.00 |
+
+  (2) is missed on every mesh and arm: det Fg of the stream with the flag / without it 0.93, 0.98, 1.24, 1.13 (≤ 0.5
+  required); the tracked J is ≤ 0.5 × the flag-off det Fg only because it stays at 0.97–0.99; the stream is in the same
+  windows with the same growth (apart, det Fg by window 2→8, bunny L on: 2.35, 3.42, 4.23, 5.09, 6.71, 9.83, 8.66 against
+  off 2.22 … 8.25). The full runs (seeds 97 / 98 / 99 without the flag, 97 / 98 with it; d120_apart's apart particles,
+  max over windows 3–6):
+
+  | 40k | sil IoU off / on | chamfer off / on | thin % off / on | windows off / on | min off / on | apart w3–6 off / on |
+  |---|---|---|---|---|---|---|
+  | bunny L | 0.9738 0.9721 0.9731 / 0.6558 0.6543 | 0.1098 0.1095 0.1095 / 0.3132 0.3139 | 5.6 5.4 5.2 / 83.9 83.6 | 40 38 42 / 0 0 | 2.5 2.6 2.7 / 0.4 0.4 | 558 638 852 / – |
+  | bunny P | 0.9715 0.9693 0.9714 / 0.9725 0.9712 | 0.1097 0.1093 0.1098 / 0.1103 0.1097 | 6.4 6.6 6.9 / 7.2 5.7 | 49 42 34 / 30 19 | 3.1 2.8 2.2 / 2.1 1.8 | 523 474 450 / 537 577 |
+  | dragon L | 0.9752 0.9760 0.9748 / 0.9747 0.9755 | 0.1115 0.1107 0.1105 / 0.1112 0.1110 | 5.8 6.7 6.8 / 6.7 6.9 | 58 57 64 / 59 60 | 4.2 4.1 4.3 / 4.4 4.1 | 1135 1171 1214 / 2879 2486 |
+  | dragon P | 0.9727 0.9734 0.9734 / 0.9729 0.9729 | 0.1110 0.1107 0.1107 / 0.1113 0.1109 | 6.7 7.1 7.6 / 7.2 7.0 | 59 47 49 / 66 66 | 4.1 3.6 3.3 / 4.5 4.5 | 550 508 743 / 1422 1442 |
+
+  (1) missed: guards 0 and G2 pass in every run, but the bunny render arm with the flag delivered nothing on both seeds
+  (five `commit_replay` nulls at the source, then the patience stop), and on the dragon the tracked J falls below 0.01 in
+  about half the windows (31 / 63, 30 / 62, 32 / 66, 32 / 68; p01 0.08–0.18, the minimum ≈ 1e-4 at the trajectory check's
+  floor; one `commit_invalid`). (3) missed on the bunny render arm (nothing delivered) and by a hair on the dragon twin's
+  chamfer (s97 0.1113 against the limit 0.1113); the rest within the range. (4) met (0.66–1.24 × in total, 0.97–1.20 × per
+  window). The apart particles at 40k: dragon 2.1–2.5 × the flag-off runs', the bunny twin + 10–20 %.
+  The cause, measured. (a) The stream's dilation is driven by the control, in both paths: the control's cumulative
+  volume factor on the stream is 0.20–0.23 with the flag (exact) and 0.25–0.34 without it (estimated; D128's 300k D120
+  runs 0.26–0.32, the 40k flag-off archives 0.25–0.34; surface 0.53–0.85, interior 0.65–0.98): the control pre-compresses
+  the volume the stress reads, the pressure drives the material out and the motion follows (a growth, in effect). D128's
+  "no volumetric resistance" is this: the volume the stress reads is the control's to set; under the smoothing the
+  control reached F at 4.5 %, under D129 at its full size, and in both the stress reads ≈ 1 while the motion is at 4–5.
+  D129 changed the stiffness, not who sets the volume, so the stream (and with it the apart particles) stays or grows.
+  (b) With the control's volume at full size it can also collapse a particle (the dragon's tracked J ≤ 0.01), where the
+  fixed-corotated pressure λ (J − 1) J vanishes and nothing resists. (c) The source window's commit replay: with the flag
+  the commit rollout of the accepted controls differs from the line search's candidate by 5e-6 to 3.4e-4 relative at the
+  source, where the replay noise measured at the start (the zero control at rest) is 0 by construction and the
+  tolerance falls to 1e-7 (flag off: no leading null in 15 runs; with the flag: 5 + 5 in the bunny render arm's two runs,
+  1 in each of its archive runs).
+  The next definition change (the response pre-registered above; not implemented): the tracked volume is the motion's
+  alone, J_{t+1} = det(I + dt C_{t+1}) J_t (= det Fg), and the stress reads F_eff = (J / det F)^(1/3) (F + dFc) as now: the
+  control keeps its full authority over the shape and, within its own step, over the volume (det(F + dFc) / det F, at most
+  ± 3.5 % under the clip |dFc| ≤ 0.02), but no longer accumulates a volume; a dilation of the motion then meets
+  K (J − 1) whatever the control did before. No constant (one term fewer in J's update). Prediction for it: the stream's
+  det Fg at most about 1.1, the apart particles and the collapse gone; the risk: the stream is how the thin parts get their
+  material, so the arrival becomes an isochoric flow (slower, thin uncovered up). (c) is a question of the replay check's
+  definition (its noise is measured where there is none), to be taken up on its own, not by a constant.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
