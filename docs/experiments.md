@@ -2084,7 +2084,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   probe lines) and D120's twin frames12 (2.1 GB; readings in the logs and D125's files) removed before the launch
   (cleanup.log), output 47 → 42 GB; each new run's frames12 is removed after its own evaluation and probes.
 - **D128, the particles apart from the body: continuum stretch or sub-cell rearrangement? (a measurement, no fix;
-  pre-registered 2026-10-07 18:45 CDT, before the runs; the user: the answer decides where the floating Gaussians get
+  pre-registered 2026-10-07 18:41 CDT (fb0ff2d), before the runs (launched 18:41–18:42); the user: the answer decides where the floating Gaussians get
   fixed; scratch `tmp/d128/` on hyde06 (`d128_measure.py`, `run_d128.sh`, `fg_hook.patch`, the full archives),
   `output/gpu/d128/`; server probe copy `repo_r104g`, not committed).** D125: every particle apart from the body in
   windows 2–8 is coupled to it by the grid (class (ii)), of two kinds: (ii-a) the thin parts' material in transit, ≥ 8
@@ -2150,6 +2150,110 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   s8 / sF8 1.00 and sB / sF 1.03 like the body's (0.99–1.00, 1.05–1.10), s8 / sF 0.81 (the anisotropy), test 4 passing
   27–43 % (|g| < 3 pitches on all of them: the alignment alone); on the physics F s8 / sF 1.38 (apart) against 1.01
   (interior) and 1.16 (surface).
+  **Result (runs 18:41–19:00 CDT, read 19:02; `output/gpu/d128`: the run logs and JSON, `meas_*` and `posthoc_*`
+  (`.npz` per particle, `.jsonl` per frame), `tables.md`, `posthoc_tables.md`; the full archives removed after the
+  reading, cleanup.log; output 42 GB): the rule's verdict is MIXED on both meshes and in every population, and not the
+  predicted mix: on Fg H2 is refuted everywhere (the apart particles' spacing and rest bonds are what the motion's
+  deformation gradient says, as the body's are), and H1 fails only on test 4's alignment (the nearest body particle is
+  not along e1). The gap is continuum stretch; the physics F does not see it.** Runs: 12 windows each (each twin one
+  null commit, 11 committed; raw r ↔ committed window ⌈r / 40⌉), 23 kept frames in windows 2–8; apart particles per
+  frame at window 4 bunny LF / PF 4131 / 3690, dragon 9008 / 4150 (D120 LE / PE at the peak 4590 / 3744, 9234 / 4245:
+  the same populations). Pooled
+  over windows 2–8 (Fg; the physics F in brackets; ratios are medians; test 4 at r = 3; ii-b = < 2 pitches from the
+  target, ii-a = ≥ 8; the 2–8 bin is like ii-a: λ1 5.0–6.6, s8 / sF8 0.69–0.81, sB / sF 1.02–1.03):
+
+  | run | population | n / frame | λ1 / λ2 / λ3 [F λ1] | J [F J] | gap | test 4 % [F] | gap > 3 % | s8 | s8 / sF [F] | s8 / sF8 | sB / sF (≥ 1.3 %) |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | bunny LF | apart | 2152 | 4.22 / 1.22 / 0.72 [1.019] | 4.17 [1.008] | 2.09 | 37 [22] | 29 | 1.62 | 0.66 [1.61] | 0.93 | 1.05 (13) |
+  | bunny LF | ii-b | 549 | 2.65 / 1.13 / 0.64 [1.018] | 2.20 [1.003] | 1.73 | 32 [29] | 6 | 1.46 | 0.84 [1.46] | 1.04 | 1.17 (36) |
+  | bunny LF | ii-a | 969 | 4.50 / 1.20 / 0.88 [1.017] | 4.76 [1.011] | 2.86 | 41 [17] | 48 | 1.69 | 0.66 [1.68] | 0.94 | 1.04 (5) |
+  | bunny LF | surface / interior | 5000 | 1.90 / 1.00 / 0.65, 1.41 / 0.97 / 0.75 [1.016, 1.015] | 1.22, 1.01 [1.00] | – | – | – | 1.13, 0.98 | 0.89, 0.91 [1.13, 0.98] | 1.00, 0.97 | 1.11 (22), 1.12 (14) |
+  | bunny PF | apart | 1961 | 4.51 / 1.22 / 0.69 [1.020] | 4.36 [1.008] | 2.13 | 37 [22] | 30 | 1.63 | 0.64 [1.63] | 0.92 | 1.05 (14) |
+  | bunny PF | ii-b | 343 | 2.11 / 1.10 / 0.52 [1.020] | 1.23 [1.004] | 1.70 | 30 [27] | 1 | 1.44 | 1.00 [1.44] | 1.19 | 1.34 (53) |
+  | bunny PF | ii-a | 1020 | 4.50 / 1.20 / 0.89 [1.018] | 4.71 [1.010] | 2.78 | 40 [18] | 46 | 1.68 | 0.66 [1.67] | 0.94 | 1.03 (5) |
+  | bunny PF | surface / interior | 5000 | 1.87 / 0.98 / 0.64, 1.40 / 0.97 / 0.75 [1.016, 1.015] | 1.15, 1.00 [1.00] | – | – | – | 1.11, 0.98 | 0.89, 0.91 [1.11, 0.98] | 1.01, 0.97 | 1.12 (24), 1.12 (14) |
+  | dragon LF | apart | 5396 | 3.89 / 1.44 / 0.69 [1.019] | 3.86 [1.001] | 1.92 | 37 [26] | 21 | 1.56 | 0.67 [1.56] | 0.90 | 1.04 (7) |
+  | dragon LF | ii-b | 2750 | 3.78 / 1.34 / 0.76 [1.017] | 3.89 [0.998] | 2.03 | 40 [25] | 27 | 1.54 | 0.70 [1.54] | 0.94 | 1.04 (8) |
+  | dragon LF | ii-a | 1498 | 3.65 / 1.76 / 0.59 [1.022] | 3.80 [1.008] | 1.85 | 31 [26] | 15 | 1.58 | 0.68 [1.58] | 0.87 | 1.04 (5) |
+  | dragon LF | surface / interior | 5000 | 2.69 / 1.18 / 0.55, 1.75 / 1.05 / 0.68 [1.017, 1.021] | 1.88, 1.19 [1.00] | – | – | – | 1.22, 1.05 | 0.73, 0.86 [1.21, 1.05] | 0.92, 0.97 | 1.04 (9), 1.10 (12) |
+  | dragon PF | apart | 2395 | 4.07 / 1.68 / 0.54 [1.024] | 3.82 [1.008] | 1.80 | 31 [28] | 10 | 1.58 | 0.63 [1.58] | 0.85 | 1.04 (7) |
+  | dragon PF | ii-b | 256 | 3.04 / 1.31 / 0.52 [1.019] | 2.23 [0.997] | 1.65 | 29 [30] | 0 | 1.42 | 0.73 [1.42] | 0.94 | 1.10 (22) |
+  | dragon PF | ii-a | 1505 | 3.68 / 1.78 / 0.60 [1.024] | 3.96 [1.012] | 1.87 | 31 [26] | 14 | 1.60 | 0.68 [1.59] | 0.88 | 1.04 (5) |
+  | dragon PF | surface / interior | 5000 | 2.36 / 1.07 / 0.52, 1.69 / 1.03 / 0.65 [1.019, 1.020] | 1.32, 1.10 [1.00] | – | – | – | 1.12, 1.02 | 0.76, 0.86 [1.12, 1.02] | 0.94, 0.96 | 1.07 (12), 1.11 (13) |
+
+  Per window (Fg; apart particles, ii-b / ii-a in brackets; the body's sB / sF surface, interior):
+
+  | run | window | apart / frame (ii-b, ii-a) | λ1 | test 4 % | s8 / sF8 | sB / sF | body sB / sF |
+  |---|---|---|---|---|---|---|---|
+  | bunny LF | 2 / 3 / 4 | 610 (384, 150) / 2966 (756, 1842) / 4131 (752, 2550) | 2.1 (1.9 / 2.6) / 3.3 (2.8 / 3.5) / 4.2 (2.9 / 4.7) | 36 (37 / 32) / 39 (34 / 41) / 39 (32 / 40) | 1.03 (1.10 / 0.99) / 0.99 (1.01 / 0.99) / 0.96 (1.03 / 0.95) | 1.10 (1.21 / 1.03) / 1.05 (1.08 / 1.05) / 1.06 (1.13 / 1.05) | 1.04, 1.08 / 1.06, 1.10 / 1.09, 1.12 |
+  | bunny LF | 5 / 6 | 3097 (558, 1366) / 1938 (468, 492) | 5.5 (2.5 / 7.0) / 8.0 (2.6 / 11.8) | 35 (29 / 37) / 34 (29 / 40) | 0.87 (1.15 / 0.82) / 0.71 (1.13 / 0.57) | 1.06 (1.26 / 1.04) / 1.04 (1.27 / 0.96) | 1.13, 1.13 / 1.15, 1.14 |
+  | bunny LF | 7 / 8 | 1188 (416, 171) / 935 (468, 80) | 11.6 (2.9 / 21.5) / 13.6 (4.1 / 38.2) | 38 (31 / 60) / 39 (32 / 69) | 0.56 (0.99 / 0.36) / 0.50 (0.94 / 0.24) | 1.00 (1.23 / 0.77) / 0.99 (1.23 / 0.55) | 1.17, 1.14 / 1.18, 1.15 |
+  | bunny PF | 2 / 3 / 4 | 374 (144, 212) / 2459 (168, 2082) / 3690 (336, 2600) | 2.2 (1.4 / 2.5) / 3.3 (1.7 / 3.4) / 4.3 (2.0 / 4.8) | 34 (35 / 34) / 39 (23 / 40) / 36 (28 / 37) | 1.05 (1.37 / 0.99) / 1.00 (1.33 / 0.99) / 0.96 (1.22 / 0.95) | 1.13 (1.64 / 1.03) / 1.05 (1.47 / 1.05) / 1.06 (1.37 / 1.05) | 1.05, 1.09 / 1.06, 1.11 / 1.09, 1.12 |
+  | bunny PF | 5 / 6 | 2928 (469, 1350) / 2002 (492, 491) | 5.8 (2.0 / 7.2) / 8.1 (2.2 / 11.9) | 36 (31 / 36) / 37 (33 / 46) | 0.86 (1.26 / 0.79) / 0.70 (1.20 / 0.57) | 1.06 (1.41 / 1.03) / 1.05 (1.36 / 0.95) | 1.15, 1.13 / 1.17, 1.14 |
+  | bunny PF | 7 / 8 | 1249 (435, 158) / 843 (366, 70) | 11.6 (2.8 / 20.6) / 15.1 (8.0 / 38.7) | 39 (29 / 68) / 41 (31 / 68) | 0.56 (1.04 / 0.37) / 0.45 (0.73 / 0.24) | 1.01 (1.23 / 0.77) / 0.96 (1.14 / 0.57) | 1.19, 1.15 / 1.20, 1.15 |
+  | dragon LF | 2 / 3 / 4 | 1025 (586, 223) / 4782 (2643, 1412) / 9008 (4429, 3616) | 2.2 (2.4 / 1.9) / 2.8 (3.1 / 2.4) / 3.4 (3.7 / 3.2) | 34 (34 / 35) / 37 (39 / 34) / 37 (42 / 32) | 0.99 (0.99 / 0.98) / 0.98 (0.98 / 0.97) / 0.95 (0.97 / 0.92) | 1.02 (1.03 / 1.01) / 1.04 (1.04 / 1.04) / 1.04 (1.04 / 1.05) | 1.03, 1.08 / 1.03, 1.09 / 1.03, 1.10 |
+  | dragon LF | 5 / 6 | 8476 (4024, 3320) / 6124 (3207, 1340) | 4.1 (3.9 / 4.3) / 5.1 (4.3 / 6.8) | 35 (40 / 30) / 37 (41 / 30) | 0.89 (0.94 / 0.82) / 0.83 (0.91 / 0.66) | 1.04 (1.04 / 1.05) / 1.03 (1.04 / 1.02) | 1.04, 1.10 / 1.05, 1.11 |
+  | dragon LF | 7 / 8 | 4383 (2236, 483) / 3935 (2008, 172) | 6.4 (5.2 / 10.5) / 6.6 (5.2 / 13.3) | 37 (41 / 31) / 37 (39 / 29) | 0.75 (0.86 / 0.54) / 0.73 (0.84 / 0.47) | 1.02 (1.04 / 0.96) / 1.02 (1.06 / 0.89) | 1.07, 1.12 / 1.09, 1.13 |
+  | dragon PF | 2 / 3 / 4 | 270 (7, 252) / 2435 (46, 2325) / 4150 (179, 3790) | 1.8 (1.6 / 1.8) / 2.5 (2.3 / 2.5) / 3.5 (2.8 / 3.6) | 35 (43 / 35) / 33 (35 / 33) / 31 (34 / 31) | 0.99 (0.98 / 0.99) / 0.96 (0.96 / 0.96) / 0.90 (0.92 / 0.89) | 1.02 (0.96 / 1.02) / 1.04 (1.02 / 1.04) / 1.04 (1.03 / 1.05) | 1.04, 1.08 / 1.05, 1.09 / 1.05, 1.11 |
+  | dragon PF | 5 / 6 | 3220 (193, 2581) / 2069 (160, 949) | 4.9 (3.1 / 5.1) / 6.7 (3.2 / 8.1) | 30 (32 / 30) / 30 (33 / 29) | 0.78 (0.89 / 0.76) / 0.67 (0.87 / 0.61) | 1.04 (1.05 / 1.04) / 1.02 (1.06 / 1.01) | 1.06, 1.11 / 1.08, 1.12 |
+  | dragon PF | 7 / 8 | 1968 (313, 382) / 2751 (997, 167) | 7.6 (3.1 / 11.9) / 5.8 (3.2 / 13.5) | 31 (29 / 29) / 31 (27 / 30) | 0.63 (0.93 / 0.50) / 0.73 (1.00 / 0.50) | 1.02 (1.10 / 0.95) / 1.04 (1.18 / 0.92) | 1.10, 1.13 / 1.13, 1.14 |
+
+  The rest neighbours (apart particles, pooled): of the window-0 eight, 0.56–0.84 are still within 1.5 pitches (none for
+  42–56 %, four or more for ≤ 1 %; the kept ones are in the particle's own apart set by construction); the eight now sit
+  in the body 3.4–4.4, in the own set 0.8–1.1, in other apart sets 2.9–3.5 (ii-a: body 2.3 bunny / 3.7–3.8 dragon, other
+  sets 3.3–4.5); sets of median 2–3 particles. Their rest bonds are stretched 2.3–2.6 × on average (sF on Fg), and by
+  that factor (sB / sF 1.03–1.05): the eight are "lost" because the continuum carried them 2–3 pitches away, not
+  because they moved against it. The pre-registered rule:
+
+  | mesh | population | Fg, s8 / sF | Fg, s8 / sF8 | Fg, sB / sF | F (physics), s8 / sF | test 4 (Fg) LF, PF |
+  |---|---|---|---|---|---|---|
+  | bunny | apart / ii-b / ii-a | mixed (0.64–0.66 / 0.84–1.00 / 0.66; body 0.89–0.91) | mixed (0.92–0.93 / 1.04–1.19 / 0.94; body 0.97–1.01) | mixed (1.05 / 1.17–1.34 / 1.04; body 1.11–1.12) | H2 (1.61–1.63 / 1.44–1.46 / 1.67–1.68; body 0.98–1.13) | 37, 37 / 32, 30 / 41, 40 % |
+  | dragon | apart / ii-b / ii-a | void (body surface 0.73–0.76) | mixed (0.85–0.90 / 0.94 / 0.87–0.88; body 0.92–0.97) | mixed (1.04 / 1.04–1.10 / 1.04; body 1.04–1.11) | void (body surface 1.12–1.21; apart 1.56–1.58) | 37, 31 / 40, 29 / 31, 31 % |
+
+  Against the prediction: the transit's s8 / sF was predicted 1.3–1.6 on Fg and is 0.66–0.68 (s8 / sF8 0.87–0.94, sB /
+  sF 1.03–1.04); its test 4 30–50 % predicted, 31–41 % found; the flakes' test 4 60–85 % predicted, 29–40 % found; the
+  physics F's λ1 below 1.05 as predicted (1.015–1.024). The one sub-cell excess is the bunny twin's < 2-pitch set (sB /
+  sF 1.34, s8 / sF8 1.19; 1.37–1.64 in windows 2–4): the source's outer layer arriving at the target surface where u and
+  the relaxation act, not render flakes (the render arms' ii-b 1.04 / 1.17, the dragon twin's 1.10).
+  Post-hoc (written after the bunny tables, not pre-registered: test 4 asks whether the nearest body particle lies along
+  e1; the kernel's support is the ellipsoid {x_i + F_i u : |u| ≤ r}, so it reaches a body particle b iff |F_i⁻¹ (x_b −
+  x_i)| ≤ r; `d128_posthoc.py`, the best of the 64 nearest body particles, a lower bound): % of the apart particle-frames
+  whose kernel contains a body particle, today's isotropic kernel / following Fg / following the physics F, and of those
+  beyond r the share Fg reaches:
+
+  | run | apart: r = 3 iso / Fg / F (beyond 3: Fg reaches) | ii-b | ii-a | r = 2.5, apart: iso / Fg / F (beyond: Fg) |
+  |---|---|---|---|---|
+  | bunny LF | 71 / 96 / 71 (29: 87) | 94 / 97 / 94 (6: 89) | 52 / 92 / 52 (48: 84) | 62 / 92 / 62 (38: 82) |
+  | bunny PF | 70 / 96 / 70 (30: 87) | 99 / 98 / 99 (1: 83) | 54 / 93 / 54 (46: 85) | 60 / 92 / 61 (40: 83) |
+  | dragon LF | 79 / 98 / 79 (21: 92) | 73 / 98 / 73 (27: 93) | 85 / 98 / 86 (15: 90) | 70 / 97 / 71 (30: 89) |
+  | dragon PF | 90 / 99 / 90 (10: 91) | 100 / 100 / 100 (0) | 86 / 98 / 86 (14: 90) | 81 / 98 / 82 (19: 90) |
+
+  Conclusion. (1) The gap is CONTINUUM STRETCH. In every run, for the apart set as a whole, the transit (ii-a) and the
+  render arms' flakes (ii-b), the particles' spacing and rest bonds are what the motion's deformation gradient says
+  (s8 / sF8 0.85–0.94, sB / sF 1.03–1.05, flakes 1.04–1.17; the body's 0.92–1.01, 1.04–1.12; sB / sF ≥ 1.3 on 7–14 % of
+  the apart and 5 % of the transit, against 9–24 % of the body); the transit's 8th-neighbour growth over its rest one
+  (1.58–1.69; D125: 1.5–1.7 × the frame's median) is the cube root of its continuum dilation (J 3.8–4.8, λ1 3.7–4.5, λ2
+  1.2–1.8, λ3 0.6–0.9). There is no sub-cell excess for a cohesion rule to remove: pulled toward their Fg-predicted
+  distance the pairs would barely move. The one exception is the bunny twin's < 2-pitch set (above). The rule says mixed
+  because test 4 fails: λ1 r ≥ |g| holds for every apart particle at r = 3 (≥ 99.7 % at 2.5), but the gap to the
+  nearest body particle is not along the stretch axis (|cos| ≥ 0.7 on 29–41 %, chance 30 %; 28–52 % among those beyond
+  3 pitches). (2) The archived F, the one the constitutive law reads, carries 1–2 % of that strain (λ1
+  1.015–1.024, J 1.00–1.01 on every population, where Fg's J is 3.8–4.8): read with it the rule says H2 on the bunny and
+  is void on the dragon, which is the smoothing (s = 0.955), not a sub-cell rearrangement; a kernel or a cohesion rule
+  built on it would act as if nothing were stretched. Recorded, not proposed: because the stress reads this F, the
+  stream's fourfold dilation meets no volumetric resistance (physics J 1.00); that is a third reading of the gap the
+  numbers open, beside H1 and H2. (3) The fix the numbers point to is H1's, the exterior kernel following each
+  particle's deformation gradient, with Fg (the motion's, which the run does not track today; here integrated from C on
+  a probe copy), not the archived F (whose kernel is today's isotropic one, 70–90 % in the table above). Expected reach
+  (post-hoc): the Fg kernel contains a body particle for 96–99 % of the apart particle-frames at r = 3 (92–98 % at 2.5)
+  against 70–90 % (60–81 %) today, i.e. it closes 87–92 % of the 10–30 % beyond 3 pitches, the farther sets D125 found
+  the display draws apart, leaving 1–4 % (the bunny's transit: 46–48 % outside today, 7–8 % with Fg); the cohesion rule
+  would reach the 7–14 % with sB / sF ≥ 1.3, no more than the body's own share. Risks read in the tables (not tested):
+  Fg over-predicts the late stream (windows 7–8, the transit's λ1 10–38 against sB / sF 0.55–0.96 and s8 / sF8
+  0.24–0.57), so the kernel would grow needles where the remaining stream is denser than Fg says; a kernel normalised
+  by mass spreads a particle over J ≈ 4 times its volume and lowers its field by that factor (whether it then bridges or
+  vanishes depends on the field's normalisation); the alignment result means the reach comes from the ellipsoid's size
+  (λ1 3.9–4.5 and λ2 1.2–1.7 enlarge it in two of the three directions), not from pointing at the body.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
