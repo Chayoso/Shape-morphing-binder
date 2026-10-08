@@ -79,12 +79,16 @@ def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor
 
 def _trajectory_min_det(win: Window, dc: torch.Tensor) -> float:
     """min over the window of det F after each step and det(F + dFc) before it: the stored F
-    is smoothed, so an inversion of the EFFECTIVE deformation could hide in it."""
+    is smoothed, so an inversion of the EFFECTIVE deformation could hide in it. With the exact
+    volume (D129) the tracked J of every step is a determinant the stress reads, and counts too."""
     tr, T, N = win.tr, win.T, win.N
     F_post = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(1, T + 1)])
     F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
     j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
-    return float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
+    jt = torch.minimum(torch.linalg.det(F_post).min(), j_eff)
+    if tr.volume_exact:
+        jt = torch.minimum(jt, torch.stack([wp.to_torch(tr.J[t]) for t in range(1, T + 1)]).min())
+    return float(jt)
 
 
 def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:
@@ -121,6 +125,8 @@ class Commit:
     valid: bool                       # finite, oriented, inside the domain
     owner: object = None              # the window whose buffers x and F view (kept alive)
     reason: str | None = None         # state_reason of the rollout (None when valid)
+    J: list | None = None             # D129 (volume_exact): 2T+1 (N,) views of the tracked volume
+    end_J: torch.Tensor | None = None
 
 
 def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit:
@@ -134,14 +140,19 @@ def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit
         for t in range(1, T + 1):
             det_t = torch.linalg.det(wp.to_torch(tr.F[t]).reshape(-1, 3, 3).float())
             bad = det_t <= 0.0                            # NaN rows compare False
+            if tr.volume_exact:                           # D129: an inverted tracked volume is an inversion too
+                bad = bad | (wp.to_torch(tr.J[t]) <= 0.0)
             inv_any = bad if inv_any is None else (inv_any | bad)
             jmin = min(jmin, float(det_t.min()))
+        vx = tr.volume_exact
         return Commit(x=[wp.to_torch(tr.x[t]) for t in range(T + 1)],
                       F=[wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T + 1)],
                       end_F=wp.to_torch(tr.F[T]).reshape(N, 3, 3).clone(),
                       end_v=wp.to_torch(tr.v[T]).clone(), end_C=wp.to_torch(tr.C[T]).reshape(N, 3, 3).clone(),
                       n_inv_steps=int(inv_any.sum()), jmin_traj=jmin, E_final=E_final,
-                      jt_final=e.jt, valid=state_ok(e), owner=win, reason=state_reason(e))
+                      jt_final=e.jt, valid=state_ok(e), owner=win, reason=state_reason(e),
+                      J=[wp.to_torch(tr.J[t]) for t in range(T + 1)] if vx else None,
+                      end_J=wp.to_torch(tr.J[T]).clone() if vx else None)
 
 
 def free_rollout_probe(win: Window, obj: Objective) -> dict:

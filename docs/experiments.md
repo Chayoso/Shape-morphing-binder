@@ -2254,6 +2254,124 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   by mass spreads a particle over J ≈ 4 times its volume and lowers its field by that factor (whether it then bridges or
   vanishes depends on the field's normalisation); the alignment result means the reach comes from the ellipsoid's size
   (λ1 3.9–4.5 and λ2 1.2–1.7 enlarge it in two of the three directions), not from pointing at the body.
+- **D129, the elastic stress sees the body's true volume change: a tracked J per particle (pre-registered 2026-10-07
+  19:38 CDT, before any D129 run (the 2-window instrument check below excepted); the user chose this root fix over D128's display-side kernel and wants it tracked
+  until the floating pieces are solved, then the algorithm frozen with it; code: `config.volume_exact` /
+  `--volume_exact` (A/B, default off = the old path bit for bit), `mpm/kernels.k_stress_vx`, `k_stress_polar_vx`,
+  `k_volume_update`, `mpm/traj.Trajectory(volume_exact, J0)`, `RolloutSpec.volume_exact / J0`, `window/setup.StartState.J`,
+  `window/rollout.Commit.J / end_J`, `run/state.promote` (returns J), `FrameStore` (J at F's frames, the archive's
+  `J_samples`), `run/runner` (carried, rolled back, `Jx_*` records); tests `tests/test_volume_exact.py` with
+  `tests/data/volume_exact_off_ref.npz`; server `repo_r105` (HEAD + this), probe copy `repo_r105g` (+ D128's archive-only
+  Fg hook adapted, `tmp/d129/fg_hook_d129.patch`, not committed); `tmp/d129/`, `output/gpu/d129/`).** The root cause
+  (D128): the transit stream that the display draws as floating pieces is a continuum dilation, J = det Fg 3.8–4.8 on
+  the motion's own deformation gradient (the 8th-neighbour spacing 1.6× = J^(1/3)), and the stress never sees it:
+  `k_update` keeps F_out = (1 − s) F_new + s F_in, s = 0.955, F_new = (I + dt C)(F + dFc), so each step keeps 4.5 % of its
+  increment and the fixed-corotated stress at F_e = (F + dFc) Fp⁻¹ reads J 1.00–1.01 where the material is at J ≈ 4:
+  no volumetric resistance, and the transport and the spray cleanup stretch the stream freely (D125).
+  The definition. The smoothing keeps acting on the SHAPE; the VOLUME is tracked exactly and the stress reads it. Per
+  particle J_{t+1} = J_t det(F_new) / det(F_t) = J_t det(I + dt C_{t+1}) det(F_t + dFc_t) / det(F_t): the motion's volume
+  change and the control's, each at its full size, the smoothing taking no part. This is the form that makes J the det of
+  the UNSMOOTHED history: with s = 0 F_{t+1} = F_new and J = det F at every step (tested, the control included); the
+  control enters because it enters F_new as F + dFc, a deformation increment the optimiser applies, of which the smoothed
+  F keeps (1 − s) and J all. The stress evaluates the same constitutive model at F_eff = (J / det F)^(1/3) (F + dFc): its
+  isochoric part is that of the smoothed F + dFc, its determinant J det(F + dFc) / det F (the unsmoothed volume with this
+  step's control); Fp stays isochoric (D1 unchanged); the P scratch is (J / det F)^(1/3) Pe(Fe) Fp⁻ᵀ, so P2G's P (F + dFc)ᵀ
+  is the Kirchhoff stress Pe(Fe) Feᵀ of Fe = F_eff Fp⁻¹; E, ν as they are. J = 1 at the source; a run starts only there
+  (the runner keeps the state in memory, there is no resume), so J is never re-derived from F: it is carried across
+  windows like F (StartState.J → the gradient's tape trajectory and the eval trajectory, which is the line search's and
+  the commit's, alike; Commit.end_J → promote, where a non-finite or non-positive row would be reset to det of the
+  repaired F and counted with `nan_state`; rolled back with F on an outer rejection). The trajectory check (`jt`) and the
+  inversion guard read J as well (a determinant the stress reads). The plastic assimilation is isochoric and reads F as
+  before: the det-free part of the elastic stretch does not change under the scalar factor (J / det F)^(1/3), so it
+  composes with F_eff and the volumetric strain stays elastic, now resisted. P3's u through F (`layer[5]`, unused) is not
+  defined with the flag (raises).
+  Stability, computed before the code was run (`tmp/d129/d129_cfl.py` → `output/gpu/d129/stability.log`; the runs' own
+  particle mass m = mass_ref_n / N and rest volumes Vp0 (`compute_rest_volumes`, as the runner), dx 0.3024–0.3075,
+  dt = 1/240, E 1.4e5, ν 0.2: λ 38889, μ 58333): ρ = m / Vp0 median 784–800 (the lightest 1 %, the fringe, 352–375) at
+  40k and 300k alike. Elastic wave speed c = sqrt(modulus / ρ), number c dt / dx (median ρ; the lightest 1 % in brackets):
+  the nominal P-wave λ + 2μ = 155556: c 13.9–14.1 wu/s, 0.190–0.192 (0.278–0.287); the OLD effective response, every
+  increment at 1 − s = 4.5 % (both parts): (1 − s)(λ + 2μ) = 7000, c 2.96–2.99, 0.040–0.041 (0.059–0.061); the NEW one,
+  the bulk from the exact volume K = λ + 2μ/3 = 77778 (the fixed-corotated μ term also answers a volume change) and the
+  shape at (1 − s) μ = 2625: P-wave K + (4/3)(1 − s) μ = 81278, c 10.1–10.2, 0.138–0.139 (0.201–0.207), the shear wave 0.025.
+  The bound: explicit MPM with the cubic B-spline is stable below about 0.5 (the discretisation's own warning,
+  `mpm/discretisation.report`); the nominal bulk response is inside it at the current dt with a factor 3.6 (2.4 on the
+  fringe), so the consistent definition IS the nominal one: no effective scaling of the volume's response, dt and E / ν
+  unchanged. What it makes of the material, stated: the stress now resists a volume change 22 × as strongly as before
+  (K against 0.045 (λ + 2μ/3)) while the shape keeps (1 − s) μ, i.e. an effective Poisson ratio (3K − 2μ_s) / (2 (3K + μ_s))
+  = 0.483 (μ_s = (1 − s) μ): nearly incompressible relative to its shape response (before: 0.2 at 4.5 % of both). The
+  fixed-corotated volume term stiffens in tension (its tangent λ J (2J − 1) + (2μ/3) J^(1/3) (2J^(1/3) − 1)): c dt / dx
+  0.17 / 0.20 / 0.27 / 0.54 at J 1.25 / 1.5 / 2 / 4, beyond the bound only near J ≈ 4, which the stress now resists; each
+  window records the tracked J's quantiles and maximum (`Jx_*`) and they are read.
+  Tests (`tmp/d129_tests.log`: the suite on repo_r105, flag off, 306 passed, 2 skipped, exit 0; `tmp/d129/t_new2.log`: the
+  new file, 10 passed, exit 0): (1) flag off reproduces the old trajectory and its adjoint bit for bit: a window case
+  in the pipeline's configuration (start state F / Fp / v / C, bonds with two fragments, the layer's relaxation with a
+  reference and u, the minimum spacing, 4 driven + 4 released steps, the polar adjoint) against the outputs and the dFc /
+  u gradients written by the code before the change (repo_r104 = 0894f7d's code, CPU, `tests/data/volume_exact_off_ref.npz`),
+  `np.array_equal` on x, F, v, Fg, every step's v and both gradients; (2) flag on: a block in a pure dilation with no
+  stress follows J = det Fg = prod det(I + dt C) to 1e-4 and the block's own volume ratio s³ (1.99) to 1 %, while the
+  smoothed F keeps ln det F = (1 − s) ln J (det F 1.03); with s = 0 J = det F at every step with random controls; with
+  elasticity (λ 2000, μ 1000) the old path's block keeps expanding (median det Fg 1.76 after 40 steps) and the new one's
+  peaks at 1.14 and turns back; (3) flag on from J0 ≠ det F0 (1.05–1.3): the persistent CUDA-graph adjoint equals the
+  plain bridge (outputs and gradients, CPU and CUDA) and its dFc and u gradients match central finite differences of a
+  window loss within 3 %; at the window objective (`scripts/probes/settled/gradcheck.py --volume_exact [--J0 1.1]`, 40k
+  bunny, `output/gpu/d129/gradcheck_*.log`) analytic / FD on dFc 0.998–1.006 for physics, render and cleanup in every
+  direction and both steps (flag off 0.993–1.06), u's ratios identical with the flag off and on (u is gated off at the
+  source window; its physics part there is FD noise in both); (4) J is carried like F: T steps and T more from the end
+  state equal 2T at once; in the pipeline each window starts from the last kept commit's promoted J (None = 1 first), the
+  archive keeps it at F's frames, and J ≠ det F after a window.
+  Instrument check, seen before this entry (`tmp/d129/smoke`, 40k bunny render arm, D120's state, 2 windows): repo_r105
+  with the flag off against the old code (repo_r104) differs by 6e-5 / 4.7e-4 / 4.2e-3 wu mean at raws 12 / 40 / 80, two
+  flag-off runs by 1.7e-4 / 1.2e-3 / 4.9e-3 (the replay noise); with the flag on (repo_r105g) the archive carries
+  `J_samples` and `Fg_samples`, guards 0, and window 1 was a null commit by the replay check (`commit_replay`: the commit
+  rollout's E 1e-5 above the accepted candidate's while the source's replay noise reads 0; the old path has the same
+  null routinely, 20 in D120's eight runs, 3 at window 1 in D100's). What it also showed: at raw 12 the tracked J median
+  0.983 against det Fg 1.002, at raw 40 p99 1.19 against 1.74: the control's volume enters J at its full size, as the
+  definition says, so the optimiser can now set a particle's volume permanently (an active growth or shrinkage) where
+  before it reached F at 4.5 %. The named risk: a stream that dilates in the motion (Fg) while the tracked J stays near 1
+  because the control pays for it. The reading that tells (stage 1 and 2): the tracked J against det Fg on the apart
+  particles (`d129_jx.py`); if Fg's median J stays ≥ 2 while the tracked J's is ≤ 1.5, the next definition is J from the
+  motion alone (det Fg, the control's volume acting only through F + dFc), not a constant.
+  Stage 1 (40k, bunny and dragon, D120's state: D105's recipe as `tmp/run12.sh` runs it + `--layer_relief --lambda_ema
+  1`; the render arm L and the twin P, `--render_weight_scale 0`; `tmp/d129/s1.sh` workers on `tmp/d129/s1.queue`, one run
+  per GPU): the old path (flag off, repo_r105) at seeds 97, 98, 99 (the spread); `--volume_exact` at seeds 97, 98; and
+  12-window archive runs on repo_r105g (`--animations 12 --save_F_stride 12`, seed 97) flag off and on, both arms, read by
+  D128's `d128_measure.py` and `tmp/d129/d129_jx.py` (D128's populations; the archives removed after). Criteria: (1) every
+  D129 run completes, guards 0 (G2), no NaN, `Jx_max` finite; (2) the stream's volume: the median J of Fg over the apart
+  particle-frames of windows 2–8 (pooled, D128's reading) at most half the flag-off archive's of the same mesh and arm,
+  and the tracked J's median likewise at most half the flag-off Fg J; (3) the end silhouette IoU, chamfer and thin
+  uncovered of each D129 run not worse than the flag-off three-seed range by more than that range's own width (each mesh
+  and arm); (4) wall time at most 1.3 × the flag-off mean of the same mesh and arm (total; per window reported). Read
+  beside: the apart particles per kept frame (`d120_apart.py`) in windows 3–6, the window counts, `Jx_*` per window.
+  Stage 2 (only if stage 1 passes; 300k, bunny and dragon, D120's state + `--volume_exact`, seed 97; `tmp/d129/d129.sh`
+  as `tmp/d126.sh`: the render arm LX and the twin PX, run12.sh → runeval3.sh (t3_ / e3_ / a_ / m_ / o_) → the end discs
+  (pend_) → `d120_apart.py` → D125's classify / split / fate → `d118_rows.py` → frames12 removed; and the 12-window archive
+  runs LXF / PXF on repo_r105g read as in stage 1 against D128's LF / PF (the D120 state's own); then the bands at r = 3
+  (`d122_bands.py` with D105's and D120's discs beside), `early_gauss.py` on the e3 logs (D120 + D129), `d126_read.py`).
+  Criteria: (a) the particles apart from the body at windows 3–6 (`d120_apart.py`, the max over the kept frames of windows
+  3–6) at most half D120's in BOTH arms (bunny LE / PE 4590 / 3744, dragon 9234 / 4245; the twin-level transit stream is
+  the target; the max over windows 3–10 reported beside, in case the peak moves later); (b) the display's apart discs in
+  the first 10 % (`early_gauss.py`, max) at most half D120's (bunny 9158 / 8126, dragon 6254 / 5891); (c) the stream's
+  median J of Fg (apart particles, windows 2–8 pooled) ≤ 2 in both arms (D128 on the D120 state: bunny LF / PF 4.17 /
+  4.36, dragon 3.86 / 3.82; ii-a 4.76 / 4.71, 3.80 / 3.96), and the tracked J's ≤ 2; (d) the end within D120's spread:
+  silhouette IoU ± 0.002, chamfer ± 0.0005, thin uncovered ± 1 point, the yardstick (t3 exterior silhouette / shading) and
+  the display (e3 front / crop) ± 15 %, the relief kept at 5.4 pitches ± 0.03, the roughness ± 1°; the render arm ahead
+  of its twin by D120's margins within 10 points (yardstick silhouette −32 % / −55 %, display front −16 % / −28 %);
+  momentum not worse (the end kinetic energy and the largest angular momentum not above the larger of D105's and D120's
+  same arm by more than 25 %); windows within 25 % of D120's (LE / PE 65 / 78, dragon 112 / 106); (e) the dragon's side view
+  at 0.8–2 s in the studio look (base display `+fit=0`, `tmp/fig_pipeline/cdm_cmp.py +az=90`), D120 | D129 side by side,
+  copied to `output/results_2026-10-07/` with a line in `output/README.md` (visual, recorded). Stage 2 passes on (a)–(d).
+  Stage 3 (only if stage 2 passes): the 40k gallery, 19 meshes, D120's state, `{mesh}_VX` / `{mesh}_WX` with
+  `--volume_exact` and, as the direct reference never run before, `{mesh}_V0` / `{mesh}_W0` without it (`tmp/d119.queue.held`'s
+  format, a `tmp/d119.sh`-style worker, `gallery_ind.py`): VX ahead of WX on 19 of 19, none behind D106's V by more than
+  0.01, the strays not worse (G4_ejection, stray_max against V0 and D106's V).
+  If a stage fails it stops there; the failure is reported with its numbers and the cause measured, and the next
+  definition change proposed; no constant is tuned.
+  Prediction (the user's): the stream's J falls from about 4 to 1.2–1.8; the apart particles at the peak fall by 50–80 %
+  in both arms, the display's apart discs alike; the arrival slower by 0–3 windows (the material resists being drawn
+  thin); the thin parts possibly harder to fill (the risk: thin uncovered up); the end otherwise unchanged. Mine beside
+  it: the same direction at 40k; `Jx_max` below 2 at every window (so the tangent number stays below 0.27); the body's
+  own surface and interior J (Fg) near 1 (D128: 1.15–1.88 and 1.00–1.19 under the old path); the wall time per window
+  within + 5 % (one kernel per step), the total set by the window count.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

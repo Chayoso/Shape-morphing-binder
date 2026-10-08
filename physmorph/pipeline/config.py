@@ -51,6 +51,11 @@ class PipelineConfig:
     assim: float = 0.5              # fraction of the elastic stretch made plastic per window
     assim_smin: float = 0.2         # singular-value band of the plastic deformation
     assim_smax: float = 5.0
+    volume_exact: bool = False      # D129 A/B: the stress reads the volume of the unsmoothed deformation history, J_{t+1} =
+                                    #   J_t det(F_new) / det(F_t) per particle (carried across windows like F), on the
+                                    #   smoothed F's shape: F_eff = (J / det F)^(1/3) (F + dFc) (mpm/kernels.k_stress_vx).
+                                    #   The smoothing kept 4.5 % of each step's increment, so the stress read J ~ 1.00 where
+                                    #   the transit stream was at J ~ 4 (D128). False = the old path bit for bit
 
     # ---- physics objective ----
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve

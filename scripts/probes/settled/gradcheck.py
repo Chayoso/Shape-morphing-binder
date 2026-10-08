@@ -24,17 +24,22 @@ ap.add_argument("--src", default="assets/isosphere.obj"); ap.add_argument("--tgt
 ap.add_argument("--n", type=int, default=40000); ap.add_argument("--seed", type=int, default=97)
 ap.add_argument("--scales", default="1e-3,3e-3", help="steps: relative change of the checked value")
 ap.add_argument("--leaves", default="dFc,u")
+ap.add_argument("--volume_exact", action="store_true", help="D129: the stress reads the tracked volume")
+ap.add_argument("--J0", type=float, default=1.0,
+                help="D129: the start state's tracked volume (a uniform value; 1 = the source's)")
 a = ap.parse_args()
 cfg0 = PipelineConfig()
 prep = prepare(a.src, a.tgt, a.n, a.seed, 26.0, cfg0.young, cfg0.poisson, log=lambda s: None)
-cfg = PipelineConfig(loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res, nn_berth_k=prep.nn_berth_k)
+cfg = PipelineConfig(loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res, nn_berth_k=prep.nn_berth_k,
+                     volume_exact=a.volume_exact)
 prm, x = prep.prm, gpu.tensor(prep.src)
 tgt = build_target(prep.tgt, prm, cfg)
 calibrate_units(tgt, x, cfg)
 N = len(x)
 coh = gpu.knn(x, cfg.coh_k + 1)[1][:, 1:]
 bonds = (coh, (x[coh] - x[:, None]).norm(dim=2), fragment_mask(x, prm).float())
-win = Window(StartState(x=x, Fp=torch.eye(3, device="cuda").repeat(N, 1, 1)), prm, cfg, tgt,
+J0 = torch.full((N,), a.J0, device="cuda") if a.volume_exact and a.J0 != 1.0 else None
+win = Window(StartState(x=x, Fp=torch.eye(3, device="cuda").repeat(N, 1, 1), J=J0), prm, cfg, tgt,
              compute_rest_volumes(x, 1.0, prm), bonds)
 obj = Objective(win)
 dFc = torch.zeros(cfg.T, N, 3, 3, device="cuda", requires_grad=True)

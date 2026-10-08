@@ -3,6 +3,7 @@
 Oracle: DiffMPMLib3D/ForwardSimulation.cpp. Cubic B-spline 4^3 stencil,
 C0 = 3/dx^2, APIC affine. Stress uses F_e = (F+dFc) Fp^{-1} (D1);
 the P scratch stores dPsi/d(F+dFc), not the elastic PK1 dPsi/dF_e.
+With the exact volume (D129) the stress reads (J / det F)^(1/3) (F+dFc) in place of F+dFc.
 """
 from __future__ import annotations
 
@@ -55,6 +56,56 @@ def k_stress_polar(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
     Fe = (F[p] + dFc[p]) @ Fpi
     Pe = pk1_fixed_corotated_polar(Fe, lam[p], mu[p])
     P[p] = Pe @ wp.transpose(Fpi)
+
+
+# ── stress with the EXACT VOLUME (D129, --volume_exact) ─────────────────────────
+# The smoothing (k_update, s = prm.smoothing) keeps (1 - s) of every step's deformation increment in F, so the
+# stress read J = det F ~ 1.00-1.01 where the motion's own volume was J ~ 4 (D128). Here the smoothed F supplies
+# the SHAPE and the tracked J (k_volume_update) the VOLUME: the constitutive model is evaluated at
+#   F_eff = a (F + dFc),   a = (J / det F)^(1/3),
+# whose isochoric part is that of F + dFc and whose determinant is J det(F + dFc) / det F, the volume of the
+# unsmoothed history with this step's control (Fp stays isochoric, D1 unchanged). P stores dPsi/d(F + dFc) at fixed a,
+# a Pe(Fe) Fp^-T, so that k_p2g's P (F + dFc)^T is the Kirchhoff stress Pe(Fe) Fe^T of Fe = F_eff Fp^-1. The moduli
+# are E, nu as given. det F is floored at 1e-6 as the constitutive model floors J: an inverted F is rejected by the
+# trajectory checks, the floor only keeps the rejected trial finite.
+@wp.func
+def volume_scale(F: wp.mat33, J: float) -> float:
+    return wp.pow(wp.max(J, 1.0e-6) / wp.max(wp.determinant(F), 1.0e-6), 1.0 / 3.0)
+
+
+@wp.kernel
+def k_stress_vx(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
+                Fp: wp.array(dtype=wp.mat33), J: wp.array(dtype=float), lam: wp.array(dtype=float),
+                mu: wp.array(dtype=float), P: wp.array(dtype=wp.mat33)):
+    p = wp.tid()
+    a = volume_scale(F[p], J[p])
+    Fpi = wp.inverse(Fp[p])
+    Fe = (a * (F[p] + dFc[p])) @ Fpi
+    Pe = pk1_fixed_corotated(Fe, lam[p], mu[p])
+    P[p] = a * (Pe @ wp.transpose(Fpi))
+
+
+@wp.kernel
+def k_stress_polar_vx(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
+                      Fp: wp.array(dtype=wp.mat33), J: wp.array(dtype=float), lam: wp.array(dtype=float),
+                      mu: wp.array(dtype=float), P: wp.array(dtype=wp.mat33)):
+    p = wp.tid()
+    a = volume_scale(F[p], J[p])
+    Fpi = wp.inverse(Fp[p])
+    Fe = (a * (F[p] + dFc[p])) @ Fpi
+    Pe = pk1_fixed_corotated_polar(Fe, lam[p], mu[p])
+    P[p] = a * (Pe @ wp.transpose(Fpi))
+
+
+@wp.kernel
+def k_volume_update(F_in: wp.array(dtype=wp.mat33), F_new: wp.array(dtype=wp.mat33),
+                    J_in: wp.array(dtype=float), J_out: wp.array(dtype=float)):
+    """The tracked volume (D129): J_{t+1} = J_t det(F_new) / det(F_t), F_new = (I + dt C)(F_t + dFc_t) (k_g2p), i.e.
+    J_t x det(I + dt C) x det(F_t + dFc_t) / det(F_t): the motion's volume change and the control's, each at its
+    full size, the smoothing taking no part. With s = 0 (F_{t+1} = F_new) it is det F exactly; J_0 = 1 at the source
+    and the promoted J at a window start (carried like F)."""
+    p = wp.tid()
+    J_out[p] = J_in[p] * wp.determinant(F_new[p]) / wp.max(wp.determinant(F_in[p]), 1.0e-6)
 
 
 # ── guidance velocity injection (distributed over substeps) ─────────────────

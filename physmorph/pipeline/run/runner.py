@@ -88,10 +88,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     coh_nbr = gpu.knn(src, cfg.coh_k + 1)[1][:, 1:]    # frozen source-material neighbours
     bond_rest = None
     F = v = C = None
+    J = None                                        # D129 (volume_exact): the tracked volume, 1 at the source (None)
     Fp = torch.eye(3, device=gpu.DEVICE).repeat(N, 1, 1)
     dfc_prev = None
     Fp_pre = None                                   # the last commit's plastic state before its assimilation
-    frames = FrameStore(src, F_stride or cfg.T)
+    frames = FrameStore(src, F_stride or cfg.T, volume=cfg.volume_exact)
     hist, guards = [], {k: 0 for k in GUARDS}
     sel = Selection(cfg)
     shadow = Selection(cfg)            # a record: the same rule read with the dense distance added (the merit until R13)
@@ -121,7 +122,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 frames.hold()
             break
         x_start = x.clone()
-        rollback = {"F": F, "v": v, "C": C, "Fp": Fp, "dfc": dfc_prev, "lam": balancer.lam,
+        rollback = {"F": F, "v": v, "C": C, "J": J, "Fp": Fp, "dfc": dfc_prev, "lam": balancer.lam,
                     "frames": len(frames), "guards": dict(guards)}
         # bonds: rest lengths refresh only for particles coupled at this window's start; a
         # broken-off particle keeps its last coupled lengths, so the bonds pull it back
@@ -131,7 +132,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         n_frag = int(frag.sum())
         if a % 10 == 0 or n_frag:
             log(f"[v2] anim {a + 1}: fragments {n_frag} particles")
-        res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C), prm, cfg, tgt, balancer,
+        res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer,
                               vol0, (coh_nbr, bond_rest, frag.float()), dfc_init=dfc_prev,
                               alpha_scale=sel.anneal, on_iter=on_iter, log=lambda *_: None)
         stats = res.stats
@@ -151,8 +152,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # rollout is re-run from the same state with the assimilation undone (Fp as the committing
                 # window had it) and, for reference, as it is
                 bonds = (coh_nbr, bond_rest, frag.float())
-                rec["dead_free"] = _free_probe(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C), prm, cfg, tgt, vol0, bonds)
-                rec["dead_free_noassim"] = _free_probe(StartState(x=x_start, Fp=Fp_pre, F=F, v=v, C=C), prm, cfg,
+                rec["dead_free"] = _free_probe(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, vol0,
+                                               bonds)
+                rec["dead_free_noassim"] = _free_probe(StartState(x=x_start, Fp=Fp_pre, F=F, v=v, C=C, J=J), prm, cfg,
                                                        tgt, vol0, bonds)
                 log(f"[v2] anim {a + 1}: dead start state; free rollout {rec['dead_free']}, "
                     f"without the last assimilation {rec['dead_free_noassim']}")
@@ -163,15 +165,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
             continue
         commit = res.commit
-        x, F, v, C, counts = promote(commit, lo, hi)
+        x, F, v, C, J, counts = promote(commit, lo, hi)
         for k in GUARDS:
             guards[k] += counts[k]
         Fp_pre = Fp                                     # the plastic state the committing window ran with
         if cfg.assim > 0:
+            # with the exact volume (D129) the stress reads (J / det F)^(1/3) F; the isochoric assimilation takes the
+            # elastic stretch's det-free part, which a scalar factor does not change, so it reads F as before
             Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
                                     isochoric=True)
-        frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F)
-        rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin)
+        frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F,
+                          Js=commit.J[1:-1] if J is not None else None, J_end=J)
+        rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
         if cfg.term_dump and stats.get("term_grads") is not None:
             write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one
@@ -185,6 +190,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # undo every mutation made after the window start (plasticity, lambda); a
             # rejected lineage is not retried: cold restart, no warm start or step memory
             x, F, v, C, Fp = x_start, rollback["F"], rollback["v"], rollback["C"], rollback["Fp"]
+            J = rollback["J"]
             balancer.lam = rollback["lam"]
             dfc_prev = Fp_pre = None
             tgt.settled_step = None
@@ -221,6 +227,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 f"  D_r={rec['d_render']:.5f}  lam={rec['lambda']:.3g}  kin={rec['kin']:.4f}"
                 f"  |v|max={rec['v_absmax']:.3f}  move={rec['move']:.4f}  Jmin={rec['Jmin_traj']:.3f}"
                 f"  acc/rej={rec['accepted']}/{rec['rejected']}"
+                + (f"  Jx p50/p99/max={rec['Jx_p50']:.3f}/{rec['Jx_p99']:.3f}/{rec['Jx_max']:.3f}" if J is not None else "")
                 + (f"  GUARD {counts}" if any_guard else ""))
     deliver_n, trunc = (best_window(hist, len(frames), cfg.tol, cfg.w_pbr) if cfg.best_truncate
                         else (len(frames), None))
@@ -244,8 +251,8 @@ def _free_probe(start: StartState, prm, cfg, tgt, vol0, bonds) -> dict:
         del win
 
 
-def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) -> dict:
-    """The window's history record, measured on the PROMOTED state."""
+def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, J=None) -> dict:
+    """The window's history record, measured on the PROMOTED state (with the tracked volume's quantiles, D129)."""
     w, stats = res.hist[-1], res.stats
     with torch.no_grad():
         d_vol = float(d_vol_density(x, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref,
@@ -281,6 +288,11 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
     if thin is not None and cfg.work_telemetry:
         m = thin_metrics(x, thin)
         rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))
+    if J is not None:                               # a record: the tracked volume at the window's end
+        with torch.no_grad():
+            q = torch.quantile(J.double(), torch.tensor([.01, .5, .99], device=J.device, dtype=torch.float64))
+            rec.update(Jx_min=float(J.min()), Jx_p01=float(q[0]), Jx_p50=float(q[1]), Jx_p99=float(q[2]),
+                       Jx_max=float(J.max()))
     return rec
 
 

@@ -124,7 +124,8 @@ class Trajectory:
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
                  Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None,
-                 bond_history=False, control_steps=None, polar_adjoint=False, spacing=None):
+                 bond_history=False, control_steps=None, polar_adjoint=False, spacing=None,
+                 volume_exact=False, J0=None):
         if not _is_tensor(x0):
             x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
@@ -137,7 +138,13 @@ class Trajectory:
         if control_steps is not None and (int(control_steps) != control_steps or not 1 <= control_steps <= T):
             raise ValueError("control_steps must be an integer between 1 and T")
         self.control_steps = T if control_steps is None else int(control_steps)
-        self.stress_kernel = K.k_stress_polar if polar_adjoint else K.k_stress
+        # D129 (--volume_exact): the stress reads the tracked volume J (kernels.k_stress_vx, k_volume_update); off, the
+        # kernels and launches are the old path's, unchanged
+        self.volume_exact = bool(volume_exact)
+        if self.volume_exact:
+            self.stress_kernel = K.k_stress_polar_vx if polar_adjoint else K.k_stress_vx
+        else:
+            self.stress_kernel = K.k_stress_polar if polar_adjoint else K.k_stress
         rg = requires_grad
 
         def A(a, dt, g=False):
@@ -202,6 +209,17 @@ class Trajectory:
         self.F = [(ID(rg) if F0 is None else A(F0, wp.mat33, rg)) if t == 0 else ID(rg)
                   for t in range(T + 1)]
         self.Fraw = [ID(rg) for t in range(T + 1)]
+        # THE TRACKED VOLUME (D129): J[t] per step, J[0] = J0 (1 at the source; the promoted J at a window start). Per-step
+        # buffers like F (the adjoint reads every step's; the trajectory check reads every step's minimum)
+        if self.volume_exact:
+            if J0 is not None and tuple(J0.shape) != (N,):
+                raise ValueError(f"J0 must have shape ({N},), got {tuple(J0.shape)}")
+            self.J = [(wp.ones(N, dtype=wp.float32, device=device, requires_grad=rg) if J0 is None
+                       else A(J0, wp.float32, rg)) if t == 0 else Z(wp.float32, rg) for t in range(T + 1)]
+        else:
+            if J0 is not None:
+                raise ValueError("J0 is the state of volume_exact; it has no meaning without it")
+            self.J = None
         # GEOMETRIC deformation gradient (render kinematics; kernels.k_geom_update):
         # transported by the velocity gradient only, no control, no smoothing. Optional
         # so the physics-only paths pay nothing for it.
@@ -305,6 +323,10 @@ class Trajectory:
             self.release_u = Z(wp.float32) if self.control_steps < T else None
             self.layer = True
             if lg is not None:
+                if self.volume_exact:
+                    # P3's u through F (k_layer_F) multiplies F by I + G outside k_update; the tracked volume does not
+                    # take that factor, so the two are not defined together (the settled path runs P3 off)
+                    raise ValueError("volume_exact is not defined with the u channel through F (layer[5])")
                 self.layer_F = True
                 self.layer_g = A(lg.reshape(-1, 3), wp.vec3)
                 self.layer_inv_depth = (1.0 / float(ldepth)) if ldepth > 0 else 0.0   # 0: no normal term
@@ -369,7 +391,11 @@ class Trajectory:
         if self.share_grid or self.persistent:       # P2G accumulates: fresh grid per step
             self.gm[t].zero_()
             self.gmom[t].zero_()
-        wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
+        if self.volume_exact:
+            wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.J[t], self.lam, self.mu, self.P[t]],
+                      device=dev)
+        else:
+            wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
                   self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
                   prm.dt, prm.drag,
@@ -380,6 +406,8 @@ class Trajectory:
         wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
+        if self.volume_exact:
+            wp.launch(K.k_volume_update, dim=N, inputs=[self.F[t], self.Fraw[t + 1], self.J[t], self.J[t + 1]], device=dev)
         x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
         F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
@@ -413,7 +441,7 @@ class Trajectory:
     def capture(self) -> bool:
         """Record the rollout as a CUDA graph (persistent trajectories on a CUDA device).
         Every buffer the graph touches lives on this object, so a replay is exactly the
-        rollout of the CURRENT contents of x[0], v[0], C[0], F[0], Fg[0], the material and
+        rollout of the CURRENT contents of x[0], v[0], C[0], F[0], Fg[0], J[0], the material and
         the control sequence. Modules are warmed with one plain rollout first (module
         loading is not allowed inside a capture)."""
         if not self.persistent or not str(self.device).startswith("cuda"):

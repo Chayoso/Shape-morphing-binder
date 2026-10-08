@@ -31,6 +31,7 @@ class StartState:
     F: torch.Tensor | None = None
     v: torch.Tensor | None = None
     C: torch.Tensor | None = None
+    J: torch.Tensor | None = None     # the tracked volume (cfg.volume_exact, D129; None = 1 at the source)
 
 
 class Window:
@@ -68,10 +69,15 @@ class Window:
             r = cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0)
             spacing = (gpu.knn(start.x, 17)[1][:, 1:], r if local is None else r * local)
         nbr, rest, frag = bonds
+        # D129: the tracked volume, carried from the last commit like F (the gradient's rollout and the eval trajectory,
+        # which is the line search's and the commit's, read the same J0)
+        vx = bool(cfg.volume_exact)
+        J0 = start.J if vx else None
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,
-                                bond_history=True, control_steps=cfg.T, polar_adjoint=True, spacing=spacing)
+                                bond_history=True, control_steps=cfg.T, polar_adjoint=True, spacing=spacing,
+                                volume_exact=vx, J0=J0)
         # the persistent no-grad trajectory: allocated once, rolled out as a CUDA graph for
         # every candidate, the warm-start comparison and the commit rollout; the control is
         # copied into dc_buf, which its dFc sequence views
@@ -80,7 +86,7 @@ class Window:
         self.tr = Trajectory(start.x, m, lam0, mu0, prm, T, F0=start.F, Fp=start.Fp, v0=start.v,
                              C0=start.C, dFc=seq, device=cfg.device, requires_grad=False, vol0=vol0,
                              persistent=True, bonds=bonds, layer=layer, bond_history=True,
-                             control_steps=cfg.T, polar_adjoint=True, spacing=spacing)
+                             control_steps=cfg.T, polar_adjoint=True, spacing=spacing, volume_exact=vx, J0=J0)
         self.tr.capture()
         self._adj = None
         # unit constants: every fixed weight and gradient-magnitude constant is a legacy-unit

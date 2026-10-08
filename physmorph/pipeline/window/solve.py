@@ -486,6 +486,8 @@ class WindowOptimizer:
         if cfg.grad_dump and self.dump.get("gx_phys") is not None:
             commit.x = [t.clone() for t in commit.x]        # the dump's rollouts reuse the buffers
             commit.F = [t.clone() for t in commit.F]
+            if commit.J is not None:
+                commit.J = [t.clone() for t in commit.J]
             write_grad_dump(cfg.grad_dump, self.dump, win, leaf0, self.dFc.detach().clone(),
                             self.u.detach().clone(), win.expand(self.dFc.detach()),
                             commit.x[-1].detach().cpu().numpy())

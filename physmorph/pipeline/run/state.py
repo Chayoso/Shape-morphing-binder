@@ -14,38 +14,56 @@ class FrameStore:
     """The archived trajectory: every frame's positions on the host; deformation gradients
     only where the archive keeps them (every `stride`-th frame and each window's end)."""
 
-    def __init__(self, x0: torch.Tensor, stride: int):
+    def __init__(self, x0: torch.Tensor, stride: int, volume: bool = False):
         self.stride = max(1, int(stride))
         self.x = [gpu.host(x0)]
         self.F = {0: gpu.host(torch.eye(3, device=x0.device).expand(x0.shape[0], 3, 3))}
+        # D129 (volume_exact): the tracked volume J at the same frames as F (1 at the source); None = not tracked
+        self.J = {0: gpu.host(torch.ones(x0.shape[0], device=x0.device))} if volume else None
 
     def __len__(self):
         return len(self.x)
 
-    def add_window(self, xs: list, Fs: list, x_end: torch.Tensor, F_end: torch.Tensor):
-        """Steps 1..2T-1 of a committed window (device views) and its promoted end state."""
-        for x, F in zip(xs, Fs):
+    def add_window(self, xs: list, Fs: list, x_end: torch.Tensor, F_end: torch.Tensor, Js: list | None = None,
+                   J_end: torch.Tensor | None = None):
+        """Steps 1..2T-1 of a committed window (device views) and its promoted end state (with the tracked volume
+        when the store keeps it)."""
+        for i, (x, F) in enumerate(zip(xs, Fs)):
             if len(self.x) % self.stride == 0:
                 self.F[len(self.x)] = gpu.host(F)
+                if self.J is not None:
+                    self.J[len(self.x)] = gpu.host(Js[i])
             self.x.append(gpu.host(x))
         self.F[len(self.x)] = gpu.host(F_end)
+        if self.J is not None:
+            self.J[len(self.x)] = gpu.host(J_end)
         self.x.append(gpu.host(x_end))
 
     def hold(self):
         """One held frame at the end (the run stopped)."""
         self.F[len(self.x)] = self.F[len(self.x) - 1].copy()
+        if self.J is not None:
+            self.J[len(self.x)] = self.J[len(self.x) - 1].copy()
         self.x.append(self.x[-1].copy())
 
     def truncate(self, n: int):
         del self.x[n:]
         for k in [k for k in self.F if k >= n]:
             del self.F[k]
+        for k in [k for k in (self.J or {}) if k >= n]:
+            del self.J[k]
 
     def archive_F(self):
         """(indices, stacked F) of every stride-th frame and the last one."""
         n = len(self.x)
         idx = sorted(set(range(0, n, self.stride)) | {n - 1})
         return idx, [self.F[i] for i in idx]
+
+    def archive_J(self):
+        """The tracked volume at archive_F's frames (an empty list when the store does not keep it)."""
+        if self.J is None:
+            return []
+        return [self.J[i] for i in self.archive_F()[0]]
 
 
 def fragment_mask(x: torch.Tensor, prm: MPMParams) -> torch.Tensor:
@@ -72,7 +90,9 @@ def fragment_mask(x: torch.Tensor, prm: MPMParams) -> torch.Tensor:
 def promote(commit, lo: torch.Tensor, hi: torch.Tensor):
     """The committed window's end state with the numerical pathologies repaired and counted
     (the counts must stay zero): positions clipped to the domain, F reflections and
-    non-finite rows, non-finite velocities and affine fields."""
+    non-finite rows, non-finite velocities and affine fields. Returns (x, F, v, C, J, counts);
+    J is the tracked volume (D129, None unless the commit carries it): a non-finite or
+    non-positive row is reset to the det of its repaired F and counted with the state."""
     x_new = commit.x[-1]
     n_out = int(((x_new < lo) | (x_new > hi)).any(1).sum())
     n_nan = int((~torch.isfinite(x_new).all(1)).sum())
@@ -82,6 +102,11 @@ def promote(commit, lo: torch.Tensor, hi: torch.Tensor):
                + (~torch.isfinite(commit.end_C).all(dim=(1, 2))).sum())
     v = torch.nan_to_num(commit.end_v).float()
     C = torch.nan_to_num(commit.end_C).float()
+    J = None
+    if commit.end_J is not None:
+        bad_J = ~(torch.isfinite(commit.end_J) & (commit.end_J > 0))
+        n_ns += int(bad_J.sum())
+        J = torch.where(bad_J, torch.linalg.det(F.reshape(-1, 3, 3)), commit.end_J).float().clone()
     counts = {"clamped": n_out, "nan_x": n_nan, "nan_state": n_ns, "F_reset": n_bad, "F_flip": n_flip,
               "F_invert_steps": int(commit.n_inv_steps)}
-    return x, F.clone(), v, C, counts
+    return x, F.clone(), v, C, J, counts

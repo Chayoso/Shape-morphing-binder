@@ -70,6 +70,9 @@ def parse_args():
     ap.add_argument("--render_body_only", action="store_true",
                     help="D127 A/B: the render terms read only the discs of the body's largest connected set (the display's "
                          "rule), decided at each search of the window's discs; discs apart from the body carry no term")
+    ap.add_argument("--volume_exact", action="store_true",
+                    help="D129 A/B: the stress reads the volume of the unsmoothed deformation history (a tracked J per "
+                         "particle, carried like F) on the smoothed F's shape; off = the old path bit for bit")
     ap.add_argument("--w_dt", type=float, default=None,
                     help="the spray cleanup's weight (config 0.2); 0 = the cleanup off, the limit of --spray_gate grid")
     ap.add_argument("--render_target_draws", type=int, default=8,
@@ -201,6 +204,7 @@ def main():
                               render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
                               spray_gate=args.spray_gate, render_body_only=args.render_body_only,
+                              volume_exact=args.volume_exact,
                               w_dt=cfg0.w_dt if args.w_dt is None else args.w_dt,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
@@ -243,9 +247,11 @@ def main():
     met["move_first_frac"] = float(sum(mv[:3]) / max(sum(mv), 1e-9)) if mv else 1.0
     gates = eval_gates(res, met, prm, cfg.T)
     idx, F_samples = frames.archive_F()
+    J_samples = frames.archive_J()                  # D129: the tracked volume at F's frames (empty when not tracked)
     np.savez(f"{args.out}_{ARM}.npz", src=src, tgt=tgt, orient=np.str_(orient_name(args.tgt)),
              frames=np.stack(frames.x), deliver_n=np.int64(dn), truncation=json.dumps(res["truncation"]),
              F_samples=np.stack(F_samples), F_sample_idx=np.array(idx),
+             J_samples=np.stack(J_samples) if J_samples else np.zeros((0, 0), np.float32),
              render_mask=np.ones(len(src), bool), s=np.zeros(0, np.float32),
              w_src=np.zeros(0, np.float32) if prep.w_src is None else prep.w_src,     # D122: the rest-volume weights
              w_tgt=np.zeros(0, np.float32) if prep.w_tgt is None else prep.w_tgt,
