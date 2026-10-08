@@ -2543,6 +2543,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the consequence of conserving the volume, not a defect of the definition; whether the 40k end margins above
   (dragon chamfer + 0.0009, thin + 0.9 to + 1.2 points; bunny better) may pass to stage 2, where the pre-registered
   tolerances are fixed (chamfer ± 0.0005, thin ± 1 point), is the user's call.
+  **Deviation (recorded 2026-10-07 20:52 CDT, before the stage-2 launch; the coordinator, under the user's standing
+  instruction to keep going until the floating pieces are solved):** stage 1 missed criterion (3) on 4 of 24 values
+  (bunny twin chamfer 0.1101 vs 0.1097; dragon render-arm thin 7.92 vs 7.64 %; dragon twin chamfer 0.1120 vs 0.1113,
+  thin 9.83 vs 9.64 %), measured as threshold flips of scattered 1–2-point clusters at the 1.5-spacing gap and the
+  interior's rest density (the old path ends ~9 % denser because it does not conserve volume), not a missing thin part;
+  stage 2 is run as the decisive test with its criteria unchanged (chamfer ± 0.0005, thin ± 1 point, the rest as
+  written above: (a)–(e) against D120, (a′) J's minimum ≥ 0.01; the flag-off pair on the fixed code beside them as
+  controls, not criteria). Runs: `tmp/d130/d130.sh` (per GPU: the 12-window archive LMF / PMF on repo_r106g, the full
+  run LM / PM, then the control L0f / P0f), `tmp/d130/d130_final.sh` (bands, early_gauss, d126_read once all twelve are
+  done), the dragon side view D120 | D130 (`tmp/fig_pipeline/run_cmp.sh`, `+az=90`, base display) when the dragon
+  render arm's frames are read.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
