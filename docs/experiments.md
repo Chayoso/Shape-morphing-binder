@@ -2554,6 +2554,46 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   run LM / PM, then the control L0f / P0f), `tmp/d130/d130_final.sh` (bands, early_gauss, d126_read once all twelve are
   done), the dragon side view D120 | D130 (`tmp/fig_pipeline/run_cmp.sh`, `+az=90`, base display) when the dragon
   render arm's frames are read.
+  **Stage 2 result (runs 20:55–23:44 CDT, final reading 00:14 2026-10-08; `output/gpu/d130`: the run JSON and logs,
+  `t3_/e3_/a_/m_/o_`, `pend_*`, `apart_*`, `classify_/split_/fate_*`, `rows_*`, `meas_/jx_/jmin_*` of the archives,
+  `bands_{bunny,dragon}.log`, `early_gauss.log`, `read_all.jsonl`, `s2_read.log`; `tmp/d130/s2_read.py`, `s2_stop.py`,
+  `endmotion.py`; the side view `output/gpu/d130/side/`, local `output/results_2026-10-07/d130_dragon_side/`): FAILED on
+  (d), both meshes; (a), (a′), (c) met, (b) met but for the bunny twin (0.52 ×). The early floating material is gone; the
+  end quality does not hold. Stage 3 not run.** Against D120 (LE / PE), D130's render arm LM and twin PM, the flag-off
+  control on the fixed code (L0f / P0f) in brackets:
+
+  | 300k | apart w3–6 (a) | e3 apart, first 10 % (b) | stream det Fg (c) | J min (a′) | sil IoU | chamfer | thin % | yardstick sil / shade | display front / crop | rough ° | relief 5.4 | kin end | windows |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | bunny L: D130 / D120 [ctl] | 904 / 4590 [4329] | 2211 / 9158 [7320] | 1.009 / 4.17 | 0.90 | 0.9874 / 0.9870 [0.9870] | 0.0551 / 0.0550 [0.0550] | 4.8 / 3.7 [3.4] | 8.7e-4 5.1e-4 / 7.1e-4 4.9e-4 | 0.0097 0.0251 / 0.0082 0.0175 | 4.5 / 3.3 | 0.59 / 0.54 [0.54] | 6.9e-5 / 8.2e-6 [5.0e-6] | 49 / 65 [66] |
+  | bunny P | 1224 / 3744 [3745] | 4198 / 8126 [8090] | 1.008 / 4.36 | 0.88 | 0.9856 / 0.9875 [0.9871] | 0.0552 / 0.0549 [0.0550] | 5.1 / 3.8 [4.0] | 1.6e-3 7.3e-4 / 1.1e-3 5.8e-4 | 0.0131 0.0302 / 0.0098 0.0224 | 4.4 / 3.3 | 0.60 / 0.57 [0.57] | 9.9e-5 / 5.8e-6 [2.5e-6] | 49 / 78 [69] |
+  | dragon L | 51 / 9234 [9492] | 219 / 6254 [5230] | 1.006 / 3.86 | 0.73 | 0.9867 / 0.9867 [0.9865] | 0.0543 / 0.0543 [0.0543] | 5.2 / 2.8 [3.3] | 7.3e-4 5.8e-4 / 5.3e-4 4.4e-4 | 0.0095 0.0217 / 0.0089 0.0200 | 6.6 / 6.5 | 0.55 / 0.57 [0.55] | 3.8e-4 / 1.9e-5 [1.5e-5] | 70 / 112 [97] |
+  | dragon P | 6 / 4245 [4245] | 0 / 5891 [6345] | 1.003 / 3.82 | 0.73 | 0.9864 / 0.9871 [0.9870] | 0.0544 / 0.0543 [0.0543] | 5.0 / 3.5 [3.3] | 1.6e-3 8.6e-4 / 1.2e-3 6.4e-4 | 0.0147 0.0352 / 0.0125 0.0250 | 6.9 / 6.0 | 0.58 / 0.58 [0.58] | 2.6e-4 / 2.5e-5 [2.9e-5] | 71 / 106 [104] |
+
+  (d) per item: silhouette IoU and chamfer within their tolerances in all four arms; thin uncovered + 1.1 / + 1.2 /
+  + 2.4 / + 1.5 points (± 1 allowed); yardstick + 23 % / + 55 % / + 38 % / + 41 % on the silhouette (± 15 %); display
+  front / crop + 19 / 44 %, + 34 / 35 %, + 7 / 8 %, + 17 / 41 %; roughness + 1.2° on the bunny, within on the dragon;
+  relief at 5.4 pitches + 0.05 / + 0.03 on the bunny (outside the band on the side of more relief), within on the
+  dragon; the end kinetic energy 7–15 × the limit (D105 / D120's larger + 25 %), the largest angular momentum lower;
+  windows − 25 % / − 37 % / − 38 % / − 33 %; the render arm ahead of its twin by at least D120's margins (yardstick
+  silhouette − 46 / − 56 %, display front − 26 / − 35 %). The controls reproduce D120 (silhouette 0.9865–0.9871, thin
+  3.3–4.0 %, windows 66–104, the end kinetic energy 2.5e-6–2.9e-5): the replay fix is neutral, every miss is D130's.
+  The display: its apart discs in the first 10 % fall 2–30 × (dragon 0 / 219 against 5891 / 6254) but rise in the
+  10–30 % stretch (bunny 2529 / 3814 against 1408 / 695 and the controls' 1606 / 1479; dragon 4295 / 6560 against 2705 /
+  2306 and 3009 / 2862); the folded discs fall 10–100 × in the first 10 %. The side view (`dragon_side_strip_0.8-2s.jpg`,
+  kept frames 16–40): D120's dragon carries detached flakes and debris from 1.2 s on, D130's is whole at every frame;
+  the user, watching it: a few pieces still show.
+  Causes measured (`s2_stop.py`, `endmotion.py`): (1) the smoothed F's volume drifts without bound: under D130 the stress
+  reads F only through its shape, so F → λ F changes nothing but the control's weight (F_eff ∝ F + dFc / λ), and the
+  descent shrinks λ: the minimum det F per window falls ~ 0.02 a window on the dragon (0.41 → 0.03 over the last 20
+  windows; D120 0.85 throughout), 0.80 → 0.70 on the bunny; near it the trajectory check rejects trials (`jt`: 38 / 44 on
+  the dragon), the selection brakes (physics gain − 0.11 to − 0.20) and the dragon stops at 70 / 71 windows; (2) the
+  end is not at rest: the end kinetic energy plateaus at 10–20 × D120's over the last eight windows on both meshes (the
+  running kinetic alike), its composition as D120's (volumetric / shear rms 0.64 in both, the displacement per 12 steps
+  4 × on the dragon): an agitation of the whole body, not a bulk ringing; the bunny's merit stalls at 7.9e-5 (D120 3.1e-5)
+  and it stops on brake rejections at 49 windows; (3) thin uncovered + 1.1 to + 2.4 points, with 20–40 fewer windows (to
+  be read at matched windows, the next step). Next: a D125-style forensic of the pieces still drawn (populations, set
+  sizes, the display's drawn ones and where they are in the side view, their det Fg and J) and of the thin regression at
+  matched windows, then one definition change per cause.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
