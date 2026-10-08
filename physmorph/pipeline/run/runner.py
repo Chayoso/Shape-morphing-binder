@@ -92,7 +92,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     Fp = torch.eye(3, device=gpu.DEVICE).repeat(N, 1, 1)
     dfc_prev = None
     Fp_pre = None                                   # the last commit's plastic state before its assimilation
-    frames = FrameStore(src, F_stride or cfg.T, volume=cfg.volume_exact)
+    frames = FrameStore(src, F_stride or cfg.T, volume=cfg.volume_exact != "off")
     hist, guards = [], {k: 0 for k in GUARDS}
     sel = Selection(cfg)
     shadow = Selection(cfg)            # a record: the same rule read with the dense distance added (the merit until R13)

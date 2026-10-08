@@ -51,11 +51,13 @@ class PipelineConfig:
     assim: float = 0.5              # fraction of the elastic stretch made plastic per window
     assim_smin: float = 0.2         # singular-value band of the plastic deformation
     assim_smax: float = 5.0
-    volume_exact: bool = False      # D129 A/B: the stress reads the volume of the unsmoothed deformation history, J_{t+1} =
-                                    #   J_t det(F_new) / det(F_t) per particle (carried across windows like F), on the
-                                    #   smoothed F's shape: F_eff = (J / det F)^(1/3) (F + dFc) (mpm/kernels.k_stress_vx).
+    volume_exact: str = "off"       # A/B: the stress reads a tracked volume J per particle (carried across windows like F)
+                                    #   on the smoothed F's shape, F_eff = (J / det F)^(1/3) (F + dFc) (mpm/kernels.k_stress_vx).
                                     #   The smoothing kept 4.5 % of each step's increment, so the stress read J ~ 1.00 where
-                                    #   the transit stream was at J ~ 4 (D128). False = the old path bit for bit
+                                    #   the transit stream was at J ~ 4 (D128). "history" (D129; True): J of the unsmoothed
+                                    #   history, J_t det(F_new) / det(F_t), the control's volume included at full size;
+                                    #   "motion" (D130): the motion's own volume, J_t det(I + dt C) = det Fg, the control's
+                                    #   volume acting within its own step only; "off" (False) = the old path bit for bit
 
     # ---- physics objective ----
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve
@@ -164,6 +166,9 @@ class PipelineConfig:
             raise ValueError("xu_form must be \"oracle\" or \"paper\"")
         if self.spray_gate not in ("knn", "grid"):
             raise ValueError("spray_gate must be \"knn\" or \"grid\"")
+        self.volume_exact = {False: "off", True: "history"}.get(self.volume_exact, self.volume_exact)
+        if self.volume_exact not in ("off", "history", "motion"):
+            raise ValueError("volume_exact must be \"off\", \"history\" or \"motion\"")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

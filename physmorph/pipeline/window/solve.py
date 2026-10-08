@@ -126,6 +126,12 @@ class WindowOptimizer:
         self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0, "ls_fail_state_reason": {}}, {}
         self.accepted = self.rejected = 0
         self._it = 0
+        # the exterior disc set the last accepted candidate was scored with (Objective.render_terms keeps the discs found
+        # at an earlier state and looks for them again when a tenth have moved half a pitch): the commit replays that
+        # candidate with the same set, so its score is the candidate's and not the score of whatever later trial last
+        # moved the discs (D130 (1): D129's source-window commit_replay nulls were the render term read on discs found
+        # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
+        self.scored_discs = None
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
         # momentum balance: the body's centre-of-mass motion per window was u's net translation (ratio 1.0-1.1,
         # correlation +0.98, D93) and u carried half to two thirds of its rotation. Its displacement keeps no part
@@ -283,6 +289,7 @@ class WindowOptimizer:
             merit_ok, st_ok = bool(np.isfinite(new) and new <= cur - required), state_ok(e_n)
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
+                self.scored_discs = self.obj.discs
                 self.adam_t = t_
                 self.alpha = min(a_base * 1.1, cfg.alpha * self.alpha_scale)
                 self.alpha_base = a_base
@@ -458,6 +465,8 @@ class WindowOptimizer:
     def commit(self, hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0) -> WindowResult:
         cfg, win = self.cfg, self.win
         win._adj = None                     # the tape is done: free it before the runner goes on
+        if self.scored_discs is not None:   # replay the accepted candidate on the discs it was scored with
+            self.obj.discs = self.scored_discs
         commit = commit_rollout(win, self.obj, self.dFc, self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)

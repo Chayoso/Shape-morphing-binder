@@ -2428,6 +2428,75 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   det Fg at most about 1.1, the apart particles and the collapse gone; the risk: the stream is how the thin parts get their
   material, so the arrival becomes an isochoric flow (slower, thin uncovered up). (c) is a question of the replay check's
   definition (its noise is measured where there is none), to be taken up on its own, not by a constant.
+- **D130, the volume the stress reads is the motion's own (pre-registered 2026-10-07 20:25 CDT, before any D130 stage
+  run; the coordinator, on the user's standing instruction to go on until the floating pieces are solved; code:
+  `config.volume_exact` "off" / "history" (D129, the bare flag) / "motion" (this), `--volume_exact motion`,
+  `mpm/kernels.k_volume_update_motion`, `mpm/traj.Trajectory.volume_mode`; the replay fix in `window/solve.WindowOptimizer`
+  (`scored_discs`); tests `tests/test_volume_exact.py` (26); server `repo_r106` (HEAD + this), probe copy `repo_r106g`
+  (+ the Fg archive hook, `tmp/d130/fg_hook_d130.patch`, not committed); `tmp/d130/`, `output/gpu/d130/`).** Motivation
+  (D129 stage 1): with the control's volume accumulated in J at its full size the control held the J the stress reads at
+  0.97–0.99 on a stream at det Fg 4.2–4.8: its cumulative volume factor J / det Fg on the stream was 0.20–0.23 (exact),
+  as it had been at 4.5 % under the old path (0.25–0.34 estimated): the control pre-compresses the volume the stress
+  reads, the pressure drives the material out, the motion follows; it could also collapse particles (the dragon's J
+  below 0.01 in half the windows, where λ (J − 1) J vanishes).
+  (1) First, the replay mismatch (a correctness question). D129's flag-on render arms froze at the source on
+  `commit_replay` (the commit's E 5e-6 to 3.4e-4 above the accepted candidate's, the measured replay noise 0). Measured
+  (`tmp/d129/replay_probe.py`: every evaluation's terms, the exterior disc set it read and its end state, wrapped around
+  pipeline_run's main; `tmp/d129/rp/`): in the frozen window the commit's rollout replayed the accepted candidate to
+  7.2e-7 wu (flag off 4.8e-7: the CUDA atomics, the same with and without the flag), the physics core and the cleanup
+  to the last digit, and the render term differed by 3.9e-5 relative because it was read on a different disc set: the
+  exterior discs are a cache (`Objective.render_terms`: found at a state, Newton-tracked from it, looked for again when
+  a tenth have moved half a pitch), and the line search's trials after the accepted one (11 evaluations here, 2
+  searches) had replaced it. Not a state missing from a rollout (the eval trajectory is the line search's and the
+  commit's), not J (initialised and carried the same in both), not an atomic in the new kernels (both are per
+  particle), not float32 drift of J (the rollouts agree to 7e-7), not the guard. With the flag the candidates move the
+  surface more, so the searches between the accepted step and its commit were more frequent at the source; the
+  routine late-run `commit_replay` nulls are a second class, unchanged by the flag (same disc set, no evaluation in
+  between, physics core 1e-7 apart: the atomics' own noise, flag off and on alike). The fix, in the shared path: the
+  commit replays the accepted candidate on the disc set it was scored with (`WindowOptimizer.scored_discs`, set at
+  each accepted step and restored before `commit_rollout`); no tolerance changed. On the 40k bunny (`tmp/d130/rp/`) the
+  history mode's source window now commits with E identical to the accepted candidate's after 11 evaluations in between
+  (before: 3.9e-5 apart), the motion mode commits every window. It changes the old path only in windows where a trial
+  after the accepted step looked for the discs again (render arms), so stage 1's flag-off references are re-run on the
+  fixed code. Tests: `test_the_commit_scores_the_accepted_candidate_on_its_own_discs` (off and motion: every accepted
+  step followed by a trial elsewhere that looks for the discs again; the commit's score within the check's own
+  tolerance, the same state on the new discs farther than it; with the fix removed the test fails, the commit 6.9e-5 to
+  1.1e-4 off), `test_the_eval_trajectory_replays_bit_for_bit` (the persistent eval trajectory rolled out twice: bit for
+  bit on the CPU with a moving control, bonds, layer and u, and on CUDA at the starting state at rest, every mode).
+  (2) The definition. J_{t+1} = J_t det(I + dt C_{t+1}) (`k_volume_update_motion`; = det Fg, the motion's accumulated
+  deformation, J = 1 at the source, carried across windows as D129's); the stress as D129's, F_eff = (J / det F)^(1/3)
+  (F + dFc). The exact composition: det F_eff = J det(F + dFc) / det F = det Fg det(I + dFc F⁻¹): the motion's whole
+  volume times this step's control relative to the current smoothed F; the control's earlier steps, which the smoothed
+  F keeps at (1 − s) each, cancel in the ratio and reach the stress only through the shape, the isochoric part of
+  F + dFc; within its step the control's volume is det(I + dFc F⁻¹), at most ± 3.5 % under the clip |dFc| ≤ 0.02 (F near
+  a rotation). Tested: J = det Fg at every step with a volumetric control in every step; at rest a dilating control
+  leaves J at 1 (history: (1.01)^(3T)); a control a I in one step and none in the next: the step's own stress answers it
+  in every mode, the next step's Kirchhoff pressure is 0 (≤ 1e-3 of it) under motion, ≥ 0.9 of it under history, 2–10 %
+  under the old path. Stability as D129's (the same stress; c dt / dx 0.138, fringe 0.20–0.21; the tangent reaches the
+  bound only near J ≈ 4); the motion's J cannot be driven to 0 by the control. Gradient check as D129's for both modes
+  (persistent adjoint = plain bridge, FD within 3 %, CPU and CUDA); the suite on repo_r106 322 passed, 2 skipped, exit 0
+  (`tmp/d130_tests.log`).
+  Instrument check (seen before this entry; the replay probe's motion run, 40k bunny render arm, 4 windows): every
+  window committed, J p50 / p99 / max 1.002 / 1.027 / 1.043 → 1.008 / 1.045 / 1.082 at windows 1 → 4 (history at the same
+  windows: p99 1.15–1.22, and D129's stream at det Fg 3–4), the merit 0.2373 → 0.0381 (history 0.2307 → 0.0439).
+  Stage 1 (40k, as D129's; `tmp/d130/s1.sh` on `tmp/d130/s1.queue`, repo_r106 / repo_r106g): motion at seeds 97, 98;
+  flag off on the fixed code at seeds 97, 98, 99; 12-window archives (motion and off, both arms, seed 97) read by
+  `d128_measure.py`, `d129_jx.py` and `d130_jmin.py` (J's minimum distribution per frame, and where any J < 0.1 sits:
+  distance to the target, apart or not, on the layer or not). Criteria: (1) every run completes and commits (guards 0,
+  no NaN), and J's minimum ≥ 0.01 in every window and archived frame (D129: below in half the dragon's windows); (2) the
+  stream's volume, the median det Fg of the apart particles pooled over windows 2–8, at most half the flag-off
+  archive's (same mesh and arm); (3) the end silhouette IoU, chamfer and thin uncovered not worse than the flag-off
+  three-seed range by more than its width; (4) wall time at most 1.3 × the flag-off mean. Stage 2 (only if stage 1
+  passes): D129's stage 2 with `--volume_exact motion` (the render arm LM and twin PM, 300k bunny and dragon, the
+  12-window archives with Fg and J, the same chain and readings, criteria (a)–(e) against D120 as written there, and
+  (a′) J's minimum as (1)); beside them, as controls not criteria, the flag-off pair on the fixed code (L0f / P0f) so
+  the replay fix's own effect is seen apart from D130's; the dragon side view D120 | D130 at 0.8–2 s (studio look,
+  base display) into `output/results_2026-10-07/` with a line in `output/README.md`. Stage 3 (only if stage 2
+  passes): D129's stage 3 with the motion mode.
+  Prediction: the stream's det Fg in windows 2–8 down by ≥ 50 % (from 3.6–4.9 to 1.2–2), the apart particles down with
+  it in both arms; J's minimum far above 0.01 (the motion compresses nothing to a tenth against K); the arrival slower by
+  0–3 windows (the material resists being drawn thin and must flow isochorically into the thin parts); the thin parts at
+  risk (thin uncovered up); the end otherwise within the spread; the source window no longer null.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

@@ -108,6 +108,18 @@ def k_volume_update(F_in: wp.array(dtype=wp.mat33), F_new: wp.array(dtype=wp.mat
     J_out[p] = J_in[p] * wp.determinant(F_new[p]) / wp.max(wp.determinant(F_in[p]), 1.0e-6)
 
 
+@wp.kernel
+def k_volume_update_motion(C: wp.array(dtype=wp.mat33), J_in: wp.array(dtype=float), J_out: wp.array(dtype=float),
+                           dt: float):
+    """The motion's own volume (D130, --volume_exact motion): J_{t+1} = J_t det(I + dt C_{t+1}), the determinant of the
+    geometric deformation gradient Fg (k_geom_update) carried as a scalar. The control takes no part: D129 measured that
+    with its volume accumulated in J the control held J ~ 1 on a stream at det Fg 4-5 (its cumulative volume factor
+    0.20-0.23). Read by k_stress_vx as (J / det F)^(1/3) (F + dFc), the control's volume acts within its own step only,
+    det(F + dFc) / det F."""
+    p = wp.tid()
+    J_out[p] = J_in[p] * wp.determinant(wp.identity(n=3, dtype=float) + dt * C[p])
+
+
 # ── guidance velocity injection (distributed over substeps) ─────────────────
 # Adds a small per-particle velocity each substep so elasticity can resist
 # overshoot, instead of a single large velocity override (anti-ejection).

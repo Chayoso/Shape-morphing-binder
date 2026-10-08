@@ -50,7 +50,7 @@ class RolloutSpec:
     bond_history: bool = False          # preserve legacy baseline; opt in to time-correct fracture adjoint
     control_steps: int | None = None    # release controls after this step; None controls the whole rollout
     polar_adjoint: bool = False         # stable rotation VJP; original signed-SVD forward is unchanged
-    volume_exact: bool = False          # D129: the stress reads the tracked volume J (mpm/kernels.k_stress_vx)
+    volume_exact: bool | str = False    # the stress reads a tracked volume J: "history" (D129, True) / "motion" (D130)
     J0: np.ndarray | None = None        # the tracked volume at the start (volume_exact; None = 1)
 
 

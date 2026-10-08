@@ -138,9 +138,14 @@ class Trajectory:
         if control_steps is not None and (int(control_steps) != control_steps or not 1 <= control_steps <= T):
             raise ValueError("control_steps must be an integer between 1 and T")
         self.control_steps = T if control_steps is None else int(control_steps)
-        # D129 (--volume_exact): the stress reads the tracked volume J (kernels.k_stress_vx, k_volume_update); off, the
-        # kernels and launches are the old path's, unchanged
-        self.volume_exact = bool(volume_exact)
+        # the stress reads a tracked volume J (kernels.k_stress_vx): "history" (D129, True), J of the unsmoothed history,
+        # the control's volume included (k_volume_update); "motion" (D130), the motion's own, det Fg (k_volume_update_motion);
+        # off (False / "off"), the kernels and launches are the old path's, unchanged
+        mode = {False: "off", None: "off", "": "off", True: "history"}.get(volume_exact, volume_exact)
+        if mode not in ("off", "history", "motion"):
+            raise ValueError(f"volume_exact must be off, history or motion, got {volume_exact!r}")
+        self.volume_mode = mode
+        self.volume_exact = mode != "off"
         if self.volume_exact:
             self.stress_kernel = K.k_stress_polar_vx if polar_adjoint else K.k_stress_vx
         else:
@@ -406,8 +411,10 @@ class Trajectory:
         wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
-        if self.volume_exact:
+        if self.volume_mode == "history":
             wp.launch(K.k_volume_update, dim=N, inputs=[self.F[t], self.Fraw[t + 1], self.J[t], self.J[t + 1]], device=dev)
+        elif self.volume_mode == "motion":
+            wp.launch(K.k_volume_update_motion, dim=N, inputs=[self.C[t + 1], self.J[t], self.J[t + 1], prm.dt], device=dev)
         x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
         F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
