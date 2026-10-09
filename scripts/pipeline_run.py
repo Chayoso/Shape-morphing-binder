@@ -70,11 +70,14 @@ def parse_args():
     ap.add_argument("--render_body_only", action="store_true",
                     help="D127 A/B: the render terms read only the discs of the body's largest connected set (the display's "
                          "rule), decided at each search of the window's discs; discs apart from the body carry no term")
-    ap.add_argument("--volume_exact", nargs="?", const="history", default="off", choices=["off", "history", "motion", "carried"],
+    ap.add_argument("--volume_exact", nargs="?", const="history", default="off",
+                    choices=["off", "history", "motion", "carried", "smoothed"],
                     help="A/B: the stress reads a tracked volume J per particle (carried like F) on the smoothed F's shape: "
                          "history (D129, the bare flag), the unsmoothed history's with the control's volume; motion (D130), "
                          "the motion's own (det Fg), the control's volume within its step only; carried (D131), the motion's volume carried in the "
-                         "smoothed F itself (det F = J after every step, the stress reading F + dFc); off = the old path bit for bit")
+                         "smoothed F itself (det F = J after every step, the stress reading F + dFc); smoothed (D134), carried "
+                         "with the motion's volume at the smoothing's rate (the old path's volume without the control's "
+                         "accumulated part); off = the old path bit for bit")
     ap.add_argument("--w_dt", type=float, default=None,
                     help="the spray cleanup's weight (config 0.2); 0 = the cleanup off, the limit of --spray_gate grid")
     ap.add_argument("--render_target_draws", type=int, default=8,

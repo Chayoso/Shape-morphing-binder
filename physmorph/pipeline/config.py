@@ -59,7 +59,9 @@ class PipelineConfig:
                                     #   "motion" (D130): the motion's own volume, J_t det(I + dt C) = det Fg, the control's
                                     #   volume acting within its own step only; "carried" (D131): the same volume carried in the smoothed F
                                     #   itself (k_volume_carry: det F = J after every step; the stress reads F + dFc as on the old path, so
-                                    #   F's scale cannot drift and reweight the control); "off" (False) = the old path bit for bit
+                                    #   F's scale cannot drift and reweight the control); "smoothed" (D134): carried the same way, J the
+                                    #   motion's volume at the smoothing's rate (the old path's volume without the control's
+                                    #   accumulated part); "off" (False) = the old path bit for bit
 
     # ---- physics objective ----
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve
@@ -169,8 +171,8 @@ class PipelineConfig:
         if self.spray_gate not in ("knn", "grid"):
             raise ValueError("spray_gate must be \"knn\" or \"grid\"")
         self.volume_exact = {False: "off", True: "history"}.get(self.volume_exact, self.volume_exact)
-        if self.volume_exact not in ("off", "history", "motion", "carried"):
-            raise ValueError("volume_exact must be \"off\", \"history\", \"motion\" or \"carried\"")
+        if self.volume_exact not in ("off", "history", "motion", "carried", "smoothed"):
+            raise ValueError("volume_exact must be \"off\", \"history\", \"motion\", \"carried\" or \"smoothed\"")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

@@ -141,14 +141,17 @@ class Trajectory:
         # a tracked volume J: "history" (D129, True), J of the unsmoothed history, the control's volume included
         # (k_volume_update), read by the stress as (J / det F)^(1/3) (F + dFc) (k_stress_vx); "motion" (D130), the motion's
         # own, det Fg (k_volume_update_motion), read the same way; "carried" (D131), the motion's own carried in the smoothed
-        # F itself (k_volume_carry: det F = J after every step), the stress reading F + dFc (the old kernels); off (False /
+        # F itself (k_volume_carry: det F = J after every step), the stress reading F + dFc (the old kernels); "smoothed"
+        # (D134), carried the same way, J the motion's volume at the smoothing's rate, J_t det(I + (1 - s) dt C)
+        # (k_volume_update_smoothed: the old path's volume without the control's accumulated part); off (False /
         # "off"), the kernels and launches are the old path's, unchanged
         mode = {False: "off", None: "off", "": "off", True: "history"}.get(volume_exact, volume_exact)
-        if mode not in ("off", "history", "motion", "carried"):
-            raise ValueError(f"volume_exact must be off, history, motion or carried, got {volume_exact!r}")
+        if mode not in ("off", "history", "motion", "carried", "smoothed"):
+            raise ValueError(f"volume_exact must be off, history, motion, carried or smoothed, got {volume_exact!r}")
         self.volume_mode = mode
         self.volume_exact = mode != "off"
         self.stress_reads_J = mode in ("history", "motion")
+        self.carries = mode in ("carried", "smoothed")
         if self.stress_reads_J:
             self.stress_kernel = K.k_stress_polar_vx if polar_adjoint else K.k_stress_vx
         else:
@@ -230,7 +233,7 @@ class Trajectory:
             self.J = None
         # D131 ("carried"): the blend of k_update lands in Fs[t+1] and k_volume_carry writes F[t+1] = (J / det Fs)^(1/3) Fs
         # (a separate buffer: an in-place write would break the tape)
-        self.Fs = scratch(lambda: ID(rg), T + 1) if mode == "carried" else None
+        self.Fs = scratch(lambda: ID(rg), T + 1) if self.carries else None
         # GEOMETRIC deformation gradient (render kinematics; kernels.k_geom_update):
         # transported by the velocity gradient only, no control, no smoothing. Optional
         # so the physics-only paths pay nothing for it.
@@ -419,10 +422,14 @@ class Trajectory:
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
         if self.volume_mode == "history":
             wp.launch(K.k_volume_update, dim=N, inputs=[self.F[t], self.Fraw[t + 1], self.J[t], self.J[t + 1]], device=dev)
+        elif self.volume_mode == "smoothed":
+            wp.launch(K.k_volume_update_smoothed, dim=N,
+                      inputs=[self.C[t + 1], self.J[t], self.J[t + 1], prm.dt, prm.smoothing],
+                      device=dev)
         elif self.volume_mode in ("motion", "carried"):
             wp.launch(K.k_volume_update_motion, dim=N, inputs=[self.C[t + 1], self.J[t], self.J[t + 1], prm.dt], device=dev)
         x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
-        if self.volume_mode == "carried":
+        if self.carries:
             F_next = self.Fs[t + 1]
         else:
             F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
@@ -430,7 +437,7 @@ class Trajectory:
                   self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
                   bnb, brest, bnc, bK, 1.0 / float(self.control_steps),
                   self.space_nbr if self.space_K > 0 else self.nbr0, self.space_K, self.space_r], device=dev)
-        if self.volume_mode == "carried":
+        if self.carries:
             wp.launch(K.k_volume_carry, dim=N, inputs=[self.Fs[t + 1], self.J[t + 1], self.F[t + 1]], device=dev)
         if self.layer:
             layer_u = self.layer_u if t < self.control_steps else self.release_u

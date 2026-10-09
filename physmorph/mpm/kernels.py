@@ -121,6 +121,18 @@ def k_volume_update_motion(C: wp.array(dtype=wp.mat33), J_in: wp.array(dtype=flo
 
 
 @wp.kernel
+def k_volume_update_smoothed(C: wp.array(dtype=wp.mat33), J_in: wp.array(dtype=float), J_out: wp.array(dtype=float),
+                             dt: float, s: float):
+    """The motion's volume at the smoothing's rate (D134, --volume_exact smoothed): J_{t+1} = J_t det(I + (1 - s) dt C_{t+1}),
+    the volume the old path's smoothed F takes from the motion (k_update blends (1 - s) of F_new = (I + dt C)(F + dFc)
+    into F: without a control det F_{t+1} = det F_t det(I + (1 - s) dt C)). Carried in F (k_volume_carry), it is the old
+    path's volume with the control's accumulated part taken out: D129 measured that part holding F's volume at 1 on
+    the stream (cumulative factor 0.25-0.34 against det Fg 4-5), so the stress never saw the stream's expansion."""
+    p = wp.tid()
+    J_out[p] = J_in[p] * wp.determinant(wp.identity(n=3, dtype=float) + (1.0 - s) * dt * C[p])
+
+
+@wp.kernel
 def k_volume_carry(F_in: wp.array(dtype=wp.mat33), J: wp.array(dtype=float), F_out: wp.array(dtype=wp.mat33)):
     """The smoothed F carries the motion's volume (D131, --volume_exact carried): after the blend (k_update) F is
     rescaled to det F = J (k_volume_update_motion's), F_out = (J / det F)^(1/3) F; its isochoric part, the smoothing's

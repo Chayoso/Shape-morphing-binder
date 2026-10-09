@@ -2853,6 +2853,37 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   noise pattern below the two samples' floor; the transport's gradient there does not vanish, the control keeps
   pushing (half D132's) and what it pushes is elastic and rings when the control is released. The flag-off path
   reaches below the floor by changing volume, which is the fit the user's criteria no longer count.
+- **D134, the old path's volume without the control's accumulated part (pre-registered 2026-10-08 23:30 CDT, before any
+  D134 run; code: `config.volume_exact` / `--volume_exact smoothed`, `mpm/kernels.k_volume_update_smoothed`, `mpm/traj`
+  (`carries` = carried or smoothed); tests `tests/test_volume_exact.py` 43 (smoothed in every carried test, and
+  `test_smoothed_is_the_old_path_without_the_controls_accumulated_volume`; the suite on `repo_r110` 343 passed, 2
+  skipped, exit 0, `tmp/d134/suite.log`); server `repo_r110`, the Fg copy `repo_r110g`;
+  `tmp/d134/`, `output/gpu/d134/`).** Why: D129–D133 separated two changes that D130 made at once. The stream's cause
+  measured in D129 is the control's accumulated volume: on the old path the smoothed F takes (1 − s) of every step's
+  F_new = (I + dt C)(F + dFc), so the control's volume accumulates in F, and on the stream it held F's volume at 1
+  (cumulative factor 0.25–0.34) while the motion expanded 4–5 ×: the stress never saw the expansion. D130–D133 removed
+  that by giving the stress the motion's full volume, which also made the volume 22 × stiffer than the smoothed shape:
+  the body then cannot take the target sample's noise pattern, the transport's residual keeps the control pushing, and
+  the elastic answer rings at the release (D131–D133 readings above; the bunny's end 2–8 × the limit at 40k, 17 × at
+  300k in D132 stage 2's first reading). Untested so far: the old path's own volume (the motion's at the smoothing's
+  rate, as soft as the shape) with only the control's accumulated part taken out. Definition: J_{t+1} = J_t det(I + (1
+  − s) dt C_{t+1}) carried in F after the blend (k_volume_carry); the stress reads F + dFc with the old kernels, so the
+  control's volume acts within its step and leaves nothing behind. Without a control this is the old path to float
+  precision (test: x, F and det F along a dilating motion with elasticity); with a dilating control at rest the old path's
+  det F grows 2.7 % in 20 steps, the smoothed F's stays 1. No constant (s is the model's). Run with `--volume_exact
+  smoothed` alone on D120's state (one change from the flag-off path; no `--match_density`, no `--spray_gate grid`).
+  Stage 1 (40k, as D133's: bunny and dragon, both arms, seeds 97 and 98, the 12-window archives on `repo_r110g`) under
+  the criteria for a volume-conserving body, against the flag-off three seeds: (1) every run completes, det F = J;
+  (2) floating: the stream's det Fg ≤ 0.5 × the flag-off archive's, apart particles in windows 3–6 ≤ 0.1 × the
+  flag-off's smallest seed; (3) at rest ≤ 1.25 × the flag-off's largest; (4) the render arm's silhouette IoU above its
+  twin's; (5) wall ≤ 1.3 ×; reported: chamfer, thin, silhouette IoU, the geometry energy. Stage 2 (only if stage 1
+  passes): D132's 300k chain with `--volume_exact smoothed`, D132 stage 2's criteria, the side view D120 | D134 (the
+  run where the user saw the pieces); stage 3 the 40k gallery. Prediction, two outcomes that decide between the
+  readings: if the stream was the control's accumulated volume, it goes (det Fg near 1, apart in windows 3–6 a tenth of
+  the flag-off's or less) and the end is the flag-off's (at rest, the end quality of D120); if the smoothed volume is
+  too soft to stop it, det Fg stays 2–4 and the stream needs the full modulus, whose ringing then needs a damping
+  definition (the engineering standard is a bulk viscosity on the volumetric strain rate, e.g. Abaqus/Explicit's linear
+  bulk viscosity, on by default "to damp ringing in the highest element frequency"; a new constant, the user's call).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

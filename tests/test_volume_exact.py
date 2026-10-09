@@ -4,7 +4,10 @@ The smoothing keeps (1 - s) of every step's deformation increment in F, so the s
 motion's own volume was ~ 4 (D128). With the flag a tracked J supplies the volume and the smoothed F + dFc the shape:
 F_eff = (J / det F)^(1/3) (F + dFc) (mpm/kernels.k_stress_vx). "history" (D129): J_{t+1} = J_t det(F_new) / det(F_t), the
 unsmoothed history with the control's volume (k_volume_update); "motion" (D130): J_{t+1} = J_t det(I + dt C) = det Fg,
-the control's volume acting within its own step only (k_volume_update_motion).
+the control's volume acting within its own step only (k_volume_update_motion); "carried" (D131): the motion's J held in
+the smoothed F (k_volume_carry, det F = J), the stress reading F + dFc; "smoothed" (D134): carried the same way, J the
+motion's volume at the smoothing's rate, J_t det(I + (1 - s) dt C) (the old path's volume without the control's
+accumulated part; without a control it is the old path).
 
 (1) flag off: the old trajectory and its adjoint bit for bit, against a reference written by the code before the
     change (tests/data/volume_exact_off_ref.npz, repo_r104 = 0894f7d; `_window_case` builds the case for both);
@@ -218,7 +221,7 @@ def test_carried_F_holds_the_motions_volume_where_motion_mode_drifts():
     seq = [wp.array(np.tile(-0.01 * np.eye(3, dtype=np.float32), (N, 1, 1)), dtype=wp.mat33, device="cpu")
            for _ in range(T)]
     det = {}
-    for mode in ("motion", "carried"):
+    for mode in ("motion", "carried", "smoothed"):
         tr = Trajectory(x, 1.0, 800.0, 400.0, prm, T, dFc=seq, device="cpu", requires_grad=False, vol0=vol0,
                         volume_exact=mode)
         tr.rollout()
@@ -226,6 +229,42 @@ def test_carried_F_holds_the_motions_volume_where_motion_mode_drifts():
         assert np.allclose(tr.J[T].numpy(), 1.0)
     assert float(det["motion"].max()) < 0.96, det["motion"].max()
     assert np.allclose(det["carried"], 1.0, atol=2e-5), det["carried"].min()
+    assert np.allclose(det["smoothed"], 1.0, atol=2e-5), det["smoothed"].min()      # D134: the same, J at rest is 1
+
+
+def test_smoothed_is_the_old_path_without_the_controls_accumulated_volume():
+    """smoothed (D134): J_{t+1} = J_t det(I + (1 - s) dt C), carried in F. Without a control the old path's blend gives
+    F_{t+1} = (I + (1 - s) dt C) F_t, so det F is that same product: the smoothed trajectory is the old path's to float
+    precision (elasticity on, a dilating motion). With a dilating control at rest (dt = 0) the old path's det F takes
+    (1 - s) of the control's volume every step (D129: what held the stream's F volume at 1), the smoothed F none."""
+    x = _block(5)
+    prm = MPMParams(dx=0.5, dt=1.0 / 240.0, drag=0.9, smoothing=0.955, grid_min=(-6.0,) * 3, nx=24, ny=24, nz=24)
+    T = 30
+    v0, C0 = _dilating(x, 1.2)
+    vol0 = compute_rest_volumes(x, 1.0, prm, "cpu")
+    out = {}
+    for mode in ("off", "smoothed"):
+        tr = Trajectory(x, 1.0, 800.0, 400.0, prm, T, v0=v0, C0=C0, device="cpu", requires_grad=False, vol0=vol0,
+                        volume_exact=mode)
+        tr.rollout()
+        out[mode] = tr
+    a, b = out["off"], out["smoothed"]
+    for t in (1, 10, T):
+        assert np.allclose(b.J[t].numpy(), np.linalg.det(a.F[t].numpy()), rtol=2e-5), t
+        assert np.allclose(b.x[t].numpy(), a.x[t].numpy(), atol=1e-5), t
+        assert np.allclose(b.F[t].numpy(), a.F[t].numpy(), atol=2e-5), t
+    still = MPMParams(**{**prm.__dict__, "dt": 0.0, "drag": 0.0})
+    N = len(x)
+    seq = [wp.array(np.tile(0.01 * np.eye(3, dtype=np.float32), (N, 1, 1)), dtype=wp.mat33, device="cpu")
+           for _ in range(20)]
+    det = {}
+    for mode in ("off", "smoothed"):
+        tr = Trajectory(x, 1.0, 800.0, 400.0, still, 20, dFc=seq, device="cpu", requires_grad=False, vol0=vol0,
+                        volume_exact=mode)
+        tr.rollout()
+        det[mode] = np.linalg.det(tr.F[20].numpy())
+    assert float(det["off"].min()) > 1.02                          # ~ (1 + 0.045 x 0.03) ^ 20
+    assert np.allclose(det["smoothed"], 1.0, atol=2e-5), det["smoothed"].max()
 
 
 def test_a_volumetric_control_acts_within_its_own_step():
@@ -240,7 +279,7 @@ def test_a_volumetric_control_acts_within_its_own_step():
     seq = [wp.array(np.tile(a * np.eye(3, dtype=np.float32), (N, 1, 1)), dtype=wp.mat33, device="cpu"),
            wp.array(np.zeros((N, 3, 3), np.float32), dtype=wp.mat33, device="cpu")]
     p = {}
-    for mode in ("off", "history", "motion", "carried"):
+    for mode in ("off", "history", "motion", "carried", "smoothed"):
         tr = Trajectory(x, 1.0, 800.0, 400.0, prm, 2, dFc=seq, device="cpu", requires_grad=False, vol0=vol0,
                         volume_exact=mode)
         tr.rollout()
@@ -251,6 +290,7 @@ def test_a_volumetric_control_acts_within_its_own_step():
         assert p[mode][0] > 0.0, p                                     # tension: the control dilated
     assert abs(p["motion"][1]) < 1e-3 * p["motion"][0], p
     assert abs(p["carried"][1]) < 1e-3 * p["carried"][0], p          # D131: F carries J = 1, the control left nothing
+    assert abs(p["smoothed"][1]) < 1e-3 * p["smoothed"][0], p        # D134: the same
     assert p["history"][1] > 0.9 * p["history"][0], p
     assert 0.02 * p["off"][0] < p["off"][1] < 0.1 * p["off"][0], p
 
@@ -282,7 +322,7 @@ def test_the_stress_resists_the_dilation_it_now_sees(mode):
 
 # ---- (3) flag on: the adjoint against finite differences ------------------------------------------------------
 @pytest.mark.parametrize("dev", ["cpu", "cuda"])
-@pytest.mark.parametrize("mode", ["history", "motion", "carried"])
+@pytest.mark.parametrize("mode", ["history", "motion", "carried", "smoothed"])
 def test_volume_exact_adjoint_matches_finite_differences(dev, mode):
     _cuda_or_skip(dev)
     from physmorph.mpm.function import PersistentAdjoint
@@ -319,7 +359,7 @@ def test_volume_exact_adjoint_matches_finite_differences(dev, mode):
 
 
 # ---- (4) J carried across a commit ----------------------------------------------------------------------------
-@pytest.mark.parametrize("mode", ["history", "motion", "carried"])
+@pytest.mark.parametrize("mode", ["history", "motion", "carried", "smoothed"])
 def test_a_split_rollout_carries_J_like_F(mode):
     """T steps, then T more from the first part's end state (x, v, C, F, Fg and J), equal the 2T steps at once."""
     x = _block(5)
@@ -342,7 +382,7 @@ def test_a_split_rollout_carries_J_like_F(mode):
     for a, b in ((whole.x[2 * T], tail.x[T]), (whole.J[2 * T], tail.J[T]), (whole.F[2 * T], tail.F[T])):
         assert np.allclose(a.numpy(), b.numpy(), rtol=1e-6, atol=1e-7)
     gap = float(np.abs(tail.J[T].numpy() - np.linalg.det(tail.F[T].numpy())).max())
-    if mode == "carried":                               # D131: F carries J, det F = J
+    if mode in ("carried", "smoothed"):                 # D131, D134: F carries J, det F = J
         assert gap < 1e-5, gap
     else:
         assert gap > 0.05
@@ -356,7 +396,7 @@ def clouds():
     return src, tgt
 
 
-@pytest.mark.parametrize("vx", ["off", "history", "motion", "carried"])
+@pytest.mark.parametrize("vx", ["off", "history", "motion", "carried", "smoothed"])
 def test_each_window_starts_from_the_last_commits_volume(clouds, monkeypatch, vx):
     """In the pipeline (CUDA): the first window starts at J = 1 (None), every later one from the promoted J of the last
     accepted commit (an outer-rejected one rolls it back); the archive keeps J at F's frames; J is not det F."""
@@ -398,7 +438,7 @@ def test_each_window_starts_from_the_last_commits_volume(clouds, monkeypatch, vx
             carried = c["end_J"]
             assert np.array_equal(res["frames"].J[h["frame_end"] - 1], carried.cpu().numpy())
             gap = float((carried - torch.linalg.det(c["end_F"])).abs().max())
-            if vx == "carried":                         # D131: F carries the volume, det F = J
+            if vx in ("carried", "smoothed"):           # D131, D134: F carries the volume, det F = J
                 assert gap < 1e-4 * float(carried.abs().max()), gap
             else:
                 assert gap > 1e-4
@@ -417,7 +457,7 @@ def _pipeline_cfg(**kw):
     return PipelineConfig(**base)
 
 
-@pytest.mark.parametrize("vx", ["off", "motion", "carried"])
+@pytest.mark.parametrize("vx", ["off", "motion", "carried", "smoothed"])
 def test_the_commit_scores_the_accepted_candidate_on_its_own_discs(clouds, monkeypatch, vx):
     """The render term reads exterior discs found at an earlier state (Objective.render_terms) and looks for them again
     when they have moved. D129's source-window commit_replay nulls: a later (rejected) trial looked for them again, and
@@ -466,7 +506,7 @@ def test_the_commit_scores_the_accepted_candidate_on_its_own_discs(clouds, monke
 
 
 @pytest.mark.parametrize("dev", ["cpu", "cuda"])
-@pytest.mark.parametrize("mode", ["off", "history", "motion", "carried"])
+@pytest.mark.parametrize("mode", ["off", "history", "motion", "carried", "smoothed"])
 def test_the_eval_trajectory_replays_bit_for_bit(dev, mode):
     """The persistent eval trajectory (the line search's and the commit's) rolled out twice with the same control from
     the same start gives the same state bit for bit: on the CPU for the window case with a moving control (bonds,
