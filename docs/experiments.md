@@ -3092,6 +3092,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   near the hind leg at the end of D132's side view. So both of the dragon's out-of-band values come from shape: the
   horns' outlines a pixel thinner on one side (the crop) and a topology change the volume-conserving body does not make
   (the neck–body through-hole stays webbed; the crevice tears late, D131's reading) for the shading.
+- **D137, the dragon's crevice tear and neck web: a frame-by-frame forensic (a measurement first; opened 2026-10-09
+  11:40 CDT; the user, on D135's side view at 4.0 s: "아 진짜 살짝 보이는데 저거 없앨 수없나 진짜"; relayed by the
+  coordinator: forensic on particle indices, then the root problem and one definition change pre-registered before any
+  run).** Data: the 300k dragon re-run on a probe copy (`repo_r112f` = D135's code + the D128 Fg hook + `d137_dump`:
+  per window 10–46 and every 10th after, every particle's state, F / J / det Fg / Fp, the committed control's size, its
+  trace and deviator, u and its gate, each objective term's position gradient at the committed state, the barycentric
+  images of the end state under the transport's plans to the target and to itself, on the u gate's grid since the loss
+  grid's dense solve exceeds its budget at 300k); runs LF (D135's render arm), PF (its twin), LO (the old path as D120:
+  no volume flags), all `tmp/d137/d137_runs.sh`, `output/gpu/d137`; frame readings on D135's and D120's original kept
+  frames (`tmp/d137/d137_locate.py`, `d137_track.py`, `d137_beads.py`, `d137_dumpread.py`, `d137_exitdir.py`).
+  Findings so far (12:20 CDT): (1) the crevice, the neck–body web and the loop's interior are one event: source material
+  filling a gap the target has, which must split and leave. In D135 it is dense (median 9 neighbours within 1.5
+  pitches; a sheet 2–3 pitches thick); in D120 it was the dilated stream (det Fg about 2, 3–5 neighbours). D135's
+  crevice material (682 particles selected at 3.0 s) is 90 % in the gap at 3.0 s and 10 % at 5.1 s; D120's had left by
+  3.0 s (26 % in it), and D120 too tore that crevice with beads, at 2.5 s, among its early floaters. (2) The beads at
+  3.1–5.0 s: 1–7 disc sets apart in the crevice box per frame, some on particle sets apart from the body (physical),
+  some on contiguous material whose field breaks up (the display); the membrane's two halves are coherent (0.4–4 % of its
+  linked pairs end on different sides) and the transport sends 91–98 % to the side they end on: not an interleaved or
+  blurred assignment. (3) What acts on it (LF, windows 10–26): the control at its per-step cap 0.02 (almost all
+  deviatoric) in every window while the body's median falls to 0.003; the transport's gradient 4–9 × the body's median
+  but pointing into the gap until about 2.7 s (cosine −0.9 to −0.7 against the shortest exit: material in transit toward
+  the tail and legs), then out (+0.5 to +0.7) with the membrane draining at 1–2 pitches a second; its volume J rising
+  1.07 → 1.30, det Fp following (the assimilation takes the stretch as rest volume; the twin 1.19); the render pulling
+  the crevice membrane away from its side in windows 10–23 (−0.2 to −0.8), the render arm's crevice 90 % in the gap at
+  3.0 s against its twin's 46 % (a delay of about 0.7 s, not the cause). (4) The scale: the MPM cell is set from the
+  source shape, 0.295 wu at every N, 6 pitches at 300k (183 particles a cell); the cubic B-spline reaches 2 cells (about
+  12 pitches) each way; the neck and the loop's gaps are about 10 pitches (1.7 cells), the crevice 16–27 (2.6–4.5). Every
+  particle in these gaps shares grid nodes with both rims, so the grid's single velocity field cannot carry the jump a
+  split needs: the material leaves only through the updates below the grid and as fast as the rims part, stretched (J up)
+  until particles decouple (the beads). The old path hid it by changing volume (the stream dilated, the rims compressed:
+  D120 opened the neck at 3 s); with the volume exact (D131–D135) the limit shows as webs and their debris.
+  **Diagnostic G2 (launched 12:22 CDT; its prediction written here before any of its readings):** the same recipe's
+  render arm with the MPM cell halved (`--cell_diag 52`: dx 0.149, 23 particles a cell, the kernel's reach 6 pitches)
+  and everything else held: the loss grid (`D137_LOSS_PER_DX`, loss cell 0.149 as before) and the u gate's grid and
+  radius (`D137_GATE_DX` = 0.295; on the finer grid its dense transport map exceeds its memory budget, which stopped the
+  first launch at window 1); `repo_r112g`, `tmp/d137/gridrun.sh`, tag LG. Its cost is recorded beside its quality: the
+  seconds per window, the peak GPU memory against LF's (`gpumem.log`), the windows. Prediction if (4) is the cause: the
+  crevice drains earlier and opens without beads, the membrane's J does not climb; the neck (about 10 pitches, still
+  within the halved kernel's reach of both rims) may stay borderline. If the crevice behaves as in LF, (4) is refuted.
+  This is a diagnostic, not a proposal: a cell set from the particle count is the user's decision (the runtime goal),
+  and a CPIC / multi-field split (Hu et al. 2018) is read on the same footing before either is proposed.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
