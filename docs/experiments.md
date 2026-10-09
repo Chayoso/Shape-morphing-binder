@@ -2704,7 +2704,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   flag-off volume ("shape") the morph stops at 11–12 windows with the body still moving (kinetic energy 2–4e-2: the old
   path moves the body with the control's volume). Not adopted. The (3) values on the dragon (chamfer +0.0006 – 0.0010,
   thin) are not explained by the density (the dragon's samples match) and stay the open question after D132.
-- **D132, the source sample has the target sample's density (pre-registered 2026-10-08 21:51 CDT, before any D132
+- **D132, the source sample has the target sample's density (pre-registered 2026-10-08 21:50 CDT, before any D132
   stage run; the coordinator's resume at 21:38: write up D131, pre-register, continue; code: `prepare(match_density)` /
   `--match_density`, `sampling.mesh.stratified_fill_volume` (the sampler's fill, `_stratified_fill`, extracted unchanged),
   `load_normalized(fill=)`; tests `tests/test_match_density.py` (4); server `repo_r109` (HEAD + this), probe copy
@@ -2742,6 +2742,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the geometry energy near the flag-off's) and its (3) values within; the 40k dragon as D131 (at rest; chamfer and thin
   just out); the stream stays gone everywhere; at 300k the dragon's thin regression and early stop (D130 stage 2) go,
   the bunny's end comes to rest; whatever of (3) stays on the dragon is then the remaining definition question.
+  (Stamp: the pre-registration was committed at 21:50:25 CDT (f1055f6), the first stage-1 run started at 21:50.)
+  **Stage 1 result (read 2026-10-08 22:03 CDT, `output/gpu/d132/s1_read_d132.log`; local table
+  `output/results_2026-10-08/d132_stage1_table.md`): FAILED on (5) for the bunny and on (3) as D131; stage 2 not run.**
+  (1) met: guards 0, J min 0.85–0.91, det F = J. (2) met: the stream's det Fg 0.99–1.00 (0.20–0.23 × the flag-off),
+  apart particles 3–13 per archived frame, in windows 3–6 3–44 (flag-off 474–1201). (4) met: wall 0.57–0.90 ×. (5) the
+  bunny's last-window kinetic energy halves against D131 but stays out: L 1.9e-4 / 2.4e-4 (limit 8.0e-5; D131 3.6e-4 /
+  4.1e-4), P 2.0e-4 / 3.6e-4 (limit 4.9e-5; D131 7.6e-4 / 5.5e-4); the dragon within (1.6e-4 / 1.6e-4, 1.9e-4 / 1.6e-4).
+  (3) out at the places D131 was: bunny L thin 5.94 (s97, limit 5.91), bunny P chamfer 0.1101 / 0.1098 (0.1097), dragon
+  L thin 7.80 (s98, 7.64), dragon P chamfer 0.1120 / 0.1114 (0.1113); silhouette IoU within. The controls (the
+  flag-off volume with `--match_density`, s97) sit inside the flag-off ranges. Prediction partly wrong: the bunny does
+  not come to rest. Reading of the remainder (the release probe on `repo_r109r`, ten zero-control windows from the end of
+  bunny L / P and dragon L, s97 (`rel_d132_read.log`); `jcell.py`, `jdepth.py`; `floor.py`): the D132 bunny's released
+  kinetic energy over the first window is 4.6e-4 / 8.6e-4 (D131 1.4e-3 – 3.0e-3; the flag-off volume with the match
+  5.3e-5), the same 50-step oscillation decaying at the drag's rate; its interior J is still a smooth field, now 1.004 /
+  1.006 in the interior's cells (D131 1.009–1.012), with a radial profile: 0.997 in the outer two spacings, 1.001 at
+  2–4, 1.003–1.005 at 4–8, 1.006–1.010 at 8–16 spacings deep (mean J 1.001–1.002); the dragon's J is flat (0.998–1.000)
+  and its release dies within three windows. The geometry energy at the end stays 2–2.5 × the target's own sampling
+  noise floor (an independent stratified draw of the same target read by the run's operator: bunny 4.5e-5 – 4.9e-5,
+  dragon 9.5e-5 – 1.0e-4; the D132 ends 8.5e-5 – 1.07e-4 and 2.3e-4 – 2.7e-4), while the flag-off bunny ends at
+  2.6e-5 – 4.6e-5, below its floor: the free volume follows the target sample's own arrangement, which a body that
+  conserves its volume cannot. So the samples' density was half of the bunny's agitation; the other half is a radial
+  ~1 % stretch of the bunny's interior against a squeezed outer layer, which the run's end holds and the release lets
+  ring. Not yet measured: which term asks for that profile (the transport's boundary, the surface-proximity fine term,
+  the layer relaxation's position projection, the render on the exterior), and whether the dragon's (3) values are the
+  same floor effect (the flag-off volume fitting below the noise floor) rather than a missing part.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
