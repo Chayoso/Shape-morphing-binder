@@ -171,12 +171,19 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         Fp_pre = Fp                                     # the plastic state the committing window ran with
         if cfg.assim > 0:
             # with the exact volume (D129) the stress reads (J / det F)^(1/3) F; the isochoric assimilation takes the
-            # elastic stretch's det-free part, which a scalar factor does not change, so it reads F as before
+            # elastic stretch's det-free part, which a scalar factor does not change, so it reads F as before.
+            # assim_volume (D135): the volume too, so the volume the committed state keeps becomes the rest volume
             Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                    isochoric=True)
+                                    isochoric=not cfg.assim_volume)
         frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F,
                           Js=commit.J[1:-1] if J is not None else None, J_end=J)
         rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
+        if cfg.assim_volume:                          # D135: the rest volume the assimilation has taken (a record)
+            with torch.no_grad():
+                jp = torch.linalg.det(Fp)
+                q = torch.quantile(jp, torch.tensor([.01, .5, .99], device=jp.device, dtype=jp.dtype))
+            rec.update(Jp_min=float(jp.min()), Jp_p01=float(q[0]), Jp_p50=float(q[1]), Jp_p99=float(q[2]),
+                       Jp_max=float(jp.max()))
         if cfg.term_dump and stats.get("term_grads") is not None:
             write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one

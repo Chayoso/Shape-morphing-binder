@@ -2921,6 +2921,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   control instead of being made permanent by it: the stiff volume answers the held state with ringing (D131–D133), the
   soft one with a creep (D134). On the old path the control's accumulated volume and shape are what made the end
   configuration the body's own rest state, and the same accumulated volume is the stream.
+- **D135, the plastic assimilation takes the volume too (pre-registered 2026-10-09 01:08 CDT, before any D135 run; the
+  user's decision (2026-10-09, relayed by the coordinator): "the plastic assimilation also takes the volume"; code:
+  `config.assim_volume` / `--assim_volume` (A/B; the runner calls `assimilate_elastic(..., isochoric=not
+  cfg.assim_volume)`, the existing rule, eta = `assim` 0.5, the band `assim_smin` 0.2 / `assim_smax` 5.0 as they are;
+  per window the record `Jp_*` = det Fp quantiles); refused with `--volume_exact history / motion` (their stress reads
+  (J / det F)^(1/3) F, not F's own volume); tests `tests/test_assim_volume.py` (7), the suite on `repo_r111` 350 passed,
+  2 skipped, exit 0 (`tmp/d135/suite.log`); server `repo_r111`, the Fg copy
+  `repo_r111g`, the release copy `repo_r111r`; `tmp/d135/`, `output/gpu/d135/`).** Why (D131–D134): once the control
+  cannot pile volume into F the stream is gone (carried or smoothed alike), but the volume the end state keeps (about 1 %
+  in the bunny's interior, D132's J profile) is then held by the control, because the assimilation is isochoric: every
+  volume change stays elastic. On D132 (carried + match_density), with the assimilation free in volume, eta = ½ of the
+  elastic stretch's volume becomes the rest volume (det Fp) at every commit, as the shape already does, so the control
+  stops holding it. The band: it clamps each principal stretch of the cumulative Fp to [0.2, 5], so det Fp lies in
+  [0.008, 125]; it bounds the volumetric part too, but far outside anything measured (the stream's det Fg ≤ 5). D133's
+  `--spray_gate grid` is not kept: it lowered the bunny twin's end motion but raised the early apart counts (60–81
+  against D132's 19–44), the user's first criterion, and its effect (less inward pull on the layer at the end) is a share
+  of the same held end that this change addresses at its root; one change on D132. The risk, measured explicitly: with
+  ½ of the elastic volume assimilated at every commit the stream could re-dilate over several windows (its stretched
+  material's rest volume ratchets up and the stress stops resisting): read the stream's det Fg and tracked J per
+  window over windows 2–10 (`d129_jx.py` on the 12-window archives) and the apart counts, and the release probe at the
+  end (ten zero-control windows: drift and kinetic energy) as for D131 / D134. Stage 1 (40k; bunny and dragon, render
+  arm and twin, seeds 97 and 98; the archives of both arms; the release probe on bunny L / P and dragon L, s97) under
+  the criteria for a volume-conserving body: (1) every run completes, det F = J; (2) floating: the stream's det Fg ≤ 0.5
+  × the flag-off archive's and not rising above 2 in any of windows 2–10, apart in windows 3–6 ≤ 0.1 × the flag-off's
+  smallest seed; (3) at rest: the last window's kinetic energy ≤ 1.25 × the flag-off's largest; (4) the render arm's
+  silhouette IoU above its twin's; (5) wall ≤ 1.3 ×; reported: chamfer, thin, silhouette IoU, the geometry energy, det
+  Fp's range, the release probe. Stage 2 (only if stage 1 passes): 300k, both meshes, both arms, D132's stage-2 chain
+  with the flag and its criteria (the independent-sample yardstick and display, at rest, floating pieces with the side
+  view D132 | D135, render lead, momentum; chamfer and thin reported); stage 3 the 40k gallery. Prediction: the end
+  comes to rest on the bunny as on the dragon (the end's volume becomes the rest volume; the release probe's drift and
+  kinetic energy near the flag-off's), the end geometry stays D132's; the stream stays gone if the motion's dilation
+  is faster than the ratchet (the stream forms within windows 2–6, the assimilation takes ½ per window); if it
+  re-dilates (det Fg rising past 2 over windows), the volume's assimilation needs a direction (compression vs
+  dilation), which is the user's call.
+- **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
+  user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
+  same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
+  values reproduce (runeval3), then the display's crop view (the front camera's box 1900–2500 × 60–560 px of 3840 ×
+  2160) and the exterior shading residual against the independent sample, as pictures, per body region (the
+  tail / hind-leg crevice, the face and horns, elsewhere), at the end and over time, against D120's render arm (its
+  frames kept in `output/gpu/d120`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

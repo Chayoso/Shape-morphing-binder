@@ -51,6 +51,11 @@ class PipelineConfig:
     assim: float = 0.5              # fraction of the elastic stretch made plastic per window
     assim_smin: float = 0.2         # singular-value band of the plastic deformation
     assim_smax: float = 5.0
+    assim_volume: bool = False      # A/B (D135): the assimilation takes the elastic stretch's volume too (isochoric=False),
+                                    #   so a volume the end state keeps becomes the body's rest volume (det Fp) instead of
+                                    #   being held by the control; the band [assim_smin, assim_smax] then bounds every
+                                    #   principal stretch of Fp and so det Fp too; defined with volume_exact off, carried or
+                                    #   smoothed (where F's volume is the one the stress reads); False = isochoric as before
     volume_exact: str = "off"       # A/B: the stress reads a tracked volume J per particle (carried across windows like F)
                                     #   on the smoothed F's shape, F_eff = (J / det F)^(1/3) (F + dFc) (mpm/kernels.k_stress_vx).
                                     #   The smoothing kept 4.5 % of each step's increment, so the stress read J ~ 1.00 where
@@ -173,6 +178,10 @@ class PipelineConfig:
         self.volume_exact = {False: "off", True: "history"}.get(self.volume_exact, self.volume_exact)
         if self.volume_exact not in ("off", "history", "motion", "carried", "smoothed"):
             raise ValueError("volume_exact must be \"off\", \"history\", \"motion\", \"carried\" or \"smoothed\"")
+        if self.assim_volume and self.volume_exact in ("history", "motion"):
+            # those modes' stress reads (J / det F)^(1/3) F: F's own volume is not the one the stress reads, so
+            # assimilating it would not move the body's rest volume
+            raise ValueError("assim_volume is defined with volume_exact off, carried or smoothed")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

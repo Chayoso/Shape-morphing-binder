@@ -93,6 +93,10 @@ def parse_args():
     ap.add_argument("--surface_density", type=float, default=1.0,
                     help="D122 A/B: the sampling density within the outer band (layer_h_sp spacings deep) this many times "
                          "the interior's, at the same N, source and target alike; 1 = the uniform sample, the code as it was")
+    ap.add_argument("--assim_volume", action="store_true",
+                    help="D135 A/B: the per-commit assimilation takes the elastic stretch's volume too (Fp loses its isochoric "
+                         "restriction; the band assim_smin..assim_smax bounds every principal stretch), so the volume the end "
+                         "keeps becomes the rest volume; with --volume_exact off, carried or smoothed; off = isochoric as before")
     ap.add_argument("--match_density", action="store_true",
                     help="D132 A/B: the source sample rescaled so that it represents the volume of the target sample's own "
                          "fill (equal number densities; the target and every measure on it unchanged); off = the meshes' "
@@ -213,7 +217,7 @@ def main():
                               render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
                               spray_gate=args.spray_gate, render_body_only=args.render_body_only,
-                              volume_exact=args.volume_exact,
+                              volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               w_dt=cfg0.w_dt if args.w_dt is None else args.w_dt,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
