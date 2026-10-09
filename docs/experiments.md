@@ -2884,6 +2884,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   too soft to stop it, det Fg stays 2–4 and the stream needs the full modulus, whose ringing then needs a damping
   definition (the engineering standard is a bulk viscosity on the volumetric strain rate, e.g. Abaqus/Explicit's linear
   bulk viscosity, on by default "to damp ringing in the highest element frequency"; a new constant, the user's call).
+  **Stage 1 result (runs 23:30–23:46, read 23:58 CDT, `output/gpu/d134/s1_read_d134.log`; local table
+  `output/results_2026-10-08/d134_stage1_table.md`): FAILED on (3) everywhere (and the bunny twin's (2) at s98); stage 2
+  not run; the first of the two predicted outcomes holds for the stream.** (2) the stream goes with the control's
+  accumulated volume alone: its det Fg 1.26–1.60 against the flag-off's 4.25–4.95 (carried: 1.00), 13–20 apart
+  particles per archived frame against 224–707; apart in windows 3–6 12–38 (bunny P s98 67 against its limit 47). (1),
+  (4), (5) met. Reported: the end geometry energy is the flag-off's (bunny 3.2e-5 – 4.2e-5, below the noise floor;
+  dragon 1.2e-4 – 1.8e-4), chamfer and thin within the flag-off's ranges. (3) not met, worse than D133: bunny 2.1e-4 –
+  3.9e-4 (limits 8.0e-5 / 4.9e-5), dragon 7.4e-4 – 1.2e-3 (3.5e-4 / 2.1e-4). The release probe (`repo_r110r`, bunny
+  L / P s97; `rel_d134` logs via `rel2_read.py`): no ringing (no period), the kinetic energy rises over the first two
+  free windows (6.9e-4 → 1.0e-3) and the body creeps 0.17–0.24 spacings while its geometry energy grows 4–7 × (5.5e-5 →
+  3.7e-4); J stays flat (1.000–1.001). So the end is held by the control and flows away when released. Reading across
+  D131–D134: every definition that stops the control's volume from accumulating in F removes the stream (the full
+  modulus or the smoothed one alike), and every one of them ends away from rest, because the configuration the
+  objective ends in (the target sample's pattern, which the flag-off reaches below its noise floor) is then held by the
+  control instead of being made permanent by it: the stiff volume answers the held state with ringing (D131–D133), the
+  soft one with a creep (D134). On the old path the control's accumulated volume and shape are what made the end
+  configuration the body's own rest state, and the same accumulated volume is the stream.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
