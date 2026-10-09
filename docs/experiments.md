@@ -2662,6 +2662,48 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   regression mostly stays (the conserved volume, marginal points; a little less if the agitation goes); the crevice opens
   earlier than in D130 if the control was what held the bridge, else the membrane stays (then the topology change under a
   conserved volume is the next definition question).
+  **Stage 1 result (read 2026-10-08 16:45 CDT, `output/gpu/d131/s1_read.log`; the cause measured 16:55–21:50 CDT): FAILED
+  on (3) and (5); stage 2 not run.**
+  (1) met: every run completes, guards 0, J min 0.83–0.91, det F = J at the window ends to 3e-7 (D130: 0.19–0.34 apart;
+  the drift is gone). (2) met: the stream's det Fg 0.996–1.004 against the flag-off 4.25–4.95 (0.20–0.24 ×), apart
+  particles 6–18 per archived frame against 224–707. (4) met: wall 0.65–0.87 ×. (3) missed on four values, as D130's
+  stage 1: bunny L thin 5.94 % (limit 5.91, s97), bunny P chamfer 0.1103 (0.1097, s97), dragon L thin 8.03 (7.64, s98),
+  dragon P chamfer 0.1119 / 0.1114 (0.1113); silhouette IoU within everywhere. (5) missed on the bunny, met on the
+  dragon: the last window's kinetic energy bunny L 3.6e-4 / 4.1e-4 (limit 8.0e-5), P 7.6e-4 / 5.5e-4 (limit 4.9e-5),
+  as D130's motion runs (3.4e-4 – 7.1e-4); dragon 1.4e-4 – 1.9e-4 against 3.5e-4 / 2.1e-4. The prediction's alternative
+  holds: the agitation is not the reweighted control. **What the end motion is** (`tmp/d131/endkind.py`, `endkind2.py`
+  on the kept frames; a release probe on `repo_r107r` / `repo_r108r` = HEAD + `_release_probe` in the runner: ten
+  zero-control windows chained from a run's end state with the run's own window machinery, with and without the
+  assimilation and without the layer's relaxation; `output/gpu/d132/rel*_read.log`): on the carried bunny the interior
+  moves 3.6–6 × the flag-off's per 12 steps (0.0063–0.0073 against 0.0010–0.0020 spacings), coherent in space (the
+  particle-scale share of the move 0.10–0.12 against 0.29–0.41) and oscillating (successive 12-step moves' cosine
+  +0.06 / +0.30 against +0.93 / +0.92; autocorrelation +0.19 / −0.26 at 12 / 24 steps); released, its kinetic energy
+  over the first window is 1.4e-3 – 3.0e-3 against the flag-off's 1.5e-5 – 2.6e-5, oscillates with a 50-step period
+  (autocorrelation 0.98–0.99) and decays by 0.69–0.75 per window, the drag's own rate (0.74); no kick at the window
+  starts (first / previous last step 0.98–1.01), the same without the layer's relaxation, slower without the assimilation
+  (0.75 against 0.69: the assimilation damps it, it does not drive it). The released body moves 0.12–0.28 spacings and
+  its geometry energy rises 1.2–4.4 × (flag-off 0.06–0.08 spacings, 1.1–1.6 ×): the end state is held away from the
+  body's own rest by the control. **What holds it**: the carried end's geometry energy is 3.5–4 × the flag-off's (1.0e-4
+  – 1.1e-4 against 2.7e-5 – 3.0e-5, all of it the transport divergence; `esplit.py`), its transport displacement 0.062–
+  0.065 spacings rms against 0.026–0.028, not a translation or rotation, in the interior (0.062 against 0.022); no far
+  or missing material (`far_read.py`: nearest distances alike), no difference in the 2- and 4-spacing cell counts. The
+  tracked J in the interior is a smooth field (cell means' neighbour correlation +0.93–0.99) at 1.009–1.012, which the
+  release does not relax (`jcell.py`). The cause: the two samples have different number densities. In the deep
+  interior the bunny's target sample is 1.15 % less dense than the source's (0.9885; points within 0.6 wu of 3000 probes,
+  `sampdens2.py`), the dragon's equal (1.0008). `prepare` matches the meshes' volumes at a 110^3 fill, while each sample
+  is one jittered particle per voxel of the sampler's own coarser fill (56^3 at 40k), whose volume differs from the
+  110^3 one by a surface term of the shape: the bunny's target sample represents 49.46 wu^3, the sphere's 48.83 (+1.27 %;
+  the dragon's 48.73, −0.2 %). A body that conserves its volume has to stretch 1.2 % in the interior to take the
+  bunny target's density (the measured interior J 1.009–1.012), its volume pulls back at the full modulus, the optimizer
+  holds it with the control (2–3 × the flag-off's late control) and the release rings; the flag-off body changed its
+  volume freely (the soft smoothed volume and the control's accumulated volume). The dragon, whose samples match, ends at
+  rest. Two probes of the control's part (`--control_shape`: each driven step reads the control's isochoric part relative
+  to F, b (F + dFc) with b = (det F / det(F + dFc))^(1/3); code in `tmp/d132/control_shape.patch`, `repo_r108*`, tests
+  51 passed, not committed): on carried ("body") the first released window's kinetic energy 0.9e-3 / 1.6e-3 against
+  carried's 1.4e-3 – 2.5e-3 at the same seed (within the runs' own spread), the run's end 1.5e-4 / 2.1e-4; on the
+  flag-off volume ("shape") the morph stops at 11–12 windows with the body still moving (kinetic energy 2–4e-2: the old
+  path moves the body with the control's volume). Not adopted. The (3) values on the dragon (chamfer +0.0006 – 0.0010,
+  thin) are not explained by the density (the dragon's samples match) and stay the open question after D132.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
