@@ -3218,6 +3218,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   baselines) are still running; they are read under the same rule when done. Notes: the chains' own `d118_rows.py`
   call failed (it imported `physmorph` from repo_settled); the rows were made by `tmp/d137/rows_all.sh` and, for the
   bunny twin whose kept frames had already been removed, `rows_nofr.py` (the last delivered frame from the JSON).
+  **Added 2026-10-09 16:20 CDT, before its run (the coordinator, for the user's decision on (4)):** item (4) is also
+  read against two D135 baselines, as the single-run-spread lesson of 2026-10-03 asks: a second D135 bunny 300k twin
+  (PT2: repo_r111, D135 stage 2's code and flags, the same seed 97, so the pair measures the run-to-run spread as D137's
+  LF re-run did for the dragon render arm; `tmp/d137/pt2.sh`, `output/gpu/d137s`, queued detached for the first of
+  GPUs 0 / 1 / 3 that its chain frees). Reading (`tmp/d137/rest2.py`): D137's end kinetic energy within 1.25 × the
+  larger of the two D135 runs (bunny twin: PT, PT2; dragon render arm: LT and LF, LF read from its JSON's last
+  window since its rows were not made). The verdict on (4), the four other meshes and the 1.9–2.5 s tear is the
+  user's.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
