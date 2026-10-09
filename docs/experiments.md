@@ -3133,6 +3133,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   within the halved kernel's reach of both rims) may stay borderline. If the crevice behaves as in LF, (4) is refuted.
   This is a diagnostic, not a proposal: a cell set from the particle count is the user's decision (the runtime goal),
   and a CPIC / multi-field split (Hu et al. 2018) is read on the same footing before either is proposed.
+  **G2 result (run 12:22–13:05, read 13:10–13:30 CDT; local `output/results_2026-10-09/d137_crevice/`): (4) confirmed
+  for the crevice and the neck.** The same material (D135's crevice set, by index) is 13 % in the gap at 2.0 s, 2 % at
+  3.0 s (LF 97 % and 90 %; the twin PF 83 % and 46 %; the old path LO 12 % and 2 %); the neck's 10 % at 2.0 s, 1 % at
+  3.0 s (LF 67 %, 80 %); the loop's 15 % and 3 % (LF 99 %, 92 %). Its J stays 1.03–1.06 (LF climbs to 1.30) and its
+  control leaves the cap after window 13 (0.015 → 0.004; LF at 0.02 through window 26). Side view: the crevice is open at
+  2.5 s and the neck–body hole at 3.0 s (as D120's), with no beads or strand in the crevice from 3.6 s on; one small bead
+  at the crevice's top at 3.0 s. Bead disc sets in the crevice box (`d137_beads.py`), 3.0–5.0 s: LG 30 (3 on particles
+  apart from the body), LF 56 (22), PF 57 (32), D135 56 (18), LO 27 (8); 2.0–2.9 s: LG 13, LF 43, LO 86. The twin PF beads
+  in the crevice like LF (the render is not the cause). Cost: 22.5 s per window attempt against LF's 22.2 (111 attempts,
+  106 commits; LF 114 / 108); the largest GPU memory in the 30-s samples 23.8 GB against LF's 36.1 GB (`gpumem.log`;
+  sampled, so a lower bound for both). End values: kinetic energy 1.0e-5 (LF 2.1e-5), silhouette IoU 0.9873 (0.9871),
+  chamfer 0.0543 (0.0545); thin uncovered on the same thin set (the 26-cell set; the run's own log reads 6.3 % because
+  its thin set is taken in its own, finer cell: 3148 points against 7576) 4.5 % against LF's 4.2 %, the twin's 4.3 %, the
+  old path's 3.0 %. Side effects: the morph arrives faster (the head and the horns formed by 0.9 s, the gaps open by
+  2.5 s) with a rougher, finer-folded surface at 0.9–1.5 s; the particles apart from the body (`d120_apart.py`, 1.5
+  spacings) 137 / 227 at windows 5.7 / 6.9 against LF's 11 / 36 (D120's 9234 in windows 3–6), then at most 871 in windows
+  8–14 against LF's 2570. Correction of the D135 side-view note: D135's neck–body hole opens at about 13 s (12 s still
+  webbed, open from 13 s to the end, `neck_d135_late.jpg`), not never; D132's localisation run kept it webbed to its
+  end at 16 s.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
