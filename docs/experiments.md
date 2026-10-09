@@ -2840,6 +2840,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   autocorrelation +0.19 – +0.38 at 12 steps and −0.06 – −0.37 at 24; D131's 0.0109–0.0117, the flag-off 0.0041–0.0057).
   Next reading (queued after D132 stage 2's bunny chains free two GPUs, `tmp/d133/probe.sh`): the release probe and the
   per-term gradient at the D133 bunny ends, to see what holds the layer now that the spray pull is gone.
+  **Reading (23:20 CDT; `output/gpu/d133/rel_d133_read.log`, `jdepth_d133.log`, `gradprof_d133.log`; fresh s97 runs on
+  `repo_r109r`):** released, the D133 bunny's first-window kinetic energy is 2.7e-4 (L) / 4.1e-4 (P) (D132 4.6e-4 /
+  8.6e-4; the flag-off volume 5.3e-5), the same 50-step oscillation at the drag's decay; the J profile flatter (0.998
+  in the outer two spacings, 1.000 at 2–4, 1.002 at 4–8, 1.005 at 8–16; D132 up to 1.006–1.010). At the end the
+  cleanup's pull on the layer is a third of D132's (−0.08 – −0.11 of its rms, the near band alone), and the transport
+  now asks for the opposite of D132's profile: the outer two spacings inward (−0.11 – −0.14), 2–8 spacings outward
+  (+0.10 – +0.19); the render on the layer −0.08 (L) / its twin none. The end geometry energy (7.4e-5 – 7.8e-5) is
+  1.5 × the noise floor (an independent draw: 4.5e-5 – 4.9e-5). Reading: what remains is the transport's residual at
+  the sampling-noise scale. Under exact volume the body's density pattern is carried by the motion (an isochoric
+  flow rearranges a density field, it cannot change its values), so the body cannot take the target sample's own
+  noise pattern below the two samples' floor; the transport's gradient there does not vanish, the control keeps
+  pushing (half D132's) and what it pushes is elastic and rings when the control is released. The flag-off path
+  reaches below the floor by changing volume, which is the fit the user's criteria no longer count.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
