@@ -3036,6 +3036,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the gate passes, the candidate becomes the default (every flag kept as an A/B switch), the suite is run, README's
   pipeline summary updated and the tag `freeze-2026-10-09` pushed; if it fails, the failing meshes are reported with their
   numbers and nothing is iterated.
+  **Result (38 runs done 04:26, read 04:27 CDT; `output/gpu/d136/gate_read.log`; local table
+  `output/results_2026-10-09/d136_gate_table.md`): FAILED by the letter on two meshes; not adopted, no tag, nothing
+  iterated.** (1) the render arm ahead of its twin on 18 of 19 (+0.0006 to +0.0036); beast's twin ahead, V 0.9710
+  against W 0.9719 (−0.0009; D106 +0.0003; inside the single-run spread of 0.002, D100b; the twin ran 99 windows, the
+  render arm 59; both at rest, 1.4e-5 / 9.4e-6). (4) dragon's twin ends at 1.7e-4 against the limit 1.63e-4 (1.25 ×
+  D106's larger 1.3e-4; 4 % over; its last three windows 1.4e-4 / 1.1e-4 / 1.7e-4, D106's twin's 1.7e-4 / 1.3e-4 /
+  1.3e-4); the render arm 1.2e-4 within. Met: (2) every render arm within 0.01 of D106's (−0.0012 on V to +0.0023 on
+  nefertiti; ahead or equal on 13 of 19); (3) strays on every mesh (the render arms' largest share 0–0.00015 against
+  D106's 0–0.0044); every other run at rest (C's 4.5e-3 / 7.7e-3 within D106's 3.4e-2; V's 3.8e-5 / 5.0e-5 against
+  D106's 9.5e-3). Reported: the windows mostly fewer than D106's (fandisk 16 against 47, teapot 22 against 58; V 51
+  against 11, beast 59 against 126); the apart particles in windows 3–6 100–250 on A, teapot and V (render arm and
+  twin alike), at most 29 elsewhere (no gallery reference). The default change, its test (`tests/test_frozen_recipe.py`)
+  and the README paragraphs are prepared but not committed, held for the user's decision.
 - **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
   user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
   same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
