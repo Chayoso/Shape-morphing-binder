@@ -3067,6 +3067,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   D106 (V 0.9699, W 0.9696): both arms gain at seed 97, the twin more (+0.0023 against +0.0011), so on beast the
   volume-conserving body helps the physics-only run more than the render arm. The held default change stays held: the
   coordinator takes the verdict to the user together with D137 (the crevice tear), which may change the candidate.
+  (2026-10-09, the user, relayed by the coordinator: beast is accepted as a recorded deviation, as D132's and D135's
+  stage-2 deviations were: the three-seed mean V − W −0.00071 against the rule's −0.0005; together with the dragon
+  twin's 4 % excess in end kinetic energy. The freeze now waits on D137.)
 - **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
   user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
   same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
@@ -3152,6 +3155,43 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   8–14 against LF's 2570. Correction of the D135 side-view note: D135's neck–body hole opens at about 13 s (12 s still
   webbed, open from 13 s to the end, `neck_d135_late.jpg`), not never; D132's localisation run kept it webbed to its
   end at 16 s.
+  Read (4–5 works; an agent's reading of the papers): Hu et al. 2018 (MLS-MPM, CPIC: "the kernel support across the
+  boundary naturally causes velocity field smoothing"; separation by softening leaves "damaged debris"), Homel & Herbold
+  2017 (damage-field-gradient partitioning, two velocity fields), Nairn 2003 with Bardenhagen 2000/2001 (explicit cracks,
+  multi-velocity contact), Gao et al. 2017 (adaptive GIMP: slits resolved only where the grid is refined), Wolper et al.
+  2019 (CD-MPM: interpolation stickiness a limit of MPM itself). Ranked for this case: (a) the cell set from the particle
+  count (an existing definition, measured cost nil at 300k), (b) two velocity fields split by the transport's side labels
+  (a new mechanism: a second field, a contact rule, a separability rule; wrong labels become debris), (c) an adaptive
+  grid (largest change, never with APIC or an adjoint).
+  **D137 proper, pre-registered 2026-10-09 13:45 CDT, before any of its runs (the user approved (a), relayed by the
+  coordinator).** Definition: above 40k particles the MPM cell follows the particle count, dx = (source diagonal / 26)
+  × (40000 / N)^(1/3) (the particles per cell stay 40k's, about 23); the loss grid exactly as before (at 300k 87^3 against an MPM grid
+  of about 85^3; G2 had held it at 82^3); the u gate's grid and radius and the thin set keep the shape's cell (diagonal / 26, the cell as it was); the
+  domain as before (its margin two of the shape's cells); at or below 40k nothing changes, bit for bit. Code:
+  `prepare(..., cell_ref_n)` and `Prepared.cell_shape`, `config.cell_shape` (the gate's grid in `target.build_target`, its
+  radius in `Objective`), the thin set in `pipeline_run`; flag `--cell_follows_n` (A/B; the default at the freeze);
+  tests `tests/test_cell_follows_n.py` (40k and 3k bit for bit; 300k: the cell, the domain, the loss cell, the shape's
+  cell; the gate on the shape's cell; a pipeline on a finer cell than the shape's). Runs, seed 97, 300k, the D135 recipe
+  (D105's + `--layer_relief --lambda_ema 1 --volume_exact carried --match_density --assim_volume`) + `--cell_follows_n`
+  (tag M): bunny and dragon, render arm LM and twin PM; teapot, bob, armadilo, homer, render arm LM. Baselines: D135's
+  stage-2 runs (`output/gpu/d135s2`, LT / PT) for bunny and dragon; for the four others D135's render arm is run now
+  (tag LT, same code, without the flag). Each run to its own stop, one run per GPU, `tmp/d137/d137s.sh`, `output/gpu/
+  d137s`; read by `runeval3.sh` (the yardstick t3_ and the display e3_ against an independent 300k sample: d90's for
+  bunny and dragon, `independent_sample.py` seed 99 for the four others, made before any run is read), `d120_apart.py`,
+  the dragon's side view (studio look, base display, +az=90) of both arms, `d137_beads.py` on its crevice box and
+  `d137_track.py` on its three gaps. Pass (all must hold): (1) the dragon, render arm and twin: no beads or strand in the
+  crevice on the 3–5 s side view (read on the middle crop; the bead disc sets in the crevice box over 3.0–5.0 s
+  reported beside D135's 56 and LG's 30); (2) the dragon, both arms: the neck–body opening present at the end; (3)
+  floating pieces at D135's level: the display's apart discs in the first 10 % (e3_) not above D135's same mesh and arm
+  on every run, the dragon's side view clean at 0.8–2 s, the particles apart in windows 3–6 and 3–10 reported; (4) at
+  rest: every run's end kinetic energy not above 1.25 × D135's same mesh and arm; (5) the render arm ahead of its twin
+  (bunny, dragon) on the yardstick silhouette and the display front, as D135's (d); (6) the independent-sample yardstick
+  (silhouette and shading) within 15 % of D135's same mesh and arm, or better. Reported: windows, seconds per window and
+  the largest GPU memory, silhouette IoU, chamfer, thin (on the shape's thin set), roughness, the gaps' tracks.
+  Prediction: (1) and (2) hold on the dragon as in LG; (4)–(6) hold; the risk is (3): LG had more particles apart from
+  the body in windows 5–7 (137 / 227 against 11 / 36) and a finer-folded surface at 0.9–1.5 s, so the display's apart
+  discs in the first 10 % may rise above D135's; seconds per window as before. Suite on the change (repo_r113): 355 passed,
+  2 skipped, exit 0 (`tmp/d137/suite_r113.log`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

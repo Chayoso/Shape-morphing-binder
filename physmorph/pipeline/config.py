@@ -82,6 +82,9 @@ class PipelineConfig:
                                     #   no bound, no weight)
     loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
                                     #   and blur follow the particle spacing above the reference N
+    cell_shape: float = 0.0         # D137: the shape's MPM cell (prepare's Prepared.cell_shape) when the MPM cell follows
+                                    #   N above mass_ref_n (prepare's cell_ref_n); the u gate's grid and radius keep it;
+                                    #   0 = the MPM cell is the shape's (prm.dx), the code as it was
 
     # ---- cleanup (fixed weights, outside the render balance) ----
     w_dt: float = 0.2               # W1 pull of isolated particles down the target DT

@@ -3,7 +3,8 @@
 Meshes are loaded and volume-sampled with trimesh (stratified: one jittered particle per
 fill voxel; the samples are cached by physmorph.sampling). The target is rescaled to the
 source's volume, since the MPM body cannot change its total volume. The discretisation
-follows from the shape: dx = source bounding-box diagonal / cell_diag, the domain is the
+follows from the shape: dx = source bounding-box diagonal / cell_diag (D137, cell_ref_n: x (cell_ref_n / N)^(1/3)
+above cell_ref_n particles), the domain is the
 box leash (1.25 x the larger cloud) plus the 4^3 stencil margin, and the loss grid
 follows dx. The near-band berth is the target's median 8th-neighbour distance in
 nearest-neighbour spacings. Everything after this runs on the GPU.
@@ -40,6 +41,8 @@ class Prepared:
     sampling: dict | None = None        # the surface-dense sampler's report (band depth, shares, pitches), for the log
     tgt_base: np.ndarray | None = None  # the uniform (F = 1) target sample in the same frame: the probes' pitch and mesh fit
     density: dict | None = None         # D132 (match_density): the two samples' fill volumes and the source's scale
+    cell_shape: float | None = None     # D137 (cell_ref_n, above it): the shape's MPM cell (diag / cell_diag, as derived
+                                        #   before), kept for the u gate and the thin set; None = prm.dx is the shape's cell
 
 
 def sampling_berth(target: np.ndarray, w=None) -> float:
@@ -64,7 +67,7 @@ def sampling_berth(target: np.ndarray, w=None) -> float:
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
             draws: int = 1, surface_density: float = 1.0, band_sp: float = 0.0,
-            match_density: bool = False) -> Prepared:
+            match_density: bool = False, cell_ref_n: int = 0) -> Prepared:
     # surface_density F > 1 (D122): the same sampler F times denser in the outer band of band_sp spacings, source
     # and target alike (the transport needs samples of one kind); each sample's rest-volume weights come back in w
     dense = surface_density > 1.0
@@ -141,8 +144,23 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     # the loss grid: the MPM cell, or (loss_ref_n > 0) refined with the particle spacing above
     # loss_ref_n particles, so the transport resolves what the sampling resolves
     per_dx = max(1.0, (n / loss_ref_n) ** (1.0 / 3.0)) if loss_ref_n > 0 else 1.0
+    # D137 (cell_ref_n > 0): above cell_ref_n particles the MPM cell follows the particle count as the loss grid does,
+    # dx = (diag / cell_diag) x (cell_ref_n / N)^(1/3): the particles per cell stay cell_ref_n's, and a gap of the target
+    # a few of the shape's cells wide is no longer inside the cubic kernel's reach of both its sides (D137: at 300k
+    # the shape's cell is 6 pitches and the dragon's gaps 1.7-4.5 cells, so their material moved with both rims and
+    # tore into beads). The loss grid stays exactly as it was (about one loss cell per finer MPM cell); the shape's cell is kept for
+    # the u gate and the thin set (Prepared.cell_shape). At or below cell_ref_n nothing changes.
+    k_cell = max(1.0, (n / cell_ref_n) ** (1.0 / 3.0)) if cell_ref_n > 0 else 1.0
+    cell_shape = None
     disc = derive(n, v_src, diag_src, prm.dt, young, poisson, ppc=ppc, domain_half=domain_half,
                   loss_cells_per_dx=per_dx)
+    if k_cell > 1.0:
+        cell_shape, loss_res = disc.dx, disc.loss_res  # the shape's cell and the loss grid, exactly as before
+        ppc = ppc / k_cell ** 3                       # the domain (its margin two of the shape's cells) as before
+        disc = dataclasses.replace(derive(n, v_src, diag_src, prm.dt, young, poisson, ppc=ppc,
+                                          domain_half=domain_half), loss_res=loss_res)
+        log(f"[disc] the cell follows N above {cell_ref_n} (D137): dx / {k_cell:.4f} -> ppc {ppc:.1f}; the shape's "
+            f"cell {cell_shape:.4f} wu kept for the u gate and the thin set, the loss grid {loss_res}^3 as before")
     prm = dataclasses.replace(prm, dx=disc.dx, nx=disc.grid_n, ny=disc.grid_n, nz=disc.grid_n,
                               grid_min=(disc.grid_min,) * 3)
     if floor_y is not None:
@@ -155,7 +173,7 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
         "(0.5 wu reference cell)")
     log(report(disc, src))
     log(report(disc, tgt).splitlines()[-1].replace("[disc] measured", "[disc] TARGET measured"))
-    log(f"[disc] loss_res {disc.loss_res} (" + (f"{per_dx:.3f} loss cells per dx, following N above {loss_ref_n}"
+    log(f"[disc] loss_res {disc.loss_res} (" + (f"{per_dx:.3f} loss cells per {'shape ' if cell_shape else ''}dx, following N above {loss_ref_n}"
                                                 if per_dx > 1.0 else "the MPM cell") + ")")
     berth = sampling_berth(tgt, None if not dense else r_tgt["w"])
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
@@ -163,4 +181,4 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
                     tgt_surface=tgt_surface, tgt_draws=tgt_draws,
                     w_src=None if not dense else r_src["w"], w_tgt=None if not dense else r_tgt["w"], sampling=sampling,
-                    tgt_base=None if not dense else r_tgt["base"], density=density)
+                    tgt_base=None if not dense else r_tgt["base"], density=density, cell_shape=cell_shape)

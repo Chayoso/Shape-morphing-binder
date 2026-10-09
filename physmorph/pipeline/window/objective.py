@@ -85,7 +85,8 @@ class Objective:
                                            eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
         dn = disp.norm(dim=1)
         print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
-        gate = (dn <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float() * (win.lmask > 0.5).float()
+        cell = float(cfg.cell_shape) if cfg.cell_shape > 0 else float(prm.dx)    # D137: the shape's cell
+        gate = (dn <= float(cfg.layer_gate_ot_cells) * cell).float() * (win.lmask > 0.5).float()
         if cfg.u_off:                                 # D124 ablation: u never acts (its gate zero on every particle)
             gate = torch.zeros_like(gate)
         win.set_u_gate(gate)

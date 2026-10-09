@@ -101,6 +101,10 @@ def parse_args():
                     help="D132 A/B: the source sample rescaled so that it represents the volume of the target sample's own "
                          "fill (equal number densities; the target and every measure on it unchanged); off = the meshes' "
                          "volumes matched at a 110^3 fill, as before")
+    ap.add_argument("--cell_follows_n", action="store_true",
+                    help="D137 A/B: above the reference N (40k) the MPM cell follows the particle count, dx = (diag / "
+                         "cell_diag) x (40000 / N)^(1/3) (the particles per cell stay 40k's); the loss grid keeps its size, "
+                         "the u gate and the thin set keep the shape's cell; off (or N <= 40k) = the shape's cell, as before")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
@@ -196,7 +200,8 @@ def main():
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
                    surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws,
-                   surface_density=args.surface_density, band_sp=cfg0.layer_h_sp, match_density=args.match_density)
+                   surface_density=args.surface_density, band_sp=cfg0.layer_h_sp, match_density=args.match_density,
+                   cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -218,6 +223,7 @@ def main():
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
                               spray_gate=args.spray_gate, render_body_only=args.render_body_only,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
+                              cell_shape=prep.cell_shape or 0.0,
                               w_dt=cfg0.w_dt if args.w_dt is None else args.w_dt,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
@@ -230,12 +236,14 @@ def main():
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)
     print(f"[v2run] baseline chamfer (undeformed) = {metrics.chamfer(src, tgt):.4f}", flush=True)
-    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc, "sampling": prep.sampling, "density": prep.density},
+    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc, "sampling": prep.sampling, "density": prep.density,
+                          "cell_shape": prep.cell_shape},
            "arms": {}}
     cfg_dump = dataclasses.asdict(cfg)                 # before the run: c2f edits render_res
     print(f"\n[v2run] ===== ARM {ARM} =====", flush=True)
     t_thin = time.time()
-    ts = thin_set(tgt, prm.dx, cfg.mass_ref_n, prep.w_tgt)     # the thin part of the target (measurement)
+    # the thin part of the target (measurement), in the shape's cell (D137: also when the MPM cell follows N)
+    ts = thin_set(tgt, prep.cell_shape or prm.dx, cfg.mass_ref_n, prep.w_tgt)
     print(f"[v2run] thin set: {len(ts.points)} of {ts.n_outer} outer target points below two MPM cells "
           f"({time.time() - t_thin:.1f} s)", flush=True)
     on_commit, on_iter = live_hooks(args, src, tgt, prm, cfg)

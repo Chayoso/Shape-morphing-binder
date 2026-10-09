@@ -150,7 +150,12 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, w=No
     # the u transport gate measures its radius in MPM cells, so its transport map is solved on the
     # MPM-cell grid; that is the loss grid itself unless the loss grid refines with N
     gate = (grid, ldx, ldims)
-    if cfg.loss_follows_n and cfg.loss_res != prm.nx:
+    if cfg.cell_shape > 0:
+        # D137: the MPM cell follows N; the gate keeps the shape's cell (its grid and, in the objective, its radius)
+        gn = int(round(float((dmax - dmin).max()) / cfg.cell_shape))
+        gdx, gdims = float((dmax - dmin).max() / gn), (gn,) * 3
+        gate = (target_mass_grid(tgt_t, m_t, lgmin, gdx, gdims), gdx, gdims)
+    elif cfg.loss_follows_n and cfg.loss_res != prm.nx:
         gdx, gdims = float((dmax - dmin).max() / prm.nx), (prm.nx,) * 3
         gate = (target_mass_grid(tgt_t, m_t, lgmin, gdx, gdims), gdx, gdims)
     views = make_views(cfg.render_views, cfg.render_elevs)
