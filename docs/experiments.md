@@ -2764,9 +2764,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   2.6e-5 – 4.6e-5, below its floor: the free volume follows the target sample's own arrangement, which a body that
   conserves its volume cannot. So the samples' density was half of the bunny's agitation; the other half is a radial
   ~1 % stretch of the bunny's interior against a squeezed outer layer, which the run's end holds and the release lets
-  ring. Not yet measured: which term asks for that profile (the transport's boundary, the surface-proximity fine term,
-  the layer relaxation's position projection, the render on the exterior), and whether the dragon's (3) values are the
-  same floor effect (the flag-off volume fitting below the noise floor) rather than a missing part.
+  ring. Which term asks for the profile (`tmp/d132/gradprof.py`, `gradprof.log`: at the D132 bunny L end each term's
+  gradient on the positions, its mean outward descent component per depth band in units of its own rms, then weighted as
+  the objective weighs it: ot_scale 0.405 on the geometry energy, λ = 0.0023 on the render, the cleanup as it stands):
+  on the outer half spacing the cleanup (spray W1 and near band) pulls inward (−0.28 of its rms 4.9e-7: −1.4e-7) against
+  the render (+0.69 × 6.6e-8: +4.6e-8), the transport (+0.21 × 1.4e-7: +2.9e-8) and the fine term (+1.3e-8), which push
+  outward; below 8 spacings the transport pulls inward (−0.11), the others nothing. The flag-off volume with the match
+  has the same pattern (cleanup −0.39, transport +0.70, render +0.63 at the layer). So at the run's end the objective's
+  stationary point has the outer layer drawn inward by the cleanup against the render and the transport: a free volume
+  takes it as a local squeeze of the layer, a conserved one as the layer squeezed and the interior stretched (the
+  measured J profile), held by the control and released as the ringing. Whether the dragon's (3) values are the same
+  floor effect (the flag-off volume fitting below the noise floor) rather than a missing part is not yet measured.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
