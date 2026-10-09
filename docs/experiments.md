@@ -2955,6 +2955,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   is faster than the ratchet (the stream forms within windows 2–6, the assimilation takes ½ per window); if it
   re-dilates (det Fg rising past 2 over windows), the volume's assimilation needs a direction (compression vs
   dilation), which is the user's call.
+  **Stage 1 result (runs 01:08–01:23, read 01:27 CDT, `output/gpu/d135/s1_read_d135.log`; local table
+  `output/results_2026-10-09/d135_stage1_table.md`): one value out, the bunny twin s98's end; every other criterion met.**
+  (1) met (guards 0, det F = J). (2) met: the stream does not re-dilate, its det Fg per window over windows 2–10 is
+  0.96–1.10 on every archive (flag-off 4.25–4.95), 9–40 apart particles per archived frame pooled (the dragon's rise in
+  windows 8–10 to 39–110 per frame is at det Fg 1.00, not dilated material); apart in windows 3–6 23 / 26, 23 / 23
+  (bunny L, P; limits 52 / 47), 12 / 14, 4 / 6 (dragon). (3) the bunny render arm 2.7e-5 / 6.3e-5 (limit 8.0e-5), the
+  bunny twin 1.5e-5 / **1.0e-4** (limit 4.9e-5), the dragon 1.2e-4 / 1.6e-4 and 1.1e-4 / 1.3e-4 (limits 3.5e-4 /
+  2.1e-4): the end kinetic energy is the flag-off's but for the bunny twin s98, whose run stopped at 22 windows (a
+  reject streak at window 27) while still settling (1.7e-4 → 1.0e-4 over its last five windows; s97 went on to 42
+  windows and 1.5e-5). (4) met (render lead +0.0011 / +0.0014). (5) met (0.58–1.08 ×). Reported: the end geometry
+  energy at the noise floor on the bunny (5.1e-5 – 7.5e-5; D132 8.5e-5 – 1.07e-4; floor 4.5e-5 – 4.9e-5), the dragon's
+  1.9e-4 – 2.7e-4 as D132's; chamfer and thin in the flag-off's ranges (bunny thin 4.4–6.3 %); the late control
+  0.004–0.008 (D132 0.010–0.016, flag-off 0.002–0.009); the rest volume det Fp 0.77–1.58 (bunny) and up to 2.4–3.1 at
+  the dragon's extreme particles (the 99.9 % quantile 1.75); at the end the elastic stretch is almost gone (det Fe
+  0.997–1.003, principal stretches within 0.3 %). The release probe (`repo_r111r`, bunny L / P and dragon L, s97;
+  `rel_d135_read.log`): with no assimilation between the free windows the D135 end is at rest, the first free window's
+  kinetic energy 3.1e-5 / 2.8e-5 (bunny; D132 4.6e-4 / 8.6e-4, the flag-off volume 5.3e-5) and 8.0e-5 (dragon), decaying
+  at the drag's rate, the body drifting 0.08–0.19 spacings. (The probe's sequence with the assimilation between the
+  free windows is void: the probe's own call kept `isochoric=True`, which projects a volumetric Fp back to det 1 and
+  kicks the body; the run's own call is the flag's.)
+  **Deviation, recorded before the stage-2 launch (01:35 CDT):** stage 2 is run although stage 1 missed one value,
+  the bunny twin s98's end kinetic energy, because that run stopped early while still settling (the selection rule's
+  reject streak, not a held state: the same seed's render arm and the other seed of the twin end within the limit, and
+  the release probe shows the end is the body's own rest); stage 2 at 300k is the decisive test, run with its
+  pre-registered criteria unchanged (`tmp/d135/d135s2.sh`: tags LT / PT, archives LTF / PTF, the stream over windows
+  2–10; `d135s2_final.sh`; `d135s2_side.sh`: D132 | D135; the chains wait for idle GPUs, one run per GPU).
 - **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
   user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
   same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
