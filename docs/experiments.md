@@ -3192,6 +3192,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the body in windows 5–7 (137 / 227 against 11 / 36) and a finer-folded surface at 0.9–1.5 s, so the display's apart
   discs in the first 10 % may rise above D135's; seconds per window as before. Suite on the change (repo_r113): 355 passed,
   2 skipped, exit 0 (`tmp/d137/suite_r113.log`).
+  **Result, bunny and dragon (runs 13:48–14:33, read 15:00–15:45 CDT; `tmp/d137/s_read_d137.py`; local
+  `output/results_2026-10-09/d137_crevice/`): FAILED by the letter on (4), two of the four runs; the other items
+  hold.** (4) the end kinetic energy: bunny twin 4.9e-6 against its limit 4.1e-6 (1.25 × D135's 3.3e-6; +19 %); dragon
+  render arm 1.46e-5 against 1.01e-5 (1.25 × D135's 8.1e-6; +45 %); bunny render arm 4.2e-6 (limit 5.7e-6) and dragon
+  twin 1.43e-5 (1.87e-5) within. For scale (not the rule): D135's own dragon render arm re-run (D137's LF, the same code
+  with the read-only hook) ended its last window at 2.1e-5 against the stage-2 run's 1.1e-5 (JSON last-window values;
+  D137's LM 1.5e-5), i.e. one D135 run is not its spread; no second D135 bunny twin at 300k exists. (1) the dragon's
+  crevice at 3–5 s: the render arm clean from 3.6 s (a small blob on the leg's rim at 3.0–3.3 s, attached; bead disc
+  sets in the box 15, none on particles apart from the body, against D135's 56 / 18); the twin a small fleck on the rim
+  to 4.0 s and a speck at 4.5–5.0 s (10 / 0). The tear itself moved earlier: the crevice opens at 1.9–2.1 s with a ring
+  of small holes and a thin strand across its foot at 2.1–2.5 s, and the loop's interior opens at 2.3–2.5 s with small
+  blobs on its rim, in both arms (`side_1.5-2.5s_crevice_D135_LM_PM.jpg`). The crevice material is 2 % in the gap at
+  3.0 s (D135 90 %), the neck's 1 %, the loop's 2–3 %. (2) the neck–body hole open from 3.0 s to the end in both arms.
+  (3) the display's apart discs in the first 10 %: bunny 751 / 300 (D135 2691 / 2724), dragon 2095 / 1047 (5609 /
+  2121), all within; the particles apart from the body in windows 3–6: bunny 231 / 368 (D135 939 / 1192), dragon 194 /
+  31 (D135 12 / 6), in windows 3–10 dragon 1026 / 1150 (2136 / 2318); the side view at 0.8–2 s more finely folded than
+  D135's (as G2's), with the crevice's ring of holes from 1.9 s. (5) the render arm ahead of its twin: bunny −21 % /
+  −15 % (yardstick silhouette / display front; D135 −45 % / −30 %, the twin improved), dragon −48 % / −19 % (−52 % /
+  −31 %). (6) the yardstick within: bunny +2 % / −7 % (silhouette / shading, render arm), −29 % / −20 % (twin); dragon
+  −23 % / −19 %, −29 % / −24 %. Reported: thin uncovered (the shape's thin set) bunny 3.2 / 3.6 % (D135 5.0 / 5.6),
+  dragon 4.5 / 4.5 % (4.5 / 4.8); silhouette IoU and chamfer within 0.001; roughness +0.4° / +0.5°; windows 82 / 85 /
+  104 / 95 (85 / 67 / 108 / 94); seconds per attempt 17.8 / 17.5 / 23.0 / 23.4 (17.8 / 19.1 / 21.2 / 21.8); the
+  largest sampled GPU memory 35–40 GB (D135's re-run LF 36 GB). The four other meshes (render arms and their D135
+  baselines) are still running; they are read under the same rule when done. Notes: the chains' own `d118_rows.py`
+  call failed (it imported `physmorph` from repo_settled); the rows were made by `tmp/d137/rows_all.sh` and, for the
+  bunny twin whose kept frames had already been removed, `rows_nofr.py` (the last delivered frame from the JSON).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
