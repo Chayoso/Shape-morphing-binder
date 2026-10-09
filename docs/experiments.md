@@ -3059,6 +3059,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   run per GPU. Decision rule: freeze if V − W on the independent-sample silhouette IoU, averaged over seeds 97, 98 and
   99, is ≥ −0.0005 (the gate's miss is the single-run spread); otherwise stop and report. The dragon twin's 4 %
   excess in end kinetic energy is accepted by the user (D106's twin reaches the same value).
+  **Beast follow-up result (four runs launched 10:58, done 11:04, read 11:37 CDT; `output/gpu/d136/ind.log`): the rule
+  is not met, mean V − W = −0.00071 < −0.0005; STOP, not frozen, no tag.** The twin is ahead on the independent-sample
+  IoU at every seed: seed 97 V 0.9710 / W 0.9719 (−0.0010), seed 98 0.9701 / 0.9706 (−0.0005), seed 99 0.9702 / 0.9709
+  (−0.0007). On the run's own sample: −0.0010, −0.0001, +0.0018. Every run at rest (1.0e-5 – 2.4e-5), strays 0 –
+  0.000125 (D106's 0.0044), apart in windows 3–6 9–17 (V) and 2–10 (W); windows V 59 / 56 / 71, W 99 / 76 / 73. Against
+  D106 (V 0.9699, W 0.9696): both arms gain at seed 97, the twin more (+0.0023 against +0.0011), so on beast the
+  volume-conserving body helps the physics-only run more than the render arm. The held default change stays held: the
+  coordinator takes the verdict to the user together with D137 (the crevice tear), which may change the candidate.
 - **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
   user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
   same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
