@@ -2988,6 +2988,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   2160) and the exterior shading residual against the independent sample, as pictures, per body region (the
   tail / hind-leg crevice, the face and horns, elsewhere), at the end and over time, against D120's render arm (its
   frames kept in `output/gpu/d120`).
+  **Reading (01:50 CDT; `output/gpu/d132loc/`, `tmp/d132/loc_probe.py`, `loc_pics.py`, `crop_diff.py`, `overtime.py`;
+  local `output/results_2026-10-09/d132_localisation/`).** The re-run reproduces the values (110 windows; the
+  yardstick's shading at the end 5.18e-4 against D120's 4.40e-4, +18 %, stage 2 +20 %; the display crop 1 − IoU
+  0.0239 against 0.0200, +20 %, stage 2 +23 %). Over time (`overtime.log`): D132's shading starts 2 × D120's at 0.4 s
+  and closes to +20 % by the end; its crop is below D120's at 0.4 s and above from 1.6 s on. (1) The display crop is the
+  front camera's box around the dragon's horns (the box's discs in green in the region picture). Its difference is a
+  rim along the horns' outlines, the same pattern in both runs (the reference's horn edges a pixel or two beyond the
+  run's on their left sides, the run's beyond the reference's on their right sides), a little wider in D132 (at the
+  end 3718 / 3648 pixels of reference-only / run-only against D120's 3362 / 3135, mostly the left third and the lower
+  half of the box); no piece, membrane or missing part in the box. (2) The shading: attributed back to the independent
+  sample's discs (each pixel's squared shade difference shared among the discs drawn into it, summed over the views;
+  the head's box carries 1 % of the excess): about half of D132's excess (cells around (0, 0.5, 1.1) wu, +6.3 of +12.7)
+  is the through-hole between the neck and the body's upper loop, which D120 opens by 3.0 s and keeps open to the end
+  while D132 never opens it: a web across it from 3 s to the end (side views at 3–16 s); about 8 % is the tail /
+  hind-leg crevice (cells around (0.4, −0.3 … −0.8, −2.0)), the rest spread over rims. A small loose fleck is visible
+  near the hind leg at the end of D132's side view. So both of the dragon's out-of-band values come from shape: the
+  horns' outlines a pixel thinner on one side (the crop) and a topology change the volume-conserving body does not make
+  (the neck–body through-hole stays webbed; the crevice tears late, D131's reading) for the shading.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
