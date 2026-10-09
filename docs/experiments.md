@@ -2823,6 +2823,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   spread; risk: particles the grid still couples but that sit loose at the surface are no longer pulled, so apart counts
   late in the run may rise (read beside: apart in the last windows). Order on hyde06 (one run per GPU): D133 stage 1
   first (about 15 min), then D132 stage 2's chains (started by `tmp/d132/after_d133.sh` once D133's twelve runs are done).
+  **Stage 1 result (runs 22:17–22:26, read 22:27 CDT, `output/gpu/d133/s1_read_d133.log`; local table
+  `output/results_2026-10-08/d133_stage1_table.md`): FAILED on the bunny's (2) and (3); the dragon passes every
+  criterion; stage 2 not run.** (1) met everywhere. (2) the stream stays gone (det Fg 0.999–1.001, 7–23 apart particles
+  per archived frame against 224–707); apart in windows 3–6: dragon 10 / 12 and 5 / 3 (limits 108 / 51) met, bunny L
+  23 / 60 (limit 52), P 81 / 72 (limit 47) out (D132 19–44; flag-off 474–870): small sets of 1–4 particles from window
+  2.4 on, the predicted risk (coupled-but-loose particles the grid gate no longer pulls). (3) dragon L 1.0e-4 / 1.3e-4
+  (limit 3.5e-4), P 1.2e-4 / 1.2e-4 (limit 2.1e-4) met; bunny L 1.6e-4 / 2.8e-4 (limit 8.0e-5), P 1.1e-4 / 9.4e-5 (limit
+  4.9e-5) out (D132 1.9e-4 – 3.6e-4: the twin 2–3 × lower, the render arm level). (4) met: the render arm's silhouette
+  IoU above its twin's, bunny +0.0009, dragon +0.0015 (flag-off +0.0025 / +0.0019). (5) met: wall 0.76–1.26 ×. Reported:
+  the end geometry energy moves toward the noise floor (bunny 6.9e-5 – 8.2e-5 against D132's 8.5e-5 – 1.07e-4 and a
+  floor of 4.5e-5 – 4.9e-5; dragon 1.8e-4 – 2.1e-4 against 2.3e-4 – 2.7e-4 and 9.5e-5 – 1.0e-4); the late control is
+  half D132's (bunny dfc 0.005–0.010 against 0.011–0.016; flag-off 0.002–0.009); thin uncovered falls (bunny 3.2–5.3 %,
+  dragon 4.5–7.3 %; D132 4.1–5.9 and 6.7–8.1), the chamfer against the run's own sample rises 0.0003–0.0007 (0.1101–
+  0.1126). The bunny's end motion is still the oscillation (`endkind2.py`: 12-step moves 0.0068–0.0084 spacings,
+  autocorrelation +0.19 – +0.38 at 12 steps and −0.06 – −0.37 at 24; D131's 0.0109–0.0117, the flag-off 0.0041–0.0057).
+  Next reading (queued after D132 stage 2's bunny chains free two GPUs, `tmp/d133/probe.sh`): the release probe and the
+  per-term gradient at the D133 bunny ends, to see what holds the layer now that the spray pull is gone.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
