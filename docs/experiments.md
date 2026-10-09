@@ -2775,6 +2775,54 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   takes it as a local squeeze of the layer, a conserved one as the layer squeezed and the interior stretched (the
   measured J profile), held by the control and released as the ringing. Whether the dragon's (3) values are the same
   floor effect (the flag-off volume fitting below the noise floor) rather than a missing part is not yet measured.
+  **Stage 2 run as a recorded deviation, and the criteria for a volume-conserving body (written 2026-10-08 22:17 CDT,
+  before the stage-2 launch).** Deviation: stage 1 failed on the bunny's end kinetic energy (1.9e-4 – 3.6e-4 against
+  8.0e-5 / 4.9e-5) and on the same four chamfer / thin values as D131; stage 2 is run on the user's decision
+  (2026-10-08, relayed by the coordinator: "Run D132 stage 2 at 300k as a recorded deviation"), because the 300k
+  dragon carries the largest density mismatch (7.5 %) and is where the user saw the pieces. Criteria change, the user's
+  decision quoted: "Judging a volume-conserving body: the end quality is judged on the independent-sample measures (the
+  yardstick and the display against the independent sample), the end at rest (kinetic energy), the floating pieces
+  (apart counts, display apart discs, the side view), the render arm's lead over its twin and momentum. Chamfer and
+  thin uncovered against the run's own target sample are REPORTED, not pass/fail, because the old-path limits came from
+  runs that changed volume to fit the sample below its sampling gap." Applied from here on. Stage 2 (`tmp/d132/
+  d132s2.sh` on `repo_r109` / `repo_r109g`, seed 97, D105 recipe + `--layer_relief --lambda_ema 1 --volume_exact carried
+  --match_density`; per GPU the 12-window archive and the full run with `runeval3.sh` against the independent 300k
+  sample (d90), the end discs, `d120_apart.py`, D125's classify / split / fate, `d118_rows.py`; bunny and dragon, render
+  arm LD and twin PD; output `output/gpu/d132s2`), against D120 (LE / PE) with D130 (LM / PM) and D105 beside. Pass /
+  fail: (a) floating: apart particles in windows 3–6 ≤ 0.5 × D120's and ≤ D130's same arm; the display's e3 apart discs
+  in the first 10 % ≤ 0.5 × D120's; the stream's det Fg ≤ 2; J ≥ 0.01; the side view D130 | D132 (dragon render arm,
+  studio look, base display) shows no piece D130 did not; (b) the independent-sample end quality: the yardstick and the
+  display within 15 % of D120's same arm or better; (c) at rest and momentum: the end kinetic energy and the largest
+  angular momentum not above the larger of D105 / D120 + 25 %; (d) the render arm's lead over its twin on the yardstick
+  and the display by D120's margins (within 10 points); windows within 25 % of D120's as a sanity check. Reported, not
+  pass / fail: silhouette IoU, chamfer and thin against the run's own sample, the relief bands and the roughness, the
+  geometry energy against the noise floor. Results filed by date in `output/results_<date>/` with a line in
+  `output/README.md` (the side views, one table). The prediction above stands for 300k (the dragon's thin and early stop
+  go with its 7.5 % mismatch); the bunny's end may still miss (c) (stage 1's remainder; D133 below is its test).
+- **D133, the spray cleanup's isolation gate is the MPM's decoupling test on the volume-conserving body (D126's
+  `--spray_gate grid` on top of D132; pre-registered 2026-10-08 22:17 CDT, before any D133 run; the user's decision
+  (2026-10-08, relayed by the coordinator); no new code: the flag exists since D126 (498180b, its tests in
+  `test_w1_cleanup.py`); runs `--spray_gate grid --volume_exact carried --match_density` on `repo_r109` / `repo_r109g`;
+  `tmp/d133/`, `output/gpu/d133/`).** Why, the user's rationale as relayed: D126 was refuted on the old path because the
+  kNN-gated spray pull was carrying the dilating stream (with the grid gate the stream lost that pull); with the stream
+  gone (D130–D132), the remaining effect of the kNN gate is to open on 64–77 % of the coherent outer layer (D125 (3b))
+  and pull it inward at the end, D132's gradient reading (the cleanup −1.4e-7 on the outer half spacing against the
+  render and the transport, the conserved volume answering with a squeezed layer and a stretched interior, J 0.997 →
+  1.006–1.010, held and ringing); the grid test is closed on a coupled layer, so the pull should go without the stream
+  penalty. The cleanup then acts only on what the MPM has decoupled (true strays). Stage 1 (40k, `tmp/d133/s1.sh`, as
+  D132's: bunny and dragon, render arm L and twin P, seeds 97 and 98; the 12-window archives of both arms on
+  `repo_r109g`), against the flag-off three-seed references (D130 stage 1's L0f / P0f) with D132's stage-1 runs beside,
+  under the criteria above: pass / fail (1) every run completes, det F = J, J ≥ 0.01; (2) floating: the stream's det Fg
+  ≤ 0.5 × the flag-off archive's, apart particles in windows 3–6 ≤ 0.1 × the flag-off's smallest seed (same arm); (3) at
+  rest: the last window's kinetic energy ≤ 1.25 × the flag-off seeds' largest (bunny L 8.0e-5, P 4.9e-5, dragon L
+  3.5e-4, P 2.1e-4); (4) the render arm's silhouette IoU above its twin's (seed means; the independent-sample yardstick
+  and display exist at 300k only and are judged in stage 2); (5) wall ≤ 1.3 ×. Reported: chamfer, thin, silhouette IoU,
+  the geometry energy against the noise floor, the end kinetic energy against D132's. Stage 2 (only if stage 1 passes):
+  D132's stage-2 chain with the flag, its criteria, the side view D132 | D133; stage 3: the 40k gallery. Prediction: the
+  bunny's end comes to rest (kinetic energy within the limits), the stream stays gone; the dragon unchanged within its
+  spread; risk: particles the grid still couples but that sit loose at the surface are no longer pulled, so apart counts
+  late in the run may rise (read beside: apart in the last windows). Order on hyde06 (one run per GPU): D133 stage 1
+  first (about 15 min), then D132 stage 2's chains (started by `tmp/d132/after_d133.sh` once D133's twelve runs are done).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
