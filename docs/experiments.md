@@ -2799,6 +2799,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   geometry energy against the noise floor. Results filed by date in `output/results_<date>/` with a line in
   `output/README.md` (the side views, one table). The prediction above stands for 300k (the dragon's thin and early stop
   go with its 7.5 % mismatch); the bunny's end may still miss (c) (stage 1's remainder; D133 below is its test).
+  **Stage 2 result (chains 22:26–00:09, side view 00:41, read 2026-10-09 00:50 CDT; `output/gpu/d132s2/s2_read_d132.log`;
+  local `output/results_2026-10-09/d132_stage2_table.md` and `d132_dragon_side/`): FAILED; the dragon close.**
+  Dragon (where the user saw the pieces): (a) apart particles in windows 3–6 16 / 5 (D120 9234 / 4245, D130 51 / 6),
+  the stream's det Fg 1.009; the display's apart discs are 0 through 1.0 s (D120 up to 5560 / 1676 by 0.65 s, its
+  flakes), but the pre-registered count "in the first 10 %" is 7352 / 8603 against D120's 6254 / 5891, because the
+  longer run's first 10 % reaches 1.6 s, where fold and crease disc sets appear that the render does not show (D131's
+  forensic: 93–99 % of such discs lie on body particles); by the letter (a) fails on that count. The side view D120 |
+  D132 (studio look, base display): no piece from 0.8 to 2 s where D120 shows flakes on the head and the belly; the
+  crevice (tail / hind leg against the belly) stays a membrane as in D130 and tears at 3.6–4.0 s with a few thin
+  strands visible for those frames, open and clean at 4.8 s. (b) yardstick silhouette +8 % / +9 %, shading +20 % (L,
+  out) / +7 %, display front +10 % / +10 %, display crop +23 % / +25 % (out). (c) at rest: end kinetic energy 1.9e-5 /
+  1.5e-5 (limits 2.5e-5 / 3.2e-5), angular momentum within; windows 96 / 109 (D120 112 / 106; D130's early stop at 70
+  is gone). (d) the render arm's lead −55 % / −29 % against D120's −55 % / −28 %. Reported: silhouette IoU 0.9874 /
+  0.9878 (D120 0.9867 / 0.9871), chamfer +0.0003, thin 4.9 / 4.5 % (D120 2.8 / 3.5), roughness 8.0° / 8.5° (6.5° /
+  6.0°). Bunny: (a) apart in windows 3–6 1506 / 1274 (0.33 × D120's, above D130's 904 / 1224), the display's apart discs
+  0 through 1.0 s; (b) yardstick and display +16 – +71 % (only L's shading within); (c) not at rest (1.7e-4 / 8.6e-5
+  against 1.0e-5 / 7.2e-6: the D120 bunny decays to 1e-5 with its control at 0.002, D132's plateaus at 1e-4 with its
+  control at 0.010–0.013, the 40k picture); windows 45 / 52 (D120 65 / 78; a reject-streak stop); (d) the lead larger
+  than D120's (−54 % / −34 %). The bunny's sample densities at 300k differ by 1.1 % (matched); its end is the 40k
+  bunny's (D132 – D134 readings): the end configuration held by the control.
 - **D133, the spray cleanup's isolation gate is the MPM's decoupling test on the volume-conserving body (D126's
   `--spray_gate grid` on top of D132; pre-registered 2026-10-08 22:17 CDT, before any D133 run; the user's decision
   (2026-10-08, relayed by the coordinator); no new code: the flag exists since D126 (498180b, its tests in
