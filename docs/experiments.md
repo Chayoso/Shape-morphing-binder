@@ -3012,6 +3012,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   volume-conserving body: the bunny twin's yardstick +38 % / display +29 %, the bunny render arm's display crop +24 % and
   its 85 windows against 65, the dragon render arm's yardstick silhouette +15 % (and the dragon render arm's display
   count in its first 10 %, fold sets that are not drawn).
+  The side view (`d135s2_side.sh` and `tmp/d135/side135.sh`, the dragon render arm, D120 | D132 | D135; local
+  `output/results_2026-10-09/d135_dragon_side/`): no floating piece is visible at 0.8–2 s, the windows 7–10 where the
+  archive counted 1,200–2,000 apart particles per frame; they lie inside the folds and crevices, not in the open, where
+  D120 shows rough patches and holes on the body over 1.0–2.0 s and D135's surface is smooth. The small holes in the
+  hind-leg crevice at 3.6–4 s close by 5 s; no loose piece at the end. D135 keeps the neck–body web to the end as D132
+  does (D120 opens the through-hole by 3 s), the half of D132's shading excess found by the localisation; D135's
+  shading excess is +9 % against D132's +20 %.
 - **D136, the freeze gate (opened 2026-10-09 03:48 CDT, before any D136 run; the user: "최종 고정 버전 fix 하는 걸 일단
   우선으로", relayed by the coordinator: finalise and freeze now, no further mechanism iterations unless this gate fails
   badly).** The freeze candidate: the D105 recipe (`scripts/pipeline_run.py`'s defaults: exterior render terms, minimum
