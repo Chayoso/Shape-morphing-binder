@@ -2797,7 +2797,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   and the display by D120's margins (within 10 points); windows within 25 % of D120's as a sanity check. Reported, not
   pass / fail: silhouette IoU, chamfer and thin against the run's own sample, the relief bands and the roughness, the
   geometry energy against the noise floor. Results filed by date in `output/results_<date>/` with a line in
-  `output/README.md` (the side views, one table). The prediction above stands for 300k (the dragon's thin and early stop
+  `output/README.md` (the side views, one table). (2026-10-09, the user, relayed by the coordinator: this deviation
+  stands, accepted as a recorded deviation.) The prediction above stands for 300k (the dragon's thin and early stop
   go with its 7.5 % mismatch); the bunny's end may still miss (c) (stage 1's remainder; D133 below is its test).
   **Stage 2 result (chains 22:26–00:09, side view 00:41, read 2026-10-09 00:50 CDT; `output/gpu/d132s2/s2_read_d132.log`;
   local `output/results_2026-10-09/d132_stage2_table.md` and `d132_dragon_side/`): FAILED; the dragon close.**
@@ -2981,6 +2982,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the release probe shows the end is the body's own rest); stage 2 at 300k is the decisive test, run with its
   pre-registered criteria unchanged (`tmp/d135/d135s2.sh`: tags LT / PT, archives LTF / PTF, the stream over windows
   2–10; `d135s2_final.sh`; `d135s2_side.sh`: D132 | D135; the chains wait for idle GPUs, one run per GPU).
+  (2026-10-09, the user, relayed by the coordinator: this deviation stands, accepted as a recorded deviation.)
   **Stage 2 in progress (state at 02:40 CDT, when the jump host hyde01 began refusing the key and hyde06 could no longer
   be reached; everything runs detached).** A slip of mine: the dragon twin's chain started in the seconds between my
   localisation re-run's end and its evaluation on GPU 3 and failed out of memory (archive and full run, 01:43 / 01:50);
@@ -3049,6 +3051,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   against 11, beast 59 against 126); the apart particles in windows 3–6 100–250 on A, teapot and V (render arm and
   twin alike), at most 29 elsewhere (no gallery reference). The default change, its test (`tests/test_frozen_recipe.py`)
   and the README paragraphs are prepared but not committed, held for the user's decision.
+  **Beast follow-up (pre-registered 2026-10-09 10:58 CDT by the server clock, before any of its runs; the user's
+  decision, relayed by the coordinator: "check beast once more before freezing").** Runs: beast 40k with the freeze
+  candidate, render arm V and twin W at seeds 98 and 99 (seed 97 is the gate run), the same worker and reading as the
+  gate (`tmp/d136b.sh` = `d136.sh` on `tmp/d136b.queue`, tags `beast_V98`, `beast_W98`, `beast_V99`, `beast_W99`,
+  `output/gpu/d136`, `d120_apart.py`, `gallery_ind.py` against the independent 40k sample `d92/ind_beast.npz`), one
+  run per GPU. Decision rule: freeze if V − W on the independent-sample silhouette IoU, averaged over seeds 97, 98 and
+  99, is ≥ −0.0005 (the gate's miss is the single-run spread); otherwise stop and report. The dragon twin's 4 %
+  excess in end kinetic energy is accepted by the user (D106's twin reaches the same value).
 - **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
   user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
   same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
