@@ -3226,7 +3226,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   larger of the two D135 runs (bunny twin: PT, PT2; dragon render arm: LT and LF, LF read from its JSON's last
   window since its rows were not made). The verdict on (4), the four other meshes and the 1.9–2.5 s tear is the
   user's.
-  **Evidence runs after the six-mesh reading (pre-registered 2026-10-09 17:55 CDT, before any of them; the coordinator
+  **Evidence runs after the six-mesh reading (pre-registered 2026-10-09 17:48 CDT by the server clock, committed before
+  any of them was launched at 17:49; the coordinator
   read `s_read_d137.py` at 17:47: failures bunny PM (4), dragon LM (4), bob LM (4) and (6), armadilo LM (3); teapot and
   homer pass).** No definition change; evidence only. (a) bob: a second D137 render arm (LM2: repo_r113, the same flags
   and seed 97, as PT2: the run-to-run spread; bob LM stopped at anim 67 after three rejected candidates in a row, best
@@ -3242,6 +3243,45 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   under test (the coordinator's), not assumed: the finer kernel (reach about 6 pitches instead of 12) holds early-stretched
   thin material together less, so the single-field rupture that opens the gaps earlier also lets stretched material
   separate earlier.
+  **Readings (18:20–18:45 CDT).** (i) The at-rest item against two D135 baselines (`tmp/d137/rest2.py`; rows' kin_end
+  where a rows log exists, the JSON's last committed window beside it): bunny twin: D135 PT 3.3e-6 (JSON 2.4e-6, 67
+  windows), D135 PT2 8.7e-6 (8.7e-6, 57 windows), limit 1.25 × 8.7e-6 = 1.09e-5; D137 PM 4.9e-6 (JSON 6.7e-6):
+  within. Dragon render arm: D135 LT 8.1e-6 (JSON 1.07e-5), D135 LF 2.13e-5 (JSON only; its rows were not made), limit
+  on the JSON values 1.25 × 2.13e-5 = 2.66e-5; D137 LM 1.46e-5: within (on rows alone, LT's 8.1e-6 being the only
+  rows value, it is above). With two baselines the two (4) misses are inside D135's own run-to-run spread.
+  (ii) The armadilo's early apart particles (`tmp/d137/d137_apartread.py` on the 20-window re-runs EM (D137) and ET
+  (D135), `output/gpu/d137e`): the same population in both, shifted two windows earlier in D137: apart particles at the
+  windows' ends EM 64 / 156 / 283 / 639 / 620 / 978 at windows 4–9, ET 5 / 5 / 90 / 225 / 543 / 849 / 836 / 993 at windows
+  4–11. In both: 94–100 % within two spacings of the target (at the target surface, not in transit), from the sphere's
+  outer layer (source radius 0.93–0.95 of the largest against the body's 0.75), det Fg = J 1.02–1.03 (not stretched),
+  the control at its cap on 60–100 % of them (the body's median at the cap too until window 6–8), the render's gradient
+  on all of them at 7–31 × the body's median (the transport's 0.4–3 ×), first at the top of the body (the ears and the
+  head: 84–97 % in the box's top fifth) and later the feet; they rejoin: of the ones apart at windows 4–9 at most 0.6 %
+  are still apart at window 20, most within one to three windows. The original runs' matched-phase maxima (the first 20
+  and 30 % of each run, and t ≤ 2–3 s; `e3_` and `apart_` logs) are lower for D137 on every mesh: display apart discs
+  bunny 751 / 2691, dragon 2095 / 5708, teapot 13690 / 18252, bob 1408 / 9502, armadilo 1140 / 2276, homer 2062 / 2233;
+  apart particles over windows 3–12 bunny 231 / 939, dragon 1026 / 2222, teapot 1025 / 1092, bob 481 / 879, armadilo
+  560 / 1125, homer 498 / 941. The first-10 % and windows-3–6 items catch D137's earlier arrival. The dragon's
+  (D137 LM's kept frames): 84–194 particles apart at windows 4.8–6, 77–99 % at the target surface, the sphere's outer
+  layer (0.95), the lower body and legs; the twin PM had 31 against the render arm's 194 (the render arm's population),
+  the bunny's twin 368 against its render arm's 231. Homer's frames were removed; its matched-phase maxima above. The
+  hypothesis (stretched thin material separating earlier) is not supported: the particles are not stretched and sit at
+  the target surface; they are the arrival-phase surface population of every run (D108/D120's render-driven flakes
+  among them), arriving earlier. The studio-look front view (base display; local `output/results_2026-10-09/
+  d137_gallery/`): no floating piece is visible on the armadilo in either; D137 forms the body earlier with a more
+  folded upper surface at 0.6–1.0 s, and the toes (claws) early as thin attached protrusions at 1.0–1.4 s (a thin strand
+  at 1.1 s, a knob at 1.3–1.4 s), where D135's foot is still blunt (toes at 2.0 s).
+  (iii) bob. LM's stop: the plateau rule, not a failure of the line search. Its merit fell to 5.4–5.6e-6 by window 52
+  and stayed there (windows 42–43, 48–49 and 62–63 stale, i.e. below the 0.3 % improvement; the null windows 35, 37,
+  40, 50, 51 were `commit_replay` nulls), the latch closed after the third non-improving window and the next three
+  commits (64–66, merit 5.6e-6 against the best 5.4e-6, the cleanup term 0.32 → 0.37) were rejected, so the run ended at
+  its best commit 62. D135's LT had the same merit at the same commit (5.30e-6 at commit 57) and went on to 3.96e-6 at
+  99. The second D137 run LM2 (same seed, 17:49–18:49): 79 commits, merit 4.35e-6, end kinetic energy 3.2e-7 (LT 4.5e-7,
+  limit 5.6e-7: within; LM's 9.9e-7 was above), yardstick silhouette 6.92e-4 against LT's 4.65e-4 (+49 %; LM +48 %),
+  shading +7 % (LM +7 %), display front 6.66e-3 against 5.83e-3, thin uncovered 8.23 % against 5.71 % (LM 7.89 %),
+  display apart discs in the first 10 % 1881 against LT's 9502, apart particles in windows 3–6 282 (LT 561). So on bob
+  (4) is the run-to-run spread, but (6) and the thin coverage are reproducible: D137 is worse on bob's silhouette
+  (+48–49 %) and thin parts (+2.2–2.5 points) in both runs.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
