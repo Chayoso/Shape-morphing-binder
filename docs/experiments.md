@@ -2704,6 +2704,44 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   flag-off volume ("shape") the morph stops at 11–12 windows with the body still moving (kinetic energy 2–4e-2: the old
   path moves the body with the control's volume). Not adopted. The (3) values on the dragon (chamfer +0.0006 – 0.0010,
   thin) are not explained by the density (the dragon's samples match) and stay the open question after D132.
+- **D132, the source sample has the target sample's density (pre-registered 2026-10-08 21:51 CDT, before any D132
+  stage run; the coordinator's resume at 21:38: write up D131, pre-register, continue; code: `prepare(match_density)` /
+  `--match_density`, `sampling.mesh.stratified_fill_volume` (the sampler's fill, `_stratified_fill`, extracted unchanged),
+  `load_normalized(fill=)`; tests `tests/test_match_density.py` (4); server `repo_r109` (HEAD + this), probe copy
+  `repo_r109g` (+ the Fg hook); `tmp/d132/`, `output/gpu/d132/`).** Motivation: D131's reading above. The target is
+  matched to the source by the meshes' volumes at a 110^3 fill (`load_normalized(match_volume)`, whose own docstring says
+  why: the body cannot change its total volume, so a target of another volume is unreachable), but the transport's
+  target is the sample, one particle per voxel of the sampler's own fill, and the two fills differ by a surface term of
+  the shape. Measured on the samples the runs use (`tmp/d132/dmatch.py`, the deep interior's number density, points
+  within 6 spacings of 3000 probes, target / source): bunny 40k 0.9868, dragon 40k 1.0020, bunny 300k 1.0114, dragon
+  300k 1.0748; the fills' volumes give the same ratios (40k: source 48.83, bunny 49.46, dragon 48.73 wu^3; 300k: source
+  47.99, bunny 47.50, dragon 44.71). A volume-conserving body has to stretch or squeeze by that much (the 40k bunny's
+  interior J 1.009–1.012; the 300k dragon's 7.5 % is D130's "the old path ends ~9 % denser" and its thin points
+  "at 1.52–1.65 spacings": a sample 2.4 % coarser in spacing than the target's leaves points just past the 1.5-spacing
+  threshold). The old path changed its volume freely and so hid it. Definition: the source sample is rescaled about its
+  centre by k = (target fill / source fill)^(1/3), so that both samples represent the same volume (equal number
+  densities n / fill); the target, its frame, its sample and every measure on it are bit for bit the default's (the
+  discretisation follows the source as always: dx and the domain from the rescaled source's extent, 40k bunny k = 1.0042,
+  dragon 0.9993; 300k bunny 0.9966, dragon 0.9767). No constant; with the flag off nothing changes. After the match the
+  measured density ratios are 0.9993 / 1.0000 (40k) and 1.0010 / 1.0013 (300k). Tests (`test_match_density.py`): the
+  fill volume is the sampler's own (n of its voxels hold the sample, one particle each); off is the code as it was; on,
+  the target bit for bit the default's, the source the default's times k, the two fills equal after it; with
+  `test_volume_exact.py` and the rest the suite on `repo_r109` 335 passed, 2 skipped, exit 0 (`tmp/d132/suite.log`). Run
+  with `--volume_exact carried --match_density` (D131 +
+  this). Stage 1 (40k, as D131's: both meshes, render arm L and twin P, seeds 97 and 98; the 12-window archives on
+  `repo_r109g`; controls: the flag-off volume with `--match_density`, seed 97, both meshes and arms), criteria D131's
+  (1)–(5) against the same flag-off three-seed references (D130 stage 1's L0f / P0f, the unchanged path), read beside:
+  the interior J's cell mean and the end's geometry energy against the flag-off's. Since the 40k dragon's samples
+  already match (k = 0.9993, its runs are D131's but for the scale), its D131 (3) values (chamfer, thin) are expected
+  to stay just out; stated before the runs: a stage-1 failure on the 40k dragon's (3) alone, by margins like D131's,
+  does not stop stage 2, which is the decisive test of this definition (its dragon's mismatch is 7.5 %). Stage 2 (300k,
+  D131's chain and criteria: D130's (a)–(d) against D120, apart in windows 3–6 ≤ D130's, the end at rest; the 12-window
+  archives; the side view D130 | D132 of the whole dragon morph in the studio look, base display, into
+  `output/results_2026-10-08/` with a line in `output/README.md`); stage 3 (only if stage 2 passes): the 40k gallery.
+  Prediction: the 40k bunny ends at rest (the last window's kinetic energy within the limit; interior J 1.000 ± 0.003;
+  the geometry energy near the flag-off's) and its (3) values within; the 40k dragon as D131 (at rest; chamfer and thin
+  just out); the stream stays gone everywhere; at 300k the dragon's thin regression and early stop (D130 stage 2) go,
+  the bunny's end comes to rest; whatever of (3) stays on the dragon is then the remaining definition question.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

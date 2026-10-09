@@ -90,6 +90,10 @@ def parse_args():
     ap.add_argument("--surface_density", type=float, default=1.0,
                     help="D122 A/B: the sampling density within the outer band (layer_h_sp spacings deep) this many times "
                          "the interior's, at the same N, source and target alike; 1 = the uniform sample, the code as it was")
+    ap.add_argument("--match_density", action="store_true",
+                    help="D132 A/B: the source sample rescaled so that it represents the volume of the target sample's own "
+                         "fill (equal number densities; the target and every measure on it unchanged); off = the meshes' "
+                         "volumes matched at a 110^3 fill, as before")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
@@ -185,7 +189,7 @@ def main():
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
                    surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws,
-                   surface_density=args.surface_density, band_sp=cfg0.layer_h_sp)
+                   surface_density=args.surface_density, band_sp=cfg0.layer_h_sp, match_density=args.match_density)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -219,7 +223,8 @@ def main():
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)
     print(f"[v2run] baseline chamfer (undeformed) = {metrics.chamfer(src, tgt):.4f}", flush=True)
-    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc, "sampling": prep.sampling}, "arms": {}}
+    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc, "sampling": prep.sampling, "density": prep.density},
+           "arms": {}}
     cfg_dump = dataclasses.asdict(cfg)                 # before the run: c2f edits render_res
     print(f"\n[v2run] ===== ARM {ARM} =====", flush=True)
     t_thin = time.time()

@@ -39,6 +39,7 @@ class Prepared:
     w_tgt: np.ndarray | None = None     #   (sampling.mesh.stratified_draws); None = the uniform sample, every path as before
     sampling: dict | None = None        # the surface-dense sampler's report (band depth, shares, pitches), for the log
     tgt_base: np.ndarray | None = None  # the uniform (F = 1) target sample in the same frame: the probes' pitch and mesh fit
+    density: dict | None = None         # D132 (match_density): the two samples' fill volumes and the source's scale
 
 
 def sampling_berth(target: np.ndarray, w=None) -> float:
@@ -62,17 +63,37 @@ def sampling_berth(target: np.ndarray, w=None) -> float:
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
-            draws: int = 1, surface_density: float = 1.0, band_sp: float = 0.0) -> Prepared:
+            draws: int = 1, surface_density: float = 1.0, band_sp: float = 0.0,
+            match_density: bool = False) -> Prepared:
     # surface_density F > 1 (D122): the same sampler F times denser in the outer band of band_sp spacings, source
     # and target alike (the transport needs samples of one kind); each sample's rest-volume weights come back in w
     dense = surface_density > 1.0
+    if match_density and dense:
+        raise ValueError("match_density is defined for the uniform stratified samples (surface_density 1)")
     r_src, r_tgt = ({} if dense else None), ({} if dense else None)
+    fill_src, fill_tgt = ({}, {}) if match_density else (None, None)
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified",
-                                 surface_density=surface_density, band_sp=band_sp, rest=r_src)
+                                 surface_density=surface_density, band_sp=band_sp, rest=r_src, fill=fill_src)
     frame = {}
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
                                  return_volume=True, frame=frame, surface_density=surface_density, band_sp=band_sp,
-                                 rest=r_tgt)
+                                 rest=r_tgt, fill=fill_tgt)
+    density = None
+    if match_density:
+        # D132: the target is matched to the source by the meshes' volumes at a 110^3 fill, but each sample is one
+        # jittered particle per voxel of its own, coarser fill, whose volume differs from the 110^3 one by a surface
+        # term of the shape: the two samples' number densities n / fill volume differ (the 40k bunny's target 1.2 %
+        # below the source's in the deep interior). The body conserves its volume (--volume_exact), so it cannot reach
+        # a target sample of another density. The source is rescaled about its centre so that its sample represents
+        # the target sample's volume: equal densities; the target, its frame and every measure on it are unchanged
+        ratio = fill_tgt["volume"] / fill_src["volume"]
+        k_src = ratio ** (1.0 / 3.0)
+        src = (src * k_src).astype(np.float32)
+        v_src = v_src * ratio
+        density = {"source_fill": fill_src["volume"], "target_fill": fill_tgt["volume"], "source_scale": k_src}
+        log(f"[v2run] density match: the samples' fill volumes source {fill_src['volume']:.4f}, target "
+            f"{fill_tgt['volume']:.4f} wu^3 (target / source density {1.0 / ratio:.4f}); the source rescaled by "
+            f"{k_src:.5f}")
     sampling = None
     if dense:
         sampling = {"source": r_src["report"], "target": r_tgt["report"]}
@@ -142,4 +163,4 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
                     tgt_surface=tgt_surface, tgt_draws=tgt_draws,
                     w_src=None if not dense else r_src["w"], w_tgt=None if not dense else r_tgt["w"], sampling=sampling,
-                    tgt_base=None if not dense else r_tgt["base"])
+                    tgt_base=None if not dense else r_tgt["base"], density=density)

@@ -50,6 +50,31 @@ def sample_volume_stratified(mesh: trimesh.Trimesh, n: int, seed: int = 0) -> np
 PITCH_PER_SP8 = 0.708      # the pipeline's constant: a jittered lattice's pitch = 0.708 x its median 8th-neighbour distance
 
 
+def _stratified_fill(mesh: trimesh.Trimesh, n: int):
+    """(resolution, voxel centres, pitch) of the stratified sampler's fill: the coarsest fill (bisection on the
+    resolution of the mesh's largest extent) that holds at least n voxels."""
+    ext = float(mesh.extents.max())
+    lo, hi = 20, 400
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if len(_fill_centers(mesh, ext / mid)) < n:
+            lo = mid
+        else:
+            hi = mid
+    centers = _fill_centers(mesh, ext / hi)
+    if len(centers) < n:
+        raise ValueError(f"stratified fill at {hi}^3 holds {len(centers)} < n = {n} voxels")
+    return hi, centers, ext / hi
+
+
+def stratified_fill_volume(mesh: trimesh.Trimesh, n: int) -> float:
+    """The volume the stratified sample of n particles represents, in mesh units: its fill's voxels times the pitch
+    cubed. The sample has one jittered particle in each of n of these voxels (the surplus dropped uniformly), so its
+    number density is n / this volume everywhere inside (D132)."""
+    _, centers, pitch = _stratified_fill(mesh, n)
+    return float(len(centers)) * pitch ** 3
+
+
 def stratified_draws(mesh: trimesh.Trimesh, n: int, seeds, surface_density: float = 1.0, band_sp: float = 0.0,
                      rest: dict | None = None) -> list:
     """sample_volume_stratified once per seed on one fill (the fill is found once): independent draws of the
@@ -68,18 +93,7 @@ def stratified_draws(mesh: trimesh.Trimesh, n: int, seeds, surface_density: floa
     (the F = 1 draw of the first seed, whose frame the caller keeps so that the sample stands where the base sample
     stood), and `report` (the band's depth in mesh units, its voxel and particle shares, the two pitches over the base
     pitch)."""
-    ext = float(mesh.extents.max())
-    lo, hi = 20, 400
-    while hi - lo > 1:
-        mid = (lo + hi) // 2
-        if len(_fill_centers(mesh, ext / mid)) < n:
-            lo = mid
-        else:
-            hi = mid
-    centers = _fill_centers(mesh, ext / hi)
-    if len(centers) < n:
-        raise ValueError(f"stratified fill at {hi}^3 holds {len(centers)} < n = {n} voxels")
-    pitch = ext / hi
+    hi, centers, pitch = _stratified_fill(mesh, n)
     print(f"[sampling] stratified: fill {hi}^3 = {len(centers)} voxels for n = {n}, pitch {pitch:.4g}", flush=True)
     out = []
     for seed in seeds:
@@ -236,12 +250,40 @@ def filled_volume(mesh: trimesh.Trimesh, vox_res: int = 110) -> float:
     return float(len(_fill_centers(mesh, pitch))) * pitch ** 3
 
 
+def _fill_volume_cached(mesh: trimesh.Trimesh, path: str, n: int, orient: str) -> float:
+    """stratified_fill_volume of the (oriented) mesh, in mesh units, cached beside the samples (it does not depend on
+    the seed; the same key fields as the sample cache)."""
+    import hashlib
+    import os
+    cache_on = os.environ.get("PHYSMORPH_SAMPLE_CACHE", "1") != "0"
+    key = hashlib.sha1((f"{os.path.abspath(path)}|{os.path.getmtime(path)}|{os.path.getsize(path)}|{n}|"
+                        f"{FILL_MODE}|{orient}|fill-v1").encode()).hexdigest()[:16]
+    cdir = os.environ.get("PHYSMORPH_CACHE",
+                          os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                       "output", "cache"))
+    cpath = os.path.join(cdir, f"fill_{os.path.splitext(os.path.basename(path))[0]}_{n}_{key}.npz")
+    if cache_on and os.path.exists(cpath):
+        try:
+            return float(np.load(cpath)["vol_fill"])
+        except Exception:
+            pass
+    v = stratified_fill_volume(mesh, n)
+    if cache_on:
+        try:
+            os.makedirs(cdir, exist_ok=True)
+            np.savez(cpath, vol_fill=v)
+        except Exception:
+            pass
+    return v
+
+
 def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
                     match_volume: float | None = None,
                     return_volume: bool = False,
                     shell: tuple[float, float] | None = None,
                     sample: str = "replacement", frame: dict | None = None,
-                    surface_density: float = 1.0, band_sp: float = 0.0, rest: dict | None = None):
+                    surface_density: float = 1.0, band_sp: float = 0.0, rest: dict | None = None,
+                    fill: dict | None = None):
     """Sample n particles from a mesh, centred at the origin and scaled so the bbox
     diagonal is `size` — the normalisation every runner script used to duplicate.
 
@@ -257,7 +299,13 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
     return_volume: also return the cloud's filled volume in world units^3.
     shell: (ratio, thickness_wu) — shell-biased sampling (sample_volume_shell) with the
     shell thickness given in WORLD units; the return then carries the per-particle
-    relative rest volumes as a third value (x, vol, w) / (x, w)."""
+    relative rest volumes as a third value (x, vol, w) / (x, w).
+    fill (D132; the uniform stratified sampler only): receives `volume`, the volume the sample represents in world
+    units (stratified_fill_volume, scaled as the cloud): its number density is n / this volume. The filled volume
+    above (and match_volume) is the mesh's at a 110^3 fill; the sampler's own fill is coarser (one voxel per particle),
+    and the two differ by a surface term that depends on the shape."""
+    if fill is not None and (shell is not None or sample != "stratified" or surface_density > 1.0):
+        raise ValueError("fill: the volume of the uniform stratified sampler's fill only")
     mesh = load_mesh(path)
     # per-asset up-axis (physmorph/sampling/orientation.json): the collection mixes z-up and y-up meshes
     from .orientation import orient_name, rotation
@@ -345,6 +393,8 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
         vol = vol * k ** 3
     if frame is not None:                    # where the cloud was put: world = (mesh - offset) * scale
         frame.update(offset=offset, scale=float(s) * k)
+    if fill is not None:
+        fill["volume"] = _fill_volume_cached(mesh, path, n, _o) * (float(s) * k) ** 3
     if rest is not None and rest.get("report") is not None:
         rest["report"]["band_depth"] = rest["report"]["band_depth_mesh"] * float(s) * k     # world units
         rest["report"]["pitch_base"] = rest["report"]["pitch_base_mesh"] * float(s) * k
