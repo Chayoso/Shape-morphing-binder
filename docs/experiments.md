@@ -3226,6 +3226,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   larger of the two D135 runs (bunny twin: PT, PT2; dragon render arm: LT and LF, LF read from its JSON's last
   window since its rows were not made). The verdict on (4), the four other meshes and the 1.9–2.5 s tear is the
   user's.
+  **Evidence runs after the six-mesh reading (pre-registered 2026-10-09 17:55 CDT, before any of them; the coordinator
+  read `s_read_d137.py` at 17:47: failures bunny PM (4), dragon LM (4), bob LM (4) and (6), armadilo LM (3); teapot and
+  homer pass).** No definition change; evidence only. (a) bob: a second D137 render arm (LM2: repo_r113, the same flags
+  and seed 97, as PT2: the run-to-run spread; bob LM stopped at anim 67 after three rejected candidates in a row, best
+  commit 62, 57 windows against D135's 99, thin 7.89 against 5.71 %, yardstick +48 %), `tmp/d137/bob2.sh`, read by
+  `s_read_d137.py`'s rows for LM2 against LT and LM; the line search's three rejections read from LM's JSON and log.
+  (b) armadilo (3): 697 display apart discs in the first 10 % against D135's 0, apart particles in windows 3–6 301
+  against 3. The first 20 windows of both re-run on hook copies with the D137 dump for windows 1–20 (`repo_r113f` =
+  repo_r112f with D137's five files; `repo_r112f` for D135), frames kept: which particles are apart in windows 3–10,
+  where on the body, their origin, det Fg / J, the control at its cap or not, the term gradients, whether they rejoin;
+  the early frames rendered D135 | D137 in the studio look (base display) to see whether they are visible pieces. The
+  same population is looked for in the dragon's kept frames (D137 LM: 194 apart in windows 3–6 against D135's 12) and
+  homer's (322 against 43; its first 20 windows re-dumped the same way if the armadilo's reading needs it). Hypothesis
+  under test (the coordinator's), not assumed: the finer kernel (reach about 6 pitches instead of 12) holds early-stretched
+  thin material together less, so the single-field rupture that opens the gaps earlier also lets stretched material
+  separate earlier.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
