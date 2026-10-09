@@ -2981,6 +2981,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the release probe shows the end is the body's own rest); stage 2 at 300k is the decisive test, run with its
   pre-registered criteria unchanged (`tmp/d135/d135s2.sh`: tags LT / PT, archives LTF / PTF, the stream over windows
   2–10; `d135s2_final.sh`; `d135s2_side.sh`: D132 | D135; the chains wait for idle GPUs, one run per GPU).
+  **Stage 2 in progress (state at 02:40 CDT, when the jump host hyde01 began refusing the key and hyde06 could no longer
+  be reached; everything runs detached).** A slip of mine: the dragon twin's chain started in the seconds between my
+  localisation re-run's end and its evaluation on GPU 3 and failed out of memory (archive and full run, 01:43 / 01:50);
+  I stopped my own evaluations, moved the failed chain's logs to `output/gpu/d135s2/failed_PT_0150/`, marked its status
+  lines `failed`, and re-ran the chain (`tmp/d135/d135s2_retry.sh`, 01:51). Read so far: the 12-window archives at
+  300k, the stream's det Fg per window over windows 2–10 is 0.98–1.04 on all four (no re-dilation); their apart
+  particles per archived frame: bunny 42–961 (windows 4–10, as D132's archive, 480 pooled), dragon 0.5–13 in windows
+  2–6 and then 92 / 481 / 1223 / 1876 (render arm) and 2 / 492 / 1201 / 1991 (twin) in windows 7–10, at det Fg 1.00–1.03
+  (not a stream; what they are is for the side view to show). The bunny's full runs reached 61 windows and more (D132:
+  45 / 52), ending with kinetic energy below 1e-5 and |v|max 0.013–0.015; their evaluation finished for the twin at
+  02:35. Still to come on hyde06: the bunny render arm's evaluation, the dragon's runs and evaluations, the final
+  readings (`d135s2_final.sh`) and the side view D132 | D135 (`d135s2_side.sh`); the reading is
+  `tmp/d135/s2_read_d135.py`.
 - **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
   user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
   same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
