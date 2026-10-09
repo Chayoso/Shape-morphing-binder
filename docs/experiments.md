@@ -2994,6 +2994,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   02:35. Still to come on hyde06: the bunny render arm's evaluation, the dragon's runs and evaluations, the final
   readings (`d135s2_final.sh`) and the side view D132 | D135 (`d135s2_side.sh`); the reading is
   `tmp/d135/s2_read_d135.py`.
+  **Stage 2 result (all four chains done 03:30, read 03:40 CDT; `output/gpu/d135s2/s2_read_d135.log`; local table
+  `output/results_2026-10-09/d135_stage2_table.md`): FAILED by the letter, far closer than D132; the end is at rest on
+  all four.** (c) met everywhere: end kinetic energy bunny 4.6e-6 / 3.3e-6 (limits 1.0e-5 / 7.2e-6; D132 1.7e-4 /
+  8.6e-5), dragon 8.1e-6 / 1.5e-5, angular momentum within. (a) the stream: det Fg 1.01–1.03 (0.98–1.04 per window over
+  windows 2–10); apart in windows 3–6 bunny 939 / 1192 (D120 4590 / 3744; D130 904 / 1224, the render arm 4 % above
+  D130's), dragon 12 / 6; the display's apart discs in the first 10 % bunny 2691 / 2724 (≤ 0.5 × D120's), dragon 5609 /
+  2121 against D120's 6254 / 5891: the render arm's count is out, from fold sets after 1.4 s (0 through 1.0 s, where
+  D120 has 6254 / 1680). (The reader printed (a) FAIL everywhere because d135s2_final.sh's display count was not yet
+  written; the counts above come from the e3 logs.) (b) dragon twin within everywhere (+6 – +9 %); dragon render arm
+  within but for the yardstick silhouette +15.1 % (limit 15 %; the display crop now +3 %, D132's +23 %); bunny render
+  arm within but for the display crop +24 % (yardstick +12 / +3 %, front +8 %); bunny twin out: yardstick +38 / +22 %,
+  display +29 / +24 %. (d) met (−45 / −30 % and −52 / −31 % against D120's −33 / −16 % and −55 / −28 %). Windows: bunny
+  render arm 85 against D120's 65 (+31 %, a longer run that settles), the rest within. Reported: silhouette IoU at or
+  above D120's, chamfer +0.0001 – +0.0003, thin +1.0 – +1.8 points (bunny) and +1.4 – +1.7 (dragon), roughness +0.9° –
+  +1.6°. The user's freeze decision (2026-10-09) accepts the remaining misses as the known costs of the
+  volume-conserving body: the bunny twin's yardstick +38 % / display +29 %, the bunny render arm's display crop +24 % and
+  its 85 windows against 65, the dragon render arm's yardstick silhouette +15 % (and the dragon render arm's display
+  count in its first 10 %, fold sets that are not drawn).
 - **D136, the freeze gate (opened 2026-10-09 03:48 CDT, before any D136 run; the user: "최종 고정 버전 fix 하는 걸 일단
   우선으로", relayed by the coordinator: finalise and freeze now, no further mechanism iterations unless this gate fails
   badly).** The freeze candidate: the D105 recipe (`scripts/pipeline_run.py`'s defaults: exterior render terms, minimum
