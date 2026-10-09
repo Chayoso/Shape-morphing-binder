@@ -2994,6 +2994,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   02:35. Still to come on hyde06: the bunny render arm's evaluation, the dragon's runs and evaluations, the final
   readings (`d135s2_final.sh`) and the side view D132 | D135 (`d135s2_side.sh`); the reading is
   `tmp/d135/s2_read_d135.py`.
+- **D136, the freeze gate (opened 2026-10-09 03:48 CDT, before any D136 run; the user: "최종 고정 버전 fix 하는 걸 일단
+  우선으로", relayed by the coordinator: finalise and freeze now, no further mechanism iterations unless this gate fails
+  badly).** The freeze candidate: the D105 recipe (`scripts/pipeline_run.py`'s defaults: exterior render terms, minimum
+  spacing 0.9, exterior radius 3) with `--layer_relief`, `--lambda_ema 1` (D120), `--volume_exact carried` (D131),
+  `--match_density` (D132), `--assim_volume` (D135); not D133's grid spray gate; the exterior field radius stays 3 for
+  the loss and the base display; D130's commit-replay fix is in the default path already. The gate is stage 3, the 40k
+  gallery: 19 meshes, render arm V and twin W (`--render_weight_scale 0`), seed 97, `tmp/d136.sh` (as `d119.sh`: a run
+  to its own stop, `d120_apart.py`, `gallery_ind.py` against an independent 40k sample, the frames then removed),
+  `output/gpu/d136`, read by `tmp/gate_read.py` against D106's gallery (`output/gpu/d106`, the last full 40k gallery on
+  record). Pass: (1) the render arm ahead of its twin on the independent-sample silhouette IoU on 19 / 19 meshes; (2) no
+  render arm behind D106's by more than 0.01 there; (3) strays not worse: stray_max and stray_final (shares of the
+  particles) not above the larger of D106's V and W by more than 0.001 and 0.0005 (40 and 20 particles); (4) at rest:
+  every run's last-window kinetic energy below 1e-4 or within 1.25 × the larger of D106's V and W on that mesh. Reported:
+  the apart particles in windows 3–6 (no gallery reference exists for them), the own-sample measures, the windows. If
+  the gate passes, the candidate becomes the default (every flag kept as an A/B switch), the suite is run, README's
+  pipeline summary updated and the tag `freeze-2026-10-09` pushed; if it fails, the failing meshes are reported with their
+  numbers and nothing is iterated.
 - **D132's dragon display crop and shading: where the difference is (a measurement; opened 2026-10-09 01:05 CDT; the
   user: find the cause before judging).** The 300k dragon of D132 stage 2 again (`tmp/d132/loc_runs.sh`, repo_r109, the
   same recipe and seed, render arm and twin, its kept frames retained; `output/gpu/d132loc`), first whether the stage-2
