@@ -3609,6 +3609,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   width: bunny silhouette IoU 0.9871–0.9892, chamfer 0.0550–0.0552, thin 3.4–5.8 %, attempts 71–90; dragon
   0.9864–0.9885, 0.0544–0.0546, 3.7–5.2 %, 105–126; the seconds an attempt at most 7.6 (bunny) and 10.5 (dragon).
   Prediction: bunny about 7.0 s an attempt (10.0 min), dragon about 9.7 (17.5 min).
+  **Batch 4, read (02:03 CDT).** Bunny W1 10.8 min (650 s; 94 attempts, 6.91 s each), silhouette IoU 0.9878, chamfer
+  0.0551, thin 4.9 %, last kinetic record 3.3e-6, best merit 4.08e-5 (the lowest of the shape's cell bunny runs); W2
+  9.2 min (80 attempts, 6.90 s), 0.9876, 0.0551, 4.7 %, 4.5e-6, 4.50e-5. Dragon W1 18.8 min (114 attempts, 9.88 s),
+  0.9870, 0.0545, 4.4 %, 9.5e-6, 4.55e-5; W2 17.1 min (103 attempts, 9.99 s), 0.9865, 0.0545, 4.5 %, 9.2e-6, 4.75e-5.
+  The seconds an attempt and every quality item pass in all four (predicted 7.0 and 9.7 s); the attempts miss in two:
+  bunny W1 four windows longer than the band (90), dragon W2 two shorter (105), each run's own length. Against the
+  shape's cell frozen runs: the bunny 22–27 → 9–11 min, the dragon 38–44 → 17–19 min. The two frozen dragon runs S2
+  (38.4 min, 109 attempts, best 4.48e-5, thin 4.4 %, 0.9873) and S3 (44.3 min, 126, 4.09e-5, 3.8 %, 0.9865) widen the
+  band to 109–126 attempts, best 4.09–4.48e-5, thin 3.8–4.5 %: K1–K4 (105–113, 4.38–4.86e-5, 4.3–4.7 %) overlap it
+  and still sit at its low-attempt, high-merit end (Mann–Whitney one-sided p 0.04 on the attempts, 0.016 on the best
+  merit): a small shift of the stopping that no single step reproduces on a window (the ladder above), or the recipe's
+  own spread; settling it would take about four more runs of each code. Measured and not adopted: the Sinkhorn's
+  cross and self solves on two streams (bit for bit; `tmp/rt/pair_solve_clean.patch`): 1.2 % a window (dragon 100
+  7.96 → 7.87 s, bunny 30 6.30 → 6.22 s), not worth its code.
 - **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
   bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
   coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material
