@@ -3348,6 +3348,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   material 4–12 pitches beneath it, in pitches; median shell / the shell bound for the ears / the bulk's own displacement):
   D135 (SB) at windows 1–4: 1.5 / 1.7 / 1.2, 3.2 / 4.7 / 3.8, 4.4 / 8.6 / 6.9, 5.0 / 12.9 / 9.5; the ears' shell reaching
   27.9 by window 15 (the ears growing out of the body).
+  The arms (15 windows each, read 22:55 CDT; the strip `d139_early/bunny_front_0-1.2s_arms.jpg`): the twin on the cell
+  following N (NT) prints too, the face and the ears formed on the sphere's front at 0.15–0.6 s and peeling out (fewer
+  wrinkles than its render arm); the twin on the shape's cell (ST) rises as one body like D135's render arm. So the cell
+  makes the printing and the render adds the wrinkles. The shell against its bulk (median / p90 / the face's shell, in
+  pitches) at windows 1 / 2 / 3 / 4: SB (shape's cell, render arm) 1.50 / 2.06 / 1.73, 3.19 / 5.45 / 4.64, 4.40 / 8.83 /
+  7.23, 5.00 / 10.25 / 8.38; ST (shape's cell, twin) 1.41 / 2.13 / 1.74, 3.07 / 5.26 / 4.62, 4.15 / 7.70 / 6.82, 4.85 /
+  9.55 / 7.46; NA (cell following N, render arm) 2.38 / 3.91 / 2.70, 4.51 / 8.49 / 5.77, 5.62 / 11.90 / 7.93, 5.97 /
+  14.05 / 9.42; NT (cell following N, twin) 1.96 / 3.61 / 2.39, 4.21 / 7.71 / 5.68, 5.68 / 10.69 / 7.87, 6.29 / 13.42 /
+  8.88; the bulk moved the same in all four (1.04–1.18 pitches at window 1, 3.45–3.78 at 2, 6.45–6.91 at 3). On the
+  cell following N the surface runs ahead of the same bulk by 40–60 % more in the first window (median 1.96–2.38
+  against 1.41–1.50; p90 3.61–3.91 against 2.06–2.13) and its per-window increment at window 2 is 2.40–2.43 pitches
+  against 1.74–1.81; the render arm adds 0.3–0.4 pitches over its twin in window 1 on either cell.
   **The user's decision (2026-10-09, relayed by the coordinator): the default goes back to the shape's cell (D135's
   morph); `--cell_follows_n` stays an option; a cell-size comparison for the paper comes later as an evidence
   experiment.** The trade-off in plain terms: the cubic kernel averages the grid velocity over about two cells. On the
