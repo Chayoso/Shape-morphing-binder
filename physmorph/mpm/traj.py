@@ -19,6 +19,7 @@ from .step import cell_counts
 # D138: on a tape, the transfers' adjoints are the hand-written ones of mpm/adjoints.py (the same vector-Jacobian
 # products to float rounding, a fraction of the generated ones' cost); False records the generated adjoints (tests)
 HAND_ADJOINTS = True
+ORDERED_TRANSFERS = True       # D138 batch 4: P2G and G2P's adjoint in cell order on CUDA (tests switch it to compare)
 
 
 def _is_tensor(a) -> bool:
@@ -206,6 +207,19 @@ class Trajectory:
             if not vol_ok:
                 raise ValueError("vol0 must be finite and non-negative")
             self.vol = A(vol0, wp.float32)
+        # CELL ORDER (D138 batch 4, CUDA): the particles sorted by the cell they start in; P2G and G2P's adjoint visit
+        # them so (kernels.k_p2g_warp, adjoints.k_g2p_adj_warp), and the lanes of a warp that share a stencil sum before
+        # their atomics. Only the order of the grid's sums changes; the order is the window start's, the particles move
+        # far less than a cell in a window, and a lane in another cell than lane 0's adds its own.
+        self.order = None
+        if ORDERED_TRANSFERS and str(device).startswith("cuda"):
+            xt = torch.as_tensor(x0, device=str(device)).float()
+            b = torch.floor((xt - torch.tensor(prm.grid_min, device=xt.device)) / prm.dx).long() + 1
+            key = (b[:, 0] * (prm.ny + 4) + b[:, 1]) * (prm.nz + 4) + b[:, 2]
+            key = torch.where(torch.isfinite(xt).all(1), key, torch.full_like(key, torch.iinfo(torch.int64).max))
+            self._order_t = torch.argsort(key, stable=True).int().contiguous()
+            self.order = wp.from_torch(self._order_t, dtype=wp.int32)
+            self.order_blocks = (N + K.WARP_LANES - 1) // K.WARP_LANES
         # per-step trajectory
         self.x = [A(x0, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
         self.v = [AZ(v0, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
@@ -378,9 +392,14 @@ class Trajectory:
             self.gmom[t].zero_()
         wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         tape = self._hand_tape()
-        wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
-                  self.m, self.vol, bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
-                  prm.dt, prm.drag, prm.nx, prm.ny, prm.nz], device=dev, record_tape=tape is None)
+        p2g_args = [self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t], self.m, self.vol, bnb, bnc, bK,
+                    self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz]
+        if self.order is not None and (tape is not None or wp._src.context.runtime.tape is None):
+            # cell order (D138 batch 4); its adjoint is the hand-written one, so only off a generated-adjoint tape
+            wp.launch_tiled(K.k_p2g_warp, dim=[self.order_blocks], inputs=[self.order, N] + p2g_args,
+                            block_dim=K.WARP_LANES, device=dev, record_tape=False)
+        else:
+            wp.launch(K.k_p2g, dim=N, inputs=p2g_args, device=dev, record_tape=tape is None)
         if tape is not None:
             ADJ.record_p2g(tape, self, t, dfc, bnb, bnc, bK, N)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,

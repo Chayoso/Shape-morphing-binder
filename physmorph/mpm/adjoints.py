@@ -17,7 +17,7 @@ from __future__ import annotations
 import warp as wp
 
 from .constitutive import bspline_dw, bspline_w
-from .kernels import base_node, gid, valid_pos
+from .kernels import WARP_LANES, _warp_sum3, base_node, cell_key, gid, valid_pos
 
 
 @wp.func
@@ -89,6 +89,93 @@ def k_g2p_adj(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.a
                     a_w = wp.dot(a_vnew, vg) + C0 * wp.dot(vg, Ad)
                     a_xp = a_xp - ((C0 * w) * (a_CnT @ vg) + a_w * dw)
     adj_x[p] = adj_x[p] + a_xp
+
+
+@wp.kernel(enable_backward=False)
+def k_g2p_adj_warp(order: wp.array(dtype=int), n: int,
+                   x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
+                   grid_v: wp.array(dtype=wp.vec3),
+                   gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
+                   adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33), adj_Fnew: wp.array(dtype=wp.mat33),
+                   adj_x: wp.array(dtype=wp.vec3), adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33),
+                   has_adj_dFc: int, adj_grid_v: wp.array(dtype=wp.vec3)):
+    """k_g2p_adj over the particles in `order` (kernels.k_p2g_warp's cell order), WARP_LANES threads a block: the
+    lanes on lane 0's stencil sum their grid adjoint before one atomic per node; the per-particle arithmetic is
+    k_g2p_adj's."""
+    blk, lane = wp.tid()
+    q = blk * WARP_LANES + lane
+    p = int(0)
+    ok = False
+    if q < n:
+        p = order[q]
+        ok = valid_pos(x[p])
+    C0 = 3.0 * inv_dx * inv_dx
+    b = wp.vec3i(0, 0, 0)
+    key = int(-1)
+    xp = wp.vec3(0.0, 0.0, 0.0)
+    a_vnew = wp.vec3(0.0, 0.0, 0.0)
+    a_Cnew = wp.mat33(0.0)
+    if ok:
+        xp = x[p]
+        b = base_node(xp, gmin, inv_dx)
+        key = cell_key(b, ny, nz)
+        Cnew = wp.mat33(0.0)
+        for oi in range(4):
+            for oj in range(4):
+                for ok2 in range(4):
+                    i = b[0] + oi
+                    j = b[1] + oj
+                    k = b[2] + ok2
+                    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                        dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
+                        w = bspline_w(dgp[0] * inv_dx) * bspline_w(dgp[1] * inv_dx) * bspline_w(dgp[2] * inv_dx)
+                        vg = grid_v[gid(i, j, k, ny, nz)]
+                        Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
+        a_vnew = adj_v[p]
+        # F_new = (I + dt Cnew)(F + dFc)
+        B = F[p] + dFc[p]
+        A = wp.identity(n=3, dtype=float) + dt * Cnew
+        a_Fn = adj_Fnew[p]
+        a_B = wp.transpose(A) @ a_Fn
+        adj_F[p] = adj_F[p] + a_B
+        if has_adj_dFc != 0:
+            adj_dFc[p] = adj_dFc[p] + a_B
+        a_Cnew = adj_C[p] + dt * (a_Fn @ wp.transpose(B))
+    k0 = wp.tile_extract(wp.tile(key), 0)
+    b0 = wp.vec3i(wp.tile_extract(wp.tile(b[0]), 0), wp.tile_extract(wp.tile(b[1]), 0),
+                  wp.tile_extract(wp.tile(b[2]), 0))
+    same = ok and key == k0
+    a_CnT = wp.transpose(a_Cnew)
+    a_xp = wp.vec3(0.0, 0.0, 0.0)
+    for oi in range(4):
+        for oj in range(4):
+            for ok_ in range(4):
+                c = wp.vec3(0.0, 0.0, 0.0)
+                if ok:
+                    i = b[0] + oi
+                    j = b[1] + oj
+                    k = b[2] + ok_
+                    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                        dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
+                        w, dw = _weight_and_grad(dgp, inv_dx)
+                        g = gid(i, j, k, ny, nz)
+                        vg = grid_v[g]
+                        Ad = a_Cnew @ dgp
+                        c = w * a_vnew + (C0 * w) * Ad
+                        a_w = wp.dot(a_vnew, vg) + C0 * wp.dot(vg, Ad)
+                        a_xp = a_xp - ((C0 * w) * (a_CnT @ vg) + a_w * dw)
+                        if not same:
+                            wp.atomic_add(adj_grid_v, g, c)
+                            c = wp.vec3(0.0, 0.0, 0.0)
+                sc = _warp_sum3(c)
+                if lane == 0 and k0 >= 0:
+                    i0 = b0[0] + oi
+                    j0 = b0[1] + oj
+                    k0_ = b0[2] + ok_
+                    if i0 >= 0 and i0 < nx and j0 >= 0 and j0 < ny and k0_ >= 0 and k0_ < nz:
+                        wp.atomic_add(adj_grid_v, gid(i0, j0, k0_, ny, nz), sc)
+    if ok:
+        adj_x[p] = adj_x[p] + a_xp
 
 
 @wp.kernel(enable_backward=False)
@@ -177,9 +264,13 @@ def record_g2p(tape, tr, t: int, dfc, N: int):
     a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
 
     def backward():
-        wp.launch(k_g2p_adj, dim=N, inputs=[x, F, dfc, gv, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
-                                            v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc,
-                                            int(dfc.grad is not None), gv.grad], device=dev)
+        args = [x, F, dfc, gv, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
+                v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc, int(dfc.grad is not None), gv.grad]
+        if tr.order is not None:                    # cell order (D138 batch 4, kernels.k_p2g_warp)
+            wp.launch_tiled(k_g2p_adj_warp, dim=[tr.order_blocks], inputs=[tr.order, N] + args,
+                            block_dim=WARP_LANES, device=dev)
+        else:
+            wp.launch(k_g2p_adj, dim=N, inputs=args, device=dev)
 
     tape.record_func(backward=backward, arrays=[a for a in (x, F, gv, v1, C1, Fn, dfc) if a.grad is not None])
 

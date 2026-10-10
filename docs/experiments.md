@@ -3550,6 +3550,65 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   band widened to its four runs' 0.9869–0.9874 and its width (0.9864–0.9879) after batch 1's miss showed three runs too
   narrow; the seconds an attempt at most 8.0 (bunny) and 13.0 (dragon). Prediction: bunny about 7.3, dragon about
   11.5–12.
+  **Batch 3, read (22:46 CDT; the cell following N, `B3`).** Bunny: 12.3 min (736 s), 97 attempts (7.59 s each; at
+  most 8.0 pre-registered, 7.3 predicted), silhouette IoU 0.9884, chamfer 0.0551, thin 3.5 %, last kinetic record
+  6.4e-6: passes. Dragon: 18.2 min (1092 s), 94 attempts (11.62 s each; at most 13.0, 11.5–12 predicted), silhouette
+  IoU 0.9866 (band 0.9864–0.9879), chamfer 0.0544, thin 4.2 %: passes on time and quality, one attempt short of the
+  attempts band (95–125): the rejection streak stopped it at window 93, best merit 1.04e-5 against 8.4–8.5e-6 of the
+  runs that went to 104–115 windows.
+  **The shape's cell (the re-freeze, D139): the band, batches 1–3 there, D47, the early stops.** The band, three runs
+  of the frozen code each alone on a GPU (`tmp/rt/rt_band.py`, `rt_curve.py`): bunny LT (D135 stage 2), SB (D139), S1
+  (`repo_frozen --no-cell_follows_n`, 2026-10-09 22:39): 22.2–26.8 min, 71–90 attempts, 17.84–18.74 s an attempt,
+  silhouette IoU 0.9878–0.9885, chamfer 0.0551, thin 4.3–5.0 %, last kinetic record 4.6–9.3e-6, best merit 4.04–4.54e-5;
+  dragon LT (D135 stage 2), LF (D135), S1: 41.0–43.9 min, 114–126 attempts, 20.90–22.22 s, 0.9871–0.9878, 0.0545,
+  4.2–4.5 %, 1.1–2.1e-5, 4.16–4.35e-5. Batches 1–3 at the shape's cell (the tag's code `repo_09b`, defaults, seed 97,
+  each alone on a GPU, no frames kept): bunny K1 12.2 min, 84 attempts, 8.70 s, 0.9880, 0.0551, 4.3 %, 4.9e-6, best
+  4.33e-5; K2 12.1 min, 84, 8.67 s, 0.9884, 0.0551, 4.2 %, 4.1e-6, 4.47e-5: inside the band, half the time. Dragon K1
+  20.3 min, 107, 11.41 s, 0.9872, 0.0545, 4.6 %, best 4.83e-5; K2 21.2, 113, 11.28, 0.9873, 0.0545, 4.6 %, 4.54e-5; K3
+  20.8, 109, 11.46, 0.9872, 0.0545, 4.3 %, 4.38e-5; K4 20.8, 105, 11.88, 0.9872, 0.0545, 4.7 %, 4.86e-5: silhouette
+  and chamfer inside, half the time, but every run stops before the band's (105–113 attempts against 114–126) and so
+  ends above its best merit (reached at windows 109–120 by the frozen runs) and at 0.1–0.2 points more thin; at equal
+  windows the merits lie inside the band (window 90: 5.12–5.36e-5 against 5.14–5.97e-5; 100: 4.66–4.94e-5 against
+  4.59–5.01e-5), the mean gain a window is the band's (windows 70–100: 0.022–0.028 against 0.020–0.023) and its spread
+  wider (sd 0.019–0.025 against 0.016–0.020; 3–7 windows of negative gain against 2–3): more windows that do not
+  improve latch the plateau earlier. All four below all three frozen runs is 1/35 under exchangeability (K3, K4 alone,
+  run after the hypothesis, 1/10). D47 read against the replay noise: under Warp's deterministic atomics (D141's mode)
+  D47 on and off give the same window bit for bit (dragon window 40: end-state hash 695decb24ae1b620, merit
+  2.514063806483303e-4): the evaluation's and the tape's rollouts of one control are then the same, so D47 differs from
+  solving on the tape's measure only through the atomics; in the default mode its replays and the replays without it
+  overlap (window 100, six each: medians 4.484849e-5 and 4.484850e-5, spreads ~4e-5 relative; window 40: 2.5057–2.5144e-4
+  against 2.5054–2.5143e-4 in the same three clusters, two and one null windows). The late-window ladder, twelve
+  replays of the dragon's window 100 from one dump on each step (`tmp/rt/ladder.sh`): frozen median 4.484851e-5 (relative
+  sd 5.0e-5, one high outlier), batch 2 4.484846e-5 (1.4e-5, one null), + D47 4.484845e-5 (0.9e-5), + D50 4.484851e-5
+  (1.1e-5), 09b 4.484839e-5 (1.2e-5): no step moves or widens a late window's outcome; the earlier stop is a run-level
+  effect. Two more frozen dragon runs (S2, S3, `repo_frozen --no-cell_follows_n`, started 00:55) widen the band: read
+  below.
+  Deterministic mode's cost at 300k (D141's `det_run.py`; window bench, same start): dragon window 40 12.5–16.7 s by
+  default (CUDA graphs), 31–45 s with the launches eager, 122–132 s deterministic (eager); bunny window 30 about 7.8 s
+  against 101–108 s: 9–14x, for proofs and forensic replays only (the coordinator, 2026-10-10: not adopted).
+  The shape's cell re-profiled (`rt_bench.py`, the bunny's window 30 and the dragon's window 40 dumped from 09b runs):
+  the bunny's window 7.8 s, the three adjoint sweeps 3.0 s, the line search 1.95 s (nine rollouts 0.74, nine transport
+  solves 0.44, the proximity 0.22), the taped forward 1.25 s; the dragon's transport solve 0.20 s a call (0.049 on the
+  bunny). Kernels (Warp's timing): P2G 73 of a rollout's 96 ms, G2P's adjoint 64 of a sweep's 103 ms: with about 180
+  particles a cell, the same-address atomics on a cell's 64 nodes bound both.
+  **Batch 4 (within the atomics' order; `repo_w1`).** (k) P2G and G2P's hand-written adjoint visit the particles in
+  cell order (Trajectory sorts them by the cell they start the window in) and the 32 lanes of a warp that share lane 0's
+  stencil sum their 64 node contributions with tile sums before lane 0's one atomic per node; a lane in another cell
+  adds its own (`kernels.k_p2g_warp`, `adjoints.k_g2p_adj_warp`, CUDA only; the CPU keeps the plain kernels and its
+  bit-for-bit tests). The per-particle arithmetic is the plain kernels'; only the order of the grid's sums changes, which
+  the atomics never fixed. Test (8) in `tests/test_runtime_exact.py`: the grid against k_p2g to 1e-5 on a dense cloud
+  with fragment particles, invalid positions and lanes in several cells; the window case's tape outputs and gradients
+  with the order on and off to rounding, volume off and carried. Suite on `repo_w1` 324 passed, 2 skipped, exit 0. A
+  larger group was slower (synthetic 300k at 174 a
+  cell: 32 lanes 0.69 ms, 64 1.22, 128 1.65, 256 2.65; the plain kernel 1.50). Kernels: P2G 73 → 30 ms a rollout, G2P's
+  adjoint 64 → 30 ms a sweep (a rollout 96 → 54 ms, a sweep 103 → 69 ms). Window bench: bunny 30 7.79 → 6.30 s
+  (merit 6.92456–6.92460e-5 against 6.92457–6.92458e-5 and one null), dragon 100 9.45 → 8.01 s (4.48475–4.48486e-5
+  against 4.48474–4.48486e-5). Pre-registered for batch 4's runs (2026-10-10 01:23 CDT, before they finish): the
+  bunny and the dragon 300k render arms at the shape's cell on `repo_w1` (W1, W2), each alone on a GPU, no frames. Pass:
+  the quality items within the shape's cell runs of the frozen recipe (the frozen band and K1–K4) widened by their own
+  width: bunny silhouette IoU 0.9871–0.9892, chamfer 0.0550–0.0552, thin 3.4–5.8 %, attempts 71–90; dragon
+  0.9864–0.9885, 0.0544–0.0546, 3.7–5.2 %, 105–126; the seconds an attempt at most 7.6 (bunny) and 10.5 (dragon).
+  Prediction: bunny about 7.0 s an attempt (10.0 min), dragon about 9.7 (17.5 min).
 - **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
   bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
   coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material

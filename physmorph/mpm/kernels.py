@@ -150,6 +150,105 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     wp.atomic_add(grid_v, g, w * (mv + G @ dgp))
 
 
+# ── P2G in cell order, the warp's shared stencil summed before the atomics (D138 batch 4) ──────────────────
+# k_p2g's 64 x 4 atomics per particle land on the nodes of its own cell's stencil; at the shape's cell about 180
+# particles share a cell, and those same-address atomics were 76 % of a 300k rollout. Visited in cell order (order:
+# Trajectory sorts the particles by the cell they start the window in), the 32 lanes of a warp mostly share lane 0's
+# stencil: they sum their contributions to each node first and lane 0 adds the sum, one atomic per node and warp;
+# a lane in another cell adds its own as before. The per-particle arithmetic is k_p2g's; the grid's sums are taken
+# in another order, which the atomics never fixed.
+WARP_LANES = 32
+
+
+@wp.func
+def _warp_sum(a: float):
+    return wp.tile_extract(wp.tile_sum(wp.tile(a)), 0)
+
+
+@wp.func
+def _warp_sum3(a: wp.vec3):
+    return wp.vec3(_warp_sum(a[0]), _warp_sum(a[1]), _warp_sum(a[2]))
+
+
+@wp.func
+def cell_key(b: wp.vec3i, ny: int, nz: int) -> int:
+    """A stencil's identity: its base node (base_node, -1 at the lowest cells), offset to be non-negative."""
+    return ((b[0] + 2) * (ny + 4) + (b[1] + 2)) * (nz + 4) + (b[2] + 2)
+
+
+@wp.kernel(enable_backward=False)
+def k_p2g_warp(order: wp.array(dtype=int), n: int,
+               x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
+               C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
+               dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
+               m: wp.array(dtype=float), vol: wp.array(dtype=float),
+               nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
+               grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
+               gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
+               nx: int, ny: int, nz: int):
+    """k_p2g over the particles in `order`, launched tiled with WARP_LANES threads a block (launch_p2g_warp)."""
+    blk, lane = wp.tid()
+    q = blk * WARP_LANES + lane
+    p = int(0)
+    ok = False
+    if q < n:
+        p = order[q]
+        ok = valid_pos(x[p])
+    b = wp.vec3i(0, 0, 0)
+    key = int(-1)
+    xp = wp.vec3(0.0, 0.0, 0.0)
+    G = wp.mat33(0.0)
+    mv = wp.vec3(0.0, 0.0, 0.0)
+    mp = float(0.0)
+    if ok:
+        xp = x[p]
+        b = base_node(xp, gmin, inv_dx)
+        key = cell_key(b, ny, nz)
+        Feff = F[p] + dFc[p]
+        C0 = 3.0 * inv_dx * inv_dx
+        G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form
+        vp = v[p]
+        if bond_K > 0 and frag[p] > 0.5:
+            vp = bond_velocity(v, nbr, p, bond_K)
+        mp = m[p]
+        mv = m[p] * vp * (1.0 - dt * drag)
+    k0 = wp.tile_extract(wp.tile(key), 0)
+    b0 = wp.vec3i(wp.tile_extract(wp.tile(b[0]), 0), wp.tile_extract(wp.tile(b[1]), 0),
+                  wp.tile_extract(wp.tile(b[2]), 0))
+    same = ok and key == k0
+    for oi in range(4):
+        for oj in range(4):
+            for ok_ in range(4):
+                wm = float(0.0)
+                wv = wp.vec3(0.0, 0.0, 0.0)
+                if ok:
+                    i = b[0] + oi
+                    j = b[1] + oj
+                    k = b[2] + ok_
+                    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                        xg = gmin + wp.vec3(float(i), float(j), float(k)) * dx
+                        dgp = xg - xp
+                        w = weight(dgp, inv_dx)
+                        wm = w * mp
+                        wv = w * (mv + G @ dgp)
+                        if not same:                    # another cell than lane 0's: its own atomics
+                            g = gid(i, j, k, ny, nz)
+                            wp.atomic_add(grid_m, g, wm)
+                            wp.atomic_add(grid_v, g, wv)
+                            wm = 0.0
+                            wv = wp.vec3(0.0, 0.0, 0.0)
+                sm = _warp_sum(wm)
+                sv = _warp_sum3(wv)
+                if lane == 0 and k0 >= 0:
+                    i0 = b0[0] + oi
+                    j0 = b0[1] + oj
+                    k0_ = b0[2] + ok_
+                    if i0 >= 0 and i0 < nx and j0 >= 0 and j0 < ny and k0_ >= 0 and k0_ < nz:
+                        g0 = gid(i0, j0, k0_, ny, nz)
+                        wp.atomic_add(grid_m, g0, sm)
+                        wp.atomic_add(grid_v, g0, sv)
+
+
 # ── the 3^3-cell particle count (the material bonds' decoupling test, k_frag_step) ─────────
 # Piecewise constant in x, computed outside the tape.
 @wp.kernel

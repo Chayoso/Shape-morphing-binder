@@ -16,6 +16,10 @@ rollouts of one control already differ (the replay noise every window measures).
 (6) D50 (ported by the user's approval of 2026-10-09): the replay pair takes the warm start's evaluation as its first
     rollout, unless the exterior's discs were looked for again after it.
 (7) D53 (ported by the user's approval of 2026-10-09): the record's transport energy takes the commit's potentials.
+(8) D138 batch 4: P2G and G2P's adjoint visit the particles in cell order and the lanes of a warp that share a
+    stencil sum before their atomics (CUDA): the grid, the tape's outputs and the gradients equal the plain
+    kernels' to float rounding (the order of the sums only), with fragment particles, invalid positions and lanes in
+    several cells.
 """
 from __future__ import annotations
 
@@ -294,3 +298,69 @@ def test_record_takes_the_commits_potentials(monkeypatch):
     for repaired, solved, energy, fresh in rows:
         assert solved == (2 if repaired else 0)        # the cross and the self problem, only after a repair
         assert abs(energy - fresh) <= 1e-5 * max(abs(fresh), 1e-12)
+
+
+def test_cell_ordered_p2g_is_the_plain_kernel_to_rounding():
+    """(8) kernels.k_p2g_warp against k_p2g on a dense cloud (about 150 particles a cell, so a warp's lanes share a
+    stencil and some sit in the next cell), with fragment particles on bonds and two invalid positions."""
+    _dev_or_skip("cuda")
+    import warp as wp
+    import physmorph.mpm.kernels as K
+    rng = np.random.default_rng(42)
+    N, nx = 20000, 16
+    x = rng.uniform(4.0, 9.0, (N, 3)).astype(np.float32)          # 5^3 cells of a 16^3 grid, dx 1
+    x[17] = np.nan
+    x[18] = 1.0e6
+    A = lambda a, t: wp.array(a, dtype=t, device="cuda")          # noqa: E731
+    v = A(rng.normal(0, .3, (N, 3)).astype(np.float32), wp.vec3)
+    C = A(rng.normal(0, .2, (N, 3, 3)).astype(np.float32), wp.mat33)
+    F = A(np.tile(np.eye(3, dtype=np.float32), (N, 1, 1)) + rng.normal(0, .05, (N, 3, 3)).astype(np.float32), wp.mat33)
+    dfc = A(rng.normal(0, .02, (N, 3, 3)).astype(np.float32), wp.mat33)
+    P = A(rng.normal(0, 1., (N, 3, 3)).astype(np.float32), wp.mat33)
+    m = A(rng.uniform(.5, 1.5, N).astype(np.float32), float)
+    vol = A(rng.uniform(.5, 1.5, N).astype(np.float32), float)
+    K_ = 4
+    nbr = A(rng.integers(0, N, N * K_).astype(np.int32), wp.int32)
+    frag = A((rng.uniform(0, 1, N) < .02).astype(np.float32), float)
+    order = np.argsort(np.floor(np.nan_to_num(x, nan=1e9)).astype(np.int64) @ np.array([20 * 20, 20, 1]), kind="stable")
+    order = A(order.astype(np.int32), wp.int32)
+    xa = A(x, wp.vec3)
+    out = []
+    for warp_order in (False, True):
+        gm = wp.zeros(nx ** 3, dtype=float, device="cuda")
+        gv = wp.zeros(nx ** 3, dtype=wp.vec3, device="cuda")
+        args = [xa, v, C, F, dfc, P, m, vol, nbr, frag, K_, gm, gv, wp.vec3(0., 0., 0.), 1.0, 1.0, 1 / 240, 0.9,
+                nx, nx, nx]
+        if warp_order:
+            wp.launch_tiled(K.k_p2g_warp, dim=[(N + K.WARP_LANES - 1) // K.WARP_LANES], inputs=[order, N] + args,
+                            block_dim=K.WARP_LANES, device="cuda")
+        else:
+            wp.launch(K.k_p2g, dim=N, inputs=args, device="cuda")
+        out.append((gm.numpy(), gv.numpy()))
+    (m0, v0), (m1, v1) = out
+    assert m0.max() > 100 and np.isfinite(m1).all() and np.isfinite(v1).all()
+    np.testing.assert_allclose(m1, m0, rtol=1e-5, atol=1e-5 * m0.max())
+    np.testing.assert_allclose(v1, v0, rtol=1e-5, atol=1e-5 * np.abs(v0).max())
+
+
+@pytest.mark.parametrize("volume", ["off", "carried"])
+def test_cell_ordered_transfers_keep_the_tape(volume, monkeypatch):
+    """(8) The window case on CUDA through the production tape, cell order on and off: the forward and the gradients
+    on dc and u to float rounding (the hand-written G2P adjoint in cell order, adjoints.k_g2p_adj_warp)."""
+    _dev_or_skip("cuda")
+    import physmorph.mpm.traj as TR
+    spec, dc, u = _window_case("cuda")
+    if volume != "off":
+        N = spec.x0.shape[0]
+        J0 = (np.linalg.det(spec.F0) * np.random.default_rng(5).uniform(0.97, 1.03, N)).astype(np.float32)
+        spec = dataclasses.replace(spec, volume_exact=volume, J0=J0)
+    spec = dataclasses.replace(spec, track_geom=False)
+    monkeypatch.setattr(TR, "ORDERED_TRANSFERS", False)
+    plain = _tape_outputs(spec, dc, u)
+    monkeypatch.setattr(TR, "ORDERED_TRANSFERS", True)
+    ordered = _tape_outputs(spec, dc, u)
+    for a, b in zip(plain[:4], ordered[:4]):
+        torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-6 * max(1.0, float(a.abs().max())))
+    for a, b in zip(plain[4:], ordered[4:]):
+        torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * float(a.abs().max()))
+        assert float(a.abs().max()) > 0
