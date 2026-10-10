@@ -419,10 +419,17 @@ class WindowOptimizer:
         hist, grad_converged, ls_exhausted = [], False, False
         g0_norm = L_start = None
         self.tele["null_reason"] = None
+        # D47 (ported by the user's approval of 2026-10-09, D138): the point of every gradient has just been evaluated
+        # without the tape (the replay pair at the start, then the accepted candidate): its transport potentials are
+        # taken, not solved a second time
+        same_point = bool(cfg.replay_calibrate)
         for it in range(cfg.iters):
             self._it = it
+            if self.tgt.grid_ot is not None:
+                self.tgt.grid_ot.repeat = same_point
             with timed("grad_fwd"):
                 e = graph_terms(self.win, self.obj, self.dFc, self.u)
+            same_point = True
             with timed("grad_bwd"):
                 g, diag = self.gradient(e, it)
             cur = self.scalar(e)

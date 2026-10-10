@@ -3395,6 +3395,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Pre-registered for batch 2's runs (21:28 CDT, before they finish): the bunny and the dragon 300k render arms on
   `repo_rt4` (`R4`), each alone on a GPU; the same pass bands as batch 1, and the seconds an attempt at most 10.5
   (bunny) and 17.0 (dragon). Prediction: bunny about 8 s an attempt, dragon about 14.5.
+  **Batch 1, dragon (`R2`, read 22:05 CDT): fails the silhouette band by 0.0001, every other item passes.** 43.4 min
+  (2605 s), 123 attempts (21.18 s each), silhouette IoU 0.9869 (band 0.9870–0.9876), chamfer 0.0543, thin 4.49 %,
+  last kinetic record 9.4e-6. Batch 1 is bit for bit (the reference and the tape's outputs) or has no path to the
+  trajectory (the record's kNN), so the miss is the run's own draw: the three-run band is narrower than a 300k dragon's
+  spread (S3b: 0.9686–0.9787 between runs of one code), and the merit at every tenth window lies inside the frozen
+  runs' (`tmp/rt/rt_curve.py`) until they stop; the run goes on 13 windows longer and ends lower (best merit 6.9e-6
+  against 8.1–8.5e-6).
+  **Batch 2, bunny (`R4`, read 21:46 CDT): passes.** 13.8 min (827 s), 99 attempts (8.35 s each), silhouette IoU
+  0.9879, chamfer 0.0550, thin 3.52 %, last kinetic record 7.1e-6. Against the frozen runs' 25.1–25.9 min.
+  **Batch 3: the three runtime steps of tag `settled-2026-10-03-d53` the user approved on 2026-10-09 (by name, relayed
+  by the coordinator), ported one at a time onto this code; not D49 (the proximity's nearest particle, the min det step
+  by step), which may come back only as a result-changing A/B proposal.** (h) D47: the gradient at an accepted
+  candidate takes the transport potentials its line-search evaluation just solved (`GridSinkhornLoss.repeat`, set
+  before every taped evaluation; at the first iteration the replay pair's): the repeated call solves nothing and
+  returns the solved call's value and gradient bit for bit at the same measure, within 1e-3 under a 1e-6 perturbation
+  (`tests/test_grid_ot.py`, the tag's test). Suite 375 passed, 2 skipped, exit 0 (one earlier run of the suite lost
+  `test_the_commit_scores_the_accepted_candidate_on_its_own_discs[carried]` to a replay-noise null of its own window;
+  that test passed 16 of 16 repeats on this code and on the code before). Window bench: dragon 40 15.18 → 12.20 s
+  (six replays; merit 1.003098–1.003158e-4 and one at 1.003558e-4), bunny 30 7.59 → 7.24 s.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
