@@ -68,14 +68,28 @@ class ZhuBridson:
     alone is a sphere. D59: radius 3 pitches, offset 0.8 pitches (pitch: the volume sample's, (V / N)^(1/3));
     D61: Solenthaler's factor on the offset was tried and not kept."""
 
-    def __init__(self, x, pitch, radius=3., offset=.8):
+    def __init__(self, x, pitch, radius=3., offset=.8, device_field=False):
+        """device_field (D138): on CUDA the field is the one-kernel form of render/exterior_wp.py (the same field to
+        float rounding, 10x faster); the window's disc search uses it, every other caller the tensor form below."""
         self.x, self.pitch, self.radius, self.offset = x, pitch, radius * pitch, offset * pitch
-        self.bins = Bins(x, self.radius)
+        self.device_field = bool(device_field) and x.is_cuda
+        self._bins = self._dbins = None
+
+    @property
+    def bins(self):
+        if self._bins is None:
+            self._bins = Bins(self.x, self.radius)
+        return self._bins
 
     def __call__(self, q, grad=True):
         """f(q), its gradient in q (None without `grad`: the lattice's corners need the sign alone, and on a 300k
         state the gradient was half of the field's 1.2 s at the 3.2M nodes, D96), and the summed weight (zero where
         no particle is within the radius)."""
+        if self.device_field:
+            from .exterior_wp import DeviceBins, zb_field
+            if self._dbins is None:
+                self._dbins = DeviceBins(self.x.detach().float(), self.radius)
+            return zb_field(self.x, self._dbins, self.radius, self.offset, q, grad)
         x, R = self.x, self.radius
         f, g, s = [], [], []
         for qc in q.split(max(4096, int(2e6 / self.bins.width))):

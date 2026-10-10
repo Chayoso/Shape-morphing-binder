@@ -11,9 +11,14 @@ import numpy as np
 import torch
 import warp as wp
 
+from . import adjoints as ADJ
 from . import kernels as K
 from .state import MPMParams, MPMState
 from .step import gate_omega, nominal_support
+
+# D138: on a tape, the transfers' adjoints are the hand-written ones of mpm/adjoints.py (the same vector-Jacobian
+# products to float rounding, a fraction of the generated ones' cost); False records the generated adjoints (tests)
+HAND_ADJOINTS = True
 
 
 def _is_tensor(a) -> bool:
@@ -133,6 +138,7 @@ class Trajectory:
         # a CUDA graph (capture/run) — the same kernels with no Python launch overhead.
         self.persistent = bool(persistent)
         self.graph = None
+        self.requires_grad = bool(requires_grad)
         N = int(x0.shape[0])
         self.N, self.T, self.prm, self.device = N, T, prm, device
         if control_steps is not None and (int(control_steps) != control_steps or not 1 <= control_steps <= T):
@@ -391,6 +397,12 @@ class Trajectory:
                   device=self.device)
         return self.bond_nbr, self.bond_rest, frag, self.bond_K
 
+    def _hand_tape(self):
+        """The tape the step is recorded on when the transfers take the hand-written adjoints (D138), else None."""
+        if not (HAND_ADJOINTS and self.requires_grad) or self.eta.grad is not None:   # a viscosity leaf: generated
+            return None
+        return wp._src.context.runtime.tape
+
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""
         if t >= self.control_steps:
@@ -410,16 +422,22 @@ class Trajectory:
                       device=dev)
         else:
             wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
+        omega = self._omega(t)
+        tape = self._hand_tape()
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
-                  self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
+                  self.m, self.vol, omega, bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
                   prm.dt, prm.drag,
-                  prm.nx, prm.ny, prm.nz, int(self.bond_history)], device=dev)
+                  prm.nx, prm.ny, prm.nz, int(self.bond_history)], device=dev, record_tape=tape is None)
+        if tape is not None:
+            ADJ.record_p2g(tape, self, t, dfc, omega, bnb, bnc, bK, N)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
                   prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
                   K.WALL_NODES], device=dev)
         wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
-                  prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
+                  prm.v_max, prm.eta_sym, prm.eta_mode], device=dev, record_tape=tape is None)
+        if tape is not None:
+            ADJ.record_g2p(tape, self, t, dfc, N)
         if self.volume_mode == "history":
             wp.launch(K.k_volume_update, dim=N, inputs=[self.F[t], self.Fraw[t + 1], self.J[t], self.J[t + 1]], device=dev)
         elif self.volume_mode == "smoothed":
@@ -433,10 +451,13 @@ class Trajectory:
             F_next = self.Fs[t + 1]
         else:
             F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
+        snbr = self.space_nbr if self.space_K > 0 else self.nbr0
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
                   bnb, brest, bnc, bK, 1.0 / float(self.control_steps),
-                  self.space_nbr if self.space_K > 0 else self.nbr0, self.space_K, self.space_r], device=dev)
+                  snbr, self.space_K, self.space_r], device=dev, record_tape=tape is None)
+        if tape is not None:
+            ADJ.record_update(tape, self, t, x_next, F_next, bnb, brest, bnc, bK, snbr, N)
         if self.carries:
             wp.launch(K.k_volume_carry, dim=N, inputs=[self.Fs[t + 1], self.J[t + 1], self.F[t + 1]], device=dev)
         if self.layer:
@@ -449,7 +470,9 @@ class Trajectory:
                       self.ls[t + 1], self.lb[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,
-                      self.x[t + 1]], device=dev)
+                      self.x[t + 1]], device=dev, record_tape=tape is None)
+            if tape is not None:
+                ADJ.record_layer_project(tape, self, t, layer_u, N)
             if self.layer_F:
                 wp.launch(K.k_layer_F, dim=N, inputs=[layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
                           self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,

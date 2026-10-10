@@ -191,7 +191,8 @@ class Objective:
                 self.discs = None
         if self.discs is None:
             with torch.no_grad(), timed("exterior"):
-                self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch, radius=e.radius, offset=e.offset), e.lattice, e.h, e.skin)
+                self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch, radius=e.radius, offset=e.offset, device_field=True),
+                                     e.lattice, e.h, e.skin)
                 if cfg.render_body_only:          # D127: the body's largest connected disc set alone (the display's rule)
                     self.ext_apart = self.discs.body_only(e.h)
             self.ext_builds += 1

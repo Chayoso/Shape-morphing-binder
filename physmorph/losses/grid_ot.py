@@ -66,15 +66,16 @@ class _GridTransportNotConverged(ValueError):
 
 
 @wp.kernel(enable_backward=False)
-def _grid_logsumexp_axis(field: wp.array(dtype=float), cost: wp.array2d(dtype=float),
-                        temperature: wp.array(dtype=float), width: int, stride: int,
+def _grid_logsumexp_axis(field: wp.array(dtype=float), cost_t: wp.array2d(dtype=float), width: int, stride: int,
                         result: wp.array(dtype=float)):
+    """One axis of the separable log-sum-exp. cost_t is the axis cost over the temperature, divided once per call
+    (D138: the same IEEE division the kernel took twice per element; bit for bit, 1.35x faster)."""
     i = wp.tid()
     coordinate = (i // stride) % width
     start = i - coordinate * stride
     maximum = float(-wp.inf)
     for j in range(width):
-        value = field[start + j * stride] - cost[coordinate, j] / temperature[0]
+        value = field[start + j * stride] - cost_t[coordinate, j]
         if wp.isnan(value):
             result[i] = value
             return
@@ -84,7 +85,7 @@ def _grid_logsumexp_axis(field: wp.array(dtype=float), cost: wp.array2d(dtype=fl
         return
     total = float(0.)
     for j in range(width):
-        value = field[start + j * stride] - cost[coordinate, j] / temperature[0]
+        value = field[start + j * stride] - cost_t[coordinate, j]
         total += wp.exp(value - maximum)
     result[i] = maximum + wp.log(total)
 
@@ -124,9 +125,9 @@ class GridSinkhornLoss:
             for width, cost in zip(self.dims, self.costs):
                 stride //= width
                 result = torch.empty_like(field)
+                cost_t = cost / temp
                 wp.launch(_grid_logsumexp_axis, dim=field.numel(),
-                          inputs=[wp.from_torch(field), wp.from_torch(cost),
-                                  wp.from_torch(temp), width, stride],
+                          inputs=[wp.from_torch(field), wp.from_torch(cost_t), width, stride],
                           outputs=[wp.from_torch(result)], device=stream.device, stream=stream)
                 field = result
             return -temp * field

@@ -3373,6 +3373,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   4.18–4.72 %), attempts within 70–100 (bunny) and 95–125 (dragon), and the seconds an attempt at least 0.5 below the
   frozen runs' fastest (bunny at most 17.1, dragon at most 22.4). Prediction: bunny about 15.0 s an attempt (−2.7 s),
   dragon about 22.0 (−0.9 s).
+  **Batch 1, bunny (`R2`, read 21:26 CDT): passes.** 22.8 min (1366 s), 94 attempts (14.53 s each, −3.1 s), silhouette
+  IoU 0.9880, chamfer 0.0551, thin 3.10 %, last kinetic record 5.0e-6 (the three frozen runs 3.6–6.5e-6). The run is
+  six attempts longer than the longest frozen run (83–88), inside the band; a run's length is its own draw.
+  **Batch 2 (within rounding; `repo_rt4`).** (e) The adjoints of P2G, G2P, the update and the layer's projection are
+  written by hand (`mpm/adjoints.py`, recorded on the tape with `wp.Tape.record_func` in place of Warp's generated
+  ones): one pass over a particle's 64 nodes instead of the generated replay that kept every node's intermediates, and
+  the layer's rigid-mode moments summed through 4096 bins instead of every layer particle adding into the same two
+  vectors. An adjoint sweep 233 → 84 ms (G2P 134 → 42, P2G 50 → 18, the update 19 → 9, the projection 14 → 1). The
+  gradients equal the generated adjoints' to float rounding on the CPU and on CUDA, with the bonds' fragment particles,
+  the minimum spacing, the layer and u, the released half, and the velocity clamp and viscosity the pipeline leaves
+  off (`tests/test_runtime_exact.py` (3)). (f) The Sinkhorn sweep's axis pass divides the cost by the temperature once
+  a call instead of twice an element: bit for bit, 1.35× an axis pass. (g) The window's disc search reads the
+  exterior's field in one Warp kernel (`render/exterior_wp.py`; dense cells of the field's radius, the gradient written
+  by the chain rule): the tensor form's values, gradients and discs to float rounding (test (5)), a search 1.10 → 0.087
+  s; the targets' discs, the display and the probes keep the tensor form. Window bench (four and three replays from the
+  same start): the bunny's window 30 12.81 (`rt2`) → 8.70 (with e, f) → 7.59 s (with g), the merit 2.66786–2.66788e-5
+  against 2.66786–2.66789e-5; the dragon's window 40 23.42 → 16.05 → 15.18 s, the merit 1.00311–1.00343e-4 against
+  1.00304–1.00315e-4 (one of the three `rt4` replays 3e-4 above the others: read again on more replays and on the
+  full runs).
+  Pre-registered for batch 2's runs (21:28 CDT, before they finish): the bunny and the dragon 300k render arms on
+  `repo_rt4` (`R4`), each alone on a GPU; the same pass bands as batch 1, and the seconds an attempt at most 10.5
+  (bunny) and 17.0 (dragon). Prediction: bunny about 8 s an attempt, dragon about 14.5.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

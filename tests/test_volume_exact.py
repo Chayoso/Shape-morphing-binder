@@ -106,7 +106,11 @@ def window_reference(dev="cpu") -> dict:
 
 
 # ---- (1) flag off: the old path bit for bit -------------------------------------------------------------------
-def test_flag_off_reproduces_the_old_trajectory_and_adjoint_exactly():
+def test_flag_off_reproduces_the_old_trajectory_and_adjoint_exactly(monkeypatch):
+    # the reference was written with Warp's generated adjoints; the hand-written ones (D138, mpm/adjoints.py) agree
+    # with them to float rounding (tests/test_runtime_exact.py (3)), so the bit-for-bit check reads the generated ones
+    import physmorph.mpm.traj as TR
+    monkeypatch.setattr(TR, "HAND_ADJOINTS", False)
     ref = np.load(REF)
     new = window_reference("cpu")
     for k, v in new.items():
