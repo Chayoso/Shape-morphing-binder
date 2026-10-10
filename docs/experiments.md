@@ -3744,6 +3744,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   place of 8. Their pre-registration drafts: `tmp/rt/prereg_a_warm_sinkhorn.txt`, `tmp/rt/prereg_b_cleanup_merge.txt`
   (to be committed before their runs). Next exact lever (coordinator, 2026-10-10): the three adjoint channels (physics,
   cleanup, render) in one pass of the transfer adjoints; its design in `tmp/rt/rt_3cot_design.txt`, not started.
+  **The three cotangents in one sweep: exact, measured, not adopted (2026-10-10).** `PersistentAdjoint.vjp3` carried
+  the physics, cleanup and render cotangents through one walk of the tape (the generated adjoints launched once per
+  channel; the transfers' and the update's hand-written adjoints fused over the three channels): bit for bit on the CPU
+  against three one-channel sweeps (volume off and carried, hand-written and generated adjoints), within rounding on
+  CUDA and through a pipeline run (nine tests). At 300k (the bunny's window 30, `rt_bench.py k3`): 217.7 ms against
+  213.4 ms for three sweeps (G2P's adjoint fused 95 ms against 3 × 26.7, P2G's 44 against 3 × 14.2, the update 17.7
+  against 3 × 9.6, the channel buffers' 2064 memsets 12.6 ms); the window 6.05 → 6.29 s. The transfers' adjoints are
+  bound by each channel's own grid reads, sums and atomics, not by the stencil they share. Kept on branch
+  `wip/rt-3cot` (992a90e) and `tmp/rt/rt_3cot.patch`.
+  **Batch 7 (within the atomics' order; `repo_w7`).** (n) P2G in cell order gives the 64 nodes of the stencil a warp
+  shares to its lanes, two each: every lane sums the warp's particles in its two nodes in their order and adds the
+  sums with one atomic a node (`kernels.k_p2g_nodes`, after `k_p2g_prep` writes each particle's G and m v, k_p2g's
+  expressions); a particle in another cell adds its own 64 nodes. Batch 4's version summed each node over the lanes
+  (four warp reductions a node) and lane 0 added all 256 sums alone. Synthetic 300k: 0.71 → 0.34 ms a step at the
+  shape's cell (174 a cell), 1.33 → 1.08 at 22 a cell (the plain kernel 2.05 and 1.22). Test (8) now compares the pair
+  with k_p2g. Kernels: P2G 30 → 15 ms a rollout (a rollout 54 → 40 ms). Window bench (GPU 0): bunny 30 6.12 → 5.82 s
+  (merit 6.92457–6.92458e-5), dragon 100 7.96 → 7.52 s (4.48477–4.48485e-5). Suite on `repo_w7` 325 passed, 2 skipped,
+  exit 0. Pre-registered for batch 7's runs (2026-10-10 18:40 CDT, before they finish): bunny W5, W6 and dragon W5, W6
+  on `repo_w7` at the shape's cell, each alone on GPU 0 or 1, no frames; the pass bands of batch 4; the seconds an
+  attempt at most 6.8 (bunny) and 9.8 (dragon). Prediction: 6.45 and 9.3.
 - **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
   bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
   coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material

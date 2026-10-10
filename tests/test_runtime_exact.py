@@ -19,7 +19,8 @@ rollouts of one control already differ (the replay noise every window measures).
 (8) D138 batch 4: P2G and G2P's adjoint visit the particles in cell order and the lanes of a warp that share a
     stencil sum before their atomics (CUDA): the grid, the tape's outputs and the gradients equal the plain
     kernels' to float rounding (the order of the sums only), with fragment particles, invalid positions and lanes in
-    several cells; G2P's adjoint in cell order reads the forward's new affine field (batch 5).
+    several cells; G2P's adjoint in cell order reads the forward's new affine field (batch 5); P2G's lanes own the
+    stencil's nodes (batch 7).
 (9) D138 batch 5: the trajectory's minimum determinant step by step on its own buffers: bit for bit.
 """
 from __future__ import annotations
@@ -302,8 +303,9 @@ def test_record_takes_the_commits_potentials(monkeypatch):
 
 
 def test_cell_ordered_p2g_is_the_plain_kernel_to_rounding():
-    """(8) kernels.k_p2g_warp against k_p2g on a dense cloud (about 150 particles a cell, so a warp's lanes share a
-    stencil and some sit in the next cell), with fragment particles on bonds and two invalid positions."""
+    """(8) kernels.k_p2g_prep + k_p2g_nodes (batch 7) against k_p2g on a dense cloud (about 150 particles a cell, so a
+    warp's lanes share a stencil and some sit in the next cell), with fragment particles on bonds and two invalid
+    positions."""
     _dev_or_skip("cuda")
     import warp as wp
     import physmorph.mpm.kernels as K
@@ -333,7 +335,12 @@ def test_cell_ordered_p2g_is_the_plain_kernel_to_rounding():
         args = [xa, v, C, F, dfc, P, m, vol, nbr, frag, K_, gm, gv, wp.vec3(0., 0., 0.), 1.0, 1.0, 1 / 240, 0.9,
                 nx, nx, nx]
         if warp_order:
-            wp.launch_tiled(K.k_p2g_warp, dim=[(N + K.WARP_LANES - 1) // K.WARP_LANES], inputs=[order, N] + args,
+            Gs = wp.zeros(N, dtype=wp.mat33, device="cuda")
+            mvs = wp.zeros(N, dtype=wp.vec3, device="cuda")
+            wp.launch(K.k_p2g_prep, dim=N, inputs=[xa, v, C, F, dfc, P, m, vol, nbr, frag, K_, 1.0, 1 / 240, 0.9,
+                                                   Gs, mvs], device="cuda")
+            wp.launch_tiled(K.k_p2g_nodes, dim=[(N + K.WARP_LANES - 1) // K.WARP_LANES],
+                            inputs=[order, N, xa, m, Gs, mvs, gm, gv, wp.vec3(0., 0., 0.), 1.0, 1.0, nx, nx, nx],
                             block_dim=K.WARP_LANES, device="cuda")
         else:
             wp.launch(K.k_p2g, dim=N, inputs=args, device="cuda")

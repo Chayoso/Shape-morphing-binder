@@ -99,7 +99,7 @@ def k_g2p_adj_warp(order: wp.array(dtype=int), n: int,
                    adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33), adj_Fnew: wp.array(dtype=wp.mat33),
                    adj_x: wp.array(dtype=wp.vec3), adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33),
                    has_adj_dFc: int, adj_grid_v: wp.array(dtype=wp.vec3)):
-    """k_g2p_adj over the particles in `order` (kernels.k_p2g_warp's cell order), WARP_LANES threads a block: the
+    """k_g2p_adj over the particles in `order` (kernels.k_p2g_nodes' cell order), WARP_LANES threads a block: the
     lanes on lane 0's stencil sum their grid adjoint before one atomic per node; the per-particle arithmetic is
     k_g2p_adj's, but the particle's new affine field is read from the forward (C[t + 1]) instead of being gathered
     from the grid again (the same expression, k_g2p's)."""
@@ -256,7 +256,7 @@ def record_g2p(tape, tr, t: int, dfc, N: int):
     def backward():
         tail = [gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                 v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc, int(dfc.grad is not None), gv.grad]
-        if tr.order is not None:                    # cell order (D138 batch 4, kernels.k_p2g_warp)
+        if tr.order is not None:                    # cell order (D138 batch 4, kernels.k_p2g_nodes)
             wp.launch_tiled(k_g2p_adj_warp, dim=[tr.order_blocks], inputs=[tr.order, N, x, F, dfc, gv, C1] + tail,
                             block_dim=WARP_LANES, device=dev)
         else:
