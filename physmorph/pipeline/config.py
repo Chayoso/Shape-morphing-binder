@@ -112,6 +112,9 @@ class PipelineConfig:
     exterior_radius: float = 3.0    # D123 A/B: the exterior field's kernel radius in pitches (D59's 3 = the old path bit
                                     #   for bit); its offset follows in proportion, 0.8 x radius / 3, the rule that keeps the
                                     #   surface's mean offset from the mesh where the radius 3 has it (D123)
+    exterior_field: str = "zb"      # D140 A/B: the exterior's field, "zb" Zhu and Bridson's (the code as it was) or
+                                    #   "aniso" the anisotropic density field (render/exterior.Anisotropic), read by the
+                                    #   target's pictures and the render terms alike
     u_off: bool = False             # D124 A/B (ablation): u's gate is zero on every particle, so u never acts; the leaf
                                     #   stays (zero gradient) and everything else is as it is
     render_views: int = 6           # azimuths per elevation ring
@@ -154,6 +157,10 @@ class PipelineConfig:
         self.volume_exact = {False: "off"}.get(self.volume_exact, self.volume_exact)
         if self.volume_exact not in ("off", "carried"):
             raise ValueError("volume_exact must be \"off\" or \"carried\"")
+        if self.exterior_field not in ("zb", "aniso"):
+            raise ValueError("exterior_field must be \"zb\" or \"aniso\"")
+        if self.exterior_field == "aniso" and self.exterior_radius != 3.0:
+            raise ValueError("the anisotropic field (D140) has its own reach: exterior_radius must stay 3")
         if not math.isfinite(self.render_weight_scale) or self.render_weight_scale < 0:
             raise ValueError("render_weight_scale must be finite and nonnegative")
         if self.lambda_auto <= 0:

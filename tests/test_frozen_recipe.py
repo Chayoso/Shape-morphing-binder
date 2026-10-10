@@ -17,6 +17,7 @@ def test_the_defaults_are_the_frozen_recipe(monkeypatch):
     assert a.volume_exact == "carried" and a.match_density and a.assim_volume               # D131, D132, D135
     assert not a.cell_follows_n                                                             # the shape's cell (D139)
     assert not a.u_off and a.render_weight_scale == 1.0 and not a.baseline                  # D124 not adopted
+    assert a.exterior_field == "zb"                                                         # D140 until its gate
 
 
 def test_every_switch_reaches_the_old_path(monkeypatch):
@@ -32,10 +33,10 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # which did not exist then: the shape's cell). Its term_dump (a read-only per-window dump) is the default '' here. The
 # frozen defaults must be exactly this configuration, less the switches the cleanup (D141) removed with their paths: ls_probe,
 # render_body_only, spray_gate, support_form, support_target_ref, support_weight, surface_density and w_dt, each recorded
-# there at the value that ran the frozen path
+# there at the value that ran the frozen path; plus D140's exterior_field (added after; "zb" is the field D135 ran with)
 D135_RUN_ARGS = {
     "animations": 300, "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0, "cell_follows_n": False,
-    "drag": None, "exterior_radius": 3.0, "f_ext": None, "floor": False, "floor_friction": 0.0, "grad_dump": "",
+    "drag": None, "exterior_field": "zb", "exterior_radius": 3.0, "f_ext": None, "floor": False, "floor_friction": 0.0, "grad_dump": "",
     "lambda_ema": 1.0, "layer_relief": True, "live_dir": "", "live_port": 0, "loss_follows_n": True,
     "match_density": True, "min_spacing": 0.9, "ot_iters": 1600, "patience": 5, "poisson": None, "profile": False,
     "reject_stop": 3, "render_exterior": True, "render_res_hi": None,

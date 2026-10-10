@@ -22,7 +22,7 @@ from ...prof import timed
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
-from ...render.exterior import Tracked, ZhuBridson
+from ...render.exterior import make_field, tracked
 from ..render_loss import d_exterior, d_pbr, d_render
 from .setup import Window
 
@@ -187,8 +187,8 @@ class Objective:
                 self.discs = None
         if self.discs is None:
             with torch.no_grad(), timed("exterior"):
-                self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch, radius=e.radius, offset=e.offset, device_field=True),
-                                     e.lattice, e.h, e.skin)
+                self.discs = tracked(make_field(e.field, xT.detach(), e.pitch, radius=e.radius, offset=e.offset,
+                                                device_field=True), e.lattice, e.h, e.skin)
             self.ext_builds += 1
             p, n, move = self.discs.read(xT)
         return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,

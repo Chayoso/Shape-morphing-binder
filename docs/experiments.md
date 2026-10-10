@@ -3511,6 +3511,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   2–4, the render gradient being more local (a disc reads the particles within about 1.5 + 1 pitches against 3 + 1).
   (3) and (4) hold. Cost: +5 to +15 % an attempt (a 32-neighbour search, the covariances and the grown lattice per disc
   search; a disc read holding a 3 × 3 matrix per neighbour).
+  **Amendment with the implementation, before the runs (2026-10-10 18:22 CDT).** (a) The field's written form is
+  f = (c^{1/3} − Φ^{1/3}) a / 2.133 in place of (c − Φ) a / 0.1377: the same zero set and the same normals; Φ^{1/3} is
+  one kernel's 1 − s² / 9 near an isolated particle, so f is a distance there to second order. The linear form, Φ being
+  a cube near its level, read a 0.05-pitch translation of a ball's particles up to 0.06 pitches off in one Newton step
+  (the tracked discs' reading; the test failed); the cube-root form reads it within 0.02. (b) Each kernel's reach (3
+  times the root of C_j's largest eigenvalue, for the bins and the discs' particle lists) takes the eigenvalue in
+  closed form (Smith 1961; cuSOLVER's batched solver refused the 300k batch). (c) The dump is a lean hook
+  (`tmp/d140/d140_dump.py` on the copy `repo_d140f`: windows 1–9, x, x_start, frame_end, and T_tgt at window 1 for
+  the reader's ears and face), with `--term_dump` off, so no window computes the per-term record and the cost reads
+  like batch 5's runs. Code: `render/exterior.py` (`Anisotropic`, `TrackedAniso`, `make_field`, `tracked`,
+  `Lattice.grow`), `render/exterior_wp.py` (`k_aniso_field`), `--exterior_field` through the config, the target's
+  pictures and the objective; the display script's `+field=aniso` (`child_detail_morph.py`; the server's
+  `tmp/d140/cdm_d140.py` is `cdm_frozen.py` with it); `tests/test_exterior_aniso.py` (the six pre-registered tests, the
+  search's growth, the closed-form eigenvalue, the switch, a small run that reads the field). Bench at 300k (FB's frame
+  341 / SB's frame 3, `tmp/d140/d140_bench.py`; anisotropic against Zhu–Bridson): a disc search 0.13 / 0.12 s against
+  0.08 / 0.07; a read forward and backward 0.04 / 0.03 s against 0.06 / 0.04; the same peak memory (2.5 GB); 128.6k /
+  93.0k discs against 167.6k / 115.3k; the read's width 55 / 68 particles against 140 / 132; the discs 1.02 / 1.07
+  pitches from their nearest particle (median; p90 1.18 / 1.21) against 0.75 / 0.74 (1.01 / 1.01); no link list cut
+  short by the 32-neighbour search; the largest kernel reach 1.86 / 1.93 pitches; at the state they were found at,
+  0.3 % / 0.2 % of the discs read more than 0.02 pitches from where they were found (up to 0.19 / 0.24, where the
+  field's slope is low: the read places them one Newton step nearer the surface). Suite on `repo_d140`: 335 passed, 2
+  skipped, exit 0 (`tmp/d140/suite_d140.log`; a first launch ran `repo_settled`'s tests, the environment script's
+  default repository, and is not counted: `suite_wrong_repo_settled.log`).
 - **D138, the runtime phase: where a 300k attempt's time goes, and the exact speed-ups (opened 2026-10-09 20:07 CDT;
   the user: "최적화 빡세게 해서 10분 내외로"; relayed by the coordinator: profile first, exact speed-ups next, each
   bit-for-bit or within the replay noise, result-changing ones only as gated A/Bs the user decides; server `repo_frozen`

@@ -66,6 +66,9 @@ def parse_args():
     ap.add_argument("--exterior_radius", type=float, default=3.0,
                     help="D123 A/B: the exterior field's kernel radius in pitches, its offset in proportion (0.8 at 3); "
                          "3 = D59's field, the code as it was")
+    ap.add_argument("--exterior_field", default="zb", choices=["zb", "aniso"],
+                    help="D140 A/B: the exterior's field; zb (the default) = Zhu and Bridson's, the code as it was; "
+                         "aniso = the anisotropic density field (Yu and Turk's, its constants derived)")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
@@ -199,7 +202,8 @@ def main():
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               lambda_ema=args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res,
-                              min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
+                              min_spacing=args.min_spacing, exterior_radius=args.exterior_radius,
+                              exterior_field=args.exterior_field, u_off=args.u_off,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters,

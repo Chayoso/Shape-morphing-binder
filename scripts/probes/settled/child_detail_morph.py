@@ -1,4 +1,4 @@
-"""child_detail_morph.py FRAMES_NPZ DENSE_NPZ[,DENSE_NPZ...] OUT_DIR [+fit=1] [+steps=15] [+stride=1] [+video=1] [+carry=v|h] [+fit_until=1] [+decay=0] — D111 stage 1:
+"""child_detail_morph.py FRAMES_NPZ DENSE_NPZ[,DENSE_NPZ...] OUT_DIR [+fit=1] [+steps=15] [+stride=1] [+video=1] [+carry=v|h] [+fit_until=1] [+decay=0] [+field=zb|aniso] — D111 stage 1:
 the display surface finer than the body (child_detail_static.py) carried through a finished morph, frame by frame.
 
 The surface carries nothing back to the body (massless, display only), so running it over a run's kept frames is the same
@@ -30,7 +30,7 @@ import torch.nn.functional as nnf                              # noqa: E402
 from PIL import Image                                          # noqa: E402
 from physmorph.pipeline.config import PipelineConfig           # noqa: E402
 from physmorph.pipeline.render_loss import d_exterior, exterior_targets, make_views  # noqa: E402
-from physmorph.render.exterior import Lattice, ZhuBridson      # noqa: E402
+from physmorph.render.exterior import Lattice, make_field      # noqa: E402
 from physmorph.render.knn_gpu import knn_self_torch            # noqa: E402
 from physmorph.render.studio import StudioRaster               # noqa: E402
 from physmorph.render.support import normal_filter_size        # noqa: E402
@@ -43,6 +43,7 @@ FIT_UNTIL = float(opts.get("fit_until", 1.0))                # diagnostic: fit o
 DECAY = opts.get("decay", "0") == "1"                        # the step of a disc over 1 / sqrt(its fits so far, in frames)
 FIT, STEPS, STRIDE, VIDEO = (opts.get("fit", "1") == "1", int(opts.get("steps", 15)), int(opts.get("stride", 1)),
                              opts.get("video", "1") == "1")
+FIELD = opts.get("field", "zb")                              # D140: the exterior's field, "zb" or "aniso"
 z = np.load(argv[1], allow_pickle=True)
 denses = [torch.as_tensor(np.asarray(np.load(p)["tgt"], np.float32), device=dev) for p in argv[2].split(",")]
 out = Path(argv[3])
@@ -64,7 +65,7 @@ views = make_views(cfg.render_views, cfg.render_elevs)
 
 def exterior(s, a_field):
     with torch.no_grad():
-        p, g, _, _ = lat.discs(ZhuBridson(s, a_field), h_lat)
+        p, g, _, _ = lat.discs(make_field(FIELD, s, a_field), h_lat)
     return p, nnf.normalize(g, dim=1)
 
 

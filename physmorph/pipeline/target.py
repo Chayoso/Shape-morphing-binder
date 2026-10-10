@@ -20,7 +20,7 @@ from ..losses.volumetric import (d_vol, d_vol_density, density_units, rasterize_
                                  target_mass_grid)
 from ..mpm.state import MPMParams
 from .config import PipelineConfig
-from ..render.exterior import Lattice, ZhuBridson
+from ..render.exterior import Lattice, make_field
 from .render_loss import exterior_targets, make_views, shade_targets, target_silhouettes
 
 
@@ -36,6 +36,7 @@ class Exterior:
     shade: list
     radius: float = 3.0                 # the field's kernel radius and offset, in pitches (D123; 3 and 0.8 = D59's)
     offset: float = 0.8
+    field: str = "zb"                   # D140: "zb" Zhu and Bridson's field, "aniso" the anisotropic one
 
 
 @dataclass
@@ -159,12 +160,14 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
         per = []
         for s in samples:
             with torch.no_grad():
-                p_t, g_t, _, _ = lattice.discs(ZhuBridson(s, pitch, radius=radius, offset=offset), h, refine=False)
+                p_t, g_t, _, _ = lattice.discs(make_field(cfg.exterior_field, s, pitch, radius=radius, offset=offset),
+                                               h, refine=False)
             per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
                                         extent, cfg.sil_k, cfg.pbr_ambient))
         e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
-        ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset)
-        print(f"[target] exterior: pitch {pitch:.4f} wu, kernel {radius:g} pitches, offset {offset:.3f}, lattice {h / pitch:.2f} pitches = "
+        ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset, cfg.exterior_field)
+        print(f"[target] exterior: {'anisotropic field (D140)' if cfg.exterior_field == 'aniso' else 'Zhu-Bridson field'}, "
+              f"pitch {pitch:.4f} wu, kernel {radius:g} pitches, offset {offset:.3f}, lattice {h / pitch:.2f} pitches = "
               f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target"
               + (f"; the pictures are the mean over {len(samples)} samples" if len(samples) > 1 else ""), flush=True)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range)
