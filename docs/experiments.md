@@ -3374,6 +3374,72 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   base's (the runtime agent's D138 batches 1–3, exact or within float rounding, included). Suite on a fresh copy of the
   tag's tree (`repo_frozen_b`): 378 passed, 2 skipped, exit 0 (`tmp/d137/suite_frozen_b.log`). README: the cell rule is
   an option, the trade-off in one sentence.
+- **D140, the frozen version's slightly floating discs: inventory, reading, and one proposal (a measurement; opened
+  2026-10-09 23:00 CDT; the user, with the algorithm fixed at D135: "근데 저기서 살짝 떠다니는 disc를 없앨 수 있을지 고안 해
+  보자", then "side를 봤을 때 지금 그게 확실히 심하거든"; the constraint: D135's trajectory stays, the 0–1.5 s look and the
+  shell-ahead-of-bulk lag within D135's band, the shape's cell kept).** Runs: the bunny is D139's D135 re-run (SB); the
+  dragon is the 09b deliverable run (`output/gpu/frozen_b/dragon300k_FB`, seed 97, the tag's code on the copy
+  `repo_frozen_bf` with the read-only d137 dump: the runner only writes the dump, nothing the run reads changes; 106
+  commits, end kinetic energy 8.9e-6, silhouette IoU 0.9869, chamfer 0.0545, thin 4.2 %). Its first attempt failed out
+  of memory at 22:58 beside a 30 GB inventory pass of mine on the same card (my slip; re-run alone at 23:40).
+  **Inventory** (`tmp/d137/d140_inventory.py`, `d140_image.py`, `d140_event.py`; local `output/results_2026-10-10/
+  d140_floating/`, the table `d140_inventory_table.md`): every kept frame of the side (azimuth 90, head right) and front
+  views. Two automatic tests: the display's disc sets apart from its largest set (the e3 rule) flag 1,421 piece-frames on
+  the dragon's side view (111 on particles apart from the body, class i; 1,310 on contiguous material, class ii), but
+  checked on the contact sheet none of the 48 largest is seen apart: the disc graph splits the drawn surface itself. The
+  pieces a viewer sees were found in the rendered frames instead (body pixels against the backdrop's per-row grey,
+  components other than the largest), checked one by one, and their particles read: dragon side: (1) the crevice at
+  3.25–4.4 s, a foam of small beads on the tearing membrane (contiguous, 1.3–1.8 pitches thick: ii), and one bead at
+  5.05–5.35 s (two particles apart from the body, 4.2–4.4 pitches from the target: i); (2) the loop's interior at
+  5.9–6.65 s, a bead (contiguous, 1.5 pitches thick: ii); (3) the neck–body hole's lower rim at 13.0–14.45 s, a small
+  bead (contiguous, 1.2–1.4: ii); (4) the mouth, between the jaws, at 9.0 s and from 13.0 s to the end, small bright
+  beads flickering at two places, with no particle under them at all (ii-a: the field's blob in empty space between two
+  near surfaces); (5) thin dark slivers at the claw tips under the feet (7–16 s): claws at the target surface, a shading
+  crease, not floating. The front view adds nothing visible. Bunny, side and front: no visible floating piece (the image
+  test's candidates are dark creases under the body and in the neck fold). The field at the particles of the pieces of
+  (1)–(3) (`d140_fieldcheck.py`): 99.8–100 % of them lie inside the drawn surface (f < 0), so the beads are the
+  surface's shape around thin contiguous material, not particles left out. Every visible event sits in a gap of the
+  target narrower than about two of the shape's cells; class (ii) dominates (four of five places, all the long-lived
+  ones, and the only one present at the end, the mouth).
+  **Papers.** Class (i), separation at a coarse cell (read for D137): Bardenhagen 2000 / 2001 (multi-velocity-field
+  contact), Nairn 2003 (explicit cracks, two fields per node by a crossing test), Hu et al. 2018 (CPIC: compatibility
+  with a known cutter, the kernel's support "naturally causes velocity field smoothing" across thin boundaries), Homel
+  & Herbold 2017 (two fields partitioned by a damage gradient), Wolper et al. 2019 (CD-MPM: separation by softening
+  leaves debris). Each separates the sides by a second velocity field or a finer grid, so each changes the trajectory.
+  Class (ii), the surface field (read now; an agent's reading of the full texts): Zhu & Bridson 2005 (our field; its
+  own stated artifact is blobs in concave regions, and the centroid falls between near but separated particles,
+  Solenthaler et al. 2007; the shift grows with the radius, R = 3 pitches here against their 2); Solenthaler 2007
+  (eigenvalue-scaled offset: thins stretched necks further, two tuned thresholds); Yu & Turk 2013 (an anisotropic
+  kernel per particle from its neighbours' weighted covariance: a one-particle sheet stays a flat continuous sheet, an
+  isolated particle a sphere; their constants k_r, k_s, N_ε are tuned and their N_ε fallback would bead a strand);
+  Ando, Thürey & Wojtan 2013 (the union of convex hulls of linked triplets: the surface's connectivity is the link
+  graph's, expensive, C0); Bhattacharya et al. 2015 (thin features break by construction, minutes a frame); later work
+  (Löschner 2023, PhysGaussian 2024, Zhao 2025) does not change the field's definition for thin material.
+  **Proposal (not implemented; the user decides). One definition change, for class (ii): the exterior field becomes an
+  anisotropic density field of the particles (Yu & Turk 2013, with its constants derived), everywhere it is read (the
+  base display and the render terms, which read the same discs).** Each particle j carries the covariance C_j of its
+  neighbours linked within 1.5 pitches (the pipeline's own link length), weighted (1 − (d / 1.5 a)²)³, plus the variance
+  of one pitch's uniform cell a² / 12 as its floor (in place of Yu & Turk's tuned eigenvalue clamp and their N_ε
+  fallback, so a strand keeps an elongated kernel); the field is φ(q) = Σ_j k(|C_j^{-1/2}(q − x_j)|) with the cubic
+  k(s) = (1 − s² / 9)³ on s < 3 (the radius 3 pitches of today's field), the surface at the level a single isolated
+  particle takes at 0.8 pitch (today's offset), and no smoothing of the centres. What it is meant to change: in the
+  mouth and the narrow holes no particle's kernel reaches the middle of the gap across a flattened sheet, so no blob in
+  empty space (the field reads density, not a centroid that falls between two surfaces); a thin sheet or strand of
+  linked particles is one continuous thin surface instead of beads; two particles apart stay small spheres (the crevice
+  bead of class i stays visible: the definition does not hide physical separation). Cost: one 16-neighbour covariance
+  per particle per frame and the same lattice; differentiable in x (C_j written without eigenvectors). Risk: it is read
+  by the render terms, so the trajectory may move; the gate keeps it within D135's band or it is not adopted. Gate
+  (pre-registered with the implementation, before any run): (1) no visible floating or bead discs on the D135 bunny and
+  dragon videos, side and front (`d140_image.py` on the renders, every piece checked on its contact sheet; the crevice's
+  class-(i) bead of two particles reported, not counted); (2) the 0–1.5 s trajectory within D135's band: the side by
+  side at 0–1.5 s and the shell-against-bulk numbers (`d139_shear.py`) per window within D135's run-to-run spread (SB
+  against a second D135 run); (3) at rest, the render arm ahead of its twin, the yardstick within 15 % of D135's (two
+  baseline runs); (4) floating pieces not above D135's (the particles apart in windows 3–6 and 3–12, the display's
+  apart discs); (5) the cost measured (seconds per window, memory). If (2) fails because the render terms read the new
+  field, the same field drawn by the display alone is not proposed instead (a display-only change was ruled out as the
+  paper's answer, 2026-10-07); the user decides. The class-(i) alternative (a second grid velocity field split by the
+  transport's side labels, Nairn / Bardenhagen) is not proposed: one event of two particles for 0.3 s, and it changes
+  the trajectory in the gaps by construction.
 - **D138, the runtime phase: where a 300k attempt's time goes, and the exact speed-ups (opened 2026-10-09 20:07 CDT;
   the user: "최적화 빡세게 해서 10분 내외로"; relayed by the coordinator: profile first, exact speed-ups next, each
   bit-for-bit or within the replay noise, result-changing ones only as gated A/Bs the user decides; server `repo_frozen`
