@@ -9,9 +9,10 @@ the normal offset u of the outer layer. The fields below are its numbers. Weight
 the legacy cell-sum unit and converted by the unit ratio measured at the source.
 
 The defaults here are the code as it was before each A/B switch (the reference the tests compare against); the frozen
-recipe (tag freeze-2026-10-09) is scripts/pipeline_run.py's defaults: render_exterior, min_spacing 0.9, the layer
-relief, lambda_ema 1, volume_exact "carried", assim_volume, the source's density match and the cell following N above
-40k (D105, D120, D131, D132, D135, D137; cell_shape is set by the run script from prepare).
+recipe (tag freeze-2026-10-09b, D139) is scripts/pipeline_run.py's defaults: render_exterior, min_spacing 0.9, the
+layer relief, lambda_ema 1, volume_exact "carried", assim_volume and the source's density match on the MPM cell from the
+shape (D105, D120, D131, D132, D135); D137's cell following N above 40k is an option (--cell_follows_n; cell_shape is
+then set by the run script from prepare).
 """
 from __future__ import annotations
 

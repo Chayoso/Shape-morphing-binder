@@ -51,10 +51,11 @@ def parse_args():
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
-    # the defaults below are the frozen recipe (tag freeze-2026-10-09, gates D136 and D137): D105's, whose render arm is ahead of
-    # its physics-only twin on every display measure read against an independent sample (D91, D92; the minimum spacing
-    # D70/D72, the exterior D62, the layer relief D105), with the render weight at the rule's value (D120) and the
-    # volume-conserving body (D131, D132, D135) and the cell following N (D137); each stays an A/B switch back to the code as it was
+    # the defaults below are the frozen recipe (tag freeze-2026-10-09b, D139; it supersedes freeze-2026-10-09): D105's,
+    # whose render arm is ahead of its physics-only twin on every display measure read against an independent sample
+    # (D91, D92; the minimum spacing D70/D72, the exterior D62, the layer relief D105), with the render weight at the
+    # rule's value (D120) and the volume-conserving body (D131, D132, D135), on the MPM cell from the shape (D137's cell
+    # following N is an option); each stays an A/B switch back to the code as it was
     ap.add_argument("--lambda_ema", type=float, default=1.0,
                     help="D120: the render weight's moving average per window; 1 (the default) = the calibration rule's "
                          "value at every window; 0.3 = the average before the freeze (config.lambda_ema)")
@@ -106,11 +107,12 @@ def parse_args():
                     help="D132 (default on): the source sample rescaled so that it represents the volume of the target "
                          "sample's own fill (equal number densities; the target and every measure on it unchanged); "
                          "--no-match_density = the meshes' volumes matched at a 110^3 fill, as before")
-    ap.add_argument("--cell_follows_n", action=argparse.BooleanOptionalAction, default=True,
-                    help="D137 (default on): above the reference N (40k) the MPM cell follows the particle count, dx = "
-                         "(diag / cell_diag) x (40000 / N)^(1/3) (the particles per cell stay 40k's); the loss grid exactly "
-                         "as before, the u gate and the thin set on the shape's cell; --no-cell_follows_n (or N <= 40k) = "
-                         "the shape's cell, as before")
+    ap.add_argument("--cell_follows_n", action=argparse.BooleanOptionalAction, default=False,
+                    help="D137 (an option; off by default since freeze-2026-10-09b, D139): above the reference N (40k) the "
+                         "MPM cell follows the particle count, dx = (diag / cell_diag) x (40000 / N)^(1/3) (the particles "
+                         "per cell stay 40k's); the loss grid exactly as before, the u gate and the thin set on the shape's "
+                         "cell. It opens gaps narrower than two of the shape's cells but lets the surface form features "
+                         "ahead of the bulk early (D139); off (the default, or N <= 40k) = the shape's cell")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")

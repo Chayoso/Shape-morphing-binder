@@ -13,9 +13,9 @@ earlier pipelines and why this one replaced them).
 ## The pipeline
 
 **Setup.** The source and target meshes are sampled into `N` particles each (stratified volume sampling). The MPM cell
-is set from the shape and, above 40k particles, the particle count: `dx` = (source bounding-box diagonal / 26) ×
-min(1, (40000 / N)^(1/3)), so a cell holds about 23 particles at every `N` (D137). Every particle has the same dynamics
-mass `40000 / N`, so the body's mass does not depend on `N`.
+is set from the shape: `dx` = source bounding-box diagonal / 26 at every `N` (about 23 particles a cell at 40k, 183 at
+300k; `--cell_follows_n` makes it follow `N` above 40k instead, D137/D139). Every particle has the same dynamics mass
+`40000 / N`, so the body's mass does not depend on `N`.
 
 **One window (settled transport).** The body is simulated for `2T` steps (`T = 20`, `dt = 1/240`): `T` driven steps
 with the controls, then `T` released steps with the controls set to zero while the physics keeps running. Every loss
@@ -68,7 +68,8 @@ the state stays valid.
 A result that raises the merit by more than 5 % is rejected and the state is kept. The run ends at the best state after 3 consecutive rejections, or when the
 merit stops improving for 5 windows.
 
-**The frozen recipe (tag `freeze-2026-10-09`).** `scripts/pipeline_run.py`'s defaults; `config.py` keeps the code as
+**The frozen recipe (tag `freeze-2026-10-09b`, which supersedes `freeze-2026-10-09`).** `scripts/pipeline_run.py`'s
+defaults; `config.py` keeps the code as
 it was before each switch, the reference the tests compare against. Beyond the render terms on the exterior, the
 minimum spacing 0.9 and the layer relaxation keeping the target's relief (D62–D105):
 
@@ -88,17 +89,18 @@ minimum spacing 0.9 and the layer relaxation keeping the target's relief (D62–
   stretch per commit, every principal stretch kept in [0.2, 5]) also takes the stretch's volume, so the volume the end
   keeps becomes the body's rest volume instead of being held by the control. The end is the body's own rest (releasing
   the controls moves it by 3e-5 in kinetic energy), and the stream does not re-dilate (det Fg 0.98–1.04 per window).
-- The cell follows the particle count (D137, `--cell_follows_n`). With the cell from the shape alone, a 300k cell was
-  six particle spacings wide (183 particles a cell), and gaps of the target 1.7–4.5 cells wide (the dragon's crevice,
-  its neck–body hole, the inside of its loop) lay within the cubic kernel's reach of both their sides: the grid's single
-  velocity field moved the material filling them with both rims, stretched it, and it tore into beads (Hu et al. 2018
-  name this smoothing across thin boundaries). Above 40k the cell now shrinks with `N^(-1/3)`; the loss grid stays as
-  it was, and the `u` gate and the thin-set measure keep the shape's cell. At 300k this costs no measurable time.
+- The MPM cell stays the shape's (D139). The cubic kernel averages the grid velocity over about two cells (twelve
+  particle spacings at 300k): the body rises as one piece and the features grow out of it, but a gap of the target
+  narrower than about two cells cannot open until late and tears into beads there (the dragon's crevice at 3.6–5 s).
+  `--cell_follows_n` (D137, an option) shrinks the cell with `N^(-1/3)` above 40k (the loss grid as it was, the `u`
+  gate and the thin-set measure on the shape's cell): the gaps open early, but the surface forms features ahead of
+  the bulk (the bunny's face and ears printed on the sphere at 0.15–0.6 s, D139). At 300k the shape's cell holds
+  about 183 particles; a cell-size comparison is to come.
 
 Each stays a switch back to the old path (`--lambda_ema 0.3`, `--volume_exact off`, `--no-match_density`,
-`--no-assim_volume`, `--no-layer_relief`, `--no-cell_follows_n`). Measured and left out: the grid spray gate (D133) and
-the other volume modes (`history` D129, `motion` D130, `smoothed` D134). `--baseline xu` runs in the same simulator, so
-it also gets the volume handling, the density match and the cell unless those switches are passed.
+`--no-assim_volume`, `--no-layer_relief`). Measured and left out: the grid spray gate (D133) and the other volume modes
+(`history` D129, `motion` D130, `smoothed` D134). `--baseline xu` runs in the same simulator, so it also gets the
+volume handling and the density match unless those switches are passed.
 
 **What it conserves.** Stress cannot change total momentum: it enters the grid transfer as `G·(x_i − x_p)`, and the
 B-spline weights satisfy `Σ w_ip (x_i − x_p) = 0`. The Kirchhoff stress is symmetric, so angular momentum is kept too.
@@ -127,12 +129,12 @@ fallback. The only CPU work is the prepare stage (mesh loading and volume sampli
 ssh hyde06j
 source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
-# sphere -> bunny, 300k particles. No flags = the frozen recipe (tag freeze-2026-10-09; exactly the configuration of
-# the D137 gate runs, asserted by tests/test_frozen_recipe.py): surface proximity; the loss grid and the render
-# pictures following N; the render terms on the exterior (kernel radius 3) at one resolution; the minimum spacing
-# 0.9; the layer relief; the render weight at the rule's value every window (--lambda_ema 1); the volume carried
-# (--volume_exact carried) and assimilated (--assim_volume); the densities matched (--match_density); the MPM cell
-# following N above 40k (--cell_follows_n)
+# sphere -> bunny, 300k particles. No flags = the frozen recipe (tag freeze-2026-10-09b; exactly D135's configuration,
+# asserted by tests/test_frozen_recipe.py): surface proximity; the loss grid and the render pictures following N; the
+# render terms on the exterior (kernel radius 3) at one resolution; the minimum spacing 0.9; the layer relief; the
+# render weight at the rule's value every window (--lambda_ema 1); the volume carried (--volume_exact carried) and
+# assimilated (--assim_volume); the densities matched (--match_density); the MPM cell from the shape (diagonal / 26;
+# --cell_follows_n opens narrow gaps early but prints surface features ahead of the body, D139)
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --out $OUT/bunny
 # its physics-only twin (the render term off, everything else the same)
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --render_weight_scale 0 --out $OUT/bunny_phys

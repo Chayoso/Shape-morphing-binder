@@ -3332,6 +3332,36 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the defaults; 4K, 20 fps, studio look, base display): bunny and dragon front, the dragon side (head right), and D115's
   display-only detail layer for bunny and dragon front, alone and beside the base display. The evidence re-runs' data
   (d137b, d137e) removed after their logs were archived (`output/gpu/d137/archive_d137b_d137e_logs.tar.gz`).
+- **D139, the frozen version's early morph: the cell decides how the body rises (a measurement; opened 2026-10-09 21:50
+  CDT; the user rejected how the frozen bunny rises in 0–1 s: D105 and D120 rise as one body with the ears growing out
+  of the top like a tongue, the frozen one prints the face and ears onto the sphere's front as wrinkled sheets at
+  0.15–0.6 s which then peel out as thin double strips).** Runs on GPU 3 on the hook copy `repo_frozen_f` (the freeze's
+  code + the read-only d137 dump; `tmp/d137/d139_b.sh`, `d139_arms.sh`, `output/gpu/d139`): SB, D135's bunny 300k
+  render arm in full (the frozen code with `--no-cell_follows_n`, seed 97; every recorded argument equals D135 stage
+  2's LT but `cell_follows_n` false, which LT did not have and is its cell, and the read-only `term_dump`; 68 windows
+  against LT's 85, silhouette IoU 0.9878 (0.9880), chamfer 0.0551 (0.0551), thin 4.5 % (5.0 %), end kinetic energy
+  7.0e-6); then 15-window arms with the dump: NA (the frozen render arm, the cell following N), NT (its twin), ST (the
+  twin at the shape's cell), and D120's early frames rendered. The side by side (local `output/results_2026-10-09/
+  d139_early/`): with only the cell differing, D135 rises as one body with the ears growing out of the top, the frozen
+  version prints the face and ears on the sphere's front at 0.15–0.6 s; the cell makes the printing. The shell against
+  its bulk (`tmp/d137/d139_shear.py`: the sphere's outer shell, each particle's displacement relative to the mean of the
+  material 4–12 pitches beneath it, in pitches; median shell / the shell bound for the ears / the bulk's own displacement):
+  D135 (SB) at windows 1–4: 1.5 / 1.7 / 1.2, 3.2 / 4.7 / 3.8, 4.4 / 8.6 / 6.9, 5.0 / 12.9 / 9.5; the ears' shell reaching
+  27.9 by window 15 (the ears growing out of the body).
+  **The user's decision (2026-10-09, relayed by the coordinator): the default goes back to the shape's cell (D135's
+  morph); `--cell_follows_n` stays an option; a cell-size comparison for the paper comes later as an evidence
+  experiment.** The trade-off in plain terms: the cubic kernel averages the grid velocity over about two cells. On the
+  shape's cell (twelve pitches at 300k) the body rises as one piece, but a gap of the target narrower than about two
+  cells cannot open until late and tears into beads there (the dragon's crevice at 3.6–5 s, D137). On a cell following
+  N the gaps open early, but the surface's control and render form features ahead of the bulk (the bunny's face
+  printed at 0.15–0.6 s). Known reviewer point, to be answered by the later cell-size comparison: at 300k the shape's
+  cell holds about 183 particles. **The re-freeze: tag `freeze-2026-10-09b`, which supersedes `freeze-2026-10-09`
+  (D137's, left in place).** Defaults: D135's configuration (D105's recipe, `--layer_relief`, `--lambda_ema 1`,
+  `--volume_exact carried`, `--match_density`, `--assim_volume`) on the shape's cell; `tests/test_frozen_recipe.py`
+  asserts the defaults equal D135's recorded configuration (SB's, with term_dump at its default). The code is settled-
+  base's (the runtime agent's D138 batches 1–3, exact or within float rounding, included). Suite on a fresh copy of the
+  tag's tree (`repo_frozen_b`): 378 passed, 2 skipped, exit 0 (`tmp/d137/suite_frozen_b.log`). README: the cell rule is
+  an option, the trade-off in one sentence.
 - **D138, the runtime phase: where a 300k attempt's time goes, and the exact speed-ups (opened 2026-10-09 20:07 CDT;
   the user: "최적화 빡세게 해서 10분 내외로"; relayed by the coordinator: profile first, exact speed-ups next, each
   bit-for-bit or within the replay noise, result-changing ones only as gated A/Bs the user decides; server `repo_frozen`
