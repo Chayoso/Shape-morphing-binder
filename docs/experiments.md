@@ -3326,7 +3326,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   not D133's grid gate. With no flags it is exactly the configuration of the D137 gate runs (every recorded argument of
   the nine d137s runs LM / PM / LM2 equals the defaults; `tests/test_frozen_recipe.py` asserts it), on the same physics
   code (only the run script's defaults, `config.py`'s docstring and the README change). Suite on a fresh copy of the
-  freeze (repo_frozen): 359 passed, 2 skipped, exit 0 (`tmp/d137/suite_frozen.log`). Tagged `freeze-2026-10-09`.
+  freeze (repo_frozen): 359 passed, 2 skipped, exit 0 (`tmp/d137/suite_frozen.log`). Tagged `freeze-2026-10-09` (tag
+  fd7b632 on commit 010a75f). Deliverables of the frozen version (local `output/results_2026-10-09/frozen/`; rendered
+  with `tmp/frozen/frozen.sh` from the D137 gate runs d137s/bunny300k_LM and dragon300k_LM, whose configuration equals
+  the defaults; 4K, 20 fps, studio look, base display): bunny and dragon front, the dragon side (head right), and D115's
+  display-only detail layer for bunny and dragon front, alone and beside the base display. The evidence re-runs' data
+  (d137b, d137e) removed after their logs were archived (`output/gpu/d137/archive_d137b_d137e_logs.tar.gz`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
