@@ -204,6 +204,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         with timed("frames"):
             frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F,
                               Js=commit.J[1:-1] if J is not None else None, J_end=J)
+        if tgt.grid_ot is not None:
+            # D53 (tag settled-2026-10-03-d53, ported by the user's approval of 2026-10-09, D138): the promoted positions
+            # are the commit rollout's own end state unless a guard repaired them; the record's transport energy takes
+            # the potentials the commit solved there
+            tgt.grid_ot.repeat = not (counts["clamped"] or counts["nan_x"])
         with timed("record"):
             rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
             if cfg.assim_volume:                      # D135: the rest volume the assimilation has taken (a record)

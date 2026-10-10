@@ -3429,6 +3429,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   code, 0 of 24 on batch 2's): the test now runs its window again, up to three times, when the window ends in a
   commit_replay null, which says nothing about the discs it tests; its assertions are unchanged. Window bench: dragon 40
   12.20 → 11.65 s (two of six replays' merits 6–8e-4 above the rest; read below), bunny 30 7.24 → 7.03 s.
+  (j) D53: the record's transport energy at the promoted state takes the potentials the commit rollout solved there
+  (the promoted positions are the commit's own end state unless a guard repaired them; then it solves): test (7), no
+  solve in the record of an unrepaired commit and the energy a fresh solve's to the rasterisation's rounding. Suite 378
+  passed, 2 skipped, exit 0.
+  The replays' high tail (read at 22:20): of ten replays of the dragon's window 40 on batch 1's code (`rt3`, the
+  tensor field) two end 1.6e-4 and 3e-4 above the median merit, of ten on batch 2's (`rt4`, the device field) none
+  above 1.4e-4: the occasional window that ends a few 1e-4 higher belongs to the replays of either code (a window's
+  outcome from one start under the atomics), not to the device field.
+  Pre-registered for batch 3's runs (22:21 CDT, before they finish): the bunny and the dragon 300k render arms on the
+  batch-3 code (`B3`), each alone on GPU 0 or 1; the same quality bands as batches 1 and 2, the dragon's silhouette
+  band widened to its four runs' 0.9869–0.9874 and its width (0.9864–0.9879) after batch 1's miss showed three runs too
+  narrow; the seconds an attempt at most 8.0 (bunny) and 13.0 (dragon). Prediction: bunny about 7.3, dragon about
+  11.5–12.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

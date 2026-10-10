@@ -15,6 +15,7 @@ rollouts of one control already differ (the replay noise every window measures).
 (5) The window's exterior search reads the field in one Warp kernel: the tensor form's field to float rounding.
 (6) D50 (ported by the user's approval of 2026-10-09): the replay pair takes the warm start's evaluation as its first
     rollout, unless the exterior's discs were looked for again after it.
+(7) D53 (ported by the user's approval of 2026-10-09): the record's transport energy takes the commit's potentials.
 """
 from __future__ import annotations
 
@@ -294,3 +295,44 @@ def test_replay_pair_takes_the_warm_start_evaluation(monkeypatch, exterior):
         assert np.isfinite(rel) and 0.0 <= rel < 1e-3
         if not exterior:
             assert reuse == warm                        # without the exterior every warm start is reused
+
+
+def test_record_takes_the_commits_potentials(monkeypatch):
+    """(7) D53 (tag settled-2026-10-03-d53, ported by the user's approval of 2026-10-09): the window's record reads the
+    transport energy at the promoted state, which is the commit rollout's own end state unless a guard repaired it; it
+    takes the potentials the commit solved there and solves nothing, and the energy is a fresh solve's to the
+    rasterisation's own rounding."""
+    _dev_or_skip("cuda")
+    import physmorph.pipeline.run.runner as RN
+    from physmorph.losses.grid_ot import GridSinkhornLoss
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import PipelineConfig, run_pipeline
+    rng = np.random.default_rng(11)
+    src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
+    tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, animations=3, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                         render_res=24, dt_res=32, patience=3, c2f_event=False, render_exterior=True)
+    solve, rec = GridSinkhornLoss.solve, RN._record
+    n = {"solves": 0}
+    rows = []
+
+    def counting(self, a, b):
+        n["solves"] += 1
+        return solve(self, a, b)
+
+    def record(a, res, x, x_start, v, F, counts, commit, tgt_, cfg_, prm_, thin=None, J=None):
+        before = n["solves"]
+        out = rec(a, res, x, x_start, v, F, counts, commit, tgt_, cfg_, prm_, thin, J)
+        solved = n["solves"] - before
+        fresh = float(tgt_.grid_ot.state_energy(x, tgt_.m))
+        rows.append((bool(counts["clamped"] or counts["nan_x"]), solved, out["transport_energy"], fresh))
+        return out
+
+    monkeypatch.setattr(GridSinkhornLoss, "solve", counting)
+    monkeypatch.setattr(RN, "_record", record)
+    run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    assert rows
+    for repaired, solved, energy, fresh in rows:
+        assert solved == (2 if repaired else 0)        # the cross and the self problem, only after a repair
+        assert abs(energy - fresh) <= 1e-5 * max(abs(fresh), 1e-12)
