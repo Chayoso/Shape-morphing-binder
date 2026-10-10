@@ -3631,6 +3631,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   bench, the bunny's window 30: 6.30 → 6.12 s (merit 6.92458–6.92460e-5). Pre-registered for batch 5's runs (02:21
   CDT, before they finish): bunny W3, dragon W3 and W4 on `repo_w3`, each alone on a GPU; the same pass bands as batch
   4; the seconds an attempt at most 7.3 (bunny) and 10.3 (dragon). Prediction: 6.7 and 9.6.
+  **Batch 5, read (02:40 CDT).** Bunny W3 9.3 min (83 attempts, 6.72 s each), silhouette IoU 0.9880, chamfer 0.0551,
+  thin 4.6 %, last kinetic record 5.0e-6, best merit 4.30e-5; dragon W3 17.8 min (111 attempts, 9.65 s), 0.9877,
+  0.0545, 3.7 %, 1.4e-5, 4.67e-5: both pass every item (predicted 6.7 and 9.6 s). Dragon W4 was stopped at 02:32, when
+  GPU 2 went to the forensic agent's D140 gate (the coordinator), and is not read.
+  **The dragon's early stop: the user's decision (2026-10-10, relayed by the coordinator): accepted as the recipe's
+  run-to-run spread.** The reading it rests on: four batch-code runs (K1–K4: 105–113 attempts, best merit
+  4.38–4.86e-5, thin 4.3–4.7 %) against five frozen ones (LT, LF, S1, S2, S3: 109–126, 4.09–4.48e-5, 3.8–4.5 %), the
+  ranges overlapping (S2 inside the batch runs on all three), silhouette IoU and chamfer unchanged, the merits at equal
+  windows inside the frozen runs', Mann–Whitney one-sided p 0.04 (attempts) and 0.016 (best merit); and no step of the
+  batches reproduces it on a window (the ladder: twelve replays of window 100 on the frozen code, batch 2, + D47, + D50
+  and 09b, the same medians and no wider spread).
 - **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
   bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
   coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material
