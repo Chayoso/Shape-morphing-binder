@@ -94,14 +94,15 @@ def k_g2p_adj(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.a
 @wp.kernel(enable_backward=False)
 def k_g2p_adj_warp(order: wp.array(dtype=int), n: int,
                    x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
-                   grid_v: wp.array(dtype=wp.vec3),
+                   grid_v: wp.array(dtype=wp.vec3), Cn: wp.array(dtype=wp.mat33),
                    gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
                    adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33), adj_Fnew: wp.array(dtype=wp.mat33),
                    adj_x: wp.array(dtype=wp.vec3), adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33),
                    has_adj_dFc: int, adj_grid_v: wp.array(dtype=wp.vec3)):
     """k_g2p_adj over the particles in `order` (kernels.k_p2g_warp's cell order), WARP_LANES threads a block: the
     lanes on lane 0's stencil sum their grid adjoint before one atomic per node; the per-particle arithmetic is
-    k_g2p_adj's."""
+    k_g2p_adj's, but the particle's new affine field is read from the forward (C[t + 1]) instead of being gathered
+    from the grid again (the same expression, k_g2p's)."""
     blk, lane = wp.tid()
     q = blk * WARP_LANES + lane
     p = int(0)
@@ -119,18 +120,7 @@ def k_g2p_adj_warp(order: wp.array(dtype=int), n: int,
         xp = x[p]
         b = base_node(xp, gmin, inv_dx)
         key = cell_key(b, ny, nz)
-        Cnew = wp.mat33(0.0)
-        for oi in range(4):
-            for oj in range(4):
-                for ok2 in range(4):
-                    i = b[0] + oi
-                    j = b[1] + oj
-                    k = b[2] + ok2
-                    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
-                        dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
-                        w = bspline_w(dgp[0] * inv_dx) * bspline_w(dgp[1] * inv_dx) * bspline_w(dgp[2] * inv_dx)
-                        vg = grid_v[gid(i, j, k, ny, nz)]
-                        Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
+        Cnew = Cn[p]                                    # the forward's new affine field, C[t + 1]
         a_vnew = adj_v[p]
         # F_new = (I + dt Cnew)(F + dFc)
         B = F[p] + dFc[p]
@@ -264,13 +254,13 @@ def record_g2p(tape, tr, t: int, dfc, N: int):
     a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
 
     def backward():
-        args = [x, F, dfc, gv, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
+        tail = [gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                 v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc, int(dfc.grad is not None), gv.grad]
         if tr.order is not None:                    # cell order (D138 batch 4, kernels.k_p2g_warp)
-            wp.launch_tiled(k_g2p_adj_warp, dim=[tr.order_blocks], inputs=[tr.order, N] + args,
+            wp.launch_tiled(k_g2p_adj_warp, dim=[tr.order_blocks], inputs=[tr.order, N, x, F, dfc, gv, C1] + tail,
                             block_dim=WARP_LANES, device=dev)
         else:
-            wp.launch(k_g2p_adj, dim=N, inputs=args, device=dev)
+            wp.launch(k_g2p_adj, dim=N, inputs=[x, F, dfc, gv] + tail, device=dev)
 
     tape.record_func(backward=backward, arrays=[a for a in (x, F, gv, v1, C1, Fn, dfc) if a.grad is not None])
 

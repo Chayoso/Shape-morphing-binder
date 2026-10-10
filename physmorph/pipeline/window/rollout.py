@@ -80,15 +80,19 @@ def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor
 def _trajectory_min_det(win: Window, dc: torch.Tensor) -> float:
     """min over the window of det F after each step and det(F + dFc) before it: the stored F
     is smoothed, so an inversion of the EFFECTIVE deformation could hide in it. With the exact
-    volume (D129) the tracked J of every step is a determinant the stress reads, and counts too."""
+    volume (D129) the tracked J of every step is a determinant the stress reads, and counts too.
+    Step by step on the trajectory's own buffers (D138 batch 5): the same determinants as one batched call over the
+    stacked steps, without the stack's copies."""
     tr, T, N = win.tr, win.T, win.N
-    F_post = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(1, T + 1)])
-    F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
-    j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
-    jt = torch.minimum(torch.linalg.det(F_post).min(), j_eff)
-    if tr.volume_exact:
-        jt = torch.minimum(jt, torch.stack([wp.to_torch(tr.J[t]) for t in range(1, T + 1)]).min())
-    return float(jt)
+    dcs = dc.view(T, N, 3, 3)
+    mins = []
+    for t in range(T):
+        F_t = wp.to_torch(tr.F[t]).reshape(N, 3, 3)
+        mins.append(torch.linalg.det(F_t + dcs[t]).min())
+        mins.append(torch.linalg.det(wp.to_torch(tr.F[t + 1]).reshape(N, 3, 3)).min())
+        if tr.volume_exact:
+            mins.append(wp.to_torch(tr.J[t + 1]).min())
+    return float(torch.stack(mins).min())
 
 
 def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:

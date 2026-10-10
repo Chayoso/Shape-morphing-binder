@@ -3623,6 +3623,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   own spread; settling it would take about four more runs of each code. Measured and not adopted: the Sinkhorn's
   cross and self solves on two streams (bit for bit; `tmp/rt/pair_solve_clean.patch`): 1.2 % a window (dragon 100
   7.96 → 7.87 s, bunny 30 6.30 → 6.22 s), not worth its code.
+  **Batch 5 (bit for bit, or within the atomics' order; `repo_w3`).** (l) G2P's adjoint in cell order reads the
+  particle's new affine field from the forward (C[t + 1], k_g2p's own expression) instead of gathering it from the grid
+  again: the kernel 29.6 → 26.5 ms a sweep (test (8) covers it). (m) The trajectory's minimum determinant (every
+  evaluation's state check) step by step on the trajectory's own buffers instead of one batched call over their stacked
+  copies: bit for bit (test (9)), 16 → 9 ms an evaluation. Suite on `repo_w3` 325 passed, 2 skipped, exit 0. Window
+  bench, the bunny's window 30: 6.30 → 6.12 s (merit 6.92458–6.92460e-5). Pre-registered for batch 5's runs (02:21
+  CDT, before they finish): bunny W3, dragon W3 and W4 on `repo_w3`, each alone on a GPU; the same pass bands as batch
+  4; the seconds an attempt at most 7.3 (bunny) and 10.3 (dragon). Prediction: 6.7 and 9.6.
 - **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
   bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
   coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material

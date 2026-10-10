@@ -19,7 +19,8 @@ rollouts of one control already differ (the replay noise every window measures).
 (8) D138 batch 4: P2G and G2P's adjoint visit the particles in cell order and the lanes of a warp that share a
     stencil sum before their atomics (CUDA): the grid, the tape's outputs and the gradients equal the plain
     kernels' to float rounding (the order of the sums only), with fragment particles, invalid positions and lanes in
-    several cells.
+    several cells; G2P's adjoint in cell order reads the forward's new affine field (batch 5).
+(9) D138 batch 5: the trajectory's minimum determinant step by step on its own buffers: bit for bit.
 """
 from __future__ import annotations
 
@@ -364,3 +365,27 @@ def test_cell_ordered_transfers_keep_the_tape(volume, monkeypatch):
     for a, b in zip(plain[4:], ordered[4:]):
         torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * float(a.abs().max()))
         assert float(a.abs().max()) > 0
+
+
+def test_trajectory_min_det_step_by_step_is_the_stacked_one():
+    """(9) rollout._trajectory_min_det over the trajectory's own buffers, step by step: the same value bit for bit as the
+    frozen code's one batched determinant over the stacked steps (tag freeze-2026-10-09b), volume off and carried."""
+    _dev_or_skip("cuda")
+    import types
+    import warp as wp
+    from physmorph.pipeline.window.rollout import _trajectory_min_det
+    rng = np.random.default_rng(9)
+    T, N = 6, 50000
+    for carried in (False, True):
+        Fs = [wp.array((np.eye(3) + rng.normal(0, .3, (N, 3, 3))).astype(np.float32), dtype=wp.mat33, device="cuda")
+              for _ in range(T + 1)]
+        Js = [wp.array(rng.uniform(.5, 1.5, N).astype(np.float32), dtype=float, device="cuda") for _ in range(T + 1)]
+        tr = types.SimpleNamespace(F=Fs, J=Js, volume_exact=carried)
+        win = types.SimpleNamespace(tr=tr, T=T, N=N)
+        dc = torch.tensor(rng.normal(0, .1, (T, N, 9)).astype(np.float32), device="cuda")
+        F_post = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(1, T + 1)])
+        F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
+        jt = torch.minimum(torch.linalg.det(F_post).min(), torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min())
+        if carried:
+            jt = torch.minimum(jt, torch.stack([wp.to_torch(tr.J[t]) for t in range(1, T + 1)]).min())
+        assert _trajectory_min_det(win, dc) == float(jt)
