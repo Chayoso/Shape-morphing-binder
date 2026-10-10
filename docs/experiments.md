@@ -3642,6 +3642,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   windows inside the frozen runs', Mann–Whitney one-sided p 0.04 (attempts) and 0.016 (best merit); and no step of the
   batches reproduces it on a window (the ladder: twelve replays of window 100 on the frozen code, batch 2, + D47, + D50
   and 09b, the same medians and no wider spread).
+  **Result-changing levers: the user's decision (2026-10-10, relayed by the coordinator).** Approved, each as its own
+  pre-registered A/B after D140 is decided (shape-cell runs ×2 a mesh against the bands, with the render-lead and
+  at-rest items): (a) the Sinkhorn transport of a line-search trial warm-started from the window's latest solved
+  potentials; (b) the cleanup gradient merged into the physics channel for PCGrad and the λ calibration (two adjoint
+  sweeps instead of three). Not approved: (c) D49 (the proximity's nearest particle), (d) 6 iterations a window in
+  place of 8. Their pre-registration drafts: `tmp/rt/prereg_a_warm_sinkhorn.txt`, `tmp/rt/prereg_b_cleanup_merge.txt`
+  (to be committed before their runs). Next exact lever (coordinator, 2026-10-10): the three adjoint channels (physics,
+  cleanup, render) in one pass of the transfer adjoints; its design in `tmp/rt/rt_3cot_design.txt`, not started.
 - **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
   bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
   coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material
