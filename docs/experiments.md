@@ -3440,6 +3440,77 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   paper's answer, 2026-10-07); the user decides. The class-(i) alternative (a second grid velocity field split by the
   transport's side labels, Nairn / Bardenhagen) is not proposed: one event of two particles for 0.3 s, and it changes
   the trajectory in the gaps by construction.
+  **The user's GO (2026-10-10, relayed by the coordinator): implement the proposal exactly, behind one switch, the
+  isotropic field kept as the switch back and the default until the gate passes. Design check before the
+  pre-registration** (`tmp/d140/d140_probe.py`, numpy, FB's frame 341 and synthetic sheets; logs beside it): an
+  isolated particle's surface at 0.79 pitches in both fields; the bulk's surface along the outward normal of 1,500 outer
+  particles at +0.90 pitches (p10 +0.80, p90 +1.10) against Zhu–Bridson's +0.45 (+0.25, +0.65); one jittered sheet of
+  pitch a: half thickness 0.76 pitches (Zhu–Bridson 0.82), no hole between its particles; two such sheets 2.5 to 7
+  pitches apart: nothing drawn in the gap, where Zhu–Bridson draws a blob up to 5 pitches apart; the two mouth beads'
+  camera rays (frame 341 pixel (2511, 591), frame 303 (2676, 594)): Zhu–Bridson draws surface 2.5 pitches from any
+  particle on both, the anisotropic field nothing. The shell-against-bulk record (`d139_shear.py`, 1/6 s a window, so
+  0–1.5 s = windows 1–9; `tmp/d140/shear_SB_FB.log`).
+  **Pre-registration (2026-10-10 18:05 CDT server clock, before the implementation and any run).**
+  *Definition* (`--exterior_field aniso`; `zb`, the default, is today's field bit for bit). Each particle j carries
+  C_j = Σ_i w_ij (x_i − m_j)(x_i − m_j)^T / Σ_i w_ij + (a² / 12) I over its links i (the particles within 1.5 a of it,
+  itself included), w_ij = (1 − |x_i − x_j|² / (1.5 a)²)³, m_j their weighted mean; a the volume sample's pitch
+  (0.708 of the 8th-neighbour distance, today's). The field Φ(q) = Σ_j k(s_j), s_j² = (q − x_j)^T C_j^{-1} (q − x_j),
+  k(s) = (1 − s² / 9)³ on s < 3; the surface at Φ = c, c = k(0.8 a / σ_0) = 0.003155, σ_0 = a / √12; written as the
+  distance-like f = (c − Φ) a / 0.1377 (0.1377 / a: |dΦ/dr| at an isolated particle's surface), so the projection's
+  tolerance (0.02 pitches) and its half-pitch step keep their meaning. Where each constant comes from: 1.5 pitches is
+  the pipeline's link (the apart rule's, `d120_apart.py`, D108); a² / 12 is the variance of one pitch's uniform cell
+  (the volume sample's cell), in place of Yu & Turk's tuned eigenvalue clamp k_r, k_s and their N_ε fallback; the cubic
+  (1 − s² / 9)³ is today's kernel with its radius 3, now in the particle's own standard deviations: 3σ is 0.87
+  pitches for an isolated particle and about 1.5 pitches inside the body, not 3 pitches; 0.8 pitches is today's
+  offset, kept as the isolated particle's radius. No smoothing of the centres (Yu & Turk's Laplacian step moves the
+  drawn surface off the particles). Read everywhere the exterior is read: the target's pictures (`target.py`), the
+  render terms (`objective.py`: the discs found at a state, then read at the window's states by a differentiable
+  torch form that recomputes C_j and the field from the particles, the link lists frozen at the search as the discs'
+  particle lists are), and the base display (the display script's `+field=aniso`). The lattice is today's (pitch h,
+  the same cap); on the aniso path only, the searched nodes grow from today's ring of two cells until no inside node
+  lies on the searched set's edge (the zero set can sit up to about 1.5 pitches from a particle, beyond two cells of
+  h = 0.54–0.66 pitches); the zb path's search is unchanged.
+  *Tests* (suite on hyde06, exit status checked, before the runs): an isolated particle's surface at 0.8 pitches; a
+  flat sheet one continuous surface; two parallel sheets with an empty gap no blob in the gap; the Warp field against
+  the torch form; its gradient against finite differences; the differentiable read's gradient (float64 gradcheck);
+  the frozen recipe's defaults with `exterior_field` zb.
+  *Runs* (settled-base + the change on a server copy with the read-only d137 dump for windows 1–9): 300k bunny and
+  dragon, render arm (`--exterior_field aniso`) and twin (the same with `--render_weight_scale 0`), seed 97; GPU 2:
+  bunny arm then twin; GPU 3: dragon arm then twin; frames12 kept; the render arms rendered front and side (studio
+  look, the base display on the anisotropic field).
+  *Gate (all must hold).* (1) Visible pieces: `d140_image.py` on every kept frame of the render arms' side and front
+  renders, every candidate checked on its contact sheet: no floating or bead piece seen apart from the body, except
+  material apart from the body (class i, reported, not counted; D135's crevice bead of two particles at 5.05–5.35 s
+  is one); the dragon's side view at D135's five places (crevice 3.25–4.4 s, its bead 5.05–5.35 s, loop 5.9–6.65 s,
+  neck–body hole rim 13.0–14.45 s, mouth 9.0 s and 13.0–17.5 s) shown beside D135's (FB) and the mouth close-up.
+  (2) The trajectory at 0–1.5 s: at windows 1–9 the render arm's shell against its bulk, median and p90 (the bunny
+  also the face's median), each within the band's runs' range widened by its own width (lo − w, hi + w; w = hi − lo).
+  The band's runs: bunny SB (D135's render arm; windows 1–9: median 1.50, 3.19, 4.40, 5.00, 5.41, 5.31, 5.08, 5.12,
+  5.18; p90 2.06, 5.45, 8.83, 10.25, 11.70, 12.54, 13.51, 14.03, 14.33; face 1.73, 4.64, 7.23, 8.38, 8.27, 7.99, 7.62,
+  7.64, 7.59), ST (D135's twin; windows 1–4 only, its dump was cleared at 01:37: median 1.41, 3.07, 4.15, 4.85; p90
+  2.13, 5.26, 7.70, 9.55; face 1.74, 4.62, 6.82, 7.46) and this entry's bunny twin; dragon FB (median 1.44, 3.67, 5.86,
+  7.56, 8.45, 8.88, 9.21, 9.45, 9.44; p90 1.96, 5.34, 9.37, 13.15, 15.68, 16.73, 16.82, 16.96, 17.47) and this entry's
+  dragon twin. A twin reads no render term (its weight is zero, the render gradient enters as 0 × g), so this entry's
+  twins are D135's twins on today's code, the field aside. And the 0–1.5 s front and side views side by side with SB /
+  FB. (3) The end, against the runtime agent's shape-cell bands widened by their own width (D138, batches 4–5):
+  silhouette IoU, chamfer, thin uncovered within bunny 0.9871–0.9892, 0.0550–0.0552, 3.4–5.8 %, dragon 0.9864–0.9885,
+  0.0544–0.0546, 3.7–5.2 %; at rest: the last kinetic record within the shape's cell runs' range widened by its width
+  (bunny 3.3–9.3e-6 → up to 1.53e-5, dragon 8.9e-6–2.1e-5 → up to 3.3e-5); the render arm ahead of its twin on the
+  yardstick silhouette and the display front (`runeval3.sh`, its reading unchanged: the Zhu–Bridson display against the
+  independent sample, so both fields' runs are read alike), the yardstick within 15 % of D135's same mesh and arm (LT /
+  PT) or better. (4) Particles apart from the body (`d120_apart.py`, 1.5 pitches) in windows 3–6 and 3–10 not above the
+  larger of D135's two runs of the same mesh and arm (LT as D137 recorded it; SB / FB read now with the same script).
+  Reported, not gated: attempts and best merit against the bands (bunny 71–90, 4.04–4.54e-5; dragon 105–126,
+  4.09–4.86e-5), seconds an attempt against batch 5's W3 (6.72 s, 9.65 s), the disc searches' seconds, the largest GPU
+  memory, the discs a search finds. If (2) fails the entry stops there and is reported; no iteration.
+  *Prediction.* The bulk's drawn surface sits about 0.45 pitches farther out on the runs and on the target alike, so
+  the pictures move together and the render terms see no net offset. The mouth's beads (class ii-a) are gone; the
+  crevice foam, the loop's bead and the neck rim's beads (contiguous material 1.2–1.8 pitches thick) are drawn as
+  thin continuous sheets; the class-(i) bead at 5.05–5.35 s stays. (2) holds: the render's share of the early motion
+  is small at the shape's cell (SB against ST at window 1: median 1.50 against 1.41); the risk is the p90 at windows
+  2–4, the render gradient being more local (a disc reads the particles within about 1.5 + 1 pitches against 3 + 1).
+  (3) and (4) hold. Cost: +5 to +15 % an attempt (a 32-neighbour search, the covariances and the grown lattice per disc
+  search; a disc read holding a 3 × 3 matrix per neighbour).
 - **D138, the runtime phase: where a 300k attempt's time goes, and the exact speed-ups (opened 2026-10-09 20:07 CDT;
   the user: "최적화 빡세게 해서 10분 내외로"; relayed by the coordinator: profile first, exact speed-ups next, each
   bit-for-bit or within the replay noise, result-changing ones only as gated A/Bs the user decides; server `repo_frozen`
