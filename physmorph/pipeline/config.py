@@ -2,7 +2,7 @@
 
 The formulation is fixed (README.md): each window runs T driven and T released steps and is
 scored at the released end; the physics objective is the debiased grid Sinkhorn divergence
-to the fixed target plus the residual drift and the transport-bounded local support; the
+to the fixed target plus the residual drift and the target-surface proximity; the
 render objective is the multi-view silhouette plus the matched shading term, weighted by a
 lambda calibrated at every window; the controls are a per-particle stress increment dFc and
 the normal offset u of the outer layer. The fields below are its numbers. Weights are in
@@ -60,32 +60,17 @@ class PipelineConfig:
     assim_volume: bool = False      # A/B (D135): the assimilation takes the elastic stretch's volume too (isochoric=False),
                                     #   so a volume the end state keeps becomes the body's rest volume (det Fp) instead of
                                     #   being held by the control; the band [assim_smin, assim_smax] then bounds every
-                                    #   principal stretch of Fp and so det Fp too; defined with volume_exact off, carried or
-                                    #   smoothed (where F's volume is the one the stress reads); False = isochoric as before
-    volume_exact: str = "off"       # A/B: the stress reads a tracked volume J per particle (carried across windows like F)
-                                    #   on the smoothed F's shape, F_eff = (J / det F)^(1/3) (F + dFc) (mpm/kernels.k_stress_vx).
-                                    #   The smoothing kept 4.5 % of each step's increment, so the stress read J ~ 1.00 where
-                                    #   the transit stream was at J ~ 4 (D128). "history" (D129; True): J of the unsmoothed
-                                    #   history, J_t det(F_new) / det(F_t), the control's volume included at full size;
-                                    #   "motion" (D130): the motion's own volume, J_t det(I + dt C) = det Fg, the control's
-                                    #   volume acting within its own step only; "carried" (D131): the same volume carried in the smoothed F
-                                    #   itself (k_volume_carry: det F = J after every step; the stress reads F + dFc as on the old path, so
-                                    #   F's scale cannot drift and reweight the control); "smoothed" (D134): carried the same way, J the
-                                    #   motion's volume at the smoothing's rate (the old path's volume without the control's
-                                    #   accumulated part); "off" (False) = the old path bit for bit
+                                    #   principal stretch of Fp and so det Fp too; False = isochoric as before
+    volume_exact: str = "off"       # A/B (D131): "carried", the motion's own volume J_t det(I + dt C) tracked per particle and
+                                    #   carried in the smoothed F itself (mpm/kernels.k_volume_carry: det F = J after every step;
+                                    #   the stress reads F + dFc as on the old path); the smoothing kept 4.5 % of each step's
+                                    #   increment, so the stress read J ~ 1.00 where the transit stream was at J ~ 4 (D128);
+                                    #   "off" (False) = the old path bit for bit
 
     # ---- physics objective ----
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve
     ot_tol: float = 0.01            # marginal error of a converged solve
-    support_weight: float = 8.0     # local support bound, E + E wB / (E + wB)
-    support_target_ref: bool = False  # support floor: half the target density at the nearest target point
-                                      #   (False: half the target median density, one global floor)
-    support_form: str = "log"       # per-particle deficit penalty: "log" relu(log f - log s)^2 or "ratio"
-                                    #   relu(1 - s/f)^2 (the missing fraction of the local mass, at most 1); or
-                                    #   "proximity": the target-surface proximity in place of the support (the
-                                    #   body's nearest particle's kernel at every outer target point against
-                                    #   half the kernel at one sampling pitch; radius^2 mean relu(1 - K/floor)^2,
-                                    #   no bound, no weight)
+    # the fine part of the geometry energy is the target-surface proximity (losses/support.SurfaceProximity)
     loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
                                     #   and blur follow the particle spacing above the reference N
     cell_shape: float = 0.0         # D137: the shape's MPM cell (prepare's Prepared.cell_shape) when the MPM cell follows
@@ -94,10 +79,6 @@ class PipelineConfig:
 
     # ---- cleanup (fixed weights, outside the render balance) ----
     w_dt: float = 0.2               # W1 pull of isolated particles down the target DT
-    spray_gate: str = "knn"         # D126 A/B: which particles the spray cleanup acts on: "knn", the kNN-ratio ramp below
-                                    #   (the code as it was); "grid", the MPM's own decoupling test (mpm/kernels.k_frag_step,
-                                    #   the one the material bonds use: no other particle in the 3^3 cells around its own, or
-                                    #   the runner's commit-time fragment mask), binary, no constant (dt_iso_lo/hi unused)
     dt_iso_lo: float = 1.2          # isolation gate ramp, in median kNN distances
     dt_iso_hi: float = 1.8
     dt_res: int = 160               # the target DT's own fine grid
@@ -133,18 +114,9 @@ class PipelineConfig:
                                     #   surface's mean offset from the mesh where the radius 3 has it (D123)
     u_off: bool = False             # D124 A/B (ablation): u's gate is zero on every particle, so u never acts; the leaf
                                     #   stays (zero gradient) and everything else is as it is
-    render_body_only: bool = False  # D127 A/B: the render terms read only the discs of the body's largest connected set
-                                    #   (the display's rule, render/exterior.connected_sets: discs linked within 2.2 lattice
-                                    #   pitches), decided once per search of the window's discs; a flake of discs apart from
-                                    #   the body earns the render nothing. The target's discs are unchanged
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)
-    render_res: int = 64
-    render_res_hi: int = 96         # coarse-to-fine: targets rebuilt at this resolution ...
-    c2f_event: bool = True          # ... when the run at the coarse resolution would stop (the plateau, the
-                                    #   patience or the rejection streak); it then goes on at the fine resolution
-                                    #   to its own stop (before 2026-09-30: at half the window budget, a schedule
-                                    #   that C_R's 40k runs never reached and the 300k dragon reached by run length)
+    render_res: int = 96            # the pictures' resolution (the run script scales it with N above mass_ref_n, D74)
     sil_k: float = 1.5              # alpha = 1 - exp(-k w)
     w_hole: float = 2.0             # silhouette deficit inside the target
     w_spray: float = 1.0            # silhouette excess outside it
@@ -164,9 +136,8 @@ class PipelineConfig:
 
     # ---- output ----
     grad_dump: str = ""             # directory of per-window gradient dumps (visualisation)
-    ls_probe: bool = False          # diagnostic: every failed line-search trial re-run on dFc alone and u alone
     work_telemetry: bool = False    # diagnostic records: the first/last-iteration steering telemetry, and per window the
-                                    # support split, the active sets, the scale and control records, the OT divergence, the
+                                    # proximity split, the active sets, the scale and control records, the OT divergence, the
                                     # det F quantiles and the thin metrics (about 2 s a window at 300k); off in production
     profile: bool = False           # diagnostic: wall-clock split of a window (synchronises the GPU around each part)
     term_dump: str = ""             # diagnostic: directory of each term's per-particle position gradient per window
@@ -178,23 +149,13 @@ class PipelineConfig:
 
     def __post_init__(self):
         import math
-        if self.support_form not in ("log", "ratio", "proximity"):
-            raise ValueError("support_form must be \"log\", \"ratio\" or \"proximity\"")
         if self.xu_form not in ("oracle", "paper"):
             raise ValueError("xu_form must be \"oracle\" or \"paper\"")
-        if self.spray_gate not in ("knn", "grid"):
-            raise ValueError("spray_gate must be \"knn\" or \"grid\"")
-        self.volume_exact = {False: "off", True: "history"}.get(self.volume_exact, self.volume_exact)
-        if self.volume_exact not in ("off", "history", "motion", "carried", "smoothed"):
-            raise ValueError("volume_exact must be \"off\", \"history\", \"motion\", \"carried\" or \"smoothed\"")
-        if self.assim_volume and self.volume_exact in ("history", "motion"):
-            # those modes' stress reads (J / det F)^(1/3) F: F's own volume is not the one the stress reads, so
-            # assimilating it would not move the body's rest volume
-            raise ValueError("assim_volume is defined with volume_exact off, carried or smoothed")
-        for name in ("support_weight", "render_weight_scale"):
-            v = getattr(self, name)
-            if not math.isfinite(v) or v < 0:
-                raise ValueError(f"{name} must be finite and nonnegative")
+        self.volume_exact = {False: "off"}.get(self.volume_exact, self.volume_exact)
+        if self.volume_exact not in ("off", "carried"):
+            raise ValueError("volume_exact must be \"off\" or \"carried\"")
+        if not math.isfinite(self.render_weight_scale) or self.render_weight_scale < 0:
+            raise ValueError("render_weight_scale must be finite and nonnegative")
         if self.lambda_auto <= 0:
             raise ValueError("settled transport calibrates the render weight: lambda_auto > 0 "
                              "(use render_weight_scale 0 for the render-off twin)")

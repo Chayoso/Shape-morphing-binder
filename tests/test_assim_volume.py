@@ -5,8 +5,8 @@ the isochoric assimilation leaves every volume change elastic: a volume the end 
 (D131-D134). With the flag `assimilate_elastic(..., isochoric=False)` takes eta of it into Fp at every commit, so it becomes
 the rest volume (det Fp); the band [assim_smin, assim_smax] bounds each principal stretch of Fp and so det Fp too.
 
-(1) the flag is defined where F's volume is the one the stress reads (off, carried, smoothed) and refused with history /
-    motion, whose stress reads (J / det F)^(1/3) F;
+(1) the flag is defined with both volume modes, where F's volume is the one the stress reads (off, carried); the modes
+    whose stress read (J / det F)^(1/3) F (history, motion) and the smoothed one are gone (D141) and refused;
 (2) in the pipeline: off = the isochoric rule (det Fp = 1); on = a plastic volume (det Fp != 1), recorded per window.
 """
 from __future__ import annotations
@@ -18,14 +18,14 @@ import torch
 from physmorph.mpm.state import MPMParams
 
 
-@pytest.mark.parametrize("vx", ["history", "motion"])
-def test_refused_where_the_stress_reads_another_volume(vx):
+@pytest.mark.parametrize("vx", ["history", "motion", "smoothed"])
+def test_the_removed_volume_modes_are_refused(vx):
     from physmorph.pipeline import PipelineConfig
     with pytest.raises(ValueError):
         PipelineConfig(volume_exact=vx, assim_volume=True)
 
 
-@pytest.mark.parametrize("vx", ["off", "carried", "smoothed"])
+@pytest.mark.parametrize("vx", ["off", "carried"])
 def test_accepted_where_F_carries_the_stress_volume(vx):
     from physmorph.pipeline import PipelineConfig
     assert PipelineConfig(volume_exact=vx, assim_volume=True).assim_volume
@@ -46,7 +46,7 @@ def test_the_rest_volume_takes_the_kept_volume_only_with_the_flag(clouds, on):
     from physmorph.pipeline import PipelineConfig, run_pipeline
     prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
     cfg = PipelineConfig(T=3, iters=2, animations=4, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
-                         render_res=24, dt_res=32, patience=10, c2f_event=False, volume_exact="carried",
+                         render_res=24, dt_res=32, patience=10, volume_exact="carried",
                          assim_volume=on)
     res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
     assert all(v == 0 for v in res["guards"].values())

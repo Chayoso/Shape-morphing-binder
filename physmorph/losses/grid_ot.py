@@ -6,7 +6,7 @@ squared grid diameter down to the blur (one loss cell squared). The squared Eucl
 is separable by axis, so every sweep is three one-dimensional log-sum-exp passes (a Warp
 kernel inside a captured CUDA graph during no-grad evaluations). The gradient uses the
 envelope theorem: the converged potentials, differentiated through the rasterisation
-weights. state_energy adds the local support or surface-proximity term (the released motion is the window objective's stability term since 2026-09-30).
+weights. state_energy adds the surface-proximity term (the released motion is the window objective's stability term since 2026-09-30).
 grid_transport_displacement is the label-free transport map of the same quadrature, used
 for the per-window transport gate of the outer-layer control.
 """
@@ -274,8 +274,8 @@ class GridSinkhornLoss:
         return value.detach() + (envelope - envelope.detach())
 
     def state_energy(self, x, mass):
-        """The transport divergence of the released end state plus its fine term (the support, or the
-        surface proximity), in length-squared units. A terminal cost, not an edit to the simulated state.
+        """The transport divergence of the released end state plus its fine term (the surface
+        proximity), in length-squared units. A terminal cost, not an edit to the simulated state.
         The residual motion of the release is the stability term of the window objective, not part of
         this energy (before 2026-09-30 a squared residual displacement |T dt v|^2 was added here)."""
         if self.mass_total is not None:

@@ -27,7 +27,7 @@ def clouds():
 
 def _cfg(**kw):
     base = dict(T=3, iters=2, animations=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
-                render_res=24, dt_res=32, patience=2, c2f_event=False)
+                render_res=24, dt_res=32, patience=2)
     base.update(kw)
     return PipelineConfig(**base)
 

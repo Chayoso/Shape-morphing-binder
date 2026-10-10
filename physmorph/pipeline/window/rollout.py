@@ -155,20 +155,3 @@ def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit
                       jt_final=e.jt, valid=state_ok(e), owner=win, reason=state_reason(e),
                       J=[wp.to_torch(tr.J[t]) for t in range(T + 1)] if vx else None,
                       end_J=wp.to_torch(tr.J[T]).clone() if vx else None)
-
-
-def free_rollout_probe(win: Window, obj: Objective) -> dict:
-    """Diagnostic: the zero-control rollout from the window's start state. Its validity and reason, the
-    trajectory's min det, and the first step at which any particle's det F drops to the float32 floor with the
-    count of such particles there."""
-    with torch.no_grad():
-        leaf = torch.zeros(win.Tc, win.N, 3, 3, device=win.x0.device)
-        e = eval_terms(win, obj, leaf, torch.zeros(win.N, device=win.x0.device))
-        first, n_bad = None, 0
-        for t in range(1, win.T + 1):
-            det_t = torch.linalg.det(wp.to_torch(win.tr.F[t]).reshape(-1, 3, 3).float())
-            bad = int((det_t <= 1e-4).sum())
-            if bad and first is None:
-                first, n_bad = t, bad
-        return {"ok": int(state_ok(e)), "reason": state_reason(e), "jt": float(e.jt),
-                "first_bad_step": first, "n_bad": n_bad, "in_domain": int(e.in_domain)}

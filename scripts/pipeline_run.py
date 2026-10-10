@@ -68,22 +68,9 @@ def parse_args():
                          "3 = D59's field, the code as it was")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
-    ap.add_argument("--spray_gate", default="knn", choices=["knn", "grid"],
-                    help="D126 A/B: the spray cleanup's isolation gate: knn, the kNN-ratio ramp (the code as it was); grid, "
-                         "the MPM's own decoupling test (k_frag_step / the commit's fragment mask), no constant")
-    ap.add_argument("--render_body_only", action="store_true",
-                    help="D127 A/B: the render terms read only the discs of the body's largest connected set (the display's "
-                         "rule), decided at each search of the window's discs; discs apart from the body carry no term")
-    ap.add_argument("--volume_exact", nargs="?", const="history", default="carried",
-                    choices=["off", "history", "motion", "carried", "smoothed"],
-                    help="the default carried (D131); A/B: the stress reads a tracked volume J per particle (carried like F) on the smoothed F's shape: "
-                         "history (D129, the bare flag), the unsmoothed history's with the control's volume; motion (D130), "
-                         "the motion's own (det Fg), the control's volume within its step only; carried (D131), the motion's volume carried in the "
-                         "smoothed F itself (det F = J after every step, the stress reading F + dFc); smoothed (D134), carried "
-                         "with the motion's volume at the smoothing's rate (the old path's volume without the control's "
-                         "accumulated part); off = the old path bit for bit")
-    ap.add_argument("--w_dt", type=float, default=None,
-                    help="the spray cleanup's weight (config 0.2); 0 = the cleanup off, the limit of --spray_gate grid")
+    ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
+                    help="D131 (default carried): the motion's own volume J per particle, carried like F in the smoothed F "
+                         "itself (det F = J after every step, the stress reading F + dFc); off = the old path bit for bit")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
@@ -95,14 +82,10 @@ def parse_args():
     ap.add_argument("--layer_relief", action=argparse.BooleanOptionalAction, default=True,
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface; "
                          "D105); --no-layer_relief = the plane of the neighbours, as before")
-    ap.add_argument("--surface_density", type=float, default=1.0,
-                    help="D122 A/B: the sampling density within the outer band (layer_h_sp spacings deep) this many times "
-                         "the interior's, at the same N, source and target alike; 1 = the uniform sample, the code as it was")
     ap.add_argument("--assim_volume", action=argparse.BooleanOptionalAction, default=True,
                     help="D135 (default on): the per-commit assimilation takes the elastic stretch's volume too (Fp loses its "
                          "isochoric restriction; the band assim_smin..assim_smax bounds every principal stretch), so the volume "
-                         "the end keeps becomes the rest volume; with --volume_exact off, carried or smoothed; "
-                         "--no-assim_volume = isochoric as before (needed with --volume_exact history or motion)")
+                         "the end keeps becomes the rest volume; --no-assim_volume = isochoric as before")
     ap.add_argument("--match_density", action=argparse.BooleanOptionalAction, default=True,
                     help="D132 (default on): the source sample rescaled so that it represents the volume of the target "
                          "sample's own fill (equal number densities; the target and every measure on it unchanged); "
@@ -116,11 +99,6 @@ def parse_args():
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
-    ap.add_argument("--support_weight", type=float, default=8.0, help="local support bound weight")
-    ap.add_argument("--support_target_ref", action="store_true",
-                    help="support floor from the target density at the nearest target point")
-    ap.add_argument("--support_form", choices=("log", "ratio", "proximity"), default="proximity",
-                    help="per-particle support penalty: log deficit squared, or missing mass fraction squared")
     ap.add_argument("--loss_follows_n", action=argparse.BooleanOptionalAction, default=True,
                     help="transport grid, blur and render pictures follow the particle spacing above mass_ref_n")
     ap.add_argument("--cell_diag", type=float, default=26.0,
@@ -128,8 +106,6 @@ def parse_args():
     ap.add_argument("--save_F_stride", type=int, default=0,
                     help="archive every k-th frame's F (0 = every T frames)")
     ap.add_argument("--grad_dump", default="", help="directory of per-window gradient dumps")
-    ap.add_argument("--ls_probe", action="store_true",
-                    help="diagnostic: split every failed line-search trial by control channel")
     ap.add_argument("--profile", action="store_true",
                     help="diagnostic: record the wall-clock split of every window (slows the run)")
     ap.add_argument("--young", type=float, default=None, help="material: Young's modulus (default: the config's)")
@@ -198,19 +174,12 @@ def main():
     args = parse_args()
     gpu.require_cuda()
     material = {k: getattr(args, k) for k in ("young", "poisson", "assim") if getattr(args, k) is not None}
-    cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
-                          loss_follows_n=args.loss_follows_n, **material)
-    if args.surface_density < 1.0:
-        raise SystemExit("--surface_density must be 1 (the uniform sample) or more")
-    if args.surface_density > 1.0 and args.baseline:
-        raise SystemExit("--surface_density is not defined for the baseline (its loss has no masses of its own)")
-    if args.assim_volume and args.volume_exact in ("history", "motion"):
-        raise SystemExit("--volume_exact history / motion need --no-assim_volume (D135 is defined with off, carried or smoothed)")
+    cfg0 = PipelineConfig(loss_follows_n=args.loss_follows_n, **material)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
                    surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws,
-                   surface_density=args.surface_density, band_sp=cfg0.layer_h_sp, match_density=args.match_density,
+                   match_density=args.match_density,
                    cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
@@ -225,19 +194,17 @@ def main():
     # was wider than the detail and left the fine stage a few windows at the end (D73, D81); started fine, the
     # 300k render arm is 13-43 % ahead of its physics-only twin and the 40k gallery is unchanged (D83, D85)
     per_dx = max(1.0, (args.n / cfg0.mass_ref_n) ** (1.0 / 3.0)) if cfg0.loss_follows_n else 1.0
-    res = args.render_res_hi or int(np.ceil(cfg0.render_res_hi * per_dx))
+    res = args.render_res_hi or int(np.ceil(cfg0.render_res * per_dx))
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               lambda_ema=args.lambda_ema,
-                              render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
+                              render_exterior=args.render_exterior, render_res=res,
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
-                              spray_gate=args.spray_gate, render_body_only=args.render_body_only,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
-                              w_dt=cfg0.w_dt if args.w_dt is None else args.w_dt,
-                              ot_iters=args.ot_iters, support_weight=args.support_weight,
+                              ot_iters=args.ot_iters,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
-                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
+                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form)
     if args.baseline:                      # the comparison baseline: Xu et al.'s objective, nothing else of ours
@@ -246,22 +213,21 @@ def main():
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)
     print(f"[v2run] baseline chamfer (undeformed) = {metrics.chamfer(src, tgt):.4f}", flush=True)
-    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc, "sampling": prep.sampling, "density": prep.density,
+    out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc, "density": prep.density,
                           "cell_shape": prep.cell_shape},
            "arms": {}}
-    cfg_dump = dataclasses.asdict(cfg)                 # before the run: c2f edits render_res
+    cfg_dump = dataclasses.asdict(cfg)
     print(f"\n[v2run] ===== ARM {ARM} =====", flush=True)
     t_thin = time.time()
     # the thin part of the target (measurement), in the shape's cell (D137: also when the MPM cell follows N)
-    ts = thin_set(tgt, prep.cell_shape or prm.dx, cfg.mass_ref_n, prep.w_tgt)
+    ts = thin_set(tgt, prep.cell_shape or prm.dx, cfg.mass_ref_n)
     print(f"[v2run] thin set: {len(ts.points)} of {ts.n_outer} outer target points below two MPM cells "
           f"({time.time() - t_thin:.1f} s)", flush=True)
     on_commit, on_iter = live_hooks(args, src, tgt, prm, cfg)
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
-                       w_src=prep.w_src, w_tgt=prep.w_tgt, tgt_base=prep.tgt_base)
+                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")
@@ -270,7 +236,7 @@ def main():
     met = metrics.summarize(frames.x[:dn], tgt, n_held=res["n_held"], detF_min=detF_min)
     met.update(thin_metrics(frames.x[dn - 1], ts))
     try:                                                    # a measurement; its failure must not cost the archive
-        met.update(surface_roughness(frames.x[dn - 1], tgt, prep.w_src, prep.w_tgt))
+        met.update(surface_roughness(frames.x[dn - 1], tgt))
     except Exception as e:                                  # noqa: BLE001  (D122: the first surface-dense 300k run died here)
         print(f"[v2run] surface_roughness failed: {e!r}", flush=True)
         met.update(surf_rough=None, surf_rough_p90=None)
@@ -285,9 +251,8 @@ def main():
              F_samples=np.stack(F_samples), F_sample_idx=np.array(idx),
              J_samples=np.stack(J_samples) if J_samples else np.zeros((0, 0), np.float32),
              render_mask=np.ones(len(src), bool), s=np.zeros(0, np.float32),
-             w_src=np.zeros(0, np.float32) if prep.w_src is None else prep.w_src,     # D122: the rest-volume weights
-             w_tgt=np.zeros(0, np.float32) if prep.w_tgt is None else prep.w_tgt,
-             tgt_base=np.zeros((0, 3), np.float32) if prep.tgt_base is None else prep.tgt_base,
+             w_src=np.zeros(0, np.float32), w_tgt=np.zeros(0, np.float32),     # the archive format: no rest-volume weights
+             tgt_base=np.zeros((0, 3), np.float32),
              Fg_commit_idx=np.zeros(0, np.int64), Fg_commits=np.zeros((0, 0, 3, 3), np.float32))
     out["arms"][ARM] = {"config": cfg_dump, "metrics": met,
                         "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v) for k, v in gates.items()},

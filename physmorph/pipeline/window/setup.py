@@ -47,33 +47,25 @@ class Window:
         # the dynamics mass of the discretisation: the body's mass does not depend on N, so a
         # unit control moves the 300k body as it moves the 40k one (loss-side masses are unit)
         m = float(cfg.mass_ref_n) / N if cfg.mass_ref_n > 0 and N != cfg.mass_ref_n else 1.0
-        # D122 (--surface_density > 1): the body's particles carry their rest volume relative to the mean (tgt.body_w,
-        # the sampler's) and the spacing of their own, body_local = w^(1/3); the mass is that of a uniform material,
-        # m w (its total unchanged), and every length counted in spacings below is the particle's own
-        local = tgt.body_local
-        if tgt.body_w is not None:
-            m = m * tgt.body_w
         # the outer layer: relaxed toward its neighbours' plane over one window (fraction
         # 1/T per driven step) and carrying the u control
         with timed("layer_data"):
-            self.sp0 = layer_spacing(start.x, local)
-            self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
-                                                               h_sp=cfg.layer_h_sp, local=local)
+            self.sp0 = layer_spacing(start.x)
+            self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k, h_sp=cfg.layer_h_sp)
         # the relaxation's reference: its own operator on the layer's feet on the target's surface (target.relief)
         with timed("layer_relief"):
-            ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw, local)
+            ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw)
         relax = 0.0 if cfg.baseline.startswith("xu") else 1.0 / float(cfg.T)   # the baseline has no relaxation
-        layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, 0.0, None, ref)
+        layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, ref)          # the u gate is set by the objective
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
-        # rest volume gives, among each particle's 16 nearest at the window's start (a pair's distance is the mean of
-        # the two particles' own, which is the one pitch of a uniform sample)
+        # rest volume gives, among each particle's 16 nearest at the window's start
         spacing = None
         if cfg.min_spacing > 0:
             r = cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0)
             with timed("spacing_knn"):
-                spacing = (gpu.knn(start.x, 17)[1][:, 1:], r if local is None else r * local)
+                spacing = (gpu.knn(start.x, 17)[1][:, 1:], r)
         nbr, rest, frag = bonds
-        # D129 / D130: the tracked volume, carried from the last commit like F (the gradient's rollout and the eval
+        # D131: the tracked volume, carried from the last commit like F (the gradient's rollout and the eval
         # trajectory, which is the line search's and the commit's, read the same J0)
         vx = cfg.volume_exact
         J0 = start.J if vx != "off" else None
@@ -115,7 +107,7 @@ class Window:
 
     def set_u_gate(self, gate: torch.Tensor) -> None:
         """Per-particle gate of u (1 where u may act), in the spec and the eval trajectory."""
-        self.spec.layer = self.spec.layer[:5] + (None, 0.0, gate) + self.spec.layer[8:]
+        self.spec.layer = self.spec.layer[:5] + (gate,) + self.spec.layer[6:]
         wp.to_torch(self.tr.layer_ug).copy_(gate)
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:

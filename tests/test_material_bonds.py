@@ -165,7 +165,7 @@ def test_position_control_adjoint_preserves_mid_rollout_bond_switch(dev):
 
 
 @pytest.mark.parametrize("dev", ["cpu", "cuda"])
-def test_fragment_p2g_replays_neighbor_velocity_without_changing_forward(dev):
+def test_fragment_p2g_replays_neighbor_velocity(dev):
     import warp as wp
     from physmorph.mpm.kernels import k_p2g
 
@@ -185,28 +185,26 @@ def test_fragment_p2g_replays_neighbor_velocity_without_changing_forward(dev):
     q = np.zeros((16 ** 3, 3), np.float32)
     q[:, 0] = -4 + .5 * (np.arange(16 ** 3) // 16 ** 2)
 
-    def run(xx, replay, backward=False):
+    def run(xx, backward=False):
         x = array(xx, wp.vec3, backward)
         gm = wp.zeros(16 ** 3, dtype=wp.float32, device=dev, requires_grad=backward)
         gv = wp.zeros(16 ** 3, dtype=wp.vec3, device=dev, requires_grad=backward)
         with wp.Tape() as tape:
             wp.launch(k_p2g, dim=2, inputs=[
-                x, v, zero, eye, zero, zero, one, one, one, nbr, frag, 1,
+                x, v, zero, eye, zero, zero, one, one, nbr, frag, 1,
                 gm, gv, wp.vec3(-4., -4., -4.), .5, 2., 1 / 120, 0.,
-                16, 16, 16, replay], device=dev)
+                16, 16, 16], device=dev)
         mass, momentum = gm.numpy().copy(), gv.numpy().copy()
         value = np.sum(momentum.astype(np.float64) * q)
         if backward:
             tape.backward(grads={gv: array(q, wp.vec3)})
         return value, mass, momentum, x.grad.numpy().copy() if backward else None
 
-    old, fixed = run(x0, 0, True), run(x0, 1, True)
-    assert np.array_equal(old[1], fixed[1]) and np.array_equal(old[2], fixed[2])
+    fixed = run(x0, True)
     xp, xm = x0.copy(), x0.copy()
     xp[0, 0] += 1e-3
     xm[0, 0] -= 1e-3
-    fd = (run(xp, 1)[0] - run(xm, 1)[0]) / 2e-3
+    fd = (run(xp)[0] - run(xm)[0]) / 2e-3
     # Linear reproduction: momentum first moment = m * neighbor_velocity * x.
     assert fd == pytest.approx(.7, rel=1e-4)
     assert fixed[3][0, 0] == pytest.approx(fd, rel=1e-4)
-    assert old[3][0, 0] == 0.0  # Historical baseline remains reproducible.

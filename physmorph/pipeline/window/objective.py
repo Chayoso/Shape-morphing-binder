@@ -21,7 +21,7 @@ from ... import gpu
 from ...prof import timed
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
-                                  nn_band_assign, spray_gate)
+                                  isolation_gate, nn_band_assign)
 from ...render.exterior import Tracked, ZhuBridson
 from ..render_loss import d_exterior, d_pbr, d_render
 from .setup import Window
@@ -52,7 +52,6 @@ class Objective:
         cfg, tgt, prm = win.cfg, win.tgt, win.prm
         self.win, self.cfg, self.tgt = win, cfg, tgt
         self.discs, self.ext_builds = None, 0         # the exterior's discs and how often this window looked for them
-        self.ext_apart = 0                            # D127: the discs apart from the body dropped at the last search
         x0 = win.x0
         eps = float(tgt.ldx) ** 2                     # blur: one loss cell
         self.xu = cfg.baseline in ("xu", "xu_spray")
@@ -124,11 +123,8 @@ class Objective:
 
     def spray_gate(self, x):
         """The spray cleanup's isolation gate at a state (frozen at the window start for the term, read at the state
-        for the selection merit's form): cfg.spray_gate "knn", the ramp dt_iso_lo..hi of the 8th-neighbour distance
-        over its median in the particle's own spacing (the code as it was); "grid" (D126), the MPM's own decoupling
-        test (losses/volumetric.grid_isolation_gate), no constant."""
-        cfg, t = self.cfg, self.tgt
-        return spray_gate(x, cfg.spray_gate, cfg.dt_iso_lo, cfg.dt_iso_hi, local=t.body_local, prm=self.win.prm)
+        for the selection merit's form): the ramp dt_iso_lo..hi of the 8th-neighbour distance over its median."""
+        return isolation_gate(x, self.cfg.dt_iso_lo, self.cfg.dt_iso_hi)
 
     # ---- terms ----
     def dvol_density(self, xT):
@@ -193,8 +189,6 @@ class Objective:
             with torch.no_grad(), timed("exterior"):
                 self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch, radius=e.radius, offset=e.offset, device_field=True),
                                      e.lattice, e.h, e.skin)
-                if cfg.render_body_only:          # D127: the body's largest connected disc set alone (the display's rule)
-                    self.ext_apart = self.discs.body_only(e.h)
             self.ext_builds += 1
             p, n, move = self.discs.read(xT)
         return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
@@ -214,8 +208,7 @@ class Objective:
         band. common_geometry: the form the selection merit reads, a function of the committed state alone: the
         isolation gate and the near band's nearest target points and band are taken at the state itself, not from
         the window's start. Until R13 this form summed the distance over EVERY particle, a dense body-to-target
-        distance that made up two fifths of the merit (R12f); it is a different quantity from the spray cleanup
-        and is no longer part of the merit (recorded as `merit_w1_gap`)."""
+        distance that made up two fifths of the merit (R12f); it is a different quantity from the spray cleanup."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         if self.xu:                                   # the baseline: no cleanup, or the spray cleanup alone
             if not self.spray_only:
@@ -252,17 +245,6 @@ class Objective:
             whole = d_nn_band_current(xT, t.m, t.pts, ones, self.berth, t.knn)
             band = d_nn_band_current(xT, t.m, t.pts, ones, self.berth, t.knn, far=float(t.ldx))
         return float(wu * cfg.w_nn * (whole - band))
-
-    def w1_merit_gap(self, xT) -> float:
-        """A record: the dense body-to-target distance (the distance field summed over every particle) minus the
-        spray cleanup read at the current state, in the merit's units: what the selection merit carried until R13."""
-        if self.xu:
-            return 0.0
-        cfg, t, wu = self.cfg, self.tgt, self.win.wu
-        with torch.no_grad():
-            whole = d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
-            gated = d_w1(xT, t.m * self.spray_gate(xT), t.dt3, t.dtgmin, t.dtdx, t.dtdims)
-        return float(wu * cfg.w_dt * (whole - gated))
 
     def scale_record(self, xT) -> dict:
         """A record: the position-space gradient norms of the two local terms at a committed state, in the

@@ -38,7 +38,7 @@ render term its calibration and internal constants.
   - Transport: a debiased Sinkhorn divergence between the body's mass on the loss grid and the fixed target's, blur
     one loss cell. The loss grid follows the particle count above 40k (`--loss_follows_n`). The Sinkhorn cost is
     separable by axis, so each sweep is three one-dimensional log-sum-exp passes on the GPU.
-  - Surface proximity (`--support_form proximity`): at every outer target point, the kernel of the body's nearest
+  - Surface proximity: at every outer target point, the kernel of the body's nearest
     particle against half the kernel at one sampling pitch. It charges a target point that has no particle within
     1.53 spacings; no weight, no bound.
   - Residual drift of the released end, `(T·dt)² mean |v_T|²`: the end is at rest.
@@ -98,9 +98,12 @@ minimum spacing 0.9 and the layer relaxation keeping the target's relief (D62–
   about 183 particles; a cell-size comparison is to come.
 
 Each stays a switch back to the old path (`--lambda_ema 0.3`, `--volume_exact off`, `--no-match_density`,
-`--no-assim_volume`, `--no-layer_relief`). Measured and left out: the grid spray gate (D133) and the other volume modes
-(`history` D129, `motion` D130, `smoothed` D134). `--baseline xu` runs in the same simulator, so it also gets the
-volume handling and the density match unless those switches are passed.
+`--no-assim_volume`, `--no-layer_relief`). Measured and left out, and removed from the code with their switches (D141):
+the grid spray gate (D126, D133), the render on the body alone (D127), the other volume modes (`history` D129,
+`motion` D130, `smoothed` D134), the log and ratio support forms, the surface-dense sampling (D122) and the
+coarse-to-fine render switch.
+`--baseline xu` runs in the same simulator, so it also gets the volume handling and the density match unless those
+switches are passed.
 
 **What it conserves.** Stress cannot change total momentum: it enters the grid transfer as `G·(x_i − x_p)`, and the
 B-spline weights satisfy `Σ w_ip (x_i − x_p) = 0`. The Kirchhoff stress is symmetric, so angular momentum is kept too.

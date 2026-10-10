@@ -2,11 +2,6 @@
 
 Frozen at the window start and read by the relaxation projection and the u control in the
 MPM kernels (k_layer_resid / k_layer_project). All on the device.
-
-`local` (D122, --surface_density): a sample whose density varies by design carries each particle's spacing relative
-to the base spacing (w^(1/3), w its rest volume over the mean); every length in spacings (the layer's depth, the
-neighbour weight's width, the relief reference's reach) is then the particle's own, base spacing x local. Without it
-(the uniform sample) every expression below is the one it was.
 """
 from __future__ import annotations
 
@@ -16,31 +11,24 @@ from ... import gpu
 from ...render.knn_gpu import knn_self_torch
 
 
-def _own(spacing: float, local: torch.Tensor | None, k: float = 1.0):
-    """k x spacing, per particle when `local` is given."""
-    return k * spacing if local is None else k * spacing * local
-
-
-def layer_by_asymmetry(x: torch.Tensor, spacing: float, k: int = 32, thr_sp: float = 0.5,
-                       local: torch.Tensor | None = None):
+def layer_by_asymmetry(x: torch.Tensor, spacing: float, k: int = 32, thr_sp: float = 0.5):
     """(mask (N,) bool, outward normal (N,3)): the offset of a particle from the centroid of
     its k nearest neighbours is ~0 inside and about half a spacing at the surface (SPH
     surface detection); thr_sp spacings is the depth of the first layer."""
     _, nb = knn_self_torch(x, k + 1)
     off = x - x[nb[:, 1:]].mean(1)
     n = off.norm(dim=1)
-    return n >= _own(spacing, local, thr_sp), off / (n[:, None] + 1e-12)
+    return n >= thr_sp * spacing, off / (n[:, None] + 1e-12)
 
 
-def layer_relax_data(x0: torch.Tensor, spacing: float, k: int = 24, h_sp: float = 2.0,
-                     thr_sp: float = 0.5, local: torch.Tensor | None = None):
+def layer_relax_data(x0: torch.Tensor, spacing: float, k: int = 24, h_sp: float = 2.0, thr_sp: float = 0.5):
     """(mask (N,) float, nrm (N,3), nbr (N,k) int, w (N,k)): the layer by neighbourhood
     asymmetry; each layer particle's k nearest layer particles weighted by a Gaussian of
     h_sp spacings times the normal agreement (same side only), rows normalised to 1. Rows of
     particles off the layer hold zeros. A layer particle with no same-side neighbour within the
     weight's reach has no plane to be relaxed onto: its row is itself (residual zero)."""
     N = x0.shape[0]
-    mask, nrm = layer_by_asymmetry(x0, spacing, thr_sp=thr_sp, local=local)
+    mask, nrm = layer_by_asymmetry(x0, spacing, thr_sp=thr_sp)
     idx = torch.nonzero(mask).squeeze(1)
     nbr = torch.zeros(N, k, dtype=torch.long, device=x0.device)
     w = torch.zeros(N, k, device=x0.device)
@@ -53,7 +41,7 @@ def layer_relax_data(x0: torch.Tensor, spacing: float, k: int = 24, h_sp: float 
         P, R = x0[idx].contiguous(), nrm[idx]
         d, nb = knn_self_torch(P, k + 1)
         d, nb = d[:, 1:], nb[:, 1:]
-        width = h_sp * spacing if local is None else (h_sp * spacing * local[idx]).to(d.dtype)[:, None]
+        width = h_sp * spacing
         ww = torch.exp(-(d / width) ** 2) * torch.clamp((R[nb] * R[:, None, :]).sum(-1), min=0.0)
         total = ww.sum(1, keepdim=True)
         relaxed = torch.nonzero(total[:, 0] > 1e-12).squeeze(1)
@@ -78,10 +66,9 @@ class TargetRelief:
         self.tree, self.reach = gpu.KNN(points), spacing
 
     def at(self, x: torch.Tensor, mask: torch.Tensor, nrm: torch.Tensor, nbr: torch.Tensor,
-           w: torch.Tensor, local: torch.Tensor | None = None) -> torch.Tensor:
+           w: torch.Tensor) -> torch.Tensor:
         """(N,) the reference of each layer particle, zero for a particle farther than one spacing from the target's
-        surface (it has not arrived) or off the layer; nrm, nbr, w: the window's layer graph (layer_relax_data);
-        local: the particles' own spacing over the base (the reach is then one spacing of its own).
+        surface (it has not arrived) or off the layer; nrm, nbr, w: the window's layer graph (layer_relax_data).
         Only the layer's particles are looked up on the surface: a layer row's graph holds layer particles alone (or
         itself), and every other row is zero, so the feet of the particles off the layer are never read (the lookup of
         the whole body took 2.7 s a window at 300k, most of it for the interior, far from the surface)."""
@@ -97,11 +84,11 @@ class TargetRelief:
         d = torch.full((x.shape[0],), float("inf"), device=x.device)
         d[on] = d_on.float().reshape(-1)
         res = (nrm * (foot - (w[..., None] * foot[nbr]).sum(1))).sum(1)
-        near = (mask > 0.5) & (d < _own(self.reach, None if local is None else local.float()))
+        near = (mask > 0.5) & (d < self.reach)
         return torch.where(near, res - (w * res[nbr]).sum(1), torch.zeros((), device=x.device))
 
 
-def layer_spacing(x0: torch.Tensor, local: torch.Tensor | None = None) -> float:
+def layer_spacing(x0: torch.Tensor) -> float:
     """The window's particle spacing: the median 8th-neighbour distance of a 20000-particle
-    subsample, rescaled to the full density (with `local`, the base spacing: gpu.median_kth_spacing)."""
-    return gpu.median_kth_spacing(x0, 8, subsample=20000, local=local)
+    subsample, rescaled to the full density."""
+    return gpu.median_kth_spacing(x0, 8, subsample=20000)

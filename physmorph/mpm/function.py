@@ -48,11 +48,11 @@ class RolloutSpec:
     bond_rest: np.ndarray | None = None  # (N,K) rest lengths (runner state)
     bond_frag: np.ndarray | None = None  # (N,) 1.0 where the particle is in a fragment
     spacing: tuple | None = None         # (nbr (N,K), r): the minimum spacing of the position update (traj.Trajectory)
-    layer: tuple | None = None           # (mask, nrm, nbr, w, frac[, g, depth]): outer-layer relaxation / u channel [P3 through F] (traj.Trajectory)
+    layer: tuple | None = None           # (mask, nrm, nbr, w, frac[, ug[, ref]]): the outer layer's relaxation and u channel (traj.Trajectory)
     bond_history: bool = False          # preserve legacy baseline; opt in to time-correct fracture adjoint
     control_steps: int | None = None    # release controls after this step; None controls the whole rollout
     polar_adjoint: bool = False         # stable rotation VJP; original signed-SVD forward is unchanged
-    volume_exact: bool | str = False    # the stress reads a tracked volume J: "history" (D129, True) / "motion" (D130)
+    volume_exact: bool | str = False    # "carried" (D131): the motion's volume J carried in the smoothed F; False / "off": the old path
     J0: np.ndarray | None = None        # the tracked volume at the start (volume_exact; None = 1)
 
 

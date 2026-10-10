@@ -30,9 +30,8 @@ _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phy
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
 _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
               "predicted_decrease") + _TELE_KEYS
-# line-search diagnostics: trials, failure reasons (by state check), the start state's validity, and with
-# cfg.ls_probe each failed trial split by channel plus the Adam direction of every iteration
-_LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
+# line-search diagnostics: trials, failure reasons (by state check), the start state's validity
+_LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason",
             "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
             "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr")
 
@@ -73,20 +72,6 @@ class _Clock:
         now = self.time.perf_counter()
         self.tele[key] += now - self.t
         self.t = now
-
-
-def direction_stats(ds, gs) -> list:
-    """Diagnostic, per leaf: cos(d, sign g), cos(d, g), the rms of the Adam direction d per coordinate (1 = a
-    pure sign step) and the share of the gradient's squared norm carried by its largest 1 % of coordinates."""
-    out = []
-    for d, g in zip(ds, gs):
-        d, g = d.flatten(), g.detach().flatten()
-        dn, gn = d.norm().clamp_min(1e-30), g.norm().clamp_min(1e-30)
-        s = torch.sign(g)
-        top = torch.topk(g.abs(), max(1, g.numel() // 100)).values.square().sum()
-        out += [float((d * s).sum() / (dn * s.norm().clamp_min(1e-30))), float((d * g).sum() / (dn * gn)),
-                float(dn / g.numel() ** 0.5), float(top / gn.square())]
-    return out
 
 
 def pcgrad(g_keep, g_strip):
@@ -263,11 +248,9 @@ class WindowOptimizer:
         bak = [p.detach().clone() for p in self.leaves]
         bak_m, bak_v = [m.clone() for m in self.mom], [v.clone() for v in self.vel]
         new, e_n, required = cur, None, 0.0
-        dstats = None                                       # cfg.ls_probe: the Adam direction, once per iteration
         for _ in range(cfg.max_ls_iters):
             t_ = self.adam_t + 1
             with torch.no_grad():
-                ds = []
                 for p, gi, m_, v_ in zip(self.leaves, g, self.mom, self.vel):
                     m_.mul_(cfg.beta1).add_(gi, alpha=1 - cfg.beta1)
                     v_.mul_(cfg.beta2).addcmul_(gi, gi, value=1 - cfg.beta2)
@@ -275,18 +258,10 @@ class WindowOptimizer:
                     vh = v_ / (1 - cfg.beta2 ** t_)
                     d = mh / (vh.sqrt() + win.eps_eff)
                     p -= a_try * d
-                    if cfg.ls_probe and dstats is None:
-                        ds.append(d)
-                if cfg.ls_probe and dstats is None:         # moments are restored on rejection: same d each trial
-                    dstats = direction_stats(ds, g)
                 if cfg.dfc_clip > 0:
                     n = self.dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
                     self.dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
-                if win.tgt.body_local is None:
-                    self.u.clamp_(-win.sp0, win.sp0)       # one spacing per window
-                else:                                      # (D122) one spacing of the particle's own
-                    bound = win.sp0 * win.tgt.body_local.to(self.u.dtype)
-                    self.u.copy_(torch.minimum(torch.maximum(self.u, -bound), bound))
+                self.u.clamp_(-win.sp0, win.sp0)           # one spacing per window
                 self.free_of_rigid()
             e_n = self.eval()
             with torch.no_grad():
@@ -305,16 +280,12 @@ class WindowOptimizer:
                 self.alpha = min(a_base * 1.1, cfg.alpha * self.alpha_scale)
                 self.alpha_base = a_base
                 self.accepted += 1
-                if dstats is not None:
-                    self._iter_row(dstats, a_try, bak, g)
                 return e_n, a_try, new, bak
             self.tele["ls_fail_merit"] += int(not merit_ok)
             self.tele["ls_fail_state"] += int(not st_ok)
             if not st_ok:
                 r = state_reason(e_n)
                 self.tele["ls_fail_state_reason"][r] = self.tele["ls_fail_state_reason"].get(r, 0) + 1
-            if cfg.ls_probe:
-                self._probe(bak, cur, e, e_n, a_try, st_ok)
             with torch.no_grad():                             # reject: restore and shrink
                 for p, b in zip(self.leaves, bak):
                     p.copy_(b)
@@ -325,83 +296,11 @@ class WindowOptimizer:
             a_base *= 0.5
             a_try = a_base * scale
         self.rejected += 1
-        if dstats is not None:
-            self._iter_row(dstats, -1.0, bak, g)            # no accepted step: the direction alone
         self.log(f"[win] line search exhausted (cur={cur:.6g} last_new={new:.6g} required={required:.3g} "
                  f"||g||={gn:.3g} a_try={a_try:.3g} state_ok={state_ok(e_n)}; last-attempt deltas "
                  f"d_vol={float(e_n.lv - e.lv.detach()):.3g} kin={float(e_n.lk - e.lk.detach()):.3g} "
                  f"render={float(e_n.lr - e.lr.detach()):.3g} lam={self.lam_r:.3g})")
         return None
-
-    def _iter_row(self, dstats, a_acc, bak, g):
-        """Diagnostic (cfg.ls_probe), one row per iteration: [iteration, accepted step (-1: none), direction stats
-        of dFc and u (direction_stats), the accepted dFc step's rms and max entry, the u step's rms over the
-        particles u can move and its max, both in spacings]."""
-        with torch.no_grad():
-            dd = (self.dFc.detach() - bak[0]) if a_acc > 0 else torch.zeros(1, device=bak[0].device)
-            du = (self.u.detach() - bak[1]) if a_acc > 0 else torch.zeros(1, device=bak[1].device)
-            live = g[1].detach() != 0
-            du_live = du[live] if a_acc > 0 and bool(live.any()) else du.new_zeros(1)
-            row = [float(self._it), float(a_acc)] + list(dstats) + [
-                float(dd.square().mean().sqrt()), float(dd.abs().max()),
-                float(du_live.square().mean().sqrt() / self.win.sp0), float(du.abs().max() / self.win.sp0)]
-        self.tele.setdefault("iter_probe", []).append(row)
-
-    def _probe(self, bak, cur, e: Eval, e_n: Eval, a_try, st_ok):
-        """Diagnostic (cfg.ls_probe): a failed trial split by channel. The same step is
-        evaluated on dFc alone and on u alone; per variant, the objective change relative to
-        the current value, the changes of the transport, kinetic and render terms, and the
-        state check. Then the current point is evaluated three more times and the spread
-        (max - min) of the objective, the transport without support, B and the render term is
-        recorded: the evaluation's own noise, against which a step's change is judged. The
-        caller restores the backup afterwards."""
-        parts_n = self._parts(e_n)                          # before the next rollout rewrites the flags
-        with torch.no_grad():
-            d_t, u_t = self.dFc.detach().clone(), self.u.detach().clone()
-            self.u.copy_(bak[1])
-        e_a = self.eval()
-        parts_a = self._parts(e_a)
-        with torch.no_grad():
-            self.dFc.copy_(bak[0])
-            self.u.copy_(u_t)
-        e_b = self.eval()
-        parts_b = self._parts(e_b)
-        with torch.no_grad():
-            self.u.copy_(bak[1])                            # the current point, three more times
-        reps = []
-        for _ in range(3):
-            er = self.eval()
-            reps.append([self.scalar(er)] + self._parts(er)[:2] + [float(er.lr)])
-        with torch.no_grad():
-            self.dFc.copy_(d_t)
-            self.u.copy_(u_t)
-        scale = max(abs(cur), 1e-30)
-        spread = [max(r[i] for r in reps) - min(r[i] for r in reps) for i in range(4)]
-        spread[0] /= scale
-
-        def row(ev, ok):
-            return [(self.scalar(ev) - cur) / scale, float(ev.lv - e.lv.detach()), float(ev.lk - e.lk.detach()),
-                    float(ev.lr - e.lr.detach()), int(ok)]
-        self.tele.setdefault("ls_probe", []).append(
-            [float(a_try), float((u_t - bak[1]).abs().max())] + row(e_n, st_ok) + row(e_a, state_ok(e_a))
-            + row(e_b, state_ok(e_b)) + parts_n + parts_a + parts_b + self._parts(e)[:3] + spread)
-
-    def _parts(self, ev: Eval) -> list:
-        """The transport term taken apart (diagnostic): the transport without the support bound,
-        the support penalty B, its largest per-particle value, and the particles flagged decoupled
-        at the last step of the latest eval rollout."""
-        tgt, sup = self.tgt, self.tgt.support
-        with torch.no_grad():
-            xT, vT = ev.xT.detach(), ev.vT.detach()
-            saved, tgt.grid_ot.support = tgt.grid_ot.support, None
-            try:
-                base = float(tgt.grid_ot.state_energy(xT, tgt.m))
-            finally:
-                tgt.grid_ot.support = saved
-            b = sup.penalty_per_point(xT) if sup is not None else xT.new_zeros(1)
-            tr = self.win.tr
-            nfrag = float(wp.to_torch(tr.frag_step).sum()) if getattr(tr, "bonds", None) else 0.0
-        return [base, float(b.mean()), float(b.max()), nfrag]
 
     def record(self, it, e_n: Eval, new, a_try, gn) -> dict:
         lpbr = float(e_n.lpbr)
@@ -535,7 +434,7 @@ class WindowOptimizer:
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
-            stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds, ext_apart=self.obj.ext_apart)
+            stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds)
         if self.accepted > 0:
             # a record (D93, D97): the body's net translation and rotation over the window by each position update
             with torch.no_grad(), timed("commit_records"):
@@ -544,7 +443,6 @@ class WindowOptimizer:
             stats["selection_merit"] = selection_merit
             with timed("commit_records"):
                 stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
-                stats["merit_w1_gap"] = self.obj.w1_merit_gap(commit.x[-1])
             if cfg.work_telemetry:                      # diagnostic records, not read by the run
                 stats.update(self.obj.scale_record(commit.x[-1]))
                 stats.update(self.obj.control_record(win.expand(self.dFc.detach())))

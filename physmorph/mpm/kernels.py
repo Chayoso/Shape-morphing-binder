@@ -58,78 +58,24 @@ def k_stress_polar(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
     P[p] = Pe @ wp.transpose(Fpi)
 
 
-# ── stress with the EXACT VOLUME (D129, --volume_exact) ─────────────────────────
-# The smoothing (k_update, s = prm.smoothing) keeps (1 - s) of every step's deformation increment in F, so the
-# stress read J = det F ~ 1.00-1.01 where the motion's own volume was J ~ 4 (D128). Here the smoothed F supplies
-# the SHAPE and the tracked J (k_volume_update) the VOLUME: the constitutive model is evaluated at
-#   F_eff = a (F + dFc),   a = (J / det F)^(1/3),
-# whose isochoric part is that of F + dFc and whose determinant is J det(F + dFc) / det F, the volume of the
-# unsmoothed history with this step's control (Fp stays isochoric, D1 unchanged). P stores dPsi/d(F + dFc) at fixed a,
-# a Pe(Fe) Fp^-T, so that k_p2g's P (F + dFc)^T is the Kirchhoff stress Pe(Fe) Fe^T of Fe = F_eff Fp^-1. The moduli
-# are E, nu as given. det F is floored at 1e-6 as the constitutive model floors J: an inverted F is rejected by the
-# trajectory checks, the floor only keeps the rejected trial finite.
+# ── the volume the motion makes, carried in the smoothed F (D131, --volume_exact carried) ─────────────────────
+# The smoothing (k_update, s = prm.smoothing) keeps (1 - s) of every step's deformation increment in F, so the stress
+# read J = det F ~ 1.00-1.01 where the motion's own volume was J ~ 4 (D128). The tracked J is the motion's volume
+# (k_volume_update_motion), and the smoothed F is rescaled to it after every step (k_volume_carry); the stress reads
+# F + dFc as on the old path. det F is floored at 1e-6 as the constitutive model floors J: an inverted F is rejected
+# by the trajectory checks, the floor only keeps the rejected trial finite.
 @wp.func
 def volume_scale(F: wp.mat33, J: float) -> float:
     return wp.pow(wp.max(J, 1.0e-6) / wp.max(wp.determinant(F), 1.0e-6), 1.0 / 3.0)
 
 
 @wp.kernel
-def k_stress_vx(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
-                Fp: wp.array(dtype=wp.mat33), J: wp.array(dtype=float), lam: wp.array(dtype=float),
-                mu: wp.array(dtype=float), P: wp.array(dtype=wp.mat33)):
-    p = wp.tid()
-    a = volume_scale(F[p], J[p])
-    Fpi = wp.inverse(Fp[p])
-    Fe = (a * (F[p] + dFc[p])) @ Fpi
-    Pe = pk1_fixed_corotated(Fe, lam[p], mu[p])
-    P[p] = a * (Pe @ wp.transpose(Fpi))
-
-
-@wp.kernel
-def k_stress_polar_vx(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
-                      Fp: wp.array(dtype=wp.mat33), J: wp.array(dtype=float), lam: wp.array(dtype=float),
-                      mu: wp.array(dtype=float), P: wp.array(dtype=wp.mat33)):
-    p = wp.tid()
-    a = volume_scale(F[p], J[p])
-    Fpi = wp.inverse(Fp[p])
-    Fe = (a * (F[p] + dFc[p])) @ Fpi
-    Pe = pk1_fixed_corotated_polar(Fe, lam[p], mu[p])
-    P[p] = a * (Pe @ wp.transpose(Fpi))
-
-
-@wp.kernel
-def k_volume_update(F_in: wp.array(dtype=wp.mat33), F_new: wp.array(dtype=wp.mat33),
-                    J_in: wp.array(dtype=float), J_out: wp.array(dtype=float)):
-    """The tracked volume (D129): J_{t+1} = J_t det(F_new) / det(F_t), F_new = (I + dt C)(F_t + dFc_t) (k_g2p), i.e.
-    J_t x det(I + dt C) x det(F_t + dFc_t) / det(F_t): the motion's volume change and the control's, each at its
-    full size, the smoothing taking no part. With s = 0 (F_{t+1} = F_new) it is det F exactly; J_0 = 1 at the source
-    and the promoted J at a window start (carried like F)."""
-    p = wp.tid()
-    J_out[p] = J_in[p] * wp.determinant(F_new[p]) / wp.max(wp.determinant(F_in[p]), 1.0e-6)
-
-
-@wp.kernel
 def k_volume_update_motion(C: wp.array(dtype=wp.mat33), J_in: wp.array(dtype=float), J_out: wp.array(dtype=float),
                            dt: float):
-    """The motion's own volume (D130, --volume_exact motion): J_{t+1} = J_t det(I + dt C_{t+1}), the determinant of the
-    geometric deformation gradient Fg (k_geom_update) carried as a scalar. The control takes no part: D129 measured that
-    with its volume accumulated in J the control held J ~ 1 on a stream at det Fg 4-5 (its cumulative volume factor
-    0.20-0.23). Read by k_stress_vx as (J / det F)^(1/3) (F + dFc), the control's volume acts within its own step only,
-    det(F + dFc) / det F."""
+    """The motion's own volume: J_{t+1} = J_t det(I + dt C_{t+1}), the determinant of the geometric deformation
+    gradient Fg (k_geom_update) carried as a scalar; the control takes no part (D129, D130)."""
     p = wp.tid()
     J_out[p] = J_in[p] * wp.determinant(wp.identity(n=3, dtype=float) + dt * C[p])
-
-
-@wp.kernel
-def k_volume_update_smoothed(C: wp.array(dtype=wp.mat33), J_in: wp.array(dtype=float), J_out: wp.array(dtype=float),
-                             dt: float, s: float):
-    """The motion's volume at the smoothing's rate (D134, --volume_exact smoothed): J_{t+1} = J_t det(I + (1 - s) dt C_{t+1}),
-    the volume the old path's smoothed F takes from the motion (k_update blends (1 - s) of F_new = (I + dt C)(F + dFc)
-    into F: without a control det F_{t+1} = det F_t det(I + (1 - s) dt C)). Carried in F (k_volume_carry), it is the old
-    path's volume with the control's accumulated part taken out: D129 measured that part holding F's volume at 1 on
-    the stream (cumulative factor 0.25-0.34 against det Fg 4-5), so the stress never saw the stream's expansion."""
-    p = wp.tid()
-    J_out[p] = J_in[p] * wp.determinant(wp.identity(n=3, dtype=float) + (1.0 - s) * dt * C[p])
 
 
 @wp.kernel
@@ -141,15 +87,6 @@ def k_volume_carry(F_in: wp.array(dtype=wp.mat33), J: wp.array(dtype=float), F_o
     (det F 0.41 -> 0.03 on the 300k dragon), until the trajectory check rejected the trials."""
     p = wp.tid()
     F_out[p] = volume_scale(F_in[p], J[p]) * F_in[p]
-
-
-# ── guidance velocity injection (distributed over substeps) ─────────────────
-# Adds a small per-particle velocity each substep so elasticity can resist
-# overshoot, instead of a single large velocity override (anti-ejection).
-@wp.kernel
-def k_add_guidance(v: wp.array(dtype=wp.vec3), d: wp.array(dtype=wp.vec3), gain: float):
-    p = wp.tid()
-    v[p] = v[p] + gain * d[p]
 
 
 # ── grid reset ──────────────────────────────────────────────────────────────
@@ -178,32 +115,24 @@ def bond_velocity(v: wp.array(dtype=wp.vec3), nbr: wp.array(dtype=int), p: int, 
 def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
           dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
-          m: wp.array(dtype=float), vol: wp.array(dtype=float), omega: wp.array(dtype=float),
+          m: wp.array(dtype=float), vol: wp.array(dtype=float),
           nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
-          nx: int, ny: int, nz: int, replay_bonds: int):
+          nx: int, ny: int, nz: int):
     p = wp.tid()
     xp = x[p]
     if not valid_pos(xp):
         return
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
-    # omega[p] = support gate on the APIC affine term (1 = plain APIC; k_support_gate)
-    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * C[p]   # total-PK1 form
+    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form
     vp = v[p]
     if bond_K > 0 and frag[p] > 0.5:
         # FRAGMENT (its occupied-cell component is not the body's): the grid cannot couple
         # it to the body; use the material transfer — the mean velocity of its frozen
         # source neighbours (material PIC; k_update does the position projection)
-        if replay_bonds != 0:
-            vp = bond_velocity(v, nbr, p, bond_K)
-        else:
-            # Kept operation-for-operation for the README production ablation.
-            vs = wp.vec3(0.0, 0.0, 0.0)
-            for a in range(bond_K):
-                vs = vs + v[nbr[p * bond_K + a]]
-            vp = vs / float(bond_K)
+        vp = bond_velocity(v, nbr, p, bond_K)
     mv = m[p] * vp * (1.0 - dt * drag)
     b = base_node(xp, gmin, inv_dx)
     for oi in range(4):
@@ -221,12 +150,8 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     wp.atomic_add(grid_v, g, w * (mv + G @ dgp))
 
 
-# ── support gate (Yao-Zhao 2026, arXiv 2603.03860 §support-gated APIC) ──────
-# A particle whose 3^3-cell neighbourhood is depleted transfers PIC momentum only: the
-# affine term m*C*(x_g - x_p) of a fringe particle (steep velocity gradient at the front)
-# is what hands the empty-side nodes an outward velocity, and with no other particle on
-# those nodes nothing pulls it back (numerical fracture). omega is piecewise constant in
-# x, so the P2G adjoint reads it as a constant (launched with record_tape=False).
+# ── the 3^3-cell particle count (the material bonds' decoupling test, k_frag_step) ─────────
+# Piecewise constant in x, computed outside the tape.
 @wp.kernel
 def k_cell_count(x: wp.array(dtype=wp.vec3), gmin: wp.vec3, inv_dx: float,
                  nx: int, ny: int, nz: int, cnt: wp.array(dtype=int)):
@@ -242,12 +167,11 @@ def k_cell_count(x: wp.array(dtype=wp.vec3), gmin: wp.vec3, inv_dx: float,
 
 
 @wp.kernel
-def k_support_gate(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: wp.vec3,
-                   inv_dx: float, nx: int, ny: int, nz: int, n0: float, r_lo: float,
-                   r_hi: float, omega: wp.array(dtype=float), ncount: wp.array(dtype=float)):
+def k_neighbour_count(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: wp.vec3,
+                      inv_dx: float, nx: int, ny: int, nz: int, ncount: wp.array(dtype=float)):
+    """The particles in the 3^3 cells around each particle's own (k_cell_count's counts), itself included."""
     p = wp.tid()
     xp = x[p]
-    omega[p] = 1.0
     ncount[p] = 0.0
     if not valid_pos(xp):
         return
@@ -264,9 +188,6 @@ def k_support_gate(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: w
                 if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
                     n = n + cnt[gid(i, j, k, ny, nz)]
     ncount[p] = float(n)
-    s = (float(n) / n0 - r_lo) / (r_hi - r_lo)
-    s = wp.clamp(s, 0.0, 1.0)
-    omega[p] = s * s * (3.0 - 2.0 * s)
 
 
 @wp.kernel
@@ -355,9 +276,9 @@ def k_grid_op(grid_m: wp.array(dtype=float), grid_mom: wp.array(dtype=wp.vec3),
 def k_g2p(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
           dFc: wp.array(dtype=wp.mat33), F_new: wp.array(dtype=wp.mat33),
-          grid_v: wp.array(dtype=wp.vec3), eta: wp.array(dtype=float),
+          grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float,
-          nx: int, ny: int, nz: int, v_max: float, eta_sym: int, eta_mode: int):
+          nx: int, ny: int, nz: int):
     p = wp.tid()
     xp = x[p]
     if not valid_pos(xp):
@@ -379,30 +300,6 @@ def k_g2p(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     vg = grid_v[gid(i, j, k, ny, nz)]
                     vnew = vnew + w * vg
                     Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
-    if v_max > 0.0:                          # clamp escape velocity (anti-scatter)
-        sp = wp.length(vnew)
-        if sp > v_max:
-            vnew = vnew * (v_max / sp)
-    # VISCOUS DISSIPATION (rubber<->honey). eta_sym=1 (OBJECTIVE, default for new work):
-    # damp only sym(C) = strain rate D; the skew part (spin W) is preserved, so a rigid
-    # rotation loses NO energy (material frame indifference). eta_sym=0 = legacy full-C
-    # damping (damps spin too -> non-objective; kept for reproducing old results).
-    # eta_mode 1 (EXPONENTIAL, dt-consistent): the per-step factor of a continuum decay rate eta is
-    # exp(-dt*eta) exactly, so the recovered eta means the same thing at any dt and no clamp is
-    # needed. eta_mode 0 (LEGACY linear 1-dt*eta) is the first-order truncation of it: its
-    # continuum-equivalent rate is -ln(1-dt*eta)/dt > eta (at dt=1/480: +0.10% at eta=1, +7.45% at
-    # eta=65), and inside the optimiser's own box (eta<=400) it can go negative -> the max(0,.)
-    # clamp fires and kills C in a single step. Kept as default for old-table reproduction.
-    fac = float(0.0)
-    if eta_mode == 1:
-        fac = wp.exp(-dt * eta[p])
-    else:
-        fac = wp.max(0.0, 1.0 - dt * eta[p])
-    if eta_sym == 1:
-        Csym = 0.5 * (Cnew + wp.transpose(Cnew))
-        Cnew = (Cnew - Csym) + Csym * fac
-    else:
-        Cnew = Cnew * fac
     v[p] = vnew
     C[p] = Cnew
     F_new[p] = (wp.identity(n=3, dtype=float) + dt * Cnew) @ (F[p] + dFc[p])
@@ -597,30 +494,3 @@ def k_volume(x: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
         vol[p] = m[p] / rho
     else:
         vol[p] = 0.0
-
-
-# ── P3: the u channel THROUGH THE DEFORMATION GRADIENT (docs/final_plan.md 2) ────────
-# The step's u displacement delta_p = frac_u u_p n_p is a displacement field on the outer
-# layer. Its gradient over the frozen same-side neighbourhood,
-#   G = sum_a (delta_a - delta_p) (x) g_a       (tangential, least squares; g from
-#                                                 surface_recon.layer_grad_weights)
-#     + delta_p (x) n_p / depth                  (normal: the layer below did not move),
-# and F <- (I + G) F, so a rough u is a strain the stress resists in the following steps
-# and the adjoint reaches u through F. The relaxation projection stays outside F (it is a
-# constraint, like contact). k_update writes Fu[t+1]; this kernel writes F[t+1].
-@wp.kernel
-def k_layer_F(u: wp.array(dtype=float), ug: wp.array(dtype=float), mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
-              nbr: wp.array(dtype=int), g: wp.array(dtype=wp.vec3), K: int,
-              frac_u: float, inv_depth: float,
-              F_in: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33)):
-    p = wp.tid()
-    if mask[p] < 0.5:
-        F_out[p] = F_in[p]
-        return
-    dp = (frac_u * ug[p] * u[p]) * nrm[p]
-    G = wp.outer(dp, nrm[p]) * inv_depth
-    for a in range(K):
-        q = nbr[p * K + a]
-        dq = (frac_u * ug[q] * u[q]) * nrm[q]
-        G = G + wp.outer(dq - dp, g[p * K + a])
-    F_out[p] = (wp.identity(n=3, dtype=float) + G) * F_in[p]

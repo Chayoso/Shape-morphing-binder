@@ -47,7 +47,6 @@ def sample_volume_stratified(mesh: trimesh.Trimesh, n: int, seed: int = 0) -> np
     return stratified_draws(mesh, n, [seed])[0]
 
 
-PITCH_PER_SP8 = 0.708      # the pipeline's constant: a jittered lattice's pitch = 0.708 x its median 8th-neighbour distance
 
 
 def _stratified_fill(mesh: trimesh.Trimesh, n: int):
@@ -75,24 +74,9 @@ def stratified_fill_volume(mesh: trimesh.Trimesh, n: int) -> float:
     return float(len(centers)) * pitch ** 3
 
 
-def stratified_draws(mesh: trimesh.Trimesh, n: int, seeds, surface_density: float = 1.0, band_sp: float = 0.0,
-                     rest: dict | None = None) -> list:
+def stratified_draws(mesh: trimesh.Trimesh, n: int, seeds) -> list:
     """sample_volume_stratified once per seed on one fill (the fill is found once): independent draws of the
-    same sampler.
-
-    surface_density F > 1 (D122, `--surface_density`): the same sampler with its density F times higher within the
-    outer band than in the interior, at the same n. The band is the pipeline's own (band_sp spacings deep, the
-    relaxation's neighbour width layer_h_sp; a spacing = the base lattice's pitch / 0.708, the pipeline's 8th-neighbour
-    constant), measured from the surface of the FILL (the distance of a voxel's centre to the fill's boundary, an
-    Euclidean distance transform of the filled voxels), with the base pitch that F = 1 gives at this n. The fill is
-    refined (the same bisection) until its band voxels plus 1 / F of its interior voxels hold n: the band keeps every
-    voxel it can (n_b = n F V_b / (F V_b + V_i), one jittered particle per voxel, the surplus dropped uniformly), the
-    interior the rest, so the two densities are in the ratio F exactly; the order is shuffled. F = 1 is the code above,
-    untouched: the same calls on the same generator, the same sample bit for bit. `rest` (F > 1): receives `w`, each
-    particle's rest volume relative to the mean (band V_b / n_b, interior V_i / n_i, divided by V / n; mean 1), `base`
-    (the F = 1 draw of the first seed, whose frame the caller keeps so that the sample stands where the base sample
-    stood), and `report` (the band's depth in mesh units, its voxel and particle shares, the two pitches over the base
-    pitch)."""
+    same sampler."""
     hi, centers, pitch = _stratified_fill(mesh, n)
     print(f"[sampling] stratified: fill {hi}^3 = {len(centers)} voxels for n = {n}, pitch {pitch:.4g}", flush=True)
     out = []
@@ -101,76 +85,6 @@ def stratified_draws(mesh: trimesh.Trimesh, n: int, seeds, surface_density: floa
         keep = rng.choice(len(centers), n, replace=False) if len(centers) > n else np.arange(n)
         jitter = (rng.uniform(-0.5, 0.5, (n, 3)) * pitch).astype(np.float32)
         out.append((centers[keep] + jitter).astype(np.float32))
-    if not surface_density > 1.0:
-        return out
-    return _surface_dense_draws(mesh, n, seeds, float(surface_density), float(band_sp), hi, pitch, out[0], rest)
-
-
-def _band_centers(mesh: trimesh.Trimesh, pitch: float, depth: float):
-    """(band centres, interior centres) of the fill at `pitch`: a voxel is in the band when its centre lies within
-    `depth` (mesh units) of the fill's boundary (the Euclidean distance transform of the filled voxels, the centre of a
-    voxel on the boundary half a pitch in)."""
-    from scipy.ndimage import distance_transform_edt
-    vg, M = _fill_grid(mesh, pitch)
-    if vg is None or M is None or int(M.sum()) == 0:
-        return np.zeros((0, 3), np.float32), np.zeros((0, 3), np.float32)
-    P = np.pad(M, 1)
-    d = (distance_transform_edt(P)[1:-1, 1:-1, 1:-1] - 0.5) * pitch
-    band = M & (d <= depth)
-    cb = vg.indices_to_points(np.argwhere(band)).astype(np.float32)
-    ci = vg.indices_to_points(np.argwhere(M & ~band)).astype(np.float32)
-    return cb, ci
-
-
-def _surface_dense_draws(mesh, n, seeds, F, band_sp, hi_base, pitch_base, base, rest):
-    if not band_sp > 0:
-        raise ValueError("surface_density > 1 needs a band (band_sp spacings) to be denser in")
-    depth = band_sp * pitch_base / PITCH_PER_SP8
-    ext = float(mesh.extents.max())
-    enough = lambda res: (lambda cb, ci: len(cb) + len(ci) / F >= n)(*_band_centers(mesh, ext / res, depth))  # noqa: E731
-    # the base fill refined by F^(1/3) holds n even with the whole body counted as interior, so the search ends there
-    lo, hi = hi_base, min(400, int(np.ceil(hi_base * F ** (1.0 / 3.0))) + 1)
-    if not enough(hi):
-        raise ValueError(f"surface_density {F:g}: no fill up to {hi}^3 holds n = {n} with the band {F:g} x denser")
-    if enough(lo):
-        hi = lo
-    while hi - lo > 1:
-        mid = (lo + hi) // 2
-        if enough(mid):
-            hi = mid
-        else:
-            lo = mid
-    pitch = ext / hi
-    cb, ci = _band_centers(mesh, pitch, depth)
-    n_bv, n_iv = len(cb), len(ci)
-    n_b = min(int(round(n * F * n_bv / (F * n_bv + n_iv))), n_bv)
-    n_i = n - n_b
-    if n_i > n_iv or n_i < 0:
-        raise ValueError(f"surface_density {F:g}: the fill at {hi}^3 cannot hold {n_b} band + {n_i} interior particles")
-    V = (n_bv + n_iv) * pitch ** 3
-    w_b = (n_bv * pitch ** 3 / max(n_b, 1)) / (V / n)
-    w_i = (n_iv * pitch ** 3 / max(n_i, 1)) / (V / n)
-    print(f"[sampling] surface density {F:g}: band {depth:.4g} deep ({band_sp:g} spacings of the base pitch {pitch_base:.4g}); "
-          f"fill {hi}^3 (pitch {pitch:.4g} = {pitch / pitch_base:.3f} base): band {n_bv} voxels ({n_bv / (n_bv + n_iv) * 100:.1f} % "
-          f"of the volume) -> {n_b} particles ({n_b / n * 100:.1f} %), interior {n_iv} -> {n_i}; pitches band "
-          f"{w_b ** (1 / 3):.3f}, interior {w_i ** (1 / 3):.3f} of the base", flush=True)
-    out = []
-    for seed in seeds:
-        rng = np.random.default_rng(seed)
-        kb = rng.choice(n_bv, n_b, replace=False) if n_bv > n_b else np.arange(n_b)
-        ki = rng.choice(n_iv, n_i, replace=False) if n_iv > n_i else np.arange(n_i)
-        x = np.concatenate([cb[kb], ci[ki]]) + (rng.uniform(-0.5, 0.5, (n, 3)) * pitch).astype(np.float32)
-        w = np.concatenate([np.full(n_b, w_b, np.float32), np.full(n_i, w_i, np.float32)])
-        order = rng.permutation(n)                          # no strided subsample reads the band alone
-        out.append(x[order].astype(np.float32))
-        if rest is not None and seed == seeds[0]:
-            rest["w"] = w[order].astype(np.float32)
-    if rest is not None:
-        rest["base"] = base
-        rest["report"] = dict(surface_density=F, band_sp=band_sp, band_depth_mesh=depth, pitch_base_mesh=pitch_base,
-                              fill_res=hi, fill_res_base=hi_base, pitch_over_base=pitch / pitch_base,
-                              band_volume_share=n_bv / (n_bv + n_iv), band_particle_share=n_b / n,
-                              band_pitch_over_base=w_b ** (1 / 3), interior_pitch_over_base=w_i ** (1 / 3))
     return out
 
 
@@ -281,17 +195,9 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
                     match_volume: float | None = None,
                     return_volume: bool = False,
                     shell: tuple[float, float] | None = None,
-                    sample: str = "replacement", frame: dict | None = None,
-                    surface_density: float = 1.0, band_sp: float = 0.0, rest: dict | None = None,
-                    fill: dict | None = None):
+                    sample: str = "replacement", frame: dict | None = None, fill: dict | None = None):
     """Sample n particles from a mesh, centred at the origin and scaled so the bbox
     diagonal is `size` — the normalisation every runner script used to duplicate.
-
-    surface_density F > 1 (D122, stratified only): the sample F times denser in the outer band of band_sp spacings
-    (stratified_draws); it is centred and scaled by the BASE sample's (F = 1, same seed) mean and bounding box, so it
-    stands in the frame the F = 1 sample has; `rest` receives `w` (each particle's rest volume relative to the mean)
-    and `report` (the band's numbers; `band_depth` and `pitch_base` in world units once the frame is known). F = 1:
-    nothing changes.
 
     match_volume: if given, the cloud is RESCALED (about the origin) so its filled
     volume equals this value (the source's): isochoric MPM particles cannot change
@@ -304,7 +210,7 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
     units (stratified_fill_volume, scaled as the cloud): its number density is n / this volume. The filled volume
     above (and match_volume) is the mesh's at a 110^3 fill; the sampler's own fill is coarser (one voxel per particle),
     and the two differ by a surface term that depends on the shape."""
-    if fill is not None and (shell is not None or sample != "stratified" or surface_density > 1.0):
+    if fill is not None and (shell is not None or sample != "stratified"):
         raise ValueError("fill: the volume of the uniform stratified sampler's fill only")
     mesh = load_mesh(path)
     # per-asset up-axis (physmorph/sampling/orientation.json): the collection mixes z-up and y-up meshes
@@ -329,10 +235,8 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
         import hashlib
         import os
         cache_on = os.environ.get("PHYSMORPH_SAMPLE_CACHE", "1") != "0"
-        dense = sample == "stratified" and surface_density > 1.0
         key = hashlib.sha1((f"{os.path.abspath(path)}|{os.path.getmtime(path)}|{os.path.getsize(path)}|{n}|{seed}|"
-                            f"{sample}|{FILL_MODE}|{_o}|v1"
-                            + (f"|sd{surface_density:g}|band{band_sp:g}" if dense else "")).encode()).hexdigest()[:16]
+                            f"{sample}|{FILL_MODE}|{_o}|v1").encode()).hexdigest()[:16]
         cdir = os.environ.get("PHYSMORPH_CACHE",
                               os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                                            "output", "cache"))
@@ -344,19 +248,13 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
                 hit = (np.asarray(z["x"], np.float32), float(z["vol_mesh"]),
                        {"stripped": int(z["streak_stripped"]), "method": (str(z["streak_method"]) if str(z["streak_method"]) != "None" else None)},
                        {"filled": int(z["pocket_filled"]), "iters": int(z["pocket_iters"])})
-                if dense:
-                    hit += ({"w": np.asarray(z["w"], np.float32), "base": np.asarray(z["base"], np.float32),
-                             "report": z["report"].item()},)
             except Exception:
                 hit = None
-        dense_rest = {} if dense else None
         if hit is not None:
-            x, vol_mesh, sr, pr = hit[:4]
+            x, vol_mesh, sr, pr = hit
             STREAK_REPORT.update(sr); POCKET_REPORT.update(pr)
-            if dense:
-                dense_rest = hit[4]
         else:
-            x = (stratified_draws(mesh, n, [seed], surface_density, band_sp, dense_rest)[0] if sample == "stratified"
+            x = (stratified_draws(mesh, n, [seed])[0] if sample == "stratified"
                  else sample_volume(mesh, n, seed=seed)).astype(np.float32)
             vol_mesh = float(filled_volume(mesh))
             if cache_on:
@@ -364,26 +262,13 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
                     os.makedirs(cdir, exist_ok=True)
                     np.savez(cpath, x=x, vol_mesh=vol_mesh, streak_stripped=STREAK_REPORT.get("stripped", 0),
                              streak_method=str(STREAK_REPORT.get("method")), pocket_filled=POCKET_REPORT.get("filled", 0),
-                             pocket_iters=POCKET_REPORT.get("iters", 0),
-                             **({"w": dense_rest["w"], "base": dense_rest["base"],
-                                 "report": np.array(dense_rest["report"], dtype=object)} if dense else {}))
+                             pocket_iters=POCKET_REPORT.get("iters", 0))
                 except Exception:
                     pass
         w = None
-    if shell is None and sample == "stratified" and surface_density > 1.0:
-        # the frame of the base sample (F = 1, the same seed): its mean and bounding box, not this sample's, whose
-        # centroid sits nearer the surface and whose extremes lie on a finer lattice
-        base = dense_rest["base"]
-        offset = base.mean(0).astype(np.float64)
-        x = x - base.mean(0)
-        s = size / (np.linalg.norm(base.max(0) - base.min(0)) + 1e-9)
-        if rest is not None:
-            rest["w"] = np.asarray(dense_rest["w"], np.float32)
-            rest["report"] = dict(dense_rest["report"])
-    else:
-        offset = x.mean(0).astype(np.float64)
-        x -= x.mean(0)
-        s = size / (np.linalg.norm(x.max(0) - x.min(0)) + 1e-9)
+    offset = x.mean(0).astype(np.float64)
+    x -= x.mean(0)
+    s = size / (np.linalg.norm(x.max(0) - x.min(0)) + 1e-9)
     x = (x * s).astype(np.float32)
     vol = (vol_mesh if w is None and shell is None else filled_volume(mesh)) * float(s) ** 3
     k = 1.0
@@ -395,13 +280,6 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
         frame.update(offset=offset, scale=float(s) * k)
     if fill is not None:
         fill["volume"] = _fill_volume_cached(mesh, path, n, _o) * (float(s) * k) ** 3
-    if rest is not None and rest.get("report") is not None:
-        rest["report"]["band_depth"] = rest["report"]["band_depth_mesh"] * float(s) * k     # world units
-        rest["report"]["pitch_base"] = rest["report"]["pitch_base_mesh"] * float(s) * k
-        # the base sample itself in the same frame: what the F = 1 run has as its sample (the probes read their
-        # pitch and the mesh's fit from it, so a surface-dense run is measured as the uniform one is)
-        base = dense_rest["base"]
-        rest["base"] = (((base - base.mean(0)) * s) * k).astype(np.float32)
     if shell is not None:
         return (x, vol, w) if return_volume else (x, w)
     return (x, vol) if return_volume else x
@@ -416,12 +294,11 @@ def _oriented(path: str) -> trimesh.Trimesh:
     return mesh
 
 
-def draws_in_frame(path: str, frame: dict, n: int, seeds, surface_density: float = 1.0, band_sp: float = 0.0) -> list:
+def draws_in_frame(path: str, frame: dict, n: int, seeds) -> list:
     """Independent stratified draws of the mesh's volume (one per seed), each in the frame load_normalized put the
-    mesh's cloud in (`frame`, as it filled it): further samples of the same target, for an expectation over them.
-    surface_density, band_sp: the target's own sampler (stratified_draws), so the draws are samples of the same kind."""
+    mesh's cloud in (`frame`, as it filled it): further samples of the same target, for an expectation over them."""
     return [((x.astype(np.float64) - frame["offset"]) * frame["scale"]).astype(np.float32)
-            for x in stratified_draws(_oriented(path), n, seeds, surface_density, band_sp)]
+            for x in stratified_draws(_oriented(path), n, seeds)]
 
 
 def surface_in_frame(path: str, frame: dict, n: int, seed: int = 0):

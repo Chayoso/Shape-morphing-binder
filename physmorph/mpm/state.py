@@ -18,15 +18,6 @@ class MPMParams:
     dt: float = 1.0 / 240.0
     drag: float = 0.9
     smoothing: float = 0.955          # F-smoothing s — eq (9)
-    v_max: float = 0.0                # G2P velocity clamp (0 = off); anti-scatter
-    eta_sym: int = 0                  # 1 = OBJECTIVE viscosity (damp sym(C) only; spin preserved)
-    eta_mode: int = 0                 # 1 = EXPONENTIAL damping exp(-dt*eta) (dt-consistent, no clamp);
-                                      # 0 = legacy linear max(0,1-dt*eta) — kept for old-table repro
-    gate_r_lo: float = 0.0            # SUPPORT-GATED APIC (Yao-Zhao 2026, 2603.03860): omega_p =
-    gate_r_hi: float = 0.0            #   smoothstep((n_p/n0 - r_lo)/(r_hi - r_lo)) scales the affine
-                                      #   term m*C in P2G (n_p = count in the 3^3 cells around p).
-                                      #   r_hi <= r_lo = off (plain APIC). docs/thin_feature_transport.md
-    gate_n0: float = 0.0              # nominal 3^3-cell count; 0 = median over the source at start
     f_ext: tuple = (0.0, 0.0, 0.0)
     grid_min: tuple = (-16.0, -16.0, -16.0)
     nx: int = 64
@@ -47,7 +38,7 @@ class MPMState:
     F: wp.array; Fp: wp.array; dFc: wp.array
     P: wp.array; F_new: wp.array          # scratch
     m: wp.array; vol: wp.array
-    lam: wp.array; mu: wp.array; eta: wp.array          # eta = viscosity (rubber<->honey)
+    lam: wp.array; mu: wp.array
     # grid arrays (ngrid)
     grid_m: wp.array; grid_v: wp.array
     N: int
@@ -75,7 +66,6 @@ def make_state(
     v: np.ndarray | None = None,
     F: np.ndarray | None = None,
     Fp: np.ndarray | None = None,
-    eta: float | np.ndarray = 0.0,
     device: str = "cuda",
     requires_grad: bool = False,
 ) -> MPMState:
@@ -85,7 +75,6 @@ def make_state(
     m = np.ascontiguousarray(np.broadcast_to(m, (N,)), dtype=np.float32)
     lam_a = np.full(N, float(lam), np.float32) if np.isscalar(lam) else np.ascontiguousarray(lam, np.float32)
     mu_a = np.full(N, float(mu), np.float32) if np.isscalar(mu) else np.ascontiguousarray(mu, np.float32)
-    eta_a = np.full(N, float(eta), np.float32) if np.isscalar(eta) else np.ascontiguousarray(eta, np.float32)
     v = np.zeros((N, 3), np.float32) if v is None else np.ascontiguousarray(v, np.float32)
     F = _mat_id(N) if F is None else np.ascontiguousarray(F, np.float32)
     Fp = _mat_id(N) if Fp is None else np.ascontiguousarray(Fp, np.float32)
@@ -106,7 +95,6 @@ def make_state(
         vol=arr(np.zeros(N, np.float32), wp.float32, False),
         lam=arr(lam_a, wp.float32, False),
         mu=arr(mu_a, wp.float32, False),
-        eta=arr(eta_a, wp.float32, False),
         grid_m=arr(np.zeros(params.ngrid, np.float32), wp.float32, requires_grad),
         grid_v=arr(np.zeros((params.ngrid, 3), np.float32), wp.vec3, requires_grad),
         N=N, device=device,

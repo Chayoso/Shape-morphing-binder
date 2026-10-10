@@ -36,25 +36,18 @@ class Prepared:
     ppc: float
     tgt_surface: tuple | None = None    # (points, normals) of the target mesh's surface in the target's frame
     tgt_draws: list | None = None       # further independent samples of the target in its frame (the render's target)
-    w_src: np.ndarray | None = None     # D122 (--surface_density > 1): each particle's rest volume relative to the mean
-    w_tgt: np.ndarray | None = None     #   (sampling.mesh.stratified_draws); None = the uniform sample, every path as before
-    sampling: dict | None = None        # the surface-dense sampler's report (band depth, shares, pitches), for the log
-    tgt_base: np.ndarray | None = None  # the uniform (F = 1) target sample in the same frame: the probes' pitch and mesh fit
     density: dict | None = None         # D132 (match_density): the two samples' fill volumes and the source's scale
     cell_shape: float | None = None     # D137 (cell_ref_n, above it): the shape's MPM cell (diag / cell_diag, as derived
                                         #   before), kept for the u gate and the thin set; None = prm.dx is the shape's cell
 
 
-def sampling_berth(target: np.ndarray, w=None) -> float:
+def sampling_berth(target: np.ndarray) -> float:
     """The near-band berth in target spacings: median 8th-neighbour distance / median
-    nearest-neighbour distance (the sampling's own scale). w (D122): each point's relative rest volume; the
-    distances are read at the base density (divided by w^(1/3)) so the ratio is the uniform sample's."""
+    nearest-neighbour distance (the sampling's own scale)."""
     target = np.asarray(target)
     if target.ndim != 2 or target.shape[1] != 3 or len(target) < 9 or not np.isfinite(target).all():
         raise ValueError("the sampling berth needs at least nine finite target points")
     d = gpu.knn(gpu.tensor(target), 9)[0]
-    if w is not None:
-        d = d / gpu.tensor(np.asarray(w, np.float32)).to(d.dtype).pow(1.0 / 3.0)[:, None]
     spacing = gpu.median(d[:, 1])
     if not spacing > 0:
         raise ValueError("the sampling berth needs a positive target nearest-neighbour spacing")
@@ -66,21 +59,12 @@ def sampling_berth(target: np.ndarray, w=None) -> float:
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
-            draws: int = 1, surface_density: float = 1.0, band_sp: float = 0.0,
-            match_density: bool = False, cell_ref_n: int = 0) -> Prepared:
-    # surface_density F > 1 (D122): the same sampler F times denser in the outer band of band_sp spacings, source
-    # and target alike (the transport needs samples of one kind); each sample's rest-volume weights come back in w
-    dense = surface_density > 1.0
-    if match_density and dense:
-        raise ValueError("match_density is defined for the uniform stratified samples (surface_density 1)")
-    r_src, r_tgt = ({} if dense else None), ({} if dense else None)
+            draws: int = 1, match_density: bool = False, cell_ref_n: int = 0) -> Prepared:
     fill_src, fill_tgt = ({}, {}) if match_density else (None, None)
-    src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified",
-                                 surface_density=surface_density, band_sp=band_sp, rest=r_src, fill=fill_src)
+    src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified", fill=fill_src)
     frame = {}
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
-                                 return_volume=True, frame=frame, surface_density=surface_density, band_sp=band_sp,
-                                 rest=r_tgt, fill=fill_tgt)
+                                 return_volume=True, frame=frame, fill=fill_tgt)
     density = None
     if match_density:
         # D132: the target is matched to the source by the meshes' volumes at a 110^3 fill, but each sample is one
@@ -97,20 +81,11 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
         log(f"[v2run] density match: the samples' fill volumes source {fill_src['volume']:.4f}, target "
             f"{fill_tgt['volume']:.4f} wu^3 (target / source density {1.0 / ratio:.4f}); the source rescaled by "
             f"{k_src:.5f}")
-    sampling = None
-    if dense:
-        sampling = {"source": r_src["report"], "target": r_tgt["report"]}
-        for name, rep in sampling.items():
-            log(f"[sampling] {name}: surface density {rep['surface_density']:g} in a band {rep['band_depth']:.4f} wu deep "
-                f"({rep['band_sp']:g} spacings of the base pitch {rep['pitch_base']:.4f} wu); band {rep['band_volume_share'] * 100:.1f} % "
-                f"of the volume, {rep['band_particle_share'] * 100:.1f} % of the particles; pitch band "
-                f"{rep['band_pitch_over_base']:.3f}, interior {rep['interior_pitch_over_base']:.3f} of the base")
     # surface > 0: that many points of the target mesh's own surface, for the relaxation's reference
     tgt_surface = surface_in_frame(tgt_path, frame, surface) if surface > 0 else None
     # draws > 1: that many samples of the target in all, the pipeline's and draws - 1 further independent ones (seeds
     # seed + 1 + 100 k; seed + 2 is left to the evaluation's independent reference), for the render's target
-    tgt_draws = (draws_in_frame(tgt_path, frame, n, [seed + 1 + 100 * k for k in range(1, draws)],
-                                surface_density, band_sp)
+    tgt_draws = (draws_in_frame(tgt_path, frame, n, [seed + 1 + 100 * k for k in range(1, draws)])
                  if draws > 1 else None)
     floor_y = None
     if floor:                                 # both shapes stand on one floor, at the source's lowest point
@@ -122,15 +97,11 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
             tgt_surface[0][:, 1] += lift
         for d in tgt_draws or []:
             d[:, 1] += lift
-        if dense:
-            r_tgt["base"][:, 1] += lift
         log(f"[v2run] floor at y = {floor_y:.3f} wu; the target stands on it")
     log(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
         f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})")
     prm = MPMParams()
-    # the discretisation from the uniform samples' extents when the sampling is surface-dense (the F sample's extremes
-    # lie on a finer lattice): the same dx, domain and loss grid as the F = 1 run's
-    g_src, g_tgt = (src, tgt) if not dense else (r_src["base"], r_tgt["base"])
+    g_src, g_tgt = src, tgt
     diag_src = float(np.linalg.norm(g_src.max(0) - g_src.min(0)))
     dx_req = diag_src / float(cell_diag)
     ppc = float(n * dx_req ** 3 / v_src)
@@ -175,10 +146,8 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     log(report(disc, tgt).splitlines()[-1].replace("[disc] measured", "[disc] TARGET measured"))
     log(f"[disc] loss_res {disc.loss_res} (" + (f"{per_dx:.3f} loss cells per {'shape ' if cell_shape else ''}dx, following N above {loss_ref_n}"
                                                 if per_dx > 1.0 else "the MPM cell") + ")")
-    berth = sampling_berth(tgt, None if not dense else r_tgt["w"])
+    berth = sampling_berth(tgt)
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
-                    tgt_surface=tgt_surface, tgt_draws=tgt_draws,
-                    w_src=None if not dense else r_src["w"], w_tgt=None if not dense else r_tgt["w"], sampling=sampling,
-                    tgt_base=None if not dense else r_tgt["base"], density=density, cell_shape=cell_shape)
+                    tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape)

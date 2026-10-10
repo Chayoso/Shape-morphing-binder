@@ -22,7 +22,7 @@ from ...prof import STATE as PROF_STATE, take as prof_take, timed
 from ...thin import thin_metrics
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
-from ..target import build_target, calibrate_units, rebuild_for_resolution, target_relief
+from ..target import build_target, calibrate_units, target_relief
 from ..window import StartState, optimize_window
 from ..window.setup import domain_bounds
 from ..window.telemetry import write_term_dump
@@ -36,16 +36,16 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "body_vcom", "body_vrot", "L_start", "L_grid", "L_jump", "L_space", "L_u", "L_relax",
                 "render_work_x", "render_work_F", "phys_work", "phys_work_x", "phys_work_F",
                 "phys_work_v", "step_norm", "render_cos", "phys_cos", "predicted_decrease",
-                "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
+                "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
                 "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr",
-                "t_start", "t_grad", "t_ls", "t_commit", "merit_far", "merit_w1_gap",
+                "t_start", "t_grad", "t_ls", "t_commit", "merit_far",
                 "g_transport", "g_surf", "g_spray", "g_near", "n_spray", "n_near", "n_near_active", "ot_scale",
                 "active_set", "ctrl_mag", "ctrl_rough", "prof",
-                "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio",
-                "ext_discs", "ext_builds", "ext_apart")
-_NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe",
-                "iter_probe", "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
+                "sup_E", "sup_B", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio",
+                "ext_discs", "ext_builds")
+_NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason",
+                "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason")
 
 
@@ -73,8 +73,7 @@ class _AttemptClock:
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                 on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None,
-                 w_src=None, w_tgt=None, tgt_base=None):
+                 on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
@@ -82,20 +81,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     every committed window records (measurement only). surface: (points, normals) of the target
     mesh's surface in the target's frame; with it the outer layer's relaxation keeps the target's
     own relief (target.target_relief). draws: further independent samples of the target in its
-    frame; the render's target pictures are then the mean over all samples (target.build_target). w_src, w_tgt
-    (D122, --surface_density > 1): each particle's rest volume relative to the mean, source and target (the
-    sampler's): the masses, rest volumes and every length counted in spacings follow them (target.TargetPack)."""
+    frame; the render's target pictures are then the mean over all samples (target.build_target)."""
     gpu.require_cuda()
-    cfg = dataclasses.replace(cfg)                      # c2f edits render_res on this copy
+    cfg = dataclasses.replace(cfg)
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
         "render weight calibrated at every window")
     src = gpu.tensor(source_x)
     N = src.shape[0]
     if len(target_x) != N:
         raise ValueError(f"source and target need the same particle count (got {N} vs {len(target_x)})")
-    tgt = build_target(target_x, prm, cfg, draws=draws, w=w_tgt, w_body=w_src, base=tgt_base)
+    tgt = build_target(target_x, prm, cfg, draws=draws)
     if surface is not None:
-        tgt.relief = target_relief(tgt.pts, surface, cfg, tgt.local)
+        tgt.relief = target_relief(tgt.pts, surface, cfg)
     calibrate_units(tgt, src, cfg)
     log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = {tgt.unit_ratio:.4g} "
         f"(weights), gradient ratio = {tgt.unit_grad_ratio:.4g} (eps/target_norm), "
@@ -104,22 +101,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, None, cap_rel=20.0)
     lo, hi = domain_bounds(prm)
     x = src.clone()
-    vol0 = compute_rest_volumes(src, 1.0 if tgt.body_w is None else tgt.body_w, prm, cfg.device)
+    vol0 = compute_rest_volumes(src, 1.0, prm, cfg.device)
     coh_nbr = gpu.knn(src, cfg.coh_k + 1)[1][:, 1:]    # frozen source-material neighbours
     bond_rest = None
     F = v = C = None
-    J = None                                        # D129 (volume_exact): the tracked volume, 1 at the source (None)
+    J = None                                        # D131 (volume_exact carried): the tracked volume, 1 at the source
     Fp = torch.eye(3, device=gpu.DEVICE).repeat(N, 1, 1)
     dfc_prev = None
     Fp_pre = None                                   # the last commit's plastic state before its assimilation
     frames = FrameStore(src, F_stride or cfg.T, volume=cfg.volume_exact != "off")
     hist, guards = [], {k: 0 for k in GUARDS}
     sel = Selection(cfg)
-    shadow = Selection(cfg)            # a record: the same rule read with the dense distance added (the merit until R13)
     frozen = False
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim}")
-    c2f_pending = cfg.c2f_event and cfg.render_res_hi > cfg.render_res
     PROF_STATE["on"] = bool(cfg.profile)
     clock = _AttemptClock(hist)
     for a in range(cfg.animations):
@@ -127,19 +122,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if not frozen and sel.plateau(a):
             log(f"[v2] delivery merit plateau at anim {a + 1}")
             frozen = True
-        if frozen and c2f_pending:
-            # coarse-to-fine: the run at the coarse resolution has stopped (plateau, patience or the
-            # rejection streak); the render targets are rebuilt at the fine resolution and the run goes
-            # on to its own stop there, a new cost epoch with its own render weight and convergence test
-            c2f_pending, frozen = False, False
-            cfg.render_res = cfg.render_res_hi
-            tgt = rebuild_for_resolution(tgt, target_x, prm, cfg)
-            for s_ in (sel, shadow):
-                s_.new_epoch()
-                s_.stale, s_.lam = 0, None
-                s_.reject_streak, s_.last_reject_score = 0, None
-            hist.append({"animation": a, "c2f_render_res": cfg.render_res})
-            log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
         if frozen:
             if cfg.hold_after_converge:
                 frames.hold()
@@ -171,19 +153,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 continue
             log(f"[v2] anim {a + 1}: no accepted step - null commit (stale {sel.stale + 1})")
             rec = {"animation": a, "null_commit": 1, "no_simulated_time": 1, **{k: stats.get(k) for k in _NULL_FIELDS}}
-            if cfg.ls_probe and stats.get("start_ok") == 0 and Fp_pre is not None:
-                # diagnostic: is the dead start state made by the last commit's plastic assimilation? The free
-                # rollout is re-run from the same state with the assimilation undone (Fp as the committing
-                # window had it) and, for reference, as it is
-                bonds = (coh_nbr, bond_rest, frag.float())
-                rec["dead_free"] = _free_probe(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, vol0,
-                                               bonds)
-                rec["dead_free_noassim"] = _free_probe(StartState(x=x_start, Fp=Fp_pre, F=F, v=v, C=C, J=J), prm, cfg,
-                                                       tgt, vol0, bonds)
-                log(f"[v2] anim {a + 1}: dead start state; free rollout {rec['dead_free']}, "
-                    f"without the last assimilation {rec['dead_free_noassim']}")
             hist.append(rec)
-            shadow.null()
             if sel.null():
                 frozen = True
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
@@ -195,9 +165,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             guards[k] += counts[k]
         Fp_pre = Fp                                     # the plastic state the committing window ran with
         if cfg.assim > 0:
-            # with the exact volume (D129) the stress reads (J / det F)^(1/3) F; the isochoric assimilation takes the
-            # elastic stretch's det-free part, which a scalar factor does not change, so it reads F as before.
-            # assim_volume (D135): the volume too, so the volume the committed state keeps becomes the rest volume
+            # isochoric: the elastic stretch's det-free part; assim_volume (D135): the volume too, so the volume the committed state keeps becomes the rest volume
             with timed("assim"):
                 Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
                                         isochoric=not cfg.assim_volume)
@@ -225,7 +193,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         components = {"phys": rec["transport_energy"], "render": rec["d_sil"], "dt": rec["d_dt"]}
         disp = (x - x_start).reshape(-1)
         outer_reject, brake_reject, improved = sel.judge(rec, components, disp)
-        alt = _shadow_judge(shadow, rec, components, disp, lam, render, improved)
         if outer_reject:
             # undo every mutation made after the window start (plasticity, lambda); a
             # rejected lineage is not retried: cold restart, no warm start or step memory
@@ -239,7 +206,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             rec.update({"null_commit": 1, "outer_rejected": 1, "brake_reject": int(brake_reject)})
             hist.append(rec)
             stop = sel.rejected(rec, brake_reject, stats.get("replay_rel", 0.0))
-            rec["shadow_stop"] = int(shadow.rejected(alt, brake_reject, stats.get("replay_rel", 0.0)))
             rec["actual_stop"] = int(stop)
             _notify(on_commit, a, x, F, v, rec)
             log(f"[v2] anim {a + 1}: outer merit rejected candidate (gain={_fmt(rec['outer_gain'])}, "
@@ -252,7 +218,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             continue
         rec["frame_end"] = len(frames)
         converged = sel.accepted(rec, a, disp, improved)
-        rec["shadow_stop"] = int(shadow.accepted(alt, a, disp, bool(rec["shadow_improved"])))
         rec["actual_stop"] = int(converged)
         hist.append(rec)
         _notify(on_commit, a, x, F, v, rec)
@@ -278,18 +243,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     return {"truncation": trunc, "deliver_n": deliver_n, "frames": frames, "history": hist,
             "guards": guards, "Fp": _host(Fp), "n_held": 0, "converged": frozen,
             "balancer": {"cap": balancer.cap, "cap_rel": balancer.cap_rel, "alpha_lam": balancer.alpha_lam}}
-
-
-def _free_probe(start: StartState, prm, cfg, tgt, vol0, bonds) -> dict:
-    """Diagnostic: the zero-control rollout from a start state (rollout.free_rollout_probe on a throwaway window)."""
-    from ..window.objective import Objective
-    from ..window.rollout import free_rollout_probe
-    from ..window.setup import Window
-    win = Window(start, prm, cfg, tgt, vol0, bonds)
-    try:
-        return free_rollout_probe(win, Objective(win))
-    finally:
-        del win
 
 
 def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, J=None) -> dict:
@@ -346,16 +299,3 @@ def _notify(on_commit, a, x, F, v, rec):
 
 def _fmt(v):
     return "n/a" if v is None else format(v, ".3g")
-
-
-def _shadow_judge(shadow, rec, components, disp, lam, render, improved) -> dict:
-    """A record, no effect on the run: the selection rule judged with the merit that also carries the dense
-    body-to-target distance (the merit until R13), on the same trajectory. Writes the shadow's verdicts beside the
-    actual ones into rec and returns the shadow's copy of the record."""
-    alt = dict(rec)
-    alt["selection_merit"] = rec["selection_merit"] + (rec.get("merit_w1_gap") or 0.0)
-    shadow.check_lambda(alt, lam, render)
-    s_reject, s_brake, s_improved = shadow.judge(alt, components, disp)
-    rec.update({"shadow_merit": alt["selection_merit"], "shadow_reject": int(s_reject), "shadow_brake": int(s_brake),
-                "shadow_improved": int(s_improved), "judge_improved": int(improved)})
-    return alt

@@ -103,35 +103,14 @@ def test_the_radius_flag_at_3_is_the_old_field_bit_for_bit_and_a_smaller_one_a_t
     assert float((torch.nn.functional.normalize(g, dim=1) * torch.nn.functional.normalize(pts, dim=1)).sum(1).mean()) > .95
 
 
-def test_body_only_drops_the_detached_discs_and_keeps_the_term_otherwise():
-    """D127 (--render_body_only): with a cluster of particles detached from the ball, the discs of the largest
-    connected set (connected_sets at the lattice pitch, the display's rule) are the ball's own discs and the render
-    terms on them equal the terms computed on the ball alone; with nothing detached nothing is dropped and the terms
-    are the old ones. The default is off."""
-    from physmorph.pipeline.config import PipelineConfig
+def test_connected_sets_split_a_detached_flake_from_the_body():
+    """connected_sets (the display's rule, the forensics' apart sets): with a cluster of particles detached from the
+    ball, the discs fall into two sets, the flake's apart from the body's (the largest)."""
     from physmorph.render.exterior import connected_sets
-    assert PipelineConfig().render_body_only is False
-    set_kernel("cic")
     ball = _ball()
     flake = _ball(radius=1.6, seed=3) + torch.tensor([12., 0., 0.], dtype=ball.dtype)   # 12 pitches off: beyond the kernel
     lat, h = Lattice(torch.zeros(3, dtype=ball.dtype), 30.), .8
-    views, res, extent = make_views(4, (0., .5)), 32, 16.
     alone = Tracked(ZhuBridson(ball, 1.), lat, h, 1.)
     both = Tracked(ZhuBridson(torch.cat([ball, flake]), 1.), lat, h, 1.)
     n_sets, apart = connected_sets(both.p0, h)
-    assert n_sets == 2 and 0 < int(apart.sum()) < len(both.p0) and len(both.p0) > len(alone.p0)
-    dropped = both.body_only(h)
-    assert dropped == int(apart.sum()) and len(both.p0) == len(alone.p0)
-    gap = torch.cdist(both.p0, alone.p0, compute_mode="donot_use_mm_for_euclid_dist").min(1).values
-    assert float(gap.max()) < 1e-9                                               # the same discs (the lattice is fixed)
-    sils, shade = exterior_targets(*alone.read(ball)[:2], views, res, extent)
-    x = torch.cat([ball, flake]) + torch.tensor([.6, 0., 0.], dtype=ball.dtype)
-    term_body = d_exterior(*alone.read(x[:len(ball)])[:2], sils, shade, views, res, extent)
-    term_kept = d_exterior(*both.read(x)[:2], sils, shade, views, res, extent)
-    assert abs(float(term_body[0]) - float(term_kept[0])) < 1e-9 * max(1., float(term_body[0])) and float(term_body[0]) > 1e-5
-    assert abs(float(term_body[1]) - float(term_kept[1])) < 1e-9 * max(1., float(term_body[1]))
-    whole = Tracked(ZhuBridson(ball, 1.), lat, h, 1.)
-    before = d_exterior(*whole.read(ball + torch.tensor([.6, 0., 0.], dtype=ball.dtype))[:2], sils, shade, views, res, extent)
-    assert whole.body_only(h) == 0 and len(whole.p0) == len(alone.p0)
-    after = d_exterior(*whole.read(ball + torch.tensor([.6, 0., 0.], dtype=ball.dtype))[:2], sils, shade, views, res, extent)
-    assert torch.equal(before[0], after[0]) and torch.equal(before[1], after[1])
+    assert n_sets == 2 and int((~apart).sum()) == len(alone.p0) and int(apart.sum()) == len(both.p0) - len(alone.p0)

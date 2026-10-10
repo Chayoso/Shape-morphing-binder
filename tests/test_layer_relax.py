@@ -134,7 +134,7 @@ def test_a_residual_the_reference_has_is_kept():
 
     def end(ref):
         tr = Trajectory(xb, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0,
-                        layer=(mask, nrm, nbr, w, 1.0 / T, None, 0.0, None, ref))
+                        layer=(mask, nrm, nbr, w, 1.0 / T, None, ref))
         tr.rollout()
         return tr.x[T].numpy()
 

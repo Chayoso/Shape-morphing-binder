@@ -17,11 +17,11 @@ from . import gpu
 from .thin import outer_mask
 
 
-def _normals(P: torch.Tensor, full: torch.Tensor, sp: float, k: int = 16, local: torch.Tensor | None = None) -> torch.Tensor:
+def _normals(P: torch.Tensor, full: torch.Tensor, sp: float, k: int = 16) -> torch.Tensor:
     """Unit normals of the outer points P: the smallest principal axis of their neighbours in P within two spacings,
     oriented away from the centroid of the full sample's 32 nearest points (the interior lies behind the surface)."""
     d, idx = gpu.knn(P, k)
-    w = (d <= (2.0 * sp if local is None else (2.0 * sp * local.to(d.dtype))[:, None])).double()
+    w = (d <= 2.0 * sp).double()
     nb = P[idx].double()
     c = (w[..., None] * nb).sum(1) / w.sum(1, keepdim=True)
     r = (nb - c[:, None]) * w[..., None]
@@ -32,26 +32,21 @@ def _normals(P: torch.Tensor, full: torch.Tensor, sp: float, k: int = 16, local:
     return (n * torch.where(s == 0, torch.ones_like(s), s)[:, None]).to(P.dtype)
 
 
-def surface_roughness(x, target, w_body=None, w_target=None) -> dict:
-    """rms and p90 of the particle-scale offset (body spacings), with the body's outer share it is taken over.
-    w_body, w_target (D122, a surface-dense sample): each particle's rest volume over the mean; the spacings are then the
-    base sample's and every reach is the particle's own (base x w^(1/3)), as physmorph.thin reads such a sample."""
+def surface_roughness(x, target) -> dict:
+    """rms and p90 of the particle-scale offset (body spacings), with the body's outer share it is taken over."""
     X, T = gpu.tensor(x), gpu.tensor(target)
-    lb = None if w_body is None else gpu.tensor(w_body).pow(1.0 / 3.0)
-    lt = None if w_target is None else gpu.tensor(w_target).pow(1.0 / 3.0)
     db, dt = gpu.knn(X, 2)[0][:, 1], gpu.knn(T, 2)[0][:, 1]
-    sp_b = gpu.median(db if lb is None else db / lb.to(db.dtype))
-    sp_t = gpu.median(dt if lt is None else dt / lt.to(dt.dtype))
-    ot, ob = outer_mask(T, sp_t, lt), outer_mask(X, sp_b, lb)
+    sp_b = gpu.median(db)
+    sp_t = gpu.median(dt)
+    ot, ob = outer_mask(T, sp_t), outer_mask(X, sp_b)
     To, Xo = T[ot], X[ob]
     if len(To) < 4 or len(Xo) < 4:
         return {"surf_rough": None, "surf_rough_p90": None}
-    n = _normals(To, T, sp_t, local=None if lt is None else lt[ot])
+    n = _normals(To, T, sp_t)
     j = gpu.KNN(To).query(Xo, 1)[1][:, 0]
     s = ((Xo - To[j]) * n[j]).sum(1).double()
     d, idx = gpu.knn(Xo, 17)
-    reach_b = 2.0 * sp_b if lb is None else (2.0 * sp_b * lb[ob].to(d.dtype))[:, None]
-    w = ((d[:, 1:] <= reach_b) & (idx[:, 1:] != torch.arange(len(Xo), device=Xo.device)[:, None])).double()
+    w = ((d[:, 1:] <= 2.0 * sp_b) & (idx[:, 1:] != torch.arange(len(Xo), device=Xo.device)[:, None])).double()
     has = w.sum(1) > 0
     hp = (s - (w * s[idx[:, 1:]]).sum(1) / w.sum(1).clamp_min(1.0))[has] / sp_b
     if not len(hp):

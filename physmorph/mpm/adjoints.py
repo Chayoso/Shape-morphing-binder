@@ -37,9 +37,8 @@ def _weight_and_grad(dgp: wp.vec3, inv_dx: float):
 
 @wp.kernel(enable_backward=False)
 def k_g2p_adj(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
-              grid_v: wp.array(dtype=wp.vec3), eta: wp.array(dtype=float),
+              grid_v: wp.array(dtype=wp.vec3),
               gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
-              v_max: float, eta_sym: int, eta_mode: int,
               adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33), adj_Fnew: wp.array(dtype=wp.mat33),
               adj_x: wp.array(dtype=wp.vec3), adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33),
               has_adj_dFc: int, adj_grid_v: wp.array(dtype=wp.vec3)):
@@ -50,7 +49,6 @@ def k_g2p_adj(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.a
         return
     C0 = 3.0 * inv_dx * inv_dx
     b = base_node(xp, gmin, inv_dx)
-    vnew = wp.vec3(0.0, 0.0, 0.0)
     Cnew = wp.mat33(0.0)
     for oi in range(4):
         for oj in range(4):
@@ -62,42 +60,17 @@ def k_g2p_adj(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.a
                     dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
                     w = bspline_w(dgp[0] * inv_dx) * bspline_w(dgp[1] * inv_dx) * bspline_w(dgp[2] * inv_dx)
                     vg = grid_v[gid(i, j, k, ny, nz)]
-                    vnew = vnew + w * vg
                     Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
-    # the clamp of the velocity
-    a_v = adj_v[p]
-    a_vnew = a_v
-    if v_max > 0.0:
-        sp = wp.length(vnew)
-        if sp > v_max:
-            n = vnew / sp
-            a_vnew = (v_max / sp) * (a_v - n * wp.dot(n, a_v))
-    # the viscous damping of C
-    fac = float(0.0)
-    if eta_mode == 1:
-        fac = wp.exp(-dt * eta[p])
-    else:
-        fac = wp.max(0.0, 1.0 - dt * eta[p])
-    Cout = Cnew
-    if eta_sym == 1:
-        Csym = 0.5 * (Cnew + wp.transpose(Cnew))
-        Cout = (Cnew - Csym) + Csym * fac
-    else:
-        Cout = Cnew * fac
-    # F_new = (I + dt Cout)(F + dFc)
+    a_vnew = adj_v[p]
+    # F_new = (I + dt Cnew)(F + dFc)
     B = F[p] + dFc[p]
-    A = wp.identity(n=3, dtype=float) + dt * Cout
+    A = wp.identity(n=3, dtype=float) + dt * Cnew
     a_Fn = adj_Fnew[p]
     a_B = wp.transpose(A) @ a_Fn
     adj_F[p] = adj_F[p] + a_B
     if has_adj_dFc != 0:
         adj_dFc[p] = adj_dFc[p] + a_B
-    a_Cout = adj_C[p] + dt * (a_Fn @ wp.transpose(B))
-    a_Cnew = a_Cout
-    if eta_sym == 1:
-        a_Cnew = a_Cout + (fac - 1.0) * 0.5 * (a_Cout + wp.transpose(a_Cout))
-    else:
-        a_Cnew = fac * a_Cout
+    a_Cnew = adj_C[p] + dt * (a_Fn @ wp.transpose(B))
     a_CnT = wp.transpose(a_Cnew)
     a_xp = wp.vec3(0.0, 0.0, 0.0)
     for oi in range(4):
@@ -122,15 +95,15 @@ def k_g2p_adj(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.a
 def k_p2g_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
               C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
               dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
-              m: wp.array(dtype=float), vol: wp.array(dtype=float), omega: wp.array(dtype=float),
+              m: wp.array(dtype=float), vol: wp.array(dtype=float),
               nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
               gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, nx: int, ny: int, nz: int,
               adj_gm: wp.array(dtype=float), adj_gv: wp.array(dtype=wp.vec3),
               adj_x: wp.array(dtype=wp.vec3), adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
               adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33), has_adj_dFc: int,
               adj_P: wp.array(dtype=wp.mat33)):
-    """The adjoint of kernels.k_p2g (mass and momentum of each particle onto its 64 nodes); m, vol, omega, the bonds and
-    the fragment flags are constants of the tape."""
+    """The adjoint of kernels.k_p2g (mass and momentum of each particle onto its 64 nodes); m, vol, the bonds and the
+    fragment flags are constants of the tape."""
     p = wp.tid()
     xp = x[p]
     if not valid_pos(xp):
@@ -138,7 +111,7 @@ def k_p2g_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
     s = -C0 * dt * vol[p]
-    G = s * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * C[p]
+    G = s * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]
     frag_p = bond_K > 0 and frag[p] > 0.5
     vp = v[p]
     if frag_p:
@@ -177,7 +150,7 @@ def k_p2g_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
             wp.atomic_add(adj_v, nbr[p * bond_K + a], a_vs)
     else:
         wp.atomic_add(adj_v, p, a_vp)
-    adj_C[p] = adj_C[p] + (omega[p] * mp) * a_G
+    adj_C[p] = adj_C[p] + mp * a_G
     adj_P[p] = adj_P[p] + s * (a_G @ Feff)
     a_Feff = s * (wp.transpose(a_G) @ P[p])
     adj_F[p] = adj_F[p] + a_Feff
@@ -204,15 +177,14 @@ def record_g2p(tape, tr, t: int, dfc, N: int):
     a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
 
     def backward():
-        wp.launch(k_g2p_adj, dim=N, inputs=[x, F, dfc, gv, tr.eta, gmin, prm.dx, inv_dx, prm.dt,
-                                            prm.nx, prm.ny, prm.nz, prm.v_max, prm.eta_sym, prm.eta_mode,
+        wp.launch(k_g2p_adj, dim=N, inputs=[x, F, dfc, gv, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                                             v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc,
                                             int(dfc.grad is not None), gv.grad], device=dev)
 
     tape.record_func(backward=backward, arrays=[a for a in (x, F, gv, v1, C1, Fn, dfc) if a.grad is not None])
 
 
-def record_p2g(tape, tr, t: int, dfc, omega, bnb, bnc, bK: int, N: int):
+def record_p2g(tape, tr, t: int, dfc, bnb, bnc, bK: int, N: int):
     """Record kernels.k_p2g's adjoint for step t of Trajectory `tr` on `tape` (the forward was launched unrecorded)."""
     prm, dev = tr.prm, tr.device
     gmin, inv_dx = wp.vec3(*prm.grid_min), 1.0 / prm.dx
@@ -220,7 +192,7 @@ def record_p2g(tape, tr, t: int, dfc, omega, bnb, bnc, bK: int, N: int):
     a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
 
     def backward():
-        wp.launch(k_p2g_adj, dim=N, inputs=[x, v, C, F, dfc, P, tr.m, tr.vol, omega, bnb, bnc, bK,
+        wp.launch(k_p2g_adj, dim=N, inputs=[x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK,
                                             gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz,
                                             gm.grad, gmom.grad, x.grad, v.grad, C.grad, F.grad, a_dfc,
                                             int(dfc.grad is not None), P.grad], device=dev)

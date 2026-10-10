@@ -65,38 +65,35 @@ def test_tape_without_the_geometric_deformation_is_the_same(dev, volume):
     assert float(with_geom[4].abs().max()) > 0 and float(with_geom[5].abs().max()) > 0
 
 
-def _relief_whole_body(relief, x, mask, nrm, nbr, w, local=None):
+def _relief_whole_body(relief, x, mask, nrm, nbr, w):
     """TargetRelief.at as frozen (tag freeze-2026-10-09): every particle looked up on the surface."""
-    from physmorph.pipeline.window.layer import _own
     d, i = relief.tree.query(x, 1)
     i = i.reshape(-1)
     q, m = relief.points[i], relief.normals[i]
     foot = x - ((x - q) * m).sum(1, keepdim=True) * m
     res = (nrm * (foot - (w[..., None] * foot[nbr]).sum(1))).sum(1)
-    near = (mask > 0.5) & (d.float().reshape(-1) < _own(relief.reach, None if local is None else local.float()))
+    near = (mask > 0.5) & (d.float().reshape(-1) < relief.reach)
     return torch.where(near, res - (w * res[nbr]).sum(1), torch.zeros((), device=x.device))
 
 
-@pytest.mark.parametrize("with_local", [False, True])
-def test_relief_reference_from_the_layer_alone_is_the_same(with_local):
+def test_relief_reference_from_the_layer_alone_is_the_same():
     _dev_or_skip("cuda")
     from physmorph.pipeline.window.layer import TargetRelief, layer_relax_data, layer_spacing
     rng = np.random.default_rng(11)
     g = np.arange(24, dtype=np.float32) * 0.1
     X = np.stack(np.meshgrid(g, g, g, indexing="ij"), -1).reshape(-1, 3)
     x = torch.tensor(X - X.mean(0) + rng.uniform(-0.03, 0.03, X.shape).astype(np.float32), device="cuda")
-    local = torch.tensor(rng.uniform(0.9, 1.1, len(x)).astype(np.float32), device="cuda") if with_local else None
     # the target's surface: a sphere a little inside the block's corners, so that some layer particles are within
     # one spacing of it and some are not
     u = rng.normal(size=(20000, 3)).astype(np.float32)
     u /= np.linalg.norm(u, axis=1, keepdims=True)
     pts = torch.tensor(1.25 * u, device="cuda")
     nrm_s = torch.tensor(u, device="cuda")
-    sp = layer_spacing(x, local)
+    sp = layer_spacing(x)
     relief = TargetRelief(pts, nrm_s, sp)
-    mask, nrm, nbr, w = layer_relax_data(x, sp, k=24, h_sp=2.0, local=local)
-    got = relief.at(x, mask, nrm, nbr, w, local)
-    ref = _relief_whole_body(relief, x, mask, nrm, nbr, w, local)
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=24, h_sp=2.0)
+    got = relief.at(x, mask, nrm, nbr, w)
+    ref = _relief_whole_body(relief, x, mask, nrm, nbr, w)
     assert torch.equal(got, ref)
     assert int((got != 0).sum()) > 50 and int(((mask > 0.5) & (got == 0)).sum()) > 50
 
@@ -127,45 +124,6 @@ def test_hand_written_transfer_adjoints_match_the_generated_ones(dev, volume, mo
     for a, b in zip(gen[4:], hand[4:]):                       # the gradients on dc and u
         torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * float(a.abs().max()))
         assert float(a.abs().max()) > 0
-
-
-@pytest.mark.parametrize("dev", ["cpu", "cuda"])
-def test_hand_written_g2p_adjoint_with_the_clamp_and_the_viscosity(dev, monkeypatch):
-    """(3b) the velocity clamp and the objective viscosity, which the pipeline leaves off, through G2P's hand-written
-    adjoint: the same gradients as the generated adjoint on a plain taped rollout."""
-    _dev_or_skip(dev)
-    import warp as wp
-    import physmorph.mpm.traj as TR
-    from physmorph.mpm.state import MPMParams
-    from physmorph.mpm.traj import Trajectory, compute_rest_volumes
-    rng = np.random.default_rng(31)
-    x = rng.uniform(-0.6, 0.6, (300, 3)).astype(np.float32)
-    v0 = rng.normal(0, 0.1, (300, 3)).astype(np.float32)
-    prm = MPMParams(dx=0.25, dt=1.0 / 240.0, drag=0.5, smoothing=0.9, grid_min=(-3.0,) * 3, nx=24, ny=24, nz=24,
-                    v_max=0.15, eta_sym=1, eta_mode=1)
-    vol0 = compute_rest_volumes(x, 1.0, prm, dev)
-    dfc = rng.normal(0, 0.02, (3, 300, 3, 3)).astype(np.float32)
-
-    def run(hand):
-        monkeypatch.setattr(TR, "HAND_ADJOINTS", hand)
-        seq = [wp.array(dfc[t], dtype=wp.mat33, device=dev, requires_grad=True) for t in range(3)]
-        tr = Trajectory(x, 1.0, 800.0, 400.0, prm, 3, v0=v0, dFc=seq, eta=np.full(300, 6.0, np.float32),
-                        device=dev, requires_grad=True, vol0=vol0)
-        tape = wp.Tape()
-        with tape:
-            tr.rollout()
-        seed_x = wp.array(rng_seed.normal(size=(300, 3)).astype(np.float32), dtype=wp.vec3, device=dev)
-        seed_v = wp.array(rng_seed.normal(size=(300, 3)).astype(np.float32), dtype=wp.vec3, device=dev)
-        tape.backward(grads={tr.x[3]: seed_x, tr.v[3]: seed_v})
-        return [s.grad.numpy().copy() for s in seq] + [tr.x[0].grad.numpy().copy(), tr.v[0].grad.numpy().copy()]
-
-    rng_seed = np.random.default_rng(7)
-    gen = run(False)
-    rng_seed = np.random.default_rng(7)
-    hand = run(True)
-    for a, b in zip(gen, hand):
-        np.testing.assert_allclose(b, a, rtol=1e-4, atol=1e-5 * float(np.abs(a).max()))
-        assert float(np.abs(a).max()) > 0
 
 
 def _old_axis_kernel():
@@ -271,7 +229,7 @@ def test_replay_pair_takes_the_warm_start_evaluation(monkeypatch, exterior):
     tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
     prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
     cfg = PipelineConfig(T=4, iters=2, animations=3, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
-                         render_res=24, dt_res=32, patience=3, c2f_event=False, render_exterior=exterior)
+                         render_res=24, dt_res=32, patience=3, render_exterior=exterior)
     ev, rn = S.WindowOptimizer.eval, S.WindowOptimizer.replay_noise
     rows = []
 
@@ -312,7 +270,7 @@ def test_record_takes_the_commits_potentials(monkeypatch):
     tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
     prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
     cfg = PipelineConfig(T=4, iters=2, animations=3, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
-                         render_res=24, dt_res=32, patience=3, c2f_event=False, render_exterior=True)
+                         render_res=24, dt_res=32, patience=3, render_exterior=True)
     solve, rec = GridSinkhornLoss.solve, RN._record
     n = {"solves": 0}
     rows = []

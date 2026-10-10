@@ -3484,6 +3484,87 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   band widened to its four runs' 0.9869–0.9874 and its width (0.9864–0.9879) after batch 1's miss showed three runs too
   narrow; the seconds an attempt at most 8.0 (bunny) and 13.0 (dragon). Prediction: bunny about 7.3, dragon about
   11.5–12.
+- **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
+  bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
+  coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material
+  flags kept; server `repo_cl1`; `tmp/rt/smoke_cmp.sh`, `det_run.py`, `det_cmp.py`; `output/gpu/rt/smoke_cl`).**
+  Removed, each with its switch, its config field, its kernels or branches and its tests:
+  (1) `--spray_gate grid` (D126, D133): the grid isolation gate and the dispatcher; the kNN gate stays, without a switch.
+  (2) `--render_body_only` (D127) and `Tracked.body_only`/`keep`; `connected_sets` stays, with a test of its own.
+  (3) the volume modes `history`, `motion`, `smoothed` (D129, D130, D134) of `--volume_exact`: `k_stress_vx`,
+  `k_stress_polar_vx`, `k_volume_update`, `k_volume_update_smoothed`, the stress reading J; `off` and `carried` stay
+  (`k_volume_update_motion`, `k_volume_carry`).
+  (4) `--w_dt` (the CLI override; the weight stays in the config).
+  (5) `--surface_density` (D122): the surface-dense sample and the per-particle spacing (`local`, `w_src`, `w_tgt`,
+  `body_local`) through prepare, the target, the layer, the proximity, the window and the runner; the archive keeps
+  empty `w_src`/`w_tgt`/`tgt_base` for the probes that read old archives.
+  (6) the log and ratio support forms: `TransportSupport`, `--support_form`, `--support_target_ref`, `--support_weight`
+  (and the `sup_w_eff` record); the surface proximity is the only form.
+  (7) the coarse-to-fine machinery (`c2f_event`, the config's `render_res_hi`, `rebuild_for_resolution`, the epoch
+  reset); the `--render_res_hi` command-line name stays (one resolution from the first window).
+  (8) P3, u through F: `k_layer_F` and the layer's two deformation entries; the layer is (mask, normal, neighbours,
+  weights, fraction[, u gate[, reference]]).
+  (9) MPM options the recipe never set: the support-gated APIC (`gate_r_lo/hi`, `gate_n0`, the omega in P2G; its 3^3
+  count stays as `k_neighbour_count` for the bonds' decoupling test), the G2P velocity clamp `v_max`, the viscosity
+  (`eta`, `eta_sym`, `eta_mode`, `MPMState.eta`), the unused `k_add_guidance`, and the legacy `bond_history=False` P2G
+  branch (the neighbour mean written inline, whose gradient Warp's replay dropped); the hand-written adjoints lose the
+  same terms.
+  (10) `--ls_probe` (`_probe`, `_parts`, `_iter_row`, `direction_stats`), the runner's free-rollout probe
+  (`_free_probe`, dead_free), the shadow selection (`_shadow_judge`, the pre-R13 merit record), and the `ext_apart`,
+  `merit_w1_gap` records.
+  (11) `scripts/probes/settled/support_forms.py`; `thin_regions.py`, `own_terms_probe.py`, `render_terms_probe.py` and
+  `gradcheck.py` adapted.
+  Kept: `--render_weight_scale 0` (the twin), `--u_off`, `--no-layer_relief`, `--volume_exact off|carried`,
+  `--no-match_density`, `--no-assim_volume`, `--cell_follows_n`, `--lambda_ema`, `--no-render_exterior`,
+  `--min_spacing`, `--exterior_radius`, `--baseline xu|xu_spray`, `--xu_form`, `--loss_follows_n`,
+  `--render_target_draws`, `--render_res_hi`, `--cell_diag`, `--profile`, `--telemetry`, `--ot_iters`,
+  `--animations`/`--patience`/`--reject_stop`, `--save_F_stride`, `--term_dump`, `--grad_dump`, the material and
+  external-force flags (`--young`, `--poisson`, `--assim`, `--drag`, `--f_ext`, `--floor`, `--floor_friction`), the
+  live viewer, the polar adjoint.
+  The proof (2026-10-09 23:25 – 10-10 00:30 CDT). (a) CPU, bit for bit: `tests/test_cleanup_reference.py` runs
+  test_volume_exact's window case (bonds with fragment particles, the layer with its reference and u, the minimum
+  spacing, driven and released steps, the polar adjoint) through the production tape, volume off and carried, against
+  the outputs and gradients the 09b tree wrote (`tests/data/cleanup_09b_ref.npz`, by `tests/data/make_cleanup_09b_ref.py`
+  run on that tree). (b) GPU, bit for bit, whole runs: Warp 1.16's run-to-run deterministic atomics
+  (`wp.config.deterministic = RUN_TO_RUN`, the record bound 32 for the layer relaxation's neighbour loop) with torch's
+  deterministic algorithms make a CUDA run repeat bit for bit, provided Warp's graph captures run eagerly (inside a
+  capture the mode's sort buffers of every launch stay allocated: out of memory at 40k). `tmp/rt/det_run.py` runs a
+  script so; `det_cmp.py` compares two runs' archives (every array), every history field both record (clocks aside)
+  and every metric. The 09b tree (`repo_09b`) against the cleanup (`repo_cl1`) with the same arguments (`smoke_cmp.sh`;
+  `output/gpu/rt/smoke_cl/summary.txt`): the no-flag default (40k bunny, four windows) and 27 kept switches one at a
+  time (40k, two windows; `--cell_follows_n` and `--no-loss_follows_n` at 80k, where they act): `--render_weight_scale
+  0`, `--lambda_ema 0.3`, `--no-render_exterior`, `--min_spacing 0`, `--exterior_radius 2.5`, `--u_off`, `--volume_exact
+  off`, `--render_target_draws 2`, `--baseline xu`, `--baseline xu_spray`, `--baseline xu --xu_form paper`,
+  `--no-layer_relief`, `--no-assim_volume`, `--no-match_density`, `--cell_follows_n`, `--no-loss_follows_n`,
+  `--render_res_hi 64`, `--ot_iters 800`, `--cell_diag 20`, `--save_F_stride 2`, `--profile`, `--young 1.2e5 --poisson
+  0.3 --assim 0.3 --drag 0.5`, `--f_ext 0 -0.1 0`, `--floor --floor_friction 0.5`, `--telemetry`, `--term_dump`,
+  `--grad_dump`: all 28 bit-equal (frames, F and J samples, Fp, every shared history field, the 37 metrics); the fields
+  only 09b records are the removed ones (`ext_apart`, `iter_probe`, `ls_probe`, `merit_w1_gap`, `sup_w_eff`, the shadow
+  selection's `shadow_*` and `judge_improved`). A 300k window under the same mode (the shape-cell bunny's window 30,
+  dumped by `rt_bench.py` from a 09b run, replayed twice per tree): the same end state (hash f7791ce9277da36d), merit
+  6.924585962022759e-5 and commit energy in both trees and both repetitions. (c) The two kept dumps are read-only: under
+  the same mode a run with `--grad_dump` or `--term_dump` is the run without it bit for bit (frames, Fp, every history
+  field but `active_set`), `tests/test_dump_hooks.py` (a subprocess, `tests/dump_runs.py`). `active_set` is the record
+  `--term_dump` fills (null without it; `--telemetry` fills it too); the hook's other work: `Objective.active_set_record`
+  reads the commit's end state (one more transport solve there, the render terms of the window's own objective, which
+  is dropped after the window) and the runner writes `terms_*.npz`. Its solve replaces the cached potentials D53's record
+  reads, at the same positions: under the default atomics the record's transport energy (a record, which no decision
+  reads but for its finiteness) can differ at the rasterisation's rounding; nothing the trajectory reads changes.
+  `--grad_dump` re-runs rollouts on the window's trajectory after cloning what the runner reads (`commit.x`, `F`, `J`;
+  `end_v`, `end_C` are clones) and restores the control and u. (d) The suite on a fresh copy of the commit's tree (`repo_cl2`, `git archive`): 321 passed, 2 skipped, exit 0. Tests 380 →
+  323 collected (378 → 321 passed, 2 skipped): 70 removed with the removed code, 13 added or adapted. Removed:
+  `test_support_gate.py` (4: the gated APIC), `test_surface_density.py` (6: D122), `test_transport_support.py` 14 (the
+  log/ratio TransportSupport; the proximity's 12 stay), `test_volume_exact.py` 28 (history, motion, smoothed: 24
+  parametrisations and 4 mode-only tests; off and carried keep theirs, two carried tests adapted from the motion mode's),
+  `test_settled_contracts.py` 4 (c2f, ls_probe, the log/ratio support split; the proximity-form test merged into the
+  new proximity-split test), `test_runtime_exact.py` 4 (the clamp and viscosity adjoint ×2; the relief test's per-
+  particle-spacing parameter, now one test), `test_persistent_traj.py` 2 (the deformation layer mode),
+  `test_assim_volume.py` 3 (the history/motion refusal and the smoothed acceptance, now one refusal test of the three
+  removed modes), `test_material_bonds.py` 2 (renamed: the legacy branch's comparison dropped, the gradient check
+  kept), `test_exterior_discs.py` 1 (body_only), `test_frozen_recipe.py` 1 (the bare `--volume_exact` flag),
+  `test_w1_cleanup.py` 1 (the grid gate). New: the bit-for-bit reference (2), `connected_sets` (1), the dump hooks (1).
+  No test of kept code was dropped (each removed test exercised a removed class, flag value or branch; listed by node
+  in `tmp/rt/nodes_repo_09b.txt` / `nodes_repo_cl1.txt`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

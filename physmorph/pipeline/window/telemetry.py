@@ -190,9 +190,8 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
 
 
 def support_record(tgt, x: torch.Tensor) -> dict:
-    """The transport term taken apart at a committed state: the transport without the support
-    bound E, the support penalty B, the support-gradient weight w (E / (E + w B))^2 that every
-    particle feels through the bound, and the per-particle penalty's max, p99 and median."""
+    """The geometry energy taken apart at a committed state: the transport without the surface proximity E, the
+    proximity B, its per-point max, p99 and median, and the two parts' position-gradient norms."""
     sup, ot = tgt.support, tgt.grid_ot
     if sup is None or ot is None:
         return {}
@@ -211,8 +210,7 @@ def support_record(tgt, x: torch.Tensor) -> dict:
     with torch.no_grad():
         pen = sup.penalty_per_point(x).double()
         q = torch.quantile(pen, torch.tensor([.99, .5], dtype=pen.dtype, device=pen.device))
-    B, w = float(pen.mean()), sup.weight
-    w_eff = (w * (E / (E + w * B)) ** 2 if w is not None and np.isfinite(E) and E + w * B > 0 else None)
-    return {"sup_E": E, "sup_B": B, "sup_w_eff": w_eff, "sup_pen_max": float(pen.max()),
+    B = float(pen.mean())
+    return {"sup_E": E, "sup_B": B, "sup_pen_max": float(pen.max()),
             "sup_pen_p99": float(q[0]), "sup_pen_med": float(q[1]), "sup_grad_ratio": ratio,
             "g_transport": float(g_e.norm()), "g_surf": 0.0 if g_pen is None else float(g_pen.norm())}

@@ -23,7 +23,7 @@ from physmorph.render.exterior import Lattice, ZhuBridson      # noqa: E402
 dev = torch.device("cuda")
 cfg = PipelineConfig()
 opts = sys.argv[2:]
-res = next((int(s) for s in opts if s.isdigit()), cfg.render_res_hi)
+res = next((int(s) for s in opts if s.isdigit()), cfg.render_res)
 ref = next((s[4:] for s in opts if s.startswith("ref=")), None)
 z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]

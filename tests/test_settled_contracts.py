@@ -1,6 +1,6 @@
 """Contracts of settled transport on a small cloud (CUDA): the phase velocity cost, the
 domain check of whole trajectories, window rejection on a non-finite or unsolved cost,
-delivery without null padding, the calibrations across the coarse-to-fine switch, the
+delivery without null padding, the render weight calibration at every window, the
 cost epochs of the acceptance, and the delivered slice."""
 import numpy as np
 import pytest
@@ -29,7 +29,7 @@ def clouds():
 
 def _cfg(**kw):
     base = dict(T=4, iters=2, animations=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
-                render_res=24, dt_res=32, patience=2, c2f_event=False)
+                render_res=24, dt_res=32, patience=2)
     base.update(kw)
     return PipelineConfig(**base)
 
@@ -118,33 +118,6 @@ def test_null_windows_add_no_simulated_time_and_are_not_delivered(prm, clouds, m
     assert sum(1 for r in res["history"] if r.get("no_simulated_time")) == 2
 
 
-def test_transport_calibration_survives_the_render_resolution_change(prm, clouds, monkeypatch):
-    build, packs, starts = target_mod.build_target, [], []
-    optimize = runner_mod.optimize_window
-
-    def tracked(*args, **kw):
-        packs.append(build(*args, **kw))
-        return packs[-1]
-
-    def window(*args, **kw):
-        starts.append(args[3].settled_step)
-        return optimize(*args, **kw)
-
-    monkeypatch.setattr(target_mod, "build_target", tracked)
-    monkeypatch.setattr(runner_mod, "build_target", tracked)
-    monkeypatch.setattr(runner_mod, "optimize_window", window)
-    # patience 0: the first committed window is the coarse epoch's stop event, which is what fires the switch
-    res = run_pipeline(*clouds, prm, _cfg(c2f_event=True, render_res_hi=28, animations=3, patience=0), log=lambda *_: None)
-    h = res["history"]
-    switch = next(i for i, r in enumerate(h) if r.get("c2f_render_res") == 28)
-    assert any(r.get("frame_end") for r in h[:switch])               # a stop event came first ...
-    assert any("animation" in r for r in h[switch + 1:])              # ... and the run went on at 28 px
-    assert len(packs) == 2
-    assert packs[0].ot_scale == packs[1].ot_scale and packs[0].grid_ot is packs[1].grid_ot
-    assert packs[0].unit_ratio == packs[1].unit_ratio
-    assert starts == [None, None]                                 # a new resolution: a fresh search
-
-
 def test_the_render_weight_is_calibrated_at_every_window(prm, clouds, monkeypatch):
     import physmorph.pipeline.render_loss as render_mod
     calls, update = [], render_mod.LambdaBalancer.update
@@ -228,47 +201,17 @@ def test_delivery_is_the_best_merit_window_of_the_last_epoch():
     assert n == 9 and trunc["best_animation"] == 1
 
 
-def test_line_search_probe_is_diagnostic_only(prm, clouds, monkeypatch):
-    """The first trial of the run fails its state check. With the probe on, that trial is re-run on
-    dFc alone and on u alone and recorded; the accepted steps and losses equal the probe-off run."""
-    import physmorph.pipeline.window.solve as solve_mod
-    real = solve_mod.state_ok
-
-    def run(probe):
-        calls = []
-
-        def first_trial_fails(e):
-            calls.append(1)
-            return False if len(calls) == 1 else real(e)
-        monkeypatch.setattr(solve_mod, "state_ok", first_trial_fails)
-        res = run_pipeline(*clouds, prm, _cfg(animations=1, ls_probe=probe), log=lambda *_: None)
-        return next(r for r in res["history"] if r.get("frame_end"))
-
-    off, on = run(False), run(True)
-    assert off["ls_fail_state"] == on["ls_fail_state"] == 1 and off["ls_probe"] is None
-    assert on["ls_trials"] == off["ls_trials"] and len(on["ls_probe"]) == on["ls_fail_state"] + on["ls_fail_merit"]
-    row = on["ls_probe"][0]
-    assert len(row) == 36 and row[6] == 0       # step, |du|max, 3 x (rel, d_vol, kin, render, ok), 3 x parts, cur parts,
-    assert all(s >= 0. for s in row[32:])       # and the spread of three repeated evaluations of the current point
-    assert on["iter_probe"] and all(len(r) == 14 for r in on["iter_probe"])   # one Adam-direction row per iteration
-    assert on["start_ok"] == 1 and on["start_reason"] is None and on["commit_reason"] is None
-    assert on["ls_fail_state_reason"] == {} or sum(on["ls_fail_state_reason"].values()) == on["ls_fail_state"]
-    assert on["loss"] == pytest.approx(off["loss"], rel=1e-4)
-    assert on["selection_merit"] == pytest.approx(off["selection_merit"], rel=1e-4)
-
-
-def test_committed_windows_record_the_support_split(prm, clouds):
-    """Each committed window records E, B, the support-gradient weight w (E / (E + w B))^2 and
-    the per-particle penalty's quantiles; the ratio form keeps every particle at most radius^2."""
+def test_committed_windows_record_the_proximity_split(prm, clouds):
+    """Each committed window records the geometry energy taken apart (--telemetry): the transport E, the surface
+    proximity B with its per-point quantiles and its position-gradient norm against the transport's, and the thin
+    set's coverage."""
     from physmorph.thin import thin_set
-    for form in ("log", "ratio"):
-        cfg = _cfg(animations=3, support_form=form, work_telemetry=True)   # >1: a tiny cloud can null a window
-        res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, thin=thin_set(clouds[1], prm.dx, 300))
-        rec = next(r for r in res["history"] if r.get("frame_end"))
-        E, B, w = rec["sup_E"], rec["sup_B"], cfg.support_weight
-        assert E > 0 and B >= 0 and rec["sup_w_eff"] == pytest.approx(w * (E / (E + w * B)) ** 2)
-        assert rec["sup_pen_med"] <= rec["sup_pen_p99"] <= rec["sup_pen_max"]
-        assert 0. <= rec["thin_uncovered"] <= 1.
+    cfg = _cfg(animations=3, work_telemetry=True)                    # >1: a tiny cloud can null a window
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, thin=thin_set(clouds[1], prm.dx, 300))
+    rec = next(r for r in res["history"] if r.get("frame_end"))
+    assert rec["sup_E"] > 0 and rec["sup_B"] >= 0 and rec["sup_grad_ratio"] >= 0.
+    assert rec["sup_pen_med"] <= rec["sup_pen_p99"] <= rec["sup_pen_max"]
+    assert 0. <= rec["thin_uncovered"] <= 1.
 
 
 def test_state_reason_names_the_failing_check():
@@ -283,14 +226,6 @@ def test_state_reason_names_the_failing_check():
     assert state_reason(Eval(z, F, z, *([None] * 9), jt=1.0)) == "det"
     xn = z.clone(); xn[0, 0] = float("nan")
     assert state_reason(Eval(xn, I, z, *([None] * 9), jt=1.0)) == "nonfinite"
-
-
-def test_proximity_form_runs_and_records_the_gradient_ratio(prm, clouds):
-    """support_form proximity: the target-surface proximity replaces the support; committed windows record its mean
-    and its position-gradient norm against the transport's, and no bound weight."""
-    res = run_pipeline(*clouds, prm, _cfg(animations=3, support_form="proximity", work_telemetry=True), log=lambda *_: None)
-    rec = next(r for r in res["history"] if r.get("frame_end"))
-    assert rec["sup_B"] >= 0. and rec["sup_w_eff"] is None and rec["sup_grad_ratio"] >= 0.
 
 
 def test_the_adaptive_scale_applies_once(prm, clouds):

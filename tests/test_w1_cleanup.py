@@ -115,36 +115,6 @@ def test_knn_gate_selectivity():
     assert float(gate[-1]) > 0.9
 
 
-def test_grid_gate_is_the_mpm_decoupling_test_and_knn_the_old_gate():
-    """D126 (--spray_gate grid): the gate is the simulator's own decoupling test (k_frag_step's 3^3-cell count through
-    the support-gate kernel, or the commit's fragment mask): a particle with no grid neighbour is isolated (1), a pair
-    stretched to 0.8 cells but sharing cells with each other and nodes with the body is not (0), the body is not; and
-    under "knn" the dispatcher is the old ramp bit for bit. The default is "knn"."""
-    if not torch.cuda.is_available():
-        pytest.skip("CUDA unavailable (the commit's fragment mask labels on the device)")
-    from physmorph.losses.volumetric import grid_isolation_gate, isolation_gate, spray_gate
-    from physmorph.mpm.state import MPMParams
-    from physmorph.pipeline.config import PipelineConfig
-    assert PipelineConfig().spray_gate == "knn"
-    prm = MPMParams(dx=0.5, dt=1.0 / 240.0, drag=0.0, smoothing=1.0, grid_min=(-6.0, -6.0, -6.0), nx=24, ny=24, nz=24)
-    rng = np.random.default_rng(11)
-    body = rng.uniform(-1.0, 1.0, (600, 3)).astype(np.float32)             # ~9 particles a cell
-    pair = np.array([[1.15, 0.0, 0.0], [1.55, 0.0, 0.0]], np.float32)       # stretched (0.8 cells apart), both coupled
-    lone = np.array([[4.5, 0.0, 0.0]], np.float32)                           # no other particle within its 3^3 cells
-    x = torch.as_tensor(np.concatenate([body, pair, lone]), device="cuda")
-    g = grid_isolation_gate(x, prm)
-    assert g.shape == (603,) and g.dtype == x.dtype
-    assert float(g[:600].max()) == 0.0 and float(g[600:602].max()) == 0.0
-    assert float(g[602]) == 1.0
-    # a particle alone in its 3^3 cells is isolated by the per-step test even where the commit mask still joins it
-    near = torch.as_tensor(np.concatenate([body, [[2.45, 0.0, 0.0]]]).astype(np.float32), device="cuda")
-    assert float(grid_isolation_gate(near, prm)[-1]) == 1.0
-    assert torch.equal(spray_gate(x, "grid", 1.2, 1.8, prm=prm), g)
-    assert torch.equal(spray_gate(x, "knn", 1.2, 1.8), isolation_gate(x, 1.2, 1.8))
-    local = torch.ones(603, device="cuda")
-    assert torch.equal(spray_gate(x, "knn", 1.3, 1.7, local=local), isolation_gate(x, 1.3, 1.7, local=local))
-
-
 def test_state_ok_rejects_trajectory_inversion():
     """Guard v2: a candidate whose rollout inverted at ANY step is rejected even when
     the terminal state recovered (hero7/hero9: F_invert_steps=1 slipped through)."""

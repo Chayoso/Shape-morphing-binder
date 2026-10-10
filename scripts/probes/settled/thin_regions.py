@@ -10,8 +10,8 @@ grid is the MPM grid, so runs with a finer loss grid bin the same features):
                 anisotropy (largest / smallest), det F;
   render        silhouette pixels of the bin's target points not covered by the body (24 views, 256 px);
   gradients     per-particle position gradients of the settled objective at the end state (velocity 0): the
-                transport part and the local-support part of E + E wB / (E + wB), the lambda-weighted render
-                term, the cleanup terms; the support penalty of the body and of the TARGET itself.
+                transport part and the surface-proximity part of E + B (unweighted), the lambda-weighted render
+                term, the cleanup terms; the proximity penalty of the body and of the TARGET itself.
 The JSON run file next to the archive (<tag>.json) supplies the grid, the loss resolution and lambda.
 """
 import physmorph  # noqa: F401  (before torch: CuPy's CUDA 12 NVRTC)
@@ -70,9 +70,7 @@ def analyse(label, path):
                        if k in MPMParams.__dataclass_fields__})
     cfg0 = arm["config"]
     cfg = PipelineConfig(loss_res=int(cfg0["loss_res"]), unit_ref_res=int(cfg0.get("unit_ref_res", 64)),
-                         nn_berth_k=float(cfg0.get("nn_berth_k", 1.0)),
-                         support_target_ref=bool(cfg0.get("support_target_ref", False)),
-                         support_form=str(cfg0.get("support_form", "log")))
+                         nn_berth_k=float(cfg0.get("nn_berth_k", 1.0)))
     z = np.load(path, allow_pickle=True)
     dn = int(z["deliver_n"]) if "deliver_n" in z.files else None
     frames = npz_member(path, "frames")
@@ -118,8 +116,8 @@ def analyse(label, path):
     E = E_of(q); gE = torch.autograd.grad(E, q)[0]
     q2 = x.clone().requires_grad_(True)
     B = pack.support.penalty(q2); gB = torch.autograd.grad(B, q2)[0]
-    w = cfg.support_weight; Ev, Bv = float(E), float(B)
-    c_tr = ot_scale * (1 + (w * Bv / (Ev + w * Bv)) ** 2); c_sup = ot_scale * w * (Ev / (Ev + w * Bv)) ** 2
+    Ev, Bv = float(E), float(B)
+    c_tr = c_sup = ot_scale                                   # the proximity adds to E unweighted (SurfaceProximity)
     lam = [r for r in arm["history"] if r.get("frame_end") and not r.get("null_commit") and r["frame_end"] <= dn]
     lam = float(lam[-1]["lambda"] or 0.0) if lam else 0.0
     q3 = x.clone().requires_grad_(True)
@@ -157,8 +155,8 @@ def analyse(label, path):
                          B_body=f(Bx, bx), B_target=f(Bt, bt), B_target_pos=f((Bt > 0).float(), bt)))
     head = dict(label=label, frames=dn, loss_cell=ldx, target_spacing=sp_t, cell_over_spacing=ldx / sp_t,
                 E=Ev, B=Bv, support_coef=c_sup / ot_scale, lam=lam, ot_scale=ot_scale)
-    print(f"\n== {label}: loss cell {ldx:.4f} wu = {ldx / sp_t:.2f} target spacings; E {Ev:.3e}, wB {w * Bv:.3e}, "
-          f"support gradient weight w(E/(E+wB))^2 = {c_sup / ot_scale:.3e}, lambda {lam:.3g}")
+    print(f"\n== {label}: loss cell {ldx:.4f} wu = {ldx / sp_t:.2f} target spacings; E {Ev:.3e}, B {Bv:.3e}, "
+          f"lambda {lam:.3g}")
     cols = ("bin", "n_tgt", "n_body", "uncovered", "uncovered_40k", "holes", "sparsity", "sparse_frac", "stretch_p90", "aniso_p90", "J",
             "g_transport", "g_support", "g_render", "g_cleanup", "B_body", "B_target", "B_target_pos")
     print(" ".join(f"{c:>11s}" for c in cols))

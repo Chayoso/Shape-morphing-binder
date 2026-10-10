@@ -70,7 +70,7 @@ def clouds():
 def _cfg(**kw):
     from physmorph.pipeline import PipelineConfig
     return PipelineConfig(T=3, iters=2, animations=3, loss_res=24, render_views=2, render_elevs=(0.0, 0.5),
-                          render_res=24, dt_res=32, patience=10, c2f_event=False, loss_follows_n=True, **kw)
+                          render_res=24, dt_res=32, patience=10, loss_follows_n=True, **kw)
 
 
 def test_the_u_gate_keeps_the_shapes_cell(clouds):

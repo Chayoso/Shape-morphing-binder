@@ -77,15 +77,10 @@ def knn(points: torch.Tensor, k: int, queries: torch.Tensor | None = None):
     return KNN(points).query(points if queries is None else queries, k)
 
 
-def median_kth_spacing(points: torch.Tensor, kth: int, subsample: int | None = None,
-                       seed: int = 0, local: torch.Tensor | None = None) -> float:
+def median_kth_spacing(points: torch.Tensor, kth: int, subsample: int | None = None, seed: int = 0) -> float:
     """Median distance to the kth neighbour (kth=1: nearest other point). With `subsample`
     the median is taken on a seeded subset and rescaled by (n_sub/N)^(1/3) to the full
-    density, the estimator the layer and shading spacings use. `local` (N,) (D122, a sample
-    whose density varies by design): each point's spacing relative to the base density
-    (w^(1/3), w its rest volume over the mean); the distances are divided by it, so the median
-    is the BASE spacing, what a uniform sample of the same N would have; a point's own
-    spacing is then the base spacing x local."""
+    density, the estimator the layer and shading spacings use."""
     n = int(points.shape[0])
     sub = points
     scale = 1.0
@@ -94,13 +89,8 @@ def median_kth_spacing(points: torch.Tensor, kth: int, subsample: int | None = N
         idx = torch.as_tensor(idx, device=points.device)
         sub = points[idx]
         scale = (subsample / n) ** (1.0 / 3.0)
-        if local is not None:
-            local = local[idx]
     d, _ = knn(sub, kth + 1)
-    dk = d[:, kth]
-    if local is not None:
-        dk = dk / local.to(dk.dtype)
-    return median(dk) * scale
+    return median(d[:, kth]) * scale
 
 
 def median(t: torch.Tensor) -> float:

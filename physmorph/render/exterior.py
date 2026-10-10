@@ -147,18 +147,6 @@ class Tracked:
         self.idx = field.neighbours(pts, skin)
         self.radius, self.offset, self.h = field.radius, field.offset, h
 
-    def keep(self, mask):
-        """Restrict the tracked set to the discs where `mask` holds; the kept discs read exactly as before."""
-        self.p0, self.n0, self.slope, self.idx = self.p0[mask], self.n0[mask], self.slope[mask], self.idx[mask]
-        return self
-
-    def body_only(self, h) -> int:
-        """D127: keep the discs of the largest connected set alone (connected_sets at the lattice pitch, the display's
-        rule), so discs apart from the body carry no term; returns the number dropped."""
-        _, apart = connected_sets(self.p0, h)
-        self.keep(~apart)
-        return int(apart.sum())
-
     def read(self, x):
         """(points, unit normals, displacement along n0) of the discs at the particles x."""
         R, p0 = self.radius, self.p0

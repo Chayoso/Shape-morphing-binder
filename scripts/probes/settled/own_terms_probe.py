@@ -28,12 +28,12 @@ from physmorph.render.exterior import Tracked, ZhuBridson      # noqa: E402
 
 mesh, n, frames_path = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 seed = next((int(s[5:]) for s in sys.argv[4:] if s.startswith("seed=")), 97)
-cfg0 = PipelineConfig(support_form="proximity", loss_follows_n=True)
+cfg0 = PipelineConfig(loss_follows_n=True)
 prep = prepare("assets/isosphere.obj", f"assets/{mesh}.obj", n, seed, 26.0, cfg0.young, cfg0.poisson,
                log=lambda s: None, loss_ref_n=cfg0.mass_ref_n, draws=8)
 per_dx = max(1.0, (n / cfg0.mass_ref_n) ** (1.0 / 3.0))
-res = int(np.ceil(cfg0.render_res_hi * per_dx))
-cfg = dataclasses.replace(cfg0, render_exterior=True, render_res=res, render_res_hi=res, loss_res=prep.loss_res,
+res = int(np.ceil(cfg0.render_res * per_dx))
+cfg = dataclasses.replace(cfg0, render_exterior=True, render_res=res, loss_res=prep.loss_res,
                           unit_ref_res=prep.unit_ref_res, nn_berth_k=prep.nn_berth_k)
 prm, src = prep.prm, gpu.tensor(prep.src)
 tgt = build_target(prep.tgt, prm, cfg, draws=prep.tgt_draws)

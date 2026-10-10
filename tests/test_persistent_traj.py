@@ -71,7 +71,7 @@ def test_persistent_rollouts_match_fresh_trajectories(dev):
 
 
 @pytest.mark.parametrize("dev", ["cpu", "cuda"])
-@pytest.mark.parametrize("layer_mode", ["none", "position", "deformation"])
+@pytest.mark.parametrize("layer_mode", ["none", "position"])
 def test_forward_scratch_reuse_preserves_all_states_and_replays(dev, layer_mode):
     if dev == "cuda" and not torch.cuda.is_available():
         pytest.skip("no CUDA")
@@ -86,8 +86,6 @@ def test_forward_scratch_reuse_preserves_all_states_and_replays(dev, layer_mode)
         normal = x / np.linalg.norm(x, axis=1, keepdims=True)
         layer = (np.ones(N, np.float32), normal, bonds[0],
                  np.full((N, 4), .25, np.float32), .05)
-        if layer_mode == "deformation":
-            layer += (rng.normal(0., .1, (N, 4, 3)).astype(np.float32), .2)
     dc = torch.zeros(T, N, 3, 3, device=dev)
     u = torch.zeros(N, device=dev)
     kw = dict(device=dev, requires_grad=False, vol0=np.full(N, .02, np.float32),
@@ -98,8 +96,7 @@ def test_forward_scratch_reuse_preserves_all_states_and_replays(dev, layer_mode)
     ref = Trajectory(x, 1., 800., 400., prm, T, **kw)
     tr = Trajectory(x, 1., 800., 400., prm, T, persistent=True, **kw)
     assert tr.C[0].ptr != tr.C[-1].ptr
-    for name in ["P"] + (["xu", "ld"] if layer else []) + (
-            ["Fu"] if layer_mode == "deformation" else []):
+    for name in ["P"] + (["xu", "ld"] if layer else []):
         assert len({a.ptr for a in getattr(tr, name)}) == 1
         assert len({a.ptr for a in getattr(ref, name)}) == len(getattr(ref, name))
     assert tr.capture() == (dev == "cuda")
