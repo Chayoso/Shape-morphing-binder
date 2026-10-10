@@ -3414,6 +3414,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `test_the_commit_scores_the_accepted_candidate_on_its_own_discs[carried]` to a replay-noise null of its own window;
   that test passed 16 of 16 repeats on this code and on the code before). Window bench: dragon 40 15.18 → 12.20 s
   (six replays; merit 1.003098–1.003158e-4 and one at 1.003558e-4), bunny 30 7.59 → 7.24 s.
+  **Batch 2, dragon (`R4`, read 22:06 CDT): passes.** 24.7 min (1479 s), 104 attempts (14.22 s each), silhouette IoU
+  0.9873, chamfer 0.0543, thin 4.37 %, last kinetic record 1.4e-5 (frozen 6.3e-6–1.6e-5); the merit at every tenth
+  window inside the frozen runs'.
+  (i) D50: the replay pair takes the warm start's evaluation of the kept control as its first rollout and rolls out one
+  more against it (three evaluations at a window's start instead of four). One adaptation the tag's code did not need:
+  the exterior render terms (D62, after the tag) look for their discs again when the state has moved, so the warm
+  start's evaluation is taken only if no search happened after it (the zero control kept after the warm control's
+  evaluation looked for them again): otherwise the pair's two rollouts would read two disc sets and the replay
+  tolerance would carry the difference; then the pair is rolled out anew, as before. Test (6) in
+  `tests/test_runtime_exact.py`: one rollout against the warm start's or a pair anew, never otherwise, with and without
+  the exterior; the measure finite and of the replay noise's size. Suite 376 passed, 2 skipped; the one failure the
+  same test as at (h), this time `[off]`, again a commit_replay null of its single window (1 of 24 repeats on this
+  code, 0 of 24 on batch 2's): the test now runs its window again, up to three times, when the window ends in a
+  commit_replay null, which says nothing about the discs it tests; its assertions are unchanged. Window bench: dragon 40
+  12.20 → 11.65 s (two of six replays' merits 6–8e-4 above the rest; read below), bunny 30 7.24 → 7.03 s.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

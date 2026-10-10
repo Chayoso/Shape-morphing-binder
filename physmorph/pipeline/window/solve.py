@@ -158,8 +158,10 @@ class WindowOptimizer:
     # ---- window start ----
     def warm_start(self, dfc_init):
         """Decayed previous controls, kept only if they give a valid state that beats the
-        zero start (dFc is an absolute control: verbatim reuse double-applies it)."""
+        zero start (dFc is an absolute control: verbatim reuse double-applies it). Returns the
+        evaluation of the control that is kept and the exterior's search count after it (D50)."""
         e0 = self.eval()
+        b0 = self.obj.ext_builds
         r0 = state_reason(e0)
         self.tele.update(zero_ok=int(r0 is None), zero_reason=r0)
         E0 = self.scalar(e0) if r0 is None else np.inf
@@ -175,11 +177,19 @@ class WindowOptimizer:
             for b in self.mom + self.vel:
                 b.zero_()
             self.adam_t = 0
+            return e0, b0
+        return ew, self.obj.ext_builds
 
-    def replay_noise(self) -> float:
+    def replay_noise(self, start=None) -> float:
         """CUDA atomics make two rollouts of one control differ: the relative difference at
-        the start control (10x it floors the commit-rollout tolerance)."""
-        ea, eb = self.eval(), self.eval()
+        the start control (10x it floors the commit-rollout tolerance). start: the warm start's
+        evaluation of the start control and the exterior's search count after it; D50 (tag
+        settled-2026-10-03-d53, ported by the user's approval of 2026-10-09, D138): it is the pair's
+        first rollout and one more is rolled out against it, unless the exterior's discs were looked
+        for again since (the evaluation at the other control), when the pair is rolled out anew so
+        that both read the same discs."""
+        ea = start[0] if start is not None and start[1] == self.obj.ext_builds else self.eval()
+        eb = self.eval()
         ra = state_reason(ea)                               # the control the search starts from
         self.tele.update(start_ok=int(ra is None), start_reason=ra)
         with torch.no_grad():                               # where the two replays differ (measurement)
@@ -409,11 +419,12 @@ class WindowOptimizer:
     def run(self, dfc_init=None) -> WindowResult:
         cfg, log = self.cfg, self.log
         clock = _Clock(self.tele)                            # where a window's time goes (measurement)
+        start = None
         if dfc_init is not None and cfg.warm_decay > 0:
             with timed("warm"):
-                self.warm_start(dfc_init)
+                start = self.warm_start(dfc_init)
         with timed("replay"):
-            replay_rel = self.replay_noise() if cfg.replay_calibrate else 0.0
+            replay_rel = self.replay_noise(start) if cfg.replay_calibrate else 0.0
         clock.lap("t_start")
         leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False

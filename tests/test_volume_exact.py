@@ -498,7 +498,14 @@ def test_the_commit_scores_the_accepted_candidate_on_its_own_discs(clouds, monke
 
     monkeypatch.setattr(S.WindowOptimizer, "line_search", line_search)
     monkeypatch.setattr(S.WindowOptimizer, "commit", commit_)
-    run_pipeline(*clouds, prm, _pipeline_cfg(volume_exact=vx), log=lambda *_: None)
+    # the window commits unless its commit rollout misses the start's replay tolerance by the atomics alone (a
+    # commit_replay null, the routine class of D130 (1)); such a window says nothing about the discs: run it again
+    for _ in range(3):
+        seen.clear()
+        stats.clear()
+        run_pipeline(*clouds, prm, _pipeline_cfg(volume_exact=vx), log=lambda *_: None)
+        if stats and stats[0]["accepted"] > 0 or stats and stats[0].get("null_reason") != "commit_replay":
+            break
     s = stats[0]
     assert seen and s["accepted"] > 0, s
     E_acc, E_fin, E_resc = s["E_accept"], s["commit_E_final"], seen[-1]["rescored"]

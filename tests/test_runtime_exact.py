@@ -13,6 +13,8 @@ rollouts of one control already differ (the replay noise every window measures).
     accumulate with atomics in both).
 (4) The Sinkhorn sweep's axis pass divides the cost by the temperature once per call: bit for bit.
 (5) The window's exterior search reads the field in one Warp kernel: the tensor form's field to float rounding.
+(6) D50 (ported by the user's approval of 2026-10-09): the replay pair takes the warm start's evaluation as its first
+    rollout, unless the exterior's discs were looked for again after it.
 """
 from __future__ import annotations
 
@@ -250,3 +252,45 @@ def test_device_field_is_the_tensor_field_to_rounding():
     assert abs(ct - cd) <= 2 and abs(len(pt) - len(pd)) <= 2 and len(pt) > 500
     d = torch.cdist(pd, pt, compute_mode="donot_use_mm_for_euclid_dist").min(1).values
     assert float(d.max()) < 1e-4
+
+
+@pytest.mark.parametrize("exterior", [False, True])
+def test_replay_pair_takes_the_warm_start_evaluation(monkeypatch, exterior):
+    """(6) D50 (tag settled-2026-10-03-d53, ported by the user's approval of 2026-10-09): a window with a warm start
+    measures the replay noise with the warm start's evaluation of the kept control as the pair's first rollout and one
+    more rollout, three evaluations at the start instead of four; when the exterior's discs were looked for again after
+    that evaluation (at the other control), the pair is rolled out anew so that both of its rollouts read the same
+    discs. The pair's measure is the same quantity: finite, of the replay noise's size."""
+    _dev_or_skip("cuda")
+    import physmorph.pipeline.window.solve as S
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import PipelineConfig, run_pipeline
+    rng = np.random.default_rng(11)
+    src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
+    tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, animations=3, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                         render_res=24, dt_res=32, patience=3, c2f_event=False, render_exterior=exterior)
+    ev, rn = S.WindowOptimizer.eval, S.WindowOptimizer.replay_noise
+    rows = []
+
+    def eval_(self):
+        self._n_eval = getattr(self, "_n_eval", 0) + 1
+        return ev(self)
+
+    def replay(self, start=None):
+        n, builds = getattr(self, "_n_eval", 0), self.obj.ext_builds
+        rel = rn(self, start)
+        reuse = start is not None and start[1] == builds
+        rows.append((start is not None, reuse, self._n_eval - n, rel, start[0] if start is not None else None))
+        return rel
+
+    monkeypatch.setattr(S.WindowOptimizer, "eval", eval_)
+    monkeypatch.setattr(S.WindowOptimizer, "replay_noise", replay)
+    run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    assert len(rows) >= 2 and (exterior or any(r[0] and r[1] for r in rows))
+    for warm, reuse, n, rel, _ in rows:
+        assert n == (1 if reuse else 2)                 # one rollout against the warm start's, else a pair anew
+        assert np.isfinite(rel) and 0.0 <= rel < 1e-3
+        if not exterior:
+            assert reuse == warm                        # without the exterior every warm start is reused
