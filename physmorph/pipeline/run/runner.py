@@ -18,6 +18,7 @@ from ...losses.volumetric import d_vol_density, d_vol_xu, d_w1, rasterize_mass
 from ...mpm.state import MPMParams
 from ...mpm.traj import compute_rest_volumes
 from ...plasticity import assimilate_elastic
+from ...prof import STATE as PROF_STATE, take as prof_take, timed
 from ...thin import thin_metrics
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
@@ -50,6 +51,25 @@ _NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_st
 
 def _host(t):
     return t.detach().cpu().numpy()
+
+
+class _AttemptClock:
+    """A record: the wall seconds of each attempt of the loop (`t_attempt`, on the attempt's history record: the
+    window's construction, its optimisation, the promotion, the frames and the record), and with --profile the
+    runner's own sections of that attempt (`prof_run`). A lap at the top of every turn of the loop and after it."""
+
+    def __init__(self, hist: list):
+        import time
+        self.time, self.hist, self.n = time, hist, len(hist)
+        self.t = time.perf_counter()
+
+    def lap(self):
+        now = self.time.perf_counter()
+        if len(self.hist) > self.n:
+            self.hist[-1]["t_attempt"] = now - self.t
+            if PROF_STATE["on"]:
+                self.hist[-1]["prof_run"] = prof_take()
+        self.n, self.t = len(self.hist), now
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
@@ -100,7 +120,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim}")
     c2f_pending = cfg.c2f_event and cfg.render_res_hi > cfg.render_res
+    PROF_STATE["on"] = bool(cfg.profile)
+    clock = _AttemptClock(hist)
     for a in range(cfg.animations):
+        clock.lap()                    # the last attempt's wall seconds (and, with --profile, the runner's sections)
         if not frozen and sel.plateau(a):
             log(f"[v2] delivery merit plateau at anim {a + 1}")
             frozen = True
@@ -126,10 +149,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     "frames": len(frames), "guards": dict(guards)}
         # bonds: rest lengths refresh only for particles coupled at this window's start; a
         # broken-off particle keeps its last coupled lengths, so the bonds pull it back
-        d_now = (x_start[coh_nbr] - x_start[:, None, :]).norm(dim=2)
-        frag = fragment_mask(x_start, prm)
-        bond_rest = d_now if bond_rest is None else torch.where(frag[:, None], bond_rest, d_now)
-        n_frag = int(frag.sum())
+        with timed("frag_bonds"):
+            d_now = (x_start[coh_nbr] - x_start[:, None, :]).norm(dim=2)
+            frag = fragment_mask(x_start, prm)
+            bond_rest = d_now if bond_rest is None else torch.where(frag[:, None], bond_rest, d_now)
+            n_frag = int(frag.sum())
         if a % 10 == 0 or n_frag:
             log(f"[v2] anim {a + 1}: fragments {n_frag} particles")
         res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer,
@@ -165,7 +189,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
             continue
         commit = res.commit
-        x, F, v, C, J, counts = promote(commit, lo, hi)
+        with timed("promote"):
+            x, F, v, C, J, counts = promote(commit, lo, hi)
         for k in GUARDS:
             guards[k] += counts[k]
         Fp_pre = Fp                                     # the plastic state the committing window ran with
@@ -173,17 +198,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # with the exact volume (D129) the stress reads (J / det F)^(1/3) F; the isochoric assimilation takes the
             # elastic stretch's det-free part, which a scalar factor does not change, so it reads F as before.
             # assim_volume (D135): the volume too, so the volume the committed state keeps becomes the rest volume
-            Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                    isochoric=not cfg.assim_volume)
-        frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F,
-                          Js=commit.J[1:-1] if J is not None else None, J_end=J)
-        rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
-        if cfg.assim_volume:                          # D135: the rest volume the assimilation has taken (a record)
-            with torch.no_grad():
-                jp = torch.linalg.det(Fp)
-                q = torch.quantile(jp, torch.tensor([.01, .5, .99], device=jp.device, dtype=jp.dtype))
-            rec.update(Jp_min=float(jp.min()), Jp_p01=float(q[0]), Jp_p50=float(q[1]), Jp_p99=float(q[2]),
-                       Jp_max=float(jp.max()))
+            with timed("assim"):
+                Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                        isochoric=not cfg.assim_volume)
+        with timed("frames"):
+            frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F,
+                              Js=commit.J[1:-1] if J is not None else None, J_end=J)
+        with timed("record"):
+            rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
+            if cfg.assim_volume:                      # D135: the rest volume the assimilation has taken (a record)
+                with torch.no_grad():
+                    jp = torch.linalg.det(Fp)
+                    q = torch.quantile(jp, torch.tensor([.01, .5, .99], device=jp.device, dtype=jp.dtype))
+                rec.update(Jp_min=float(jp.min()), Jp_p01=float(q[0]), Jp_p50=float(q[1]), Jp_p99=float(q[2]),
+                           Jp_max=float(jp.max()))
         if cfg.term_dump and stats.get("term_grads") is not None:
             write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one
@@ -236,6 +264,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 f"  acc/rej={rec['accepted']}/{rec['rejected']}"
                 + (f"  Jx p50/p99/max={rec['Jx_p50']:.3f}/{rec['Jx_p99']:.3f}/{rec['Jx_max']:.3f}" if J is not None else "")
                 + (f"  GUARD {counts}" if any_guard else ""))
+    clock.lap()
     deliver_n, trunc = (best_window(hist, len(frames), cfg.tol, cfg.w_pbr) if cfg.best_truncate
                         else (len(frames), None))
     if trunc is not None:

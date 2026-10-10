@@ -102,10 +102,11 @@ class WindowOptimizer:
     def __init__(self, start: StartState, prm, cfg: PipelineConfig, tgt: TargetPack,
                  balancer: LambdaBalancer, vol0, bonds, alpha_scale=1.0, on_iter=None, log=print):
         self.cfg, self.tgt, self.balancer, self.log, self.on_iter = cfg, tgt, balancer, log, on_iter
-        PROF_STATE["on"] = bool(cfg.profile)
-        prof_take()                                    # a window's profile starts empty
-        self.win = Window(start, prm, cfg, tgt, vol0, bonds)
-        self.obj = Objective(self.win)
+        PROF_STATE["on"] = bool(cfg.profile)          # the runner takes the sections before each window (run.runner)
+        with timed("win_setup"):
+            self.win = Window(start, prm, cfg, tgt, vol0, bonds)
+        with timed("obj_setup"):
+            self.obj = Objective(self.win)
         N = self.win.N
         self.dFc = torch.zeros(cfg.T, N, 3, 3, device=cfg.device, requires_grad=True)
         self.u = torch.zeros(N, device=cfg.device, requires_grad=True)
@@ -409,8 +410,10 @@ class WindowOptimizer:
         cfg, log = self.cfg, self.log
         clock = _Clock(self.tele)                            # where a window's time goes (measurement)
         if dfc_init is not None and cfg.warm_decay > 0:
-            self.warm_start(dfc_init)
-        replay_rel = self.replay_noise() if cfg.replay_calibrate else 0.0
+            with timed("warm"):
+                self.warm_start(dfc_init)
+        with timed("replay"):
+            replay_rel = self.replay_noise() if cfg.replay_calibrate else 0.0
         clock.lap("t_start")
         leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False
@@ -418,8 +421,10 @@ class WindowOptimizer:
         self.tele["null_reason"] = None
         for it in range(cfg.iters):
             self._it = it
-            e = graph_terms(self.win, self.obj, self.dFc, self.u)
-            g, diag = self.gradient(e, it)
+            with timed("grad_fwd"):
+                e = graph_terms(self.win, self.obj, self.dFc, self.u)
+            with timed("grad_bwd"):
+                g, diag = self.gradient(e, it)
             cur = self.scalar(e)
             clock.lap("t_grad")
             if not np.isfinite(cur):
@@ -433,7 +438,8 @@ class WindowOptimizer:
                 grad_converged = True
                 log(f"[win] converged at iter {it} (||g||={gn:.4g})")
                 break
-            found = self.line_search(g, gn, cur, e)
+            with timed("ls"):
+                found = self.line_search(g, gn, cur, e)
             clock.lap("t_ls")
             if found is None:
                 self.tele["null_reason"] = "ls_exhausted" if not hist else None
@@ -450,9 +456,12 @@ class WindowOptimizer:
             if self.on_iter is not None:
                 self._stream(it, e_n, rec, diag)
             hist.append(rec)
-        result = self.commit(hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
+        with timed("commit"):
+            result = self.commit(hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
         clock.lap("t_commit")
         result.stats.update({k: self.tele.get(k) for k in _TIME_KEYS})
+        if cfg.profile:
+            result.stats["prof"] = prof_take()
         return result
 
     def _stream(self, it, e_n, rec, diag):
@@ -505,20 +514,19 @@ class WindowOptimizer:
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
                  "dfc": self.dFc.detach()[:cfg.T].clone(),
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
-        if cfg.profile:
-            stats["prof"] = prof_take()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
             stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds, ext_apart=self.obj.ext_apart)
         if self.accepted > 0:
             # a record (D93, D97): the body's net translation and rotation over the window by each position update
-            with torch.no_grad():
+            with torch.no_grad(), timed("commit_records"):
                 du = (wp.to_torch(win.tr.layer_ug) * self.u.detach() * win.lmask)[:, None] * win.lnrm
                 stats.update(below_grid_record(win, du))
             stats["selection_merit"] = selection_merit
-            stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
-            stats["merit_w1_gap"] = self.obj.w1_merit_gap(commit.x[-1])
+            with timed("commit_records"):
+                stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
+                stats["merit_w1_gap"] = self.obj.w1_merit_gap(commit.x[-1])
             if cfg.work_telemetry:                      # diagnostic records, not read by the run
                 stats.update(self.obj.scale_record(commit.x[-1]))
                 stats.update(self.obj.control_record(win.expand(self.dFc.detach())))

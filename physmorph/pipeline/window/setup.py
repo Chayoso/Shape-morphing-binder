@@ -14,6 +14,7 @@ import torch
 import warp as wp
 
 from ... import gpu
+from ...prof import timed
 from ...mpm.constitutive import lame
 from ...mpm.function import PersistentAdjoint, RolloutSpec
 from ...mpm.state import MPMParams
@@ -54,11 +55,13 @@ class Window:
             m = m * tgt.body_w
         # the outer layer: relaxed toward its neighbours' plane over one window (fraction
         # 1/T per driven step) and carrying the u control
-        self.sp0 = layer_spacing(start.x, local)
-        self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
-                                                           h_sp=cfg.layer_h_sp, local=local)
+        with timed("layer_data"):
+            self.sp0 = layer_spacing(start.x, local)
+            self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
+                                                               h_sp=cfg.layer_h_sp, local=local)
         # the relaxation's reference: its own operator on the layer's feet on the target's surface (target.relief)
-        ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw, local)
+        with timed("layer_relief"):
+            ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw, local)
         relax = 0.0 if cfg.baseline.startswith("xu") else 1.0 / float(cfg.T)   # the baseline has no relaxation
         layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, 0.0, None, ref)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
@@ -67,7 +70,8 @@ class Window:
         spacing = None
         if cfg.min_spacing > 0:
             r = cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0)
-            spacing = (gpu.knn(start.x, 17)[1][:, 1:], r if local is None else r * local)
+            with timed("spacing_knn"):
+                spacing = (gpu.knn(start.x, 17)[1][:, 1:], r if local is None else r * local)
         nbr, rest, frag = bonds
         # D129 / D130: the tracked volume, carried from the last commit like F (the gradient's rollout and the eval
         # trajectory, which is the line search's and the commit's, read the same J0)
@@ -77,17 +81,18 @@ class Window:
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,
                                 bond_history=True, control_steps=cfg.T, polar_adjoint=True, spacing=spacing,
-                                volume_exact=vx, J0=J0)
+                                volume_exact=vx, J0=J0, track_geom=False)   # no term reads the geometric F
         # the persistent no-grad trajectory: allocated once, rolled out as a CUDA graph for
         # every candidate, the warm-start comparison and the commit rollout; the control is
         # copied into dc_buf, which its dFc sequence views
         self.dc_buf = torch.zeros(T, N, 3, 3, device=cfg.device)
         seq = [wp.from_torch(self.dc_buf[t], dtype=wp.mat33) for t in range(T)]
-        self.tr = Trajectory(start.x, m, lam0, mu0, prm, T, F0=start.F, Fp=start.Fp, v0=start.v,
-                             C0=start.C, dFc=seq, device=cfg.device, requires_grad=False, vol0=vol0,
-                             persistent=True, bonds=bonds, layer=layer, bond_history=True,
-                             control_steps=cfg.T, polar_adjoint=True, spacing=spacing, volume_exact=vx, J0=J0)
-        self.tr.capture()
+        with timed("tr_build"):
+            self.tr = Trajectory(start.x, m, lam0, mu0, prm, T, F0=start.F, Fp=start.Fp, v0=start.v,
+                                 C0=start.C, dFc=seq, device=cfg.device, requires_grad=False, vol0=vol0,
+                                 persistent=True, bonds=bonds, layer=layer, bond_history=True,
+                                 control_steps=cfg.T, polar_adjoint=True, spacing=spacing, volume_exact=vx, J0=J0)
+            self.tr.capture()
         self._adj = None
         # unit constants: every fixed weight and gradient-magnitude constant is a legacy-unit
         # number, converted by the ratios measured at the source
@@ -104,7 +109,8 @@ class Window:
         """The tape trajectory (forward and adjoint as CUDA graphs), built at the first
         gradient; it reads the spec as it is then (the u gate included)."""
         if self._adj is None:
-            self._adj = PersistentAdjoint(self.spec)
+            with timed("adj_build"):
+                self._adj = PersistentAdjoint(self.spec)
         return self._adj
 
     def set_u_gate(self, gate: torch.Tensor) -> None:

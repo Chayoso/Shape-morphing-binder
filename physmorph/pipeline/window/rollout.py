@@ -103,9 +103,11 @@ def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor)
         FT = wp.to_torch(tr.F[T]).reshape(N, 9).clone()
         vT = wp.to_torch(tr.v[T]).clone()
         V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
-        e = _evaluate(obj, xT, FT, vT, dc, V)
-        e.jt = _trajectory_min_det(win, dc)
-        e.in_domain = win.positions_in_domain()
+        with timed("eval_losses"):
+            e = _evaluate(obj, xT, FT, vT, dc, V)
+        with timed("eval_checks"):
+            e.jt = _trajectory_min_det(win, dc)
+            e.in_domain = win.positions_in_domain()
         return e
 
 

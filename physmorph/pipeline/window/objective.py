@@ -60,7 +60,6 @@ class Objective:
         if self.xu:                                   # the baseline: none of the transport's machinery, no u
             win.set_u_gate(torch.zeros_like(win.lmask))
             self.u_gate_frac, self.horizon = 0.0, cfg.T * prm.dt
-            self.knn_ctrl = gpu.knn(x0, 9)[1][:, 1:]
             if tgt.ot_scale is None:                  # the scale of Xu's loss against D_vol's at the source (as ours
                 xg = x0.detach().clone().requires_grad_(True)       # transport's): the spray cleanup is divided by it
                 gd = torch.autograd.grad(self.dvol_density(xg), xg)[0].norm()
@@ -81,8 +80,9 @@ class Objective:
         # surface. Recomputed at every window start.
         t0 = time.perf_counter()
         g_grid, g_dx, g_dims = tgt.gate if tgt.gate is not None else (tgt.grid, tgt.ldx, tgt.ldims)
-        disp = grid_transport_displacement(x0, tgt.m, g_grid, tgt.lgmin, g_dx, g_dims,
-                                           eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
+        with timed("gate_ot"):
+            disp = grid_transport_displacement(x0, tgt.m, g_grid, tgt.lgmin, g_dx, g_dims,
+                                               eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
         dn = disp.norm(dim=1)
         print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
         cell = float(cfg.cell_shape) if cfg.cell_shape > 0 else float(prm.dx)    # D137: the shape's cell
@@ -109,14 +109,15 @@ class Objective:
             gt = torch.autograd.grad(self.transport(xg), xg)[0].norm()
             tgt.ot_scale = float(gd / gt.clamp_min(1e-30))
         # frozen per window
-        self.knn_ctrl = gpu.knn(x0, 9)[1][:, 1:]      # eight neighbours, for the control-roughness record only
-        m_dt = tgt.m * self.spray_gate(x0)
-        self.dt_idx = torch.nonzero(m_dt > 0).squeeze(1)
+        with timed("spray_gate"):
+            m_dt = tgt.m * self.spray_gate(x0)
+            self.dt_idx = torch.nonzero(m_dt > 0).squeeze(1)
         self.m_dt = m_dt
         # the near band: between the sampling berth and one loss cell from the target (the transport's blur length;
         # farther out the transport owns the particle)
-        self.nn_idx, self.nn_elig = nn_band_assign(x0, tgt.knn, tgt.nn_spacing, cfg.nn_berth_k,
-                                                   float(tgt.ldx) / float(tgt.nn_spacing))
+        with timed("nn_band"):
+            self.nn_idx, self.nn_elig = nn_band_assign(x0, tgt.knn, tgt.nn_spacing, cfg.nn_berth_k,
+                                                       float(tgt.ldx) / float(tgt.nn_spacing))
         self.berth = cfg.nn_berth_k * tgt.nn_spacing
         if not self.berth < float(tgt.ldx):
             raise ValueError("the near band is empty: the sampling berth reaches the loss cell")
@@ -341,8 +342,9 @@ class Objective:
         cfg, N = self.cfg, self.win.N
         with torch.no_grad():
             d = dfc[:cfg.T]
+            knn = gpu.knn(self.win.x0, 9)[1][:, 1:]   # eight neighbours at the window start (only this record reads them)
             return {"ctrl_mag": float(d.pow(2).sum() / (cfg.T * N)),
-                    "ctrl_rough": float((d - d[:, self.knn_ctrl].mean(2)).pow(2).mean())}
+                    "ctrl_rough": float((d - d[:, knn].mean(2)).pow(2).mean())}
 
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""

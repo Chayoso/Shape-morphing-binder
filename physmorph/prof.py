@@ -1,7 +1,8 @@
 """A diagnostic wall-clock split of a window's work, off unless the run asks for it (`--profile`).
 
 Each timed section synchronises the GPU before and after, so the sections add up to real time and the run is
-slower while profiling; with the profile off the context manager does nothing.
+slower while profiling; with the profile off the context manager does nothing. Sections nest: a section's key is
+its path from the outermost open section ("grad_fwd/geom/ot_solve"), so every part is counted under its caller.
 """
 from __future__ import annotations
 
@@ -14,6 +15,7 @@ import torch
 STATE = {"on": False}
 _T: dict = defaultdict(float)
 _N: dict = defaultdict(int)
+_STACK: list = []
 
 
 @contextmanager
@@ -22,18 +24,21 @@ def timed(name: str):
         yield
         return
     torch.cuda.synchronize()
+    _STACK.append(name)
+    key = "/".join(_STACK)
     t0 = time.perf_counter()
     try:
         yield
     finally:
         torch.cuda.synchronize()
-        _T[name] += time.perf_counter() - t0
-        _N[name] += 1
+        _T[key] += time.perf_counter() - t0
+        _N[key] += 1
+        _STACK.pop()
 
 
 def count(name: str, k: int = 1) -> None:
     if STATE["on"]:
-        _N[name] += k
+        _N["/".join(_STACK + [name])] += k
 
 
 def take() -> dict:

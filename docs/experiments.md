@@ -3332,6 +3332,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the defaults; 4K, 20 fps, studio look, base display): bunny and dragon front, the dragon side (head right), and D115's
   display-only detail layer for bunny and dragon front, alone and beside the base display. The evidence re-runs' data
   (d137b, d137e) removed after their logs were archived (`output/gpu/d137/archive_d137b_d137e_logs.tar.gz`).
+- **D138, the runtime phase: where a 300k attempt's time goes, and the exact speed-ups (opened 2026-10-09 20:07 CDT;
+  the user: "최적화 빡세게 해서 10분 내외로"; relayed by the coordinator: profile first, exact speed-ups next, each
+  bit-for-bit or within the replay noise, result-changing ones only as gated A/Bs the user decides; server `repo_frozen`
+  (the tag), `repo_rt1` (= the tag + the profile clocks below), `repo_rt2` (batch 1); scripts `tmp/rt/`; runs
+  `output/gpu/rt/`).** The definition of the pipeline does not change in this entry.
+  **Noise (three runs of the frozen code, seed 97: D137's LM, `F1` on `repo_frozen`, `P1` on `repo_rt1` with
+  `--profile`).** bunny 25.1–25.9 min, 83–88 attempts (17.6–18.1 s each), silhouette IoU 0.9874–0.9879, chamfer
+  0.0550–0.0551, thin uncovered 3.05–3.85 %; dragon 41.7–42.2 min, 107–110 attempts (22.9–23.6 s), 0.9872–0.9874,
+  0.0543, 4.36–4.54 %. Every run stops on three consecutive outer rejections; the merit falls until then (bunny 1.6×
+  its best at window 62, dragon 2.9× at window 60), so a shorter run is a worse one; null commits per run: replay 2–8,
+  outer 2–5.
+  **Profile (`--profile` now times the whole attempt: the window's construction, every evaluation and adjoint, the
+  commit, the promotion, the assimilation, the frames, the record, nested by caller; `t_attempt` on every attempt's
+  record; `tmp/rt/rt_cat.py`, the seconds of each part without its timed children).** Seconds an attempt (share):
+  the Sinkhorn solves bunny 1.71 (9.5 %), dragon 8.43 (36 %; 14.5 s an attempt in windows < 30 at 83 blocks a solve,
+  6.1 s later at 40; 0.26–0.6 s an evaluation on the dragon's 87³ loss grid, 0.07 s on the bunny's 71³); the three
+  adjoint sweeps of the eight iterations 6.54 (36 %) and 6.71 (29 %), 233 ms a sweep, of which the adjoint of G2P 134
+  ms, of P2G 50, of the update 19, of the layer's projection 14 (Warp's timing, `rt_bench.py kern`, launched without
+  graph capture; nsys cannot run on hyde06, its root file system is full); the exterior's disc search 2.57 (14 %) and
+  2.10 (9 %), 1.1 s a search (the field at 3.17M lattice nodes 0.67 s, the projection of 200k cells 0.38 s), six to
+  eight a window in the first 15 (bunny) or 30 (dragon) windows, one later; the relaxation's reference
+  (`TargetRelief.at`) 2.69 (15 %) and 0.69 (3 %); the forward rollouts (about 22 an attempt, 72 ms each, P2G 46 ms of
+  them) 1.60 (9 %) and 1.69 (7 %); the surface proximity (a KD-tree of the body and its 32 nearest at every outer
+  target point, every evaluation) 0.68 (4 %) and 1.28 (5.5 %); the render's reading and pictures 0.6 (3 %); the rest
+  of the window's construction (the gate's transport, the spacing and control kNN, the near band, the layer) 0.5; the
+  line search's trajectory checks 0.22; the assimilation 0.11; Python and the host 0.2.
+  **Batch 1 (exact; `repo_rt2`, suite 365 passed, 2 skipped, exit 0).** (a) The relaxation's reference looks up only
+  the layer's particles on the target's surface: a layer row's graph holds layer particles alone and every other row is
+  zero, so the feet of the rest were never read (bit for bit, `tests/test_runtime_exact.py`); the whole-body KD-tree
+  query was 2.7 s a window on the bunny, most of it for the interior. (b) The tape no longer carries the geometric
+  deformation Fg, which no term reads (`RolloutSpec.track_geom`; the other outputs and the gradients bit for bit on the
+  CPU). (c) The eight neighbours of the control-roughness record are found only when that record is written
+  (`--telemetry`). (d) The profile clocks above. On the bunny's window 30 replayed from the same start four times each
+  (`rt_bench.py bench`): 15.85 → 12.81 s, the accepted objective, the merit and the end state's fingerprint within
+  the replays' own spread (merit 2.66786–2.66789e-5 in both).
+  Pre-registered for batch 1's runs (21:02 CDT, before they finish): the bunny and the dragon 300k render arms on
+  `repo_rt2` (`R2`), each alone on a GPU. Pass: silhouette IoU, chamfer and thin each within the three frozen runs'
+  range widened by its own width (bunny 0.9869–0.9884, 0.0549–0.0552, 2.25–4.65 %; dragon 0.9870–0.9876, 0.0542–0.0544,
+  4.18–4.72 %), attempts within 70–100 (bunny) and 95–125 (dragon), and the seconds an attempt at least 0.5 below the
+  frozen runs' fastest (bunny at most 17.1, dragon at most 22.4). Prediction: bunny about 15.0 s an attempt (−2.7 s),
+  dragon about 22.0 (−0.9 s).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

@@ -42,6 +42,8 @@ class RolloutSpec:
     device: str = "cuda"
     vol0: np.ndarray | None = None  # one-time source-rest Vp; reused across all windows
     Fg0: np.ndarray | None = None   # geometric (render) deformation at window start
+    track_geom: bool = True         # PersistentAdjoint: tape the geometric deformation Fg (no loss of the settled path
+                                    #   reads it; False leaves its kernels and buffers out, the other outputs unchanged)
     bond_nbr: np.ndarray | None = None   # (N,K) frozen material neighbours (material bonds)
     bond_rest: np.ndarray | None = None  # (N,K) rest lengths (runner state)
     bond_frag: np.ndarray | None = None  # (N,) 1.0 where the particle is in a fragment
@@ -241,20 +243,22 @@ class PersistentAdjoint:
         self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
                                Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp,
                                device=dev, requires_grad=True, vol0=spec.vol0,
-                               Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True,
+                               Fg0=spec.Fg0, track_geom=spec.track_geom, bonds=bonds, persistent=True,
                                layer=spec.layer, layer_u=self.u_wp, bond_history=spec.bond_history,
                                control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint, spacing=spec.spacing,
                                volume_exact=spec.volume_exact, J0=spec.J0)
         tr = self.traj
+        self.geom = bool(spec.track_geom)
         self.sx = torch.zeros(N, 3, device=dev)
         self.sF = torch.zeros(N, 3, 3, device=dev)
         self.sv = torch.zeros(N, 3, device=dev)
-        self.sFg = torch.zeros(N, 3, 3, device=dev)
+        self.sFg = torch.zeros(N, 3, 3, device=dev) if self.geom else None
         self.sV = torch.zeros(max(T - 1, 1), N, 3, device=dev)
         self.seeds = {tr.x[T]: wp.from_torch(self.sx, dtype=wp.vec3),
                       tr.F[T]: wp.from_torch(self.sF, dtype=wp.mat33),
-                      tr.v[T]: wp.from_torch(self.sv, dtype=wp.vec3),
-                      tr.Fg[T]: wp.from_torch(self.sFg, dtype=wp.mat33)}
+                      tr.v[T]: wp.from_torch(self.sv, dtype=wp.vec3)}
+        if self.geom:
+            self.seeds[tr.Fg[T]] = wp.from_torch(self.sFg, dtype=wp.mat33)
         for t in range(1, T):
             self.seeds[tr.v[t]] = wp.from_torch(self.sV[t - 1], dtype=wp.vec3)
         # every gradient buffer the adjoint accumulates into (tape.zero() only knows the
@@ -324,10 +328,13 @@ class _WarpMPMPersistent(torch.autograd.Function):
         adj.forward()
         ctx.adj = adj
         tr = adj.traj
-        V = torch.stack([wp.to_torch(tr.v[t]).clone() for t in range(1, T + 1)])
+        V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
+        # without the geometric deformation (spec.track_geom False) its output is an empty tensor: a loss that read it
+        # would fail at once rather than see zeros
+        Fg = (wp.to_torch(tr.Fg[T]).reshape(N, 9).clone() if adj.geom
+              else torch.zeros(0, device=V.device, dtype=V.dtype))
         return (wp.to_torch(tr.x[T]).clone(), wp.to_torch(tr.F[T]).reshape(N, 9).clone(),
-                wp.to_torch(tr.v[T]).clone(),
-                wp.to_torch(tr.Fg[T]).reshape(N, 9).clone(), V)
+                wp.to_torch(tr.v[T]).clone(), Fg, V)
 
     @staticmethod
     def backward(ctx, gx, gF, gv, gFg, gV):
@@ -336,7 +343,8 @@ class _WarpMPMPersistent(torch.autograd.Function):
         with torch.no_grad():
             adj.sx.copy_(gx) if gx is not None else adj.sx.zero_()
             adj.sF.copy_(gF.reshape(N, 3, 3)) if gF is not None else adj.sF.zero_()
-            adj.sFg.copy_(gFg.reshape(N, 3, 3)) if gFg is not None else adj.sFg.zero_()
+            if adj.geom:
+                adj.sFg.copy_(gFg.reshape(N, 3, 3)) if gFg is not None else adj.sFg.zero_()
             gvT = (gv if gv is not None else 0.0) + (gV[T - 1] if gV is not None else 0.0)
             if isinstance(gvT, torch.Tensor):
                 adj.sv.copy_(gvT)
@@ -347,6 +355,6 @@ class _WarpMPMPersistent(torch.autograd.Function):
             else:
                 adj.sV.zero_()
             adj.backward()
-            g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3).clone() for d in adj.dc_wp])
+            g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3) for d in adj.dc_wp])      # stack copies
             g_u = wp.to_torch(adj.u_wp.grad).clone() if ctx.u_req else None
         return g.reshape(T, N, 3, 3), g_u, None

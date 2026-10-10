@@ -81,13 +81,23 @@ class TargetRelief:
            w: torch.Tensor, local: torch.Tensor | None = None) -> torch.Tensor:
         """(N,) the reference of each layer particle, zero for a particle farther than one spacing from the target's
         surface (it has not arrived) or off the layer; nrm, nbr, w: the window's layer graph (layer_relax_data);
-        local: the particles' own spacing over the base (the reach is then one spacing of its own)."""
-        d, i = self.tree.query(x, 1)
+        local: the particles' own spacing over the base (the reach is then one spacing of its own).
+        Only the layer's particles are looked up on the surface: a layer row's graph holds layer particles alone (or
+        itself), and every other row is zero, so the feet of the particles off the layer are never read (the lookup of
+        the whole body took 2.7 s a window at 300k, most of it for the interior, far from the surface)."""
+        on = torch.nonzero(mask > 0.5).squeeze(1)
+        if on.numel() == 0:
+            return torch.zeros(x.shape[0], device=x.device)
+        d_on, i = self.tree.query(x[on], 1)
         i = i.reshape(-1)
         q, m = self.points[i], self.normals[i]
-        foot = x - ((x - q) * m).sum(1, keepdim=True) * m
+        xo = x[on]
+        foot = x.clone()                                # off the layer: never read
+        foot[on] = xo - ((xo - q) * m).sum(1, keepdim=True) * m
+        d = torch.full((x.shape[0],), float("inf"), device=x.device)
+        d[on] = d_on.float().reshape(-1)
         res = (nrm * (foot - (w[..., None] * foot[nbr]).sum(1))).sum(1)
-        near = (mask > 0.5) & (d.float().reshape(-1) < _own(self.reach, None if local is None else local.float()))
+        near = (mask > 0.5) & (d < _own(self.reach, None if local is None else local.float()))
         return torch.where(near, res - (w * res[nbr]).sum(1), torch.zeros((), device=x.device))
 
 
