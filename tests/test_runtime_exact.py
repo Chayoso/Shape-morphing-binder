@@ -21,6 +21,8 @@ rollouts of one control already differ (the replay noise every window measures).
     kernels' to float rounding (the order of the sums only), with fragment particles, invalid positions and lanes in
     several cells; G2P's adjoint in cell order reads the forward's new affine field (batch 5).
 (9) D138 batch 5: the trajectory's minimum determinant step by step on its own buffers: bit for bit.
+(10) D138 batch 6: the three control gradients of an iteration in one sweep of the tape: bit for bit on the CPU, to
+    the atomics' order on CUDA.
 """
 from __future__ import annotations
 
@@ -389,3 +391,83 @@ def test_trajectory_min_det_step_by_step_is_the_stacked_one():
         if carried:
             jt = torch.minimum(jt, torch.stack([wp.to_torch(tr.J[t]) for t in range(1, T + 1)]).min())
         assert _trajectory_min_det(win, dc) == float(jt)
+
+
+def _three_way_case(dev, volume, hand, monkeypatch):
+    import physmorph.mpm.traj as TR
+    monkeypatch.setattr(TR, "HAND_ADJOINTS", hand)
+    spec, dc, u = _window_case(dev)
+    if volume != "off":
+        N = spec.x0.shape[0]
+        J0 = (np.linalg.det(spec.F0) * np.random.default_rng(5).uniform(0.97, 1.03, N)).astype(np.float32)
+        spec = dataclasses.replace(spec, volume_exact=volume, J0=J0)
+    spec = dataclasses.replace(spec, track_geom=False)
+    adj = PersistentAdjoint(spec)
+    xT, FT, vT, Fg, V = adj.apply(_expand(dc), u)
+    gen = torch.Generator().manual_seed(10)
+    cots = []
+    for k in range(3):
+        r = lambda t: torch.randn(t.shape, generator=gen).to(t.device)      # noqa: E731
+        cots.append((r(xT), r(FT), r(vT) if k != 1 else None, None, r(V) if k != 2 else None))
+    return adj, cots
+
+
+@pytest.mark.parametrize("dev", ["cpu", "cuda"])
+@pytest.mark.parametrize("volume", ["off", "carried"])
+@pytest.mark.parametrize("hand", [True, False])
+def test_three_cotangents_in_one_sweep_are_the_three_sweeps(dev, volume, hand, monkeypatch):
+    """(10) PersistentAdjoint.vjp3 (the three-cotangent sweep: generated adjoints once per channel, the hand-written
+    ones fused) against three one-channel sweeps of the same tape (the bridge's backward), on the window case with
+    bonds, fragment particles, the layer and u, the minimum spacing: bit for bit on the CPU, to the atomics' order on
+    CUDA; twice (the second time from the captured graph on CUDA)."""
+    _dev_or_skip(dev)
+    import warp as wp
+    adj, cots = _three_way_case(dev, volume, hand, monkeypatch)
+    N, T = adj.N, adj.T
+    ref = []
+    for cot in cots:
+        with torch.no_grad():
+            adj.load_seeds(*cot)
+            adj.backward()
+            g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3) for d in adj.dc_wp])
+            ref.append((g.clone(), wp.to_torch(adj.u_wp.grad).clone()))
+    for _ in range(2):
+        got = adj.vjp3(cots)
+        for (g0, u0), (g1, u1) in zip(ref, got):
+            assert float(g0.abs().max()) > 0 and float(u0.abs().max()) > 0
+            if dev == "cpu":
+                assert torch.equal(g0, g1) and torch.equal(u0, u1)
+            else:
+                torch.testing.assert_close(g1, g0, rtol=1e-4, atol=1e-5 * float(g0.abs().max()))
+                torch.testing.assert_close(u1, u0, rtol=1e-4, atol=1e-5 * float(u0.abs().max()))
+
+
+def test_the_window_gradient_in_one_sweep_is_the_three_calls(monkeypatch):
+    """(10) WindowOptimizer.gradient's three gradients from one sweep (_gradients3) against three torch.autograd.grad
+    calls on the leaves at the same rollout, through a short pipeline run (CUDA: to the atomics' order)."""
+    _dev_or_skip("cuda")
+    import physmorph.pipeline.window.solve as S
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import PipelineConfig, run_pipeline
+    rng = np.random.default_rng(11)
+    src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
+    tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, animations=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                         render_res=24, dt_res=32, patience=3, render_exterior=True)
+    orig, rows = S.WindowOptimizer._gradients3, []
+
+    def checked(self, e, losses, keep=False):
+        ref = [torch.autograd.grad(L, self.leaves, retain_graph=True) for L in losses]
+        got = orig(self, e, losses, keep)
+        rows.append((ref, got))
+        return got
+
+    monkeypatch.setattr(S.WindowOptimizer, "_gradients3", checked)
+    run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    assert len(rows) >= 2
+    for ref, got in rows:
+        for r3, g3 in zip(ref, got):
+            for a, b in zip(r3, g3):
+                assert a.shape == b.shape
+                torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * max(float(a.abs().max()), 1e-30))

@@ -270,7 +270,8 @@ class PersistentAdjoint:
                 if isinstance(a, wp.array) and a.grad is not None and a.grad not in self.grad_arrays:
                     self.grad_arrays.append(a.grad)
         self.tape = None
-        self.g_fwd = self.g_bwd = None
+        self.g_fwd = self.g_bwd = self.g_bwd3 = None
+        self._chan = None                               # the three-cotangent sweep's channel buffers (vjp3)
         if self.cuda:
             key = str(dev)
             if key not in _ADJ_WARMED:              # module load outside any capture
@@ -311,6 +312,128 @@ class PersistentAdjoint:
             self._zero_grads()
             self.tape.backward(grads=self.seeds)
 
+    def load_seeds(self, gx, gF, gv, gFg, gV, target=None):
+        """The adjoint seeds from the outputs' cotangents, as the bridge's backward takes them (None: zero); target:
+        the (sx, sF, sv, sFg, sV) tensors to fill, the one-channel ones by default."""
+        N, T = self.N, self.T
+        sx, sF, sv, sFg, sV = target or (self.sx, self.sF, self.sv, self.sFg, self.sV)
+        sx.copy_(gx) if gx is not None else sx.zero_()
+        sF.copy_(gF.reshape(N, 3, 3)) if gF is not None else sF.zero_()
+        if self.geom:
+            sFg.copy_(gFg.reshape(N, 3, 3)) if gFg is not None else sFg.zero_()
+        gvT = (gv if gv is not None else 0.0) + (gV[T - 1] if gV is not None else 0.0)
+        if isinstance(gvT, torch.Tensor):
+            sv.copy_(gvT)
+        else:
+            sv.zero_()
+        if gV is not None and T > 1:
+            sV.copy_(gV[:T - 1])
+        else:
+            sV.zero_()
+
+    # ---- three cotangents in one sweep (D138 batch 6; adjoints.py, the three-channel kernels) ----------------
+    def _G(self, a):
+        """[a.grad, channel 1's, channel 2's] for an array of the tape."""
+        g = a.grad
+        key = (g.ptr, str(g.dtype), tuple(g.shape))
+        ch = self._chan.get(key)
+        if ch is None:
+            ch = self._chan[key] = (wp.zeros_like(g), wp.zeros_like(g))
+        return [g, ch[0], ch[1]]
+
+    def _chan_setup(self):
+        """Channel 1 and 2 buffers for every array the tape's adjoint touches (outside any capture), and the
+        three channels' seed tensors."""
+        if self._chan is None:
+            self._chan = {}
+            N, T, dev = self.N, self.T, self.dev
+            self._s3 = (torch.zeros(3, N, 3, device=dev), torch.zeros(3, N, 3, 3, device=dev),
+                        torch.zeros(3, N, 3, device=dev),
+                        torch.zeros(3, N, 3, 3, device=dev) if self.geom else None,
+                        torch.zeros(3, max(T - 1, 1), N, 3, device=dev))
+            tr = self.traj
+            self._seeds3 = []
+            for c in range(3):
+                sx, sF, sv, sFg, sV = (s[c] if s is not None else None for s in self._s3)
+                d = {tr.x[T]: wp.from_torch(sx, dtype=wp.vec3), tr.F[T]: wp.from_torch(sF, dtype=wp.mat33),
+                     tr.v[T]: wp.from_torch(sv, dtype=wp.vec3)}
+                if self.geom:
+                    d[tr.Fg[T]] = wp.from_torch(sFg, dtype=wp.mat33)
+                for t in range(1, T):
+                    d[tr.v[t]] = wp.from_torch(sV[t - 1], dtype=wp.vec3)
+                self._seeds3.append(d)
+        arrays = list(self.seeds) + list(self.dc_wp) + ([self.u_wp] if self.u_wp is not None else [])
+        for launch in self.tape.launches:
+            if callable(launch):
+                arrays += getattr(launch, "arrays3", [])
+            else:
+                arrays += [a for a in list(launch[3]) + list(launch[4])
+                           if wp._src.types.is_array(a) and a.grad is not None]
+        for a in arrays:
+            self._G(a)
+
+    def _adj3(self, a, c):
+        if c == 0:
+            return self.tape.get_adjoint(a)                 # what Tape.backward passes
+        if wp._src.types.is_array(a):
+            return self._G(a)[c] if a.grad is not None else None
+        if wp._src.types.is_struct(a):
+            raise NotImplementedError("three-cotangent adjoint of a struct argument")
+        return None
+
+    def _walk3(self):
+        """Tape.backward with three cotangents: the seeds of each channel, then every record once, the generated
+        adjoints once per channel and the hand-written ones (their `multi`) once for all three."""
+        self._zero_grads()
+        for b1, b2 in self._chan.values():
+            b1.zero_()
+            b2.zero_()
+        for c in range(3):
+            for a, s in self._seeds3[c].items():
+                self._G(a)[c].assign(s)
+        for launch in reversed(self.tape.launches):
+            if callable(launch):
+                launch.multi(self._G)
+                continue
+            kernel, dim, max_blocks, inputs, outputs, device, block_dim = launch[:7]
+            enable = kernel.options.get("enable_backward")
+            if enable is None:
+                enable = kernel.module.options.get("enable_backward")
+            if not enable:
+                continue
+            for c in range(3):
+                wp.launch(kernel=kernel, dim=dim, inputs=inputs, outputs=outputs,
+                          adj_inputs=[self._adj3(a, c) for a in inputs], adj_outputs=[self._adj3(a, c) for a in outputs],
+                          device=device, adjoint=True, max_blocks=max_blocks, block_dim=block_dim)
+
+    def vjp3(self, cots):
+        """The control gradients of three objectives at the last forward: cots, three (gx, gF, gv, gFg, gV) tuples
+        of the outputs' cotangents (None: zero, as the bridge's backward takes them). Returns three (g_dc (T,N,3,3),
+        g_u or None), each the bridge's backward would give for its cotangents (bit for bit on the CPU)."""
+        N, T = self.N, self.T
+        _release_idle_cuda_cache(self.dev)
+        first = self._chan is None
+        if not (self.cuda and self.g_bwd3 is not None):
+            self._chan_setup()                          # the CPU re-records its tape at every forward
+        with torch.no_grad():
+            for c, cot in enumerate(cots):
+                self.load_seeds(*cot, target=tuple(s[c] if s is not None else None for s in self._s3))
+            if self.cuda and self.g_bwd3 is not None:
+                wp.capture_launch(self.g_bwd3)
+            else:
+                self._walk3()                               # eager (the CPU, or the first call: modules load)
+                if self.cuda and first:
+                    wp.synchronize_device(self.dev)
+                    with wp.ScopedCapture(device=self.dev) as cap:
+                        self._walk3()
+                    self.g_bwd3 = cap.graph
+            out = []
+            for c in range(3):
+                g = torch.stack([wp.to_torch(self._G(d)[c]).reshape(N, 3, 3) for d in self.dc_wp])
+                gu = wp.to_torch(self._G(self.u_wp)[c]).clone() if self.u_wp is not None else None
+                out.append((g, gu))
+        return out
+
     def apply(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None):
         return _WarpMPMPersistent.apply(dFc_t, u_t, self)
 
@@ -341,19 +464,7 @@ class _WarpMPMPersistent(torch.autograd.Function):
         adj = ctx.adj
         N, T = adj.N, adj.T
         with torch.no_grad():
-            adj.sx.copy_(gx) if gx is not None else adj.sx.zero_()
-            adj.sF.copy_(gF.reshape(N, 3, 3)) if gF is not None else adj.sF.zero_()
-            if adj.geom:
-                adj.sFg.copy_(gFg.reshape(N, 3, 3)) if gFg is not None else adj.sFg.zero_()
-            gvT = (gv if gv is not None else 0.0) + (gV[T - 1] if gV is not None else 0.0)
-            if isinstance(gvT, torch.Tensor):
-                adj.sv.copy_(gvT)
-            else:
-                adj.sv.zero_()
-            if gV is not None and T > 1:
-                adj.sV.copy_(gV[:T - 1])
-            else:
-                adj.sV.zero_()
+            adj.load_seeds(gx, gF, gv, gFg, gV)
             adj.backward()
             g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3) for d in adj.dc_wp])      # stack copies
             g_u = wp.to_torch(adj.u_wp.grad).clone() if ctx.u_req else None

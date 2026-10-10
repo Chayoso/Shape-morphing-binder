@@ -26,6 +26,10 @@ from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, stat
 from .setup import StartState, Window
 from .telemetry import below_grid_record, collect_grad_dump, support_record, work_record, write_grad_dump
 
+# D138 batch 6: the three control gradients of an iteration in one sweep of the tape (WindowOptimizer._gradients3);
+# False takes them with three torch.autograd.grad calls (tests compare the two)
+THREE_COT = True
+
 _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phys_work_x",
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
 _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
@@ -200,19 +204,41 @@ class WindowOptimizer:
             gp_x = torch.autograd.grad(Lp_core + Ldt, e.state(), retain_graph=True, allow_unused=True)
             gr_x = torch.autograd.grad(e.lr, (e.xT, e.FT), retain_graph=True, allow_unused=True)
             diag = (gp_x, gr_x)
-        with timed("adj_phys"):
-            gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
-        with timed("adj_cleanup"):
-            gdt = torch.autograd.grad(Ldt, leaves, retain_graph=True)
-        if cfg.grad_dump and it == 0:
-            self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
-        with timed("adj_render"):
-            gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
+        if THREE_COT and self.win.adjoint().u_wp is not None:
+            gp, gdt, gr_raw = self._gradients3(e, (Lp_core, Ldt, e.lr), keep=bool(cfg.grad_dump and it == 0))
+            if cfg.grad_dump and it == 0:
+                self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
+        else:
+            with timed("adj_phys"):
+                gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
+            with timed("adj_cleanup"):
+                gdt = torch.autograd.grad(Ldt, leaves, retain_graph=True)
+            if cfg.grad_dump and it == 0:
+                self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
+            with timed("adj_render"):
+                gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
         gr = pcgrad(gp, gr_raw)
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw)
         g = [a + self.lam_r * b for a, b in zip(gp, gr)]
         return [gi + di for gi, di in zip(g, gdt)], diag
+
+    def _gradients3(self, e: Eval, losses, keep: bool = False):
+        """The control gradients of the physics core, the cleanup and the render term at the rollout of e, in one
+        sweep of the tape (D138 batch 6, PersistentAdjoint.vjp3): each loss's cotangents at the rollout's outputs,
+        then the three channels at once. The same gradients as three torch.autograd.grad calls on the leaves (each a
+        sweep): bit for bit on the CPU, to the atomics' order on CUDA. keep: the graph is kept for a later reader."""
+        outs = (e.xT, e.FT, e.vT, e.V)
+        cots = []
+        with timed("adj_seeds"):
+            for k, L in enumerate(losses):
+                g = torch.autograd.grad(L, outs, retain_graph=keep or k < len(losses) - 1, allow_unused=True)
+                gx, gF, gv, gV = (gi if gi is not None else torch.zeros_like(o) for gi, o in zip(g, outs))
+                cots.append((gx, gF, gv, None, gV))
+        with timed("adj_mpm3"):
+            res = self.win.adjoint().vjp3(cots)
+        T = self.dFc.shape[0]
+        return [[g[:T], gu] for g, gu in res]
 
     def _calibrate_lambda(self, gp, gr, gr_raw):
         """lambda from the PROJECTED render gradient at the window's first gradient, every window (the balancer's

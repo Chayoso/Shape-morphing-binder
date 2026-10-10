@@ -262,6 +262,18 @@ def record_g2p(tape, tr, t: int, dfc, N: int):
         else:
             wp.launch(k_g2p_adj, dim=N, inputs=[x, F, dfc, gv] + tail, device=dev)
 
+    def multi(G):                                   # three cotangents (k_g2p_adj3)
+        has = int(dfc.grad is not None)
+        A = [_struct(G2PAdj, v=G(v1)[c], C=G(C1)[c], Fnew=G(Fn)[c], x=G(x)[c], F=G(F)[c],
+                     dFc=G(dfc)[c] if has else a_dfc, grid_v=G(gv)[c]) for c in range(3)]
+        order = tr.order if tr.order is not None else tr.order_id
+        lanes = 1 if str(dev).startswith("cpu") else WARP_LANES
+        wp.launch_tiled(k_g2p_adj3, dim=[(N + lanes - 1) // lanes],
+                        inputs=[order, N, x, F, dfc, gv, C1, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
+                                *A, has], block_dim=lanes, device=dev)
+
+    backward.multi = multi
+    backward.arrays3 = [a for a in (x, F, gv, v1, C1, Fn, dfc) if a.grad is not None]
     tape.record_func(backward=backward, arrays=[a for a in (x, F, gv, v1, C1, Fn, dfc) if a.grad is not None])
 
 
@@ -278,6 +290,16 @@ def record_p2g(tape, tr, t: int, dfc, bnb, bnc, bK: int, N: int):
                                             gm.grad, gmom.grad, x.grad, v.grad, C.grad, F.grad, a_dfc,
                                             int(dfc.grad is not None), P.grad], device=dev)
 
+    def multi(G):                                   # three cotangents (k_p2g_adj3)
+        has = int(dfc.grad is not None)
+        A = [_struct(P2GAdj, gm=G(gm)[c], gv=G(gmom)[c], x=G(x)[c], v=G(v)[c], C=G(C)[c], F=G(F)[c],
+                     dFc=G(dfc)[c] if has else a_dfc, P=G(P)[c]) for c in range(3)]
+        wp.launch(k_p2g_adj3, dim=N, inputs=[x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK,
+                                             gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz,
+                                             *A, has], device=dev)
+
+    backward.multi = multi
+    backward.arrays3 = [a for a in (x, v, C, F, P, gm, gmom, dfc) if a.grad is not None]
     tape.record_func(backward=backward,
                      arrays=[a for a in (x, v, C, F, P, gm, gmom, dfc) if a.grad is not None])
 
@@ -392,6 +414,14 @@ def record_update(tape, tr, t: int, x_next, F_next, bnb, brest, bnc, bK: int, sn
                                                snbr, tr.space_K, tr.space_r, x_next.grad, F_next.grad,
                                                x.grad, v1.grad, F.grad, Fn.grad], device=dev)
 
+    def multi(G):                                   # three cotangents (k_update_adj3)
+        A = [_struct(UpdAdj, x_out=G(x_next)[c], F_out=G(F_next)[c], x_in=G(x)[c], v=G(v1)[c], F_in=G(F)[c],
+                     F_new=G(Fn)[c]) for c in range(3)]
+        wp.launch(k_update_adj3, dim=N, inputs=[x, prm.smoothing, prm.dt, bnb, brest, bnc, bK, frac,
+                                                snbr, tr.space_K, tr.space_r, *A], device=dev)
+
+    backward.multi = multi
+    backward.arrays3 = [x, x_next, v1, F, Fn, F_next]
     tape.record_func(backward=backward, arrays=[x, x_next, v1, F, Fn, F_next])
 
 
@@ -412,4 +442,327 @@ def record_layer_project(tape, tr, t: int, layer_u, N: int):
                   device=dev)
         wp.launch(k_layer_project_adj_b, dim=_BSUM, inputs=[bins, *tr.layer_M, b.grad], device=dev)
 
+    def multi(G):                                   # three cotangents: the one-channel kernels, channel by channel
+        for c in range(3):
+            bins.zero_()
+            wp.launch(k_layer_project_adj, dim=N, inputs=[tr.layer_mask, tr.layer_nrm, tr.layer_rn, tr.layer_frac_u,
+                                                          tr.layer_ug, int(has_u), G(xo)[c], G(xu)[c], G(s)[c],
+                                                          G(layer_u)[c] if has_u else a_u, bins], device=dev)
+            wp.launch(k_layer_project_adj_b, dim=_BSUM, inputs=[bins, *tr.layer_M, G(b)[c]], device=dev)
+
+    backward.multi = multi
+    backward.arrays3 = [a for a in (xu, s, b, xo, layer_u) if a.grad is not None]
     tape.record_func(backward=backward, arrays=[a for a in (xu, s, b, xo, layer_u) if a.grad is not None])
+
+
+# ── three cotangents in one sweep (D138 batch 6) ─────────────────────────────────────────────────────────────────
+# A window's gradient needs the control gradients of three objectives at the same rollout (physics, cleanup, render:
+# PCGrad and the render weight read them apart). The tape is linear in its seeds, so one sweep can carry the three
+# cotangents: every generated adjoint is launched once per channel, and the transfers' and the update's hand-written
+# adjoints below run the three channels in one pass, sharing the particle's stencil, weights and neighbour geometry.
+# Each channel's arithmetic is the one-channel kernel's, expression for expression (bit for bit on the CPU, where the
+# atomics keep the particle order); function.PersistentAdjoint.vjp3 walks the tape. A record's `multi` attribute is
+# its three-channel backward, called with G(a) -> [a.grad, channel 1's, channel 2's].
+
+
+@wp.struct
+class G2PAdj:
+    v: wp.array(dtype=wp.vec3)          # v[t + 1]
+    C: wp.array(dtype=wp.mat33)         # C[t + 1]
+    Fnew: wp.array(dtype=wp.mat33)      # Fraw[t + 1]
+    x: wp.array(dtype=wp.vec3)
+    F: wp.array(dtype=wp.mat33)
+    dFc: wp.array(dtype=wp.mat33)
+    grid_v: wp.array(dtype=wp.vec3)
+
+
+@wp.func
+def _g2p_adj_head(A: G2PAdj, p: int, B: wp.mat33, Amat: wp.mat33, dt: float, has_adj_dFc: int):
+    """One channel of k_g2p_adj's particle part: writes the F and dFc adjoints, returns (a_vnew, a_Cnew)."""
+    a_vnew = A.v[p]
+    a_Fn = A.Fnew[p]
+    a_B = wp.transpose(Amat) @ a_Fn
+    A.F[p] = A.F[p] + a_B
+    if has_adj_dFc != 0:
+        A.dFc[p] = A.dFc[p] + a_B
+    a_Cnew = A.C[p] + dt * (a_Fn @ wp.transpose(B))
+    return a_vnew, a_Cnew
+
+
+@wp.func
+def _g2p_adj_node(w: float, dw: wp.vec3, dgp: wp.vec3, vg: wp.vec3, C0: float, a_vnew: wp.vec3, a_Cnew: wp.mat33,
+                  a_CnT: wp.mat33, a_xp: wp.vec3):
+    """One channel of k_g2p_adj's node: (the node's grid-velocity adjoint, the updated position adjoint)."""
+    Ad = a_Cnew @ dgp
+    c = w * a_vnew + (C0 * w) * Ad
+    a_w = wp.dot(a_vnew, vg) + C0 * wp.dot(vg, Ad)
+    return c, a_xp - ((C0 * w) * (a_CnT @ vg) + a_w * dw)
+
+
+@wp.kernel(enable_backward=False)
+def k_g2p_adj3(order: wp.array(dtype=int), n: int,
+               x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
+               grid_v: wp.array(dtype=wp.vec3), Cn: wp.array(dtype=wp.mat33),
+               gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
+               A0: G2PAdj, A1: G2PAdj, A2: G2PAdj, has_adj_dFc: int):
+    """k_g2p_adj_warp for three cotangents, launched tiled (one lane a block on the CPU, WARP_LANES on CUDA)."""
+    blk, lane = wp.tid()
+    q = blk * wp.block_dim() + lane
+    p = int(0)
+    ok = False
+    if q < n:
+        p = order[q]
+        ok = valid_pos(x[p])
+    C0 = 3.0 * inv_dx * inv_dx
+    b = wp.vec3i(0, 0, 0)
+    key = int(-1)
+    xp = wp.vec3(0.0, 0.0, 0.0)
+    v0 = wp.vec3(0.0, 0.0, 0.0)
+    v1 = wp.vec3(0.0, 0.0, 0.0)
+    v2 = wp.vec3(0.0, 0.0, 0.0)
+    c0 = wp.mat33(0.0)
+    c1 = wp.mat33(0.0)
+    c2 = wp.mat33(0.0)
+    if ok:
+        xp = x[p]
+        b = base_node(xp, gmin, inv_dx)
+        key = cell_key(b, ny, nz)
+        Cnew = Cn[p]                                    # the forward's new affine field, C[t + 1]
+        B = F[p] + dFc[p]
+        Amat = wp.identity(n=3, dtype=float) + dt * Cnew
+        v0, c0 = _g2p_adj_head(A0, p, B, Amat, dt, has_adj_dFc)
+        v1, c1 = _g2p_adj_head(A1, p, B, Amat, dt, has_adj_dFc)
+        v2, c2 = _g2p_adj_head(A2, p, B, Amat, dt, has_adj_dFc)
+    k0 = wp.tile_extract(wp.tile(key), 0)
+    b0 = wp.vec3i(wp.tile_extract(wp.tile(b[0]), 0), wp.tile_extract(wp.tile(b[1]), 0),
+                  wp.tile_extract(wp.tile(b[2]), 0))
+    same = ok and key == k0
+    t0 = wp.transpose(c0)
+    t1 = wp.transpose(c1)
+    t2 = wp.transpose(c2)
+    x0 = wp.vec3(0.0, 0.0, 0.0)
+    x1 = wp.vec3(0.0, 0.0, 0.0)
+    x2 = wp.vec3(0.0, 0.0, 0.0)
+    for oi in range(4):
+        for oj in range(4):
+            for ok_ in range(4):
+                g0 = wp.vec3(0.0, 0.0, 0.0)
+                g1 = wp.vec3(0.0, 0.0, 0.0)
+                g2 = wp.vec3(0.0, 0.0, 0.0)
+                if ok:
+                    i = b[0] + oi
+                    j = b[1] + oj
+                    k = b[2] + ok_
+                    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                        dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
+                        w, dw = _weight_and_grad(dgp, inv_dx)
+                        g = gid(i, j, k, ny, nz)
+                        vg = grid_v[g]
+                        g0, x0 = _g2p_adj_node(w, dw, dgp, vg, C0, v0, c0, t0, x0)
+                        g1, x1 = _g2p_adj_node(w, dw, dgp, vg, C0, v1, c1, t1, x1)
+                        g2, x2 = _g2p_adj_node(w, dw, dgp, vg, C0, v2, c2, t2, x2)
+                        if not same:
+                            wp.atomic_add(A0.grid_v, g, g0)
+                            wp.atomic_add(A1.grid_v, g, g1)
+                            wp.atomic_add(A2.grid_v, g, g2)
+                            g0 = wp.vec3(0.0, 0.0, 0.0)
+                            g1 = wp.vec3(0.0, 0.0, 0.0)
+                            g2 = wp.vec3(0.0, 0.0, 0.0)
+                s0 = _warp_sum3(g0)
+                s1 = _warp_sum3(g1)
+                s2 = _warp_sum3(g2)
+                if lane == 0 and k0 >= 0:
+                    i0 = b0[0] + oi
+                    j0 = b0[1] + oj
+                    k0_ = b0[2] + ok_
+                    if i0 >= 0 and i0 < nx and j0 >= 0 and j0 < ny and k0_ >= 0 and k0_ < nz:
+                        gg = gid(i0, j0, k0_, ny, nz)
+                        wp.atomic_add(A0.grid_v, gg, s0)
+                        wp.atomic_add(A1.grid_v, gg, s1)
+                        wp.atomic_add(A2.grid_v, gg, s2)
+    if ok:
+        A0.x[p] = A0.x[p] + x0
+        A1.x[p] = A1.x[p] + x1
+        A2.x[p] = A2.x[p] + x2
+
+
+@wp.struct
+class P2GAdj:
+    gm: wp.array(dtype=float)
+    gv: wp.array(dtype=wp.vec3)
+    x: wp.array(dtype=wp.vec3)
+    v: wp.array(dtype=wp.vec3)
+    C: wp.array(dtype=wp.mat33)
+    F: wp.array(dtype=wp.mat33)
+    dFc: wp.array(dtype=wp.mat33)
+    P: wp.array(dtype=wp.mat33)
+
+
+@wp.func
+def _p2g_adj_node(A: P2GAdj, g: int, w: float, dw: wp.vec3, dgp: wp.vec3, mp: float, mv: wp.vec3, G: wp.mat33,
+                  GT: wp.mat33, a_mv: wp.vec3, a_G: wp.mat33, a_xp: wp.vec3):
+    """One channel of k_p2g_adj's node: the updated (a_mv, a_G, a_xp)."""
+    agv = A.gv[g]
+    a_w = A.gm[g] * mp + wp.dot(agv, mv + G @ dgp)
+    return a_mv + w * agv, a_G + w * wp.outer(agv, dgp), a_xp - (w * (GT @ agv) + a_w * dw)
+
+
+@wp.func
+def _p2g_adj_tail(A: P2GAdj, p: int, a_xp: wp.vec3, a_mv: wp.vec3, a_G: wp.mat33, mp: float, damp: float,
+                  frag_p: bool, nbr: wp.array(dtype=int), bond_K: int, s: float, Feff: wp.mat33, Pp: wp.mat33,
+                  has_adj_dFc: int):
+    """One channel of k_p2g_adj's particle part (after the node loop)."""
+    A.x[p] = A.x[p] + a_xp
+    a_vp = (mp * damp) * a_mv
+    if frag_p:
+        a_vs = a_vp / float(bond_K)
+        for a in range(bond_K):
+            wp.atomic_add(A.v, nbr[p * bond_K + a], a_vs)
+    else:
+        wp.atomic_add(A.v, p, a_vp)
+    A.C[p] = A.C[p] + mp * a_G
+    A.P[p] = A.P[p] + s * (a_G @ Feff)
+    a_Feff = s * (wp.transpose(a_G) @ Pp)
+    A.F[p] = A.F[p] + a_Feff
+    if has_adj_dFc != 0:
+        A.dFc[p] = A.dFc[p] + a_Feff
+
+
+@wp.kernel(enable_backward=False)
+def k_p2g_adj3(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
+               C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
+               dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
+               m: wp.array(dtype=float), vol: wp.array(dtype=float),
+               nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
+               gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, nx: int, ny: int, nz: int,
+               A0: P2GAdj, A1: P2GAdj, A2: P2GAdj, has_adj_dFc: int):
+    """k_p2g_adj for three cotangents."""
+    p = wp.tid()
+    xp = x[p]
+    if not valid_pos(xp):
+        return
+    Feff = F[p] + dFc[p]
+    C0 = 3.0 * inv_dx * inv_dx
+    s = -C0 * dt * vol[p]
+    G = s * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]
+    frag_p = bond_K > 0 and frag[p] > 0.5
+    vp = v[p]
+    if frag_p:
+        vs = wp.vec3(0.0, 0.0, 0.0)
+        for a in range(bond_K):
+            vs = vs + v[nbr[p * bond_K + a]]
+        vp = vs / float(bond_K)
+    mp = m[p]
+    damp = 1.0 - dt * drag
+    mv = mp * vp * damp
+    b = base_node(xp, gmin, inv_dx)
+    m0 = wp.vec3(0.0, 0.0, 0.0)
+    m1 = wp.vec3(0.0, 0.0, 0.0)
+    m2 = wp.vec3(0.0, 0.0, 0.0)
+    G0 = wp.mat33(0.0)
+    G1 = wp.mat33(0.0)
+    G2 = wp.mat33(0.0)
+    x0 = wp.vec3(0.0, 0.0, 0.0)
+    x1 = wp.vec3(0.0, 0.0, 0.0)
+    x2 = wp.vec3(0.0, 0.0, 0.0)
+    GT = wp.transpose(G)
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                i = b[0] + oi
+                j = b[1] + oj
+                k = b[2] + ok
+                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                    dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
+                    w, dw = _weight_and_grad(dgp, inv_dx)
+                    g = gid(i, j, k, ny, nz)
+                    m0, G0, x0 = _p2g_adj_node(A0, g, w, dw, dgp, mp, mv, G, GT, m0, G0, x0)
+                    m1, G1, x1 = _p2g_adj_node(A1, g, w, dw, dgp, mp, mv, G, GT, m1, G1, x1)
+                    m2, G2, x2 = _p2g_adj_node(A2, g, w, dw, dgp, mp, mv, G, GT, m2, G2, x2)
+    Pp = P[p]
+    _p2g_adj_tail(A0, p, x0, m0, G0, mp, damp, frag_p, nbr, bond_K, s, Feff, Pp, has_adj_dFc)
+    _p2g_adj_tail(A1, p, x1, m1, G1, mp, damp, frag_p, nbr, bond_K, s, Feff, Pp, has_adj_dFc)
+    _p2g_adj_tail(A2, p, x2, m2, G2, mp, damp, frag_p, nbr, bond_K, s, Feff, Pp, has_adj_dFc)
+
+
+@wp.struct
+class UpdAdj:
+    x_out: wp.array(dtype=wp.vec3)
+    F_out: wp.array(dtype=wp.mat33)
+    x_in: wp.array(dtype=wp.vec3)
+    v: wp.array(dtype=wp.vec3)
+    F_in: wp.array(dtype=wp.mat33)
+    F_new: wp.array(dtype=wp.mat33)
+
+
+@wp.func
+def _update_adj_head(A: UpdAdj, p: int, s: float, dt: float):
+    """One channel of k_update_adj's particle part: writes F_new, F_in and v, returns the x_out adjoint."""
+    aF = A.F_out[p]
+    A.F_new[p] = A.F_new[p] + (1.0 - s) * aF
+    A.F_in[p] = A.F_in[p] + s * aF
+    ax = A.x_out[p]
+    A.v[p] = A.v[p] + dt * ax
+    return ax
+
+
+@wp.kernel(enable_backward=False)
+def k_update_adj3(x_in: wp.array(dtype=wp.vec3), s: float, dt: float,
+                  nbr: wp.array(dtype=int), rest: wp.array(dtype=float), frag: wp.array(dtype=float), bond_K: int,
+                  bond_frac: float, snbr: wp.array(dtype=int), space_K: int, space_r: wp.array(dtype=float),
+                  A0: UpdAdj, A1: UpdAdj, A2: UpdAdj):
+    """k_update_adj for three cotangents: the bonds' and the spacing's Jacobians found once, applied to each."""
+    p = wp.tid()
+    ax0 = _update_adj_head(A0, p, s, dt)
+    ax1 = _update_adj_head(A1, p, s, dt)
+    ax2 = _update_adj_head(A2, p, s, dt)
+    a0 = ax0
+    a1 = ax1
+    a2 = ax2
+    I = wp.identity(n=3, dtype=float)
+    if bond_K > 0 and frag[p] > 0.5:
+        c = bond_frac / float(bond_K)
+        for a in range(bond_K):
+            j = nbr[p * bond_K + a]
+            d = x_in[j] - x_in[p]
+            L = wp.length(d)
+            r = rest[p * bond_K + a]
+            if L > r and L > 1.0e-9:
+                Jd = (1.0 - r / L) * I + (r / (L * L * L)) * wp.outer(d, d)
+                d0 = c * (Jd @ ax0)
+                d1 = c * (Jd @ ax1)
+                d2 = c * (Jd @ ax2)
+                wp.atomic_add(A0.x_in, j, d0)
+                wp.atomic_add(A1.x_in, j, d1)
+                wp.atomic_add(A2.x_in, j, d2)
+                a0 = a0 - d0
+                a1 = a1 - d1
+                a2 = a2 - d2
+    if space_K > 0:
+        c2 = bond_frac * 0.5
+        for a in range(space_K):
+            q = snbr[p * space_K + a]
+            d = x_in[p] - x_in[q]
+            L = wp.length(d)
+            r = 0.5 * (space_r[p] + space_r[q])
+            if L < r and L > 1.0e-9:
+                Jd = (r / L - 1.0) * I - (r / (L * L * L)) * wp.outer(d, d)
+                d0 = c2 * (Jd @ ax0)
+                d1 = c2 * (Jd @ ax1)
+                d2 = c2 * (Jd @ ax2)
+                wp.atomic_add(A0.x_in, q, -d0)
+                wp.atomic_add(A1.x_in, q, -d1)
+                wp.atomic_add(A2.x_in, q, -d2)
+                a0 = a0 + d0
+                a1 = a1 + d1
+                a2 = a2 + d2
+    wp.atomic_add(A0.x_in, p, a0)
+    wp.atomic_add(A1.x_in, p, a1)
+    wp.atomic_add(A2.x_in, p, a2)
+
+
+def _struct(cls, **arrays):
+    s = cls()
+    for k, a in arrays.items():
+        setattr(s, k, a)
+    return s

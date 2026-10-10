@@ -220,6 +220,10 @@ class Trajectory:
             self._order_t = torch.argsort(key, stable=True).int().contiguous()
             self.order = wp.from_torch(self._order_t, dtype=wp.int32)
             self.order_blocks = (N + K.WARP_LANES - 1) // K.WARP_LANES
+        # the identity order where none is set: the three-cotangent G2P adjoint (adjoints.k_g2p_adj3) visits the
+        # particles through an order on every device
+        self.order_id = (wp.array(np.arange(N, dtype=np.int32), dtype=wp.int32, device=device)
+                         if self.order is None and requires_grad else None)
         # per-step trajectory
         self.x = [A(x0, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
         self.v = [AZ(v0, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
