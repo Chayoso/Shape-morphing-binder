@@ -3282,6 +3282,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   display apart discs in the first 10 % 1881 against LT's 9502, apart particles in windows 3–6 282 (LT 561). So on bob
   (4) is the run-to-run spread, but (6) and the thin coverage are reproducible: D137 is worse on bob's silhouette
   (+48–49 %) and thin parts (+2.2–2.5 points) in both runs.
+  **bob localised (a measurement; 18:50–19:25 CDT).** LM's and LM2's kept frames were removed after their readings, so
+  bob's first 40 windows were re-run on the hook copies (BT = D135 on repo_r112f, BM = D137 on repo_r113f; the d137
+  dump every 5th window; `tmp/d137/bobdump.sh`, `output/gpu/d137b`): the yardstick gap is set by window 36 (the t3_ series:
+  D135 LT 9.4 / 5.4 / 4.7e-4 at 2 / 4 / 6 s and 4.6–4.7e-4 after; D137 LM 17.4 / 6.3 / 6.6e-4, LM2 19.4 / 6.4 / 7.1e-4,
+  drifting to 6.9e-4 at their ends). BT ends at raw 1440 with the silhouette term 4.27e-4, BM at raw 1600 with 7.09e-4
+  (+66 %): the cost reproduces. Where (`tmp/d132/loc_probe.py` with the bob 300k reference, `tmp/d137/bob_loc.py`; local
+  `output/results_2026-10-09/d137_gallery/bob_silhouette_residual_thin_D135_D137.png`): the extra residual lies on the
+  silhouette rims all round, the body's two flanks (the 8^3 cells at x 0.19 and 0.81 of the box, y 0.51, z 0.31: 14 % and
+  12 % of the difference), the top of the head (y 0.94: 6 + 6 + 5 %) and the base (y 0.01: 4 + 4 %); no part is singled
+  out (neither the head, nor the tail, nor a thin rim). The thin set's uncovered points (1750 points; 108 against 123 at
+  this state) are scattered over the body and the head, and every one of them, in every run, lies 1.50–1.54 spacings
+  from its nearest particle (thin_gap_median 1.53, nothing beyond 2 spacings): the metric's threshold, not a missing
+  part. What it is: not missing or late material and not a tear. The outer layer's particles lie as close to the target's
+  outer points in both (median 0.74, p90 1.19 pitches at windows 20–40), their volume is the same (J 1.010–1.015, det Fp
+  the same), the control on them is spent (0.0001–0.0013), and no particles part (apart 0.0003–0.0008 of the discs
+  against D135's 0.005). The display surface sits closer to the reference on average but with more inward dents (the
+  run's discs against the reference's surface along its normal: median +0.0033 wu in D135, +0.0013 in D137; p10
+  −0.0115 against −0.0138 wu, a quarter of a pitch); fewer particles count as the outer layer after window 10 (BM 15 830–
+  15 930 against BT 16 924–17 279, −8 %). The same inward shift of the display surface is in every mesh's end (the
+  exterior offset probe's mean: bunny −0.046, dragon −0.068, teapot −0.074, bob −0.029, armadilo −0.075, homer −0.048)
+  with the yardstick better or flat on five meshes (dragon −23 %, teapot −17 %, homer −2 %, bunny +2 %, armadilo +7 %)
+  and worse on bob only. Not the dragon's rupture (no thin part tears, nothing parts) and not the plateau (LM2 ran 79
+  windows and the 40-window BM shows the same gap; the gap is in place at 4–6 s while D135's run converges by 6 s).
+  Verdict: bob's cost is a sub-pitch change of the outline's arrangement on its smooth, wide rims (dents a quarter of a
+  pitch), which the finer cell gives every mesh; on bob's rims it reads as +48 % on the yardstick silhouette and as 40
+  thin points crossing the 1.5-spacing threshold.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
