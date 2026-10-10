@@ -51,10 +51,13 @@ def parse_args():
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
-    ap.add_argument("--lambda_ema", type=float, default=None,
-                    help="D120 A/B: the render weight's moving average (config 0.3); 1 = the rule's value at every window")
-    # the defaults below are the recipe whose render arm is ahead of its physics-only twin on every display
-    # measure, read against an independent sample (D91, D92; the minimum spacing D70/D72, the exterior D62)
+    # the defaults below are the frozen recipe (tag freeze-2026-10-09, gates D136 and D137): D105's, whose render arm is ahead of
+    # its physics-only twin on every display measure read against an independent sample (D91, D92; the minimum spacing
+    # D70/D72, the exterior D62, the layer relief D105), with the render weight at the rule's value (D120) and the
+    # volume-conserving body (D131, D132, D135) and the cell following N (D137); each stays an A/B switch back to the code as it was
+    ap.add_argument("--lambda_ema", type=float, default=1.0,
+                    help="D120: the render weight's moving average per window; 1 (the default) = the calibration rule's "
+                         "value at every window; 0.3 = the average before the freeze (config.lambda_ema)")
     ap.add_argument("--render_exterior", action=argparse.BooleanOptionalAction, default=True,
                     help="read the render terms on the exterior (surface discs) in place of the particle cloud")
     ap.add_argument("--min_spacing", type=float, default=0.9,
@@ -70,9 +73,9 @@ def parse_args():
     ap.add_argument("--render_body_only", action="store_true",
                     help="D127 A/B: the render terms read only the discs of the body's largest connected set (the display's "
                          "rule), decided at each search of the window's discs; discs apart from the body carry no term")
-    ap.add_argument("--volume_exact", nargs="?", const="history", default="off",
+    ap.add_argument("--volume_exact", nargs="?", const="history", default="carried",
                     choices=["off", "history", "motion", "carried", "smoothed"],
-                    help="A/B: the stress reads a tracked volume J per particle (carried like F) on the smoothed F's shape: "
+                    help="the default carried (D131); A/B: the stress reads a tracked volume J per particle (carried like F) on the smoothed F's shape: "
                          "history (D129, the bare flag), the unsmoothed history's with the control's volume; motion (D130), "
                          "the motion's own (det Fg), the control's volume within its step only; carried (D131), the motion's volume carried in the "
                          "smoothed F itself (det F = J after every step, the stress reading F + dFc); smoothed (D134), carried "
@@ -88,23 +91,26 @@ def parse_args():
     ap.add_argument("--baseline", default="", choices=["", "xu", "xu_spray"],
                     help="xu: the comparison baseline, Xu et al.'s objective alone in this simulator (D112); "
                          "xu_spray: the same with our spray cleanup, the ejection guard")
-    ap.add_argument("--layer_relief", action="store_true",
-                    help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
+    ap.add_argument("--layer_relief", action=argparse.BooleanOptionalAction, default=True,
+                    help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface; "
+                         "D105); --no-layer_relief = the plane of the neighbours, as before")
     ap.add_argument("--surface_density", type=float, default=1.0,
                     help="D122 A/B: the sampling density within the outer band (layer_h_sp spacings deep) this many times "
                          "the interior's, at the same N, source and target alike; 1 = the uniform sample, the code as it was")
-    ap.add_argument("--assim_volume", action="store_true",
-                    help="D135 A/B: the per-commit assimilation takes the elastic stretch's volume too (Fp loses its isochoric "
-                         "restriction; the band assim_smin..assim_smax bounds every principal stretch), so the volume the end "
-                         "keeps becomes the rest volume; with --volume_exact off, carried or smoothed; off = isochoric as before")
-    ap.add_argument("--match_density", action="store_true",
-                    help="D132 A/B: the source sample rescaled so that it represents the volume of the target sample's own "
-                         "fill (equal number densities; the target and every measure on it unchanged); off = the meshes' "
-                         "volumes matched at a 110^3 fill, as before")
-    ap.add_argument("--cell_follows_n", action="store_true",
-                    help="D137 A/B: above the reference N (40k) the MPM cell follows the particle count, dx = (diag / "
-                         "cell_diag) x (40000 / N)^(1/3) (the particles per cell stay 40k's); the loss grid keeps its size, "
-                         "the u gate and the thin set keep the shape's cell; off (or N <= 40k) = the shape's cell, as before")
+    ap.add_argument("--assim_volume", action=argparse.BooleanOptionalAction, default=True,
+                    help="D135 (default on): the per-commit assimilation takes the elastic stretch's volume too (Fp loses its "
+                         "isochoric restriction; the band assim_smin..assim_smax bounds every principal stretch), so the volume "
+                         "the end keeps becomes the rest volume; with --volume_exact off, carried or smoothed; "
+                         "--no-assim_volume = isochoric as before (needed with --volume_exact history or motion)")
+    ap.add_argument("--match_density", action=argparse.BooleanOptionalAction, default=True,
+                    help="D132 (default on): the source sample rescaled so that it represents the volume of the target "
+                         "sample's own fill (equal number densities; the target and every measure on it unchanged); "
+                         "--no-match_density = the meshes' volumes matched at a 110^3 fill, as before")
+    ap.add_argument("--cell_follows_n", action=argparse.BooleanOptionalAction, default=True,
+                    help="D137 (default on): above the reference N (40k) the MPM cell follows the particle count, dx = "
+                         "(diag / cell_diag) x (40000 / N)^(1/3) (the particles per cell stay 40k's); the loss grid exactly "
+                         "as before, the u gate and the thin set on the shape's cell; --no-cell_follows_n (or N <= 40k) = "
+                         "the shape's cell, as before")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
@@ -196,6 +202,8 @@ def main():
         raise SystemExit("--surface_density must be 1 (the uniform sample) or more")
     if args.surface_density > 1.0 and args.baseline:
         raise SystemExit("--surface_density is not defined for the baseline (its loss has no masses of its own)")
+    if args.assim_volume and args.volume_exact in ("history", "motion"):
+        raise SystemExit("--volume_exact history / motion need --no-assim_volume (D135 is defined with off, carried or smoothed)")
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
@@ -218,7 +226,7 @@ def main():
     res = args.render_res_hi or int(np.ceil(cfg0.render_res_hi * per_dx))
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
-                              lambda_ema=cfg0.lambda_ema if args.lambda_ema is None else args.lambda_ema,
+                              lambda_ema=args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius, u_off=args.u_off,
                               spray_gate=args.spray_gate, render_body_only=args.render_body_only,

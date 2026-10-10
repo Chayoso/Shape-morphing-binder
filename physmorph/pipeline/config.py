@@ -7,6 +7,11 @@ render objective is the multi-view silhouette plus the matched shading term, wei
 lambda calibrated at every window; the controls are a per-particle stress increment dFc and
 the normal offset u of the outer layer. The fields below are its numbers. Weights are in
 the legacy cell-sum unit and converted by the unit ratio measured at the source.
+
+The defaults here are the code as it was before each A/B switch (the reference the tests compare against); the frozen
+recipe (tag freeze-2026-10-09) is scripts/pipeline_run.py's defaults: render_exterior, min_spacing 0.9, the layer
+relief, lambda_ema 1, volume_exact "carried", assim_volume, the source's density match and the cell following N above
+40k (D105, D120, D131, D132, D135, D137; cell_shape is set by the run script from prepare).
 """
 from __future__ import annotations
 

@@ -3308,6 +3308,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Verdict: bob's cost is a sub-pitch change of the outline's arrangement on its smooth, wide rims (dents a quarter of a
   pitch), which the finer cell gives every mesh; on bob's rims it reads as +48 % on the yardstick silhouette and as 40
   thin points crossing the 1.5-spacing threshold.
+  **Adopted; the freeze (2026-10-09, the user's decision, relayed by the coordinator: "adopt D137 and freeze").** By
+  the letter of the pre-registered rule D137 failed: (4) the end kinetic energy of the bunny twin (4.9e-6 against
+  4.1e-6) and the dragon render arm (1.46e-5 against 1.01e-5), bob's render arm (9.9e-7 against 5.6e-7); (6) bob's
+  yardstick silhouette +48 %; (3) the armadilo's display apart discs in the first 10 % (697 against 0) and apart
+  particles in windows 3–6 (301 against 3). Their readings: (4) lies inside D135's own run-to-run spread when read
+  against two D135 runs (bunny twin limit 1.09e-5 with PT2; dragon render arm 2.66e-5 with LF, on the last committed
+  window, LF having no rows value: on the rows value of LT alone it stays above), and bob's second D137 run is within
+  (3.2e-7); (3) is the earlier arrival of the arrival-phase surface population every run has, smaller over matched
+  phases on all six meshes, with no visible floating piece on the armadilo's front view; (6) on bob is the sub-pitch
+  inward rim shift of the outline (dents a quarter of a pitch, 8 % fewer outer-layer particles), reproduced in both
+  D137 runs. Accepted as recorded costs (as beast, D136): bob's rim shift (yardstick silhouette +48–49 %, thin
+  uncovered 7.9–8.2 % against 5.7 %), and the dragon crevice's tear remnant at 1.9–2.5 s (a ring of small holes and a
+  thin strand across its foot; the crevice and the neck–body hole open from 3.0 s, no beads at 3.6–5 s). The frozen
+  recipe is `scripts/pipeline_run.py`'s defaults: D105's (the exterior render terms, radius 3, the minimum spacing 0.9),
+  `--layer_relief`, `--lambda_ema 1`, `--volume_exact carried`, `--match_density`, `--assim_volume`, `--cell_follows_n`;
+  not D133's grid gate. With no flags it is exactly the configuration of the D137 gate runs (every recorded argument of
+  the nine d137s runs LM / PM / LM2 equals the defaults; `tests/test_frozen_recipe.py` asserts it), on the same physics
+  code (only the run script's defaults, `config.py`'s docstring and the README change). Suite on a fresh copy of the
+  freeze (repo_frozen): 359 passed, 2 skipped, exit 0 (`tmp/d137/suite_frozen.log`). Tagged `freeze-2026-10-09`.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

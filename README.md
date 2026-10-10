@@ -13,8 +13,9 @@ earlier pipelines and why this one replaced them).
 ## The pipeline
 
 **Setup.** The source and target meshes are sampled into `N` particles each (stratified volume sampling). The MPM cell
-is set from the shape: `dx` = source bounding-box diagonal / 26. Every particle has the same dynamics mass
-`40000 / N`, so the body's mass does not depend on `N`.
+is set from the shape and, above 40k particles, the particle count: `dx` = (source bounding-box diagonal / 26) ×
+min(1, (40000 / N)^(1/3)), so a cell holds about 23 particles at every `N` (D137). Every particle has the same dynamics
+mass `40000 / N`, so the body's mass does not depend on `N`.
 
 **One window (settled transport).** The body is simulated for `2T` steps (`T = 20`, `dt = 1/240`): `T` driven steps
 with the controls, then `T` released steps with the controls set to zero while the physics keeps running. Every loss
@@ -59,13 +60,45 @@ validity check of the rollout, not a term.
 **Gradients.** The physics and render losses are differentiated separately through the same `2T`-step adjoint (Warp
 tape, captured as CUDA graphs) back to `dFc` and `u`. The Sinkhorn term uses the envelope theorem: its gradient is
 the difference of the converged potentials, passed through the rasterisation weights. The render gradient drops any
-component that opposes the physics gradient and is weighted by `λ`, set once so that `λ·|g_render| = 0.5·|g_physics|`
-and then held. A backtracking line search accepts a step only when the full objective decreases and the state stays
-valid.
+component that opposes the physics gradient and is weighted by `λ`, set at each window's first gradient so that
+`λ·|g_render| = 0.5·|g_physics|`. A backtracking line search accepts a step only when the full objective decreases and
+the state stays valid.
 
 **Acceptance and delivery.** Each window's result is scored by one merit, the objective read at the committed state.
 A result that raises the merit by more than 5 % is rejected and the state is kept. The run ends at the best state after 3 consecutive rejections, or when the
 merit stops improving for 5 windows.
+
+**The frozen recipe (tag `freeze-2026-10-09`).** `scripts/pipeline_run.py`'s defaults; `config.py` keeps the code as
+it was before each switch, the reference the tests compare against. Beyond the render terms on the exterior, the
+minimum spacing 0.9 and the layer relaxation keeping the target's relief (D62–D105):
+
+- Render weight (D120). `λ` is the calibration rule's value at every window (`--lambda_ema 1`), with no moving average
+  across windows. The earlier average (0.3 per window) lagged the physics gradient's fall while the body arrives and
+  kept the render at 0.46–0.70 of the step in windows 3–11, where the render drove protruding particles out of the body.
+- Commit replay (D130). A window's commit replays the accepted candidate on the exterior disc set it was scored with,
+  so a line-search trial after the accepted step that looked for the discs again cannot change the committed score.
+- Volume carried in F (D131, `--volume_exact carried`). The constitutive F is smoothed, `F ← (1 − s) F_new + s F_in`
+  with `s = 0.955`, which kept 4.5 % of each step's volume change while accumulating the control's: thin parts in
+  transit streamed out as a dilated sheet. Each particle now carries the motion's own volume `J ← J det(I + dt C)`, and
+  the smoothed F is rescaled to it after every step, `F ← (J / det F_s)^(1/3) F_s`; the stress reads `F + dFc` as before.
+- Sample density (D132, `--match_density`). A stratified sample is one jittered particle per voxel of its own fill, so
+  the source and target samples carried different volumes per particle (target / source 0.99–1.07). The source sample
+  is rescaled so its fill volume equals the target sample's, and a volume-conserving body can fill the target exactly.
+- Volumetric assimilation (D135, `--assim_volume`). The per-commit plastic assimilation (`Fp`, half the elastic
+  stretch per commit, every principal stretch kept in [0.2, 5]) also takes the stretch's volume, so the volume the end
+  keeps becomes the body's rest volume instead of being held by the control. The end is the body's own rest (releasing
+  the controls moves it by 3e-5 in kinetic energy), and the stream does not re-dilate (det Fg 0.98–1.04 per window).
+- The cell follows the particle count (D137, `--cell_follows_n`). With the cell from the shape alone, a 300k cell was
+  six particle spacings wide (183 particles a cell), and gaps of the target 1.7–4.5 cells wide (the dragon's crevice,
+  its neck–body hole, the inside of its loop) lay within the cubic kernel's reach of both their sides: the grid's single
+  velocity field moved the material filling them with both rims, stretched it, and it tore into beads (Hu et al. 2018
+  name this smoothing across thin boundaries). Above 40k the cell now shrinks with `N^(-1/3)`; the loss grid stays as
+  it was, and the `u` gate and the thin-set measure keep the shape's cell. At 300k this costs no measurable time.
+
+Each stays a switch back to the old path (`--lambda_ema 0.3`, `--volume_exact off`, `--no-match_density`,
+`--no-assim_volume`, `--no-layer_relief`, `--no-cell_follows_n`). Measured and left out: the grid spray gate (D133) and
+the other volume modes (`history` D129, `motion` D130, `smoothed` D134). `--baseline xu` runs in the same simulator, so
+it also gets the volume handling, the density match and the cell unless those switches are passed.
 
 **What it conserves.** Stress cannot change total momentum: it enters the grid transfer as `G·(x_i − x_p)`, and the
 B-spline weights satisfy `Σ w_ip (x_i − x_p) = 0`. The Kirchhoff stress is symmetric, so angular momentum is kept too.
@@ -94,9 +127,12 @@ fallback. The only CPU work is the prepare stage (mesh loading and volume sampli
 ssh hyde06j
 source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
-# sphere -> bunny, 300k particles (the validated recipe is the default since 2026-10-05: surface proximity, the loss
-# and render pictures following N, the render terms on the exterior at one resolution, the minimum spacing, the
-# render weight calibrated at every window, the render's targets the mean over eight samples; D62-D92)
+# sphere -> bunny, 300k particles. No flags = the frozen recipe (tag freeze-2026-10-09; exactly the configuration of
+# the D137 gate runs, asserted by tests/test_frozen_recipe.py): surface proximity; the loss grid and the render
+# pictures following N; the render terms on the exterior (kernel radius 3) at one resolution; the minimum spacing
+# 0.9; the layer relief; the render weight at the rule's value every window (--lambda_ema 1); the volume carried
+# (--volume_exact carried) and assimilated (--assim_volume); the densities matched (--match_density); the MPM cell
+# following N above 40k (--cell_follows_n)
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --out $OUT/bunny
 # its physics-only twin (the render term off, everything else the same)
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --render_weight_scale 0 --out $OUT/bunny_phys
