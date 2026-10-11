@@ -3576,6 +3576,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   changes the motion from the first window (the dragon slower, the bunny's face ahead of its bulk), and the crevice's
   beads, contiguous material torn at a gap narrower than two cells, are moved later rather than removed. The default
   stays `zb`; `--exterior_field aniso` stays an A/B switch. Next is the user's decision.
+  **Display-only test (the user's decision after the failure, relayed 2026-10-10 19:45 CDT; renders 19:49–20:03, read
+  20:10; `output/gpu/d140_display`, local `output/results_2026-10-10/d140_display/`, the table
+  `d140_display_table.md`).** The simulation and the loss stay D135's (Zhu–Bridson); the same kept frames of D135's runs
+  (dragon `frozen_b/dragon300k_FB`, bunny `d139/bunny300k_SB`) redrawn by the base display on the anisotropic field
+  (`tmp/d140/cdm_d140.py +field=aniso`, d5306f4's display code), side and front, beside the deliverable Zhu–Bridson
+  renders of the same frames. No paper metric is recomputed. Inventory (`d140_image.py` on every kept frame, every
+  candidate checked by eye): the dragon's mouth beads are gone (33 detections up to 404 px against one 71-px rim
+  feature); the crevice still tears into a cluster of small blobs at 3.1–4.25 s and the class-(i) bead stays at
+  5.1–5.5 s; the loop's frayed edge and the neck–body hole's rim are about the same; the bunny shows no floating piece in
+  either display. The bunny's small dark pits and jagged lower edge seen in D140 appear on D135's own particles too:
+  they are the field on this particle arrangement, not D140's trajectory. The anisotropic outline sits 0.37–0.38
+  pitches outside the Zhu–Bridson one on the same frame (silhouette area +2.3–2.9 %); against the target sample drawn
+  with the same field the run's end sits 0.22 pitches inside (Zhu–Bridson 0.05–0.08), because the random sample drawn
+  with this field is itself fuller and lumpier. Cleanup: D140's run frames, dumps and arm render frames removed after the
+  renders (logged).
 - **D138, the runtime phase: where a 300k attempt's time goes, and the exact speed-ups (opened 2026-10-09 20:07 CDT;
   the user: "최적화 빡세게 해서 10분 내외로"; relayed by the coordinator: profile first, exact speed-ups next, each
   bit-for-bit or within the replay noise, result-changing ones only as gated A/Bs the user decides; server `repo_frozen`
