@@ -43,7 +43,7 @@ FIT_UNTIL = float(opts.get("fit_until", 1.0))                # diagnostic: fit o
 DECAY = opts.get("decay", "0") == "1"                        # the step of a disc over 1 / sqrt(its fits so far, in frames)
 FIT, STEPS, STRIDE, VIDEO = (opts.get("fit", "1") == "1", int(opts.get("steps", 15)), int(opts.get("stride", 1)),
                              opts.get("video", "1") == "1")
-FIELD = opts.get("field", "zb")                              # D140: the exterior's field, "zb" or "aniso"
+FIELD = opts.get("field", "zb")                              # D140 / D144: the exterior's field, "zb", "aniso" or "zbs"
 z = np.load(argv[1], allow_pickle=True)
 denses = [torch.as_tensor(np.asarray(np.load(p)["tgt"], np.float32), device=dev) for p in argv[2].split(",")]
 out = Path(argv[3])
@@ -65,7 +65,7 @@ views = make_views(cfg.render_views, cfg.render_elevs)
 
 def exterior(s, a_field):
     with torch.no_grad():
-        p, g, _, _ = lat.discs(make_field(FIELD, s, a_field), h_lat)
+        p, g, _, _ = lat.discs(make_field(FIELD, s, a_field, device_field=FIELD == "zbs"), h_lat)
     return p, nnf.normalize(g, dim=1)
 
 

@@ -4142,6 +4142,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   but in concavities and gaps, where the correction lowers the offset; the risk is the bunny's narrow cells (the face at
   window 1, 0.03 pitches wide; the p90 at window 8, 0.09 wide). (3)–(5) hold. Cost: +2 to +6 % an attempt (EVmax and
   its differences in the disc search; the tracked read unchanged).
+  *Implementation* (merged from `wip/d144`; `render/exterior.py`: `ZhuBridsonSolenthaler`, `TrackedSolenthaler`,
+  `ev_max`, `sol_factor`; `render/exterior_wp.py`: `k_zbs_field`; the switch through the config, the target's pictures
+  and the objective; the display script's `+field=zbs`; `tests/test_exterior_zbs.py`, nine tests). Suite on `repo_d144`
+  (settled-base 6150513 + the change): 353 passed, 2 skipped, exit 0 (`tmp/d144/suite_d144.log`). A first run failed
+  `test_settled_contracts.py::test_a_nonfinite_window_cost_cannot_commit` (its first window did not commit); that test
+  failed 1 of 2 times on a pristine copy of settled-base and passed 2 of 2 on the change: it is nondeterministic on
+  today's code, not this change's (`suite_d144_run1.log`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
