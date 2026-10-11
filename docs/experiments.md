@@ -4046,6 +4046,48 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (the default passes them). Seconds an attempt with the dump: C1 +0.6 % (bunny) and +0.8 % (dragon) against batch 7.
   Verdict as pre-registered: FAIL. `--cleanup_in_phys` stays an off switch; adoption is the user's call. The frames12
   of every read run removed (logged in `output/gpu/cleanup.log`), the logs, JSONs and end evaluations kept.
+- **D144, the mouth's beads by Solenthaler et al.'s correction of the Zhu–Bridson field (opened 2026-10-10 20:10 CDT;
+  the user's decision after D140: remove only the mouth's beads with the correction of Solenthaler, Schläfli & Pajarola
+  2007; the crevice's beads are recorded as a limitation, the coarse cell's gap limit of D137/D139; the anisotropic
+  display not adopted, its frames cleared). Read first, then a display-only check, then (only on the user's go) a
+  pre-registration, the implementation in the field the display, the target's pictures and the render terms read, and
+  gate runs as D140's.**
+  **Reading** (texts in `tmp/d144/papers`). Solenthaler et al. 2007 (CAVW 18:69–82, eqs. 22–26): Zhu and Bridson's
+  centre "may erroneously end up outside of the surface ... in concave regions or between near but separated
+  particles", where it "changes substantially faster" than the query point; they take the largest eigenvalue EVmax of
+  ∇x̄ and scale the offset: φ = |x − x̄| − R f, f = 1 for EVmax < t_low, γ³ − 3γ² + 3γ otherwise, γ = (t_high − EVmax) /
+  (t_high − t_low), "f is a factor ∈ [0..1]" (smooth to second order at t_low, zero at t_high), t_low = 0.4, t_high = 2.0
+  (their Figure 7). Akinci et al. 2012 (CGF 31(6), the parallel reconstruction): the same correction with the same
+  kernel (1 − s²)³ and R ≥ 4 particle radii, t_low = 0.4, t_high = 3.5 ("in [SSP07] t_high = 2.0 is proposed. However,
+  in our experiments, t_high = 3.5 yields smoother results"). Zhu & Bridson 2005: R twice the spacing; "the most
+  significant problem ... is artifacts in concave regions: spurious blobs of surface can appear", removed there by a
+  finer grid and a smoothing pass restricted to decreasing φ. Adams et al. 2007 (abstract only, the full text was not
+  reachable): a per-particle distance to the surface carried with the particles in place of the radius; not applicable,
+  our particles carry none.
+  **Constants, measured before the check** (`tmp/d144/d144_ev.py`, the pipeline's lattice, FB's frames 341 and 66, SB's
+  220 and 60; `zbs_ref.py`, the reference form). On our surfaces EVmax is about 1 everywhere (median 1.05–1.07, p99
+  1.37–1.87): in a uniform medium x̄ moves with q (∇x̄ = I), so a flat surface's tangential eigenvalue is 1 whatever the
+  kernel. Solenthaler's thresholds (0.4, 2.0) therefore act everywhere: 99.5 % of the discs move (f ≈ 0.93 on flat
+  parts) and the thin features pinch into 58–73 new disconnected sets (dragon). Akinci's (0.4, 3.5): 66 % move,
+  median 0.0125 pitches. t_low = 1, derived (the rate of a uniform medium), with Akinci's t_high = 3.5: 0.4–5.2 % of the
+  discs move more than 0.01 pitches, median 0.0001, the connected sets as Zhu–Bridson's (±1); (1, 2.0): 18–24 % move and
+  49–87 new sets. Synthetic slabs (two faces, gap g pitches between their particle planes): Zhu–Bridson draws a blob at
+  the middle for every g up to 5.5; EVmax there 1.0–1.25 at g 1.5 (the two offset surfaces overlap: a true bridge), 1.7
+  at 2, 2.3–2.65 at 2.5–3, 4 at 3.5, 18 at 5, 36 at 5.5. With t_high 3.5 the blob is gone from g 3.5 on and shrinks
+  below; the mouth's beads read EVmax 17–18 (two camera rays through them, frames 303 and 341). Taken for the check:
+  t_low 1 (derived), t_high 3.5 (Akinci et al., published).
+  **Display-only check (renders 2026-10-10 20:21–22:11, read 2026-10-11 17:40–18:10; `output/gpu/d144_display`, local
+  `output/results_2026-10-10/d144_display/`, the table `d144_display_table.md`).** D135's runs (dragon
+  `frozen_b/dragon300k_FB`, bunny `d139/bunny300k_SB`) redrawn by the base display on the corrected field (`tmp/d144/
+  cdm_d144.py +field=zbs`, tensor form), side and front, beside the deliverable Zhu–Bridson renders of the same frames;
+  no simulation, no paper metric recomputed. The mouth's beads are gone at every frame (the detector's 33 pieces at 9 s
+  and 13–17.5 s, up to 415 px, against none). The rest as Zhu–Bridson's: the crevice's tearing foam 3.1–4.4 s, its strand
+  at 4.2–4.8 s and its class-(i) bead at 5.05–5.45 s (now drawn round), the loop's frayed edge, the neck–body hole's rim
+  (detections at the crevice 5 → 7, 60 → 54 piece-frames; loop 2 → 2; neck 3 → 2; front views 252 → 252 and 100 → 97,
+  all shading creases); the silhouette the same (area ratio 1.0000 / 0.9999 at the end and mid-morph; outlines within one
+  pixel); no pits, no thickening, no new beads on either mesh (contact sheets and close-ups checked by eye). Reported to
+  the coordinator; next is the user's decision. The implementation so far (field, Warp kernel, tracked read, the switch
+  `--exterior_field zbs`, tests; 29 exterior tests passed on `repo_d144`) is on the branch `wip/d144`, not pre-registered.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
