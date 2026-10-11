@@ -250,10 +250,138 @@ class Anisotropic(ZhuBridson):
         return idx[:, :int((idx >= 0).sum(1).max())]
 
 
+SOL_T_LOW, SOL_T_HIGH = 1.0, 3.5         # D144: the correction's thresholds on EVmax (see ZhuBridsonSolenthaler)
+
+
+def _cbrt(v):
+    """The real cube root, with a finite gradient at zero (zero there)."""
+    nz = v.abs() > 1e-30
+    s = torch.where(nz, v, torch.ones_like(v))
+    return torch.where(nz, torch.sign(s) * s.abs() ** (1. / 3.), torch.zeros_like(v))
+
+
+def ev_max(J):
+    """The largest real part of the eigenvalues of each 3 x 3 matrix (N, 3, 3), from its characteristic cubic
+    l^3 - T l^2 + M l - D (T the trace, M the sum of the principal 2 x 2 minors, D the determinant); with l = y + T / 3
+    it reads y^3 + p y + q = 0: three real roots (trigonometric form, the largest) or one real root y1 and a complex
+    pair of real part -y1 / 2. Both branches are kept finite for autograd."""
+    T = J[:, 0, 0] + J[:, 1, 1] + J[:, 2, 2]
+    M = (J[:, 0, 0] * J[:, 1, 1] - J[:, 0, 1] * J[:, 1, 0] + J[:, 0, 0] * J[:, 2, 2] - J[:, 0, 2] * J[:, 2, 0]
+         + J[:, 1, 1] * J[:, 2, 2] - J[:, 1, 2] * J[:, 2, 1])
+    D = (J[:, 0, 0] * (J[:, 1, 1] * J[:, 2, 2] - J[:, 1, 2] * J[:, 2, 1])
+         - J[:, 0, 1] * (J[:, 1, 0] * J[:, 2, 2] - J[:, 1, 2] * J[:, 2, 0])
+         + J[:, 0, 2] * (J[:, 1, 0] * J[:, 2, 1] - J[:, 1, 1] * J[:, 2, 0]))
+    p = M - T * T / 3.
+    q = -2. * T ** 3 / 27. + M * T / 3. - D
+    disc = q * q / 4. + p ** 3 / 27.
+    three = disc <= 0.
+    pn = torch.where(three, (-p).clamp_min(1e-30), torch.ones_like(p))
+    arg = torch.where(three, (1.5 * q / (-pn) * (3. / pn).sqrt()).clamp(-1. + 1e-7, 1. - 1e-7), torch.zeros_like(p))
+    y3 = 2. * (pn / 3.).sqrt() * torch.cos(torch.acos(arg) / 3.)
+    sd = torch.where(three, torch.ones_like(disc), disc).sqrt()
+    y1 = _cbrt(-q / 2. + sd) + _cbrt(-q / 2. - sd)
+    return torch.where(three, y3, torch.maximum(y1, -y1 / 2.)) + T / 3.
+
+
+def sol_factor(ev, t_low=SOL_T_LOW, t_high=SOL_T_HIGH):
+    """Solenthaler et al.'s f (their eqs. 25, 26) and its derivative in EVmax: 1 below t_low, gamma^3 - 3 gamma^2 +
+    3 gamma above with gamma = (t_high - EVmax) / (t_high - t_low), kept in [0, 1] (their "f is a factor in [0..1]")."""
+    g = (t_high - ev) / (t_high - t_low)
+    inside = (ev > t_low) & (ev < t_high)
+    f = torch.where(ev <= t_low, torch.ones_like(ev), (g ** 3 - 3. * g ** 2 + 3. * g).clamp(0., 1.))
+    df = torch.where(inside, -3. * (1. - g) ** 2 / (t_high - t_low), torch.zeros_like(ev))
+    return f, df
+
+
+class ZhuBridsonSolenthaler(ZhuBridson):
+    """D144 (Solenthaler, Schläfli and Pajarola 2007, eqs. 23-26): Zhu and Bridson's field with the offset scaled by
+    f(EVmax), EVmax the largest eigenvalue of the Jacobian of xbar in q:  phi(q) = |q - xbar(q)| - offset f. Where
+    xbar moves no faster than q (EVmax <= t_low) f = 1 and the field is Zhu and Bridson's; where the centre runs
+    ahead of the query point (concavities, the gap between two near surfaces) the offset shrinks and the spurious blob
+    goes. t_low = 1 is the rate of a uniform medium (there xbar = q, the Jacobian the identity); t_high = 3.5 is
+    Akinci et al. 2012's published value for this correction with this kernel (Solenthaler et al.'s 2.0 cut our thin
+    features into pieces, D144's display check). The gradient: Zhu and Bridson's, less offset f'(EVmax) grad(EVmax),
+    the last by central differences (0.01 pitch) where f varies. On CUDA with device_field the one-kernel form of
+    render/exterior_wp.py; elsewhere the tensor form below."""
+
+    def __init__(self, x, pitch, radius=3., offset=.8, device_field=False, t_low=SOL_T_LOW, t_high=SOL_T_HIGH):
+        super().__init__(x, pitch, radius=radius, offset=offset, device_field=device_field)
+        self.t_low, self.t_high, self.h_fd = t_low, t_high, .01 * pitch
+
+    def _parts(self, qc, idx):
+        """(S, xbar, J) at the points qc from the particles idx (Zhu and Bridson's sums)."""
+        R = self.radius
+        p = self.x[idx.clamp_min(0)]
+        u = qc[:, None, :] - p
+        t = (1. - u.square().sum(-1) / (R * R)).clamp_min(0.) * (idx >= 0)
+        w = t ** 3
+        S = w.sum(1)
+        Sc = S.clamp_min(1e-12)
+        xbar = (w[..., None] * p).sum(1) / Sc[:, None]
+        dw = (-6. / (R * R)) * (t * t)[..., None] * u
+        J = (torch.einsum("nsa,nsb->nab", p, dw) - xbar[:, :, None] * dw.sum(1)[:, None, :]) / Sc[:, None, None]
+        return S, xbar, J
+
+    def ev_grad(self, q):
+        """(EVmax, its gradient in q by central differences) at the points q."""
+        if self.device_field:
+            from .exterior_wp import zbs_field
+            self._device_bins()
+            return zbs_field(self.x, self._dbins, self.radius, self.offset, self.t_low, self.t_high, self.h_fd, q,
+                             grad=True, want_ev=True)[3:]
+        out_e, out_g = [], []
+        h = self.h_fd
+        with torch.no_grad():
+            for qc in q.split(max(1024, int(4e5 / self.bins.width))):
+                ev = ev_max(self._parts(qc, self.bins.around(qc))[2])
+                gs = []
+                for e in torch.eye(3, dtype=qc.dtype, device=qc.device):
+                    a, b = qc + h * e, qc - h * e
+                    gs.append((ev_max(self._parts(a, self.bins.around(a))[2])
+                               - ev_max(self._parts(b, self.bins.around(b))[2])) / (2. * h))
+                out_e.append(ev); out_g.append(torch.stack(gs, 1))
+        return torch.cat(out_e), torch.cat(out_g)
+
+    def _device_bins(self):
+        from .exterior_wp import DeviceBins
+        if self._dbins is None:
+            self._dbins = DeviceBins(self.x.detach().float(), self.radius)
+
+    def __call__(self, q, grad=True):
+        if self.device_field:
+            from .exterior_wp import zbs_field
+            self._device_bins()
+            return zbs_field(self.x, self._dbins, self.radius, self.offset, self.t_low, self.t_high, self.h_fd, q,
+                             grad)[:3]
+        f, g, s = [], [], []
+        with torch.no_grad():
+            for qc in q.split(max(1024, int(4e5 / self.bins.width))):
+                S, xbar, J = self._parts(qc, self.bins.around(qc))
+                ev = ev_max(J)
+                fac, dfac = sol_factor(ev, self.t_low, self.t_high)
+                d = qc - xbar
+                L = d.norm(dim=1)
+                f.append(L - self.offset * fac)
+                s.append(S)
+                if grad:
+                    dhat = d / L.clamp_min(1e-30)[:, None]
+                    gc = dhat - torch.einsum("nab,na->nb", J, dhat)
+                    vary = dfac != 0
+                    if bool(vary.any()):
+                        gev = self.ev_grad(qc[vary])[1]
+                        gc[vary] = gc[vary] - self.offset * dfac[vary][:, None] * gev
+                    g.append(gc)
+        f, s = torch.cat(f), torch.cat(s)
+        return torch.where(s > 1e-6, f, f.new_full((), float("inf"))), torch.cat(g) if grad else None, s
+
+
 def make_field(kind, x, pitch, radius=3., offset=.8, device_field=False):
-    """The exterior's field by its name (D140's switch): "zb" Zhu and Bridson's, "aniso" the anisotropic one."""
+    """The exterior's field by its name (D140's switch): "zb" Zhu and Bridson's, "aniso" the anisotropic one (D140),
+    "zbs" Zhu and Bridson's with Solenthaler et al.'s correction (D144)."""
     if kind == "aniso":
         return Anisotropic(x, pitch)
+    if kind == "zbs":
+        return ZhuBridsonSolenthaler(x, pitch, radius=radius, offset=offset, device_field=device_field)
     if kind != "zb":
         raise ValueError(f"unknown exterior field {kind!r}")
     return ZhuBridson(x, pitch, radius=radius, offset=offset, device_field=device_field)
@@ -317,9 +445,45 @@ class TrackedAniso(Tracked):
         return self.p0 + move[:, None] * self.n0, normal, move
 
 
+class TrackedSolenthaler(Tracked):
+    """Tracked discs of the corrected field (D144): found as Tracked's; each disc keeps the correction's factor f and
+    its gradient term from the state it was found at (EVmax is a third derivative of the weights; within a window the
+    disc moves with the centre and its distance, as Zhu and Bridson's do, and a new search takes the new f)."""
+
+    def __init__(self, field, lattice, h, skin):
+        super().__init__(field, lattice, h, skin)
+        ev, gev = field.ev_grad(self.p0)
+        f, df = sol_factor(ev, field.t_low, field.t_high)
+        self.f0 = f.to(self.p0.dtype)
+        self.gf0 = (df[:, None] * gev).to(self.p0.dtype)          # grad f at the disc, in q
+
+    def read(self, x):
+        """(points, unit normals, displacement along n0) of the discs at the particles x."""
+        R, p0 = self.radius, self.p0
+        valid = self.idx >= 0
+        p = x.index_select(0, self.idx.clamp_min(0).reshape(-1)).view(*self.idx.shape, 3)
+        u = p0[:, None, :] - p
+        t = (1. - u.square().sum(-1) / (R * R)).clamp_min(0.) * valid
+        w = t ** 3
+        sw = w.sum(1).clamp_min(1e-12)
+        xbar = (w[..., None] * p).sum(1) / sw[:, None]
+        d = p0 - xbar
+        dist = d.norm(dim=1).clamp_min(1e-12)
+        dw = (-6. / (R * R)) * (t * t)[..., None] * u
+        J = (torch.einsum("nsa,nsb->nab", p, dw) - xbar[:, :, None] * dw.sum(1)[:, None, :]) / sw[:, None, None]
+        dhat = d / dist[:, None]
+        normal = nnf.normalize(dhat - torch.einsum("nab,na->nb", J, dhat) - self.offset * self.gf0, dim=1)
+        move = -(dist - self.offset * self.f0) / self.slope
+        return p0 + move[:, None] * self.n0, normal, move
+
+
 def tracked(field, lattice, h, skin):
-    """Tracked discs of either field."""
-    return (TrackedAniso if isinstance(field, Anisotropic) else Tracked)(field, lattice, h, skin)
+    """Tracked discs of any of the fields."""
+    if isinstance(field, Anisotropic):
+        return TrackedAniso(field, lattice, h, skin)
+    if isinstance(field, ZhuBridsonSolenthaler):
+        return TrackedSolenthaler(field, lattice, h, skin)
+    return Tracked(field, lattice, h, skin)
 
 
 class Lattice:
