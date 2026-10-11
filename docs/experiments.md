@@ -3911,6 +3911,64 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `test_w1_cleanup.py` 1 (the grid gate). New: the bit-for-bit reference (2), `connected_sets` (1), the dump hooks (1).
   No test of kept code was dropped (each removed test exercised a removed class, flag value or branch; listed by node
   in `tmp/rt/nodes_repo_09b.txt` / `nodes_repo_cl1.txt`).
+- **D142, the Sinkhorn transport of a line-search trial warm-started (a result-changing runtime A/B; approved by the
+  user on 2026-10-10 as lever (a), released by the coordinator after D140's verdict; pre-registered 2026-10-10 19:52
+  CDT server clock, before the implementation and any run; scripts `tmp/rt/`, runs `output/gpu/rt_ab`).**
+  *Definition* (`--ot_warm_trials`, off by default: today's path bit for bit). A window's line-search trial solves its
+  transport's cross (body, target) and self (body, body) problems starting from the potentials of the transport's latest
+  solved call in the window (the replay pair's at the first trial, then the accepted candidate's as D47 hands them to the
+  taped evaluation, or the previous trial's), at the blur's temperature, sweeping until the marginal error is below the
+  tolerance as now; a warm solve that does not converge within the sweep budget is solved again from zero duals with
+  the eps-scaling as now. The commit rollout takes the accepted candidate's potentials (no sweep, D47's form), so its
+  energy and the replay check read the same potentials the candidate was accepted on; without an accepted candidate it
+  solves as now. Cold as now: the replay pair, the warm start's evaluations, the taped evaluations (D47 unchanged), the
+  record's (D53 unchanged). What changes: a trial's value and the committed energy depend on where the solve started,
+  within the tolerance (today a solve's value is a function of the measure alone); the line search's rule that trial
+  values do not depend on earlier trials is given up. Where the time goes today: the dragon's transport solves are
+  0.2 s a call, 13–18 a window in the line search (0.9–3.6 s of a 7.5–15 s window), a cold solve 15 temperature levels
+  and 83 blocks of four sweeps early in the run; the bunny's 0.05 s a call.
+  *Tests* (suite on hyde06, exit status checked, before the runs): off, the frozen recipe's defaults and today's values
+  bit for bit; a warm solve from a nearby measure's potentials converges to the tolerance at the blur, its value within
+  the tolerance's reach of the cold value, in fewer blocks; a warm solve from potentials that cannot converge falls back
+  to the cold solve's result bit for bit; in a short run with the switch, the commit solves nothing when a candidate was
+  accepted and its energy is the accepted potentials' at the commit's state.
+  *Runs* (a copy of settled-base + the change with D140's read-only dump of windows 1–9, `tmp/d140/d140_dump.py`):
+  bunny and dragon 300k at the shape's cell, seed 97, `--ot_warm_trials`: two render arms A1, A2 and one twin AT
+  (`--render_weight_scale 0`) a mesh, one chain on GPU 0 (bunny A1, A2, AT, dragon A1, A2, AT), each run alone on the
+  card, each followed by its reading (the shell-against-bulk record, the end-frame yardstick and display
+  `t3end_`/`e3end_` with D118's end evaluation, `d118_rows.py`), its frames12 then removed (logged).
+  *Gate (all must hold).* (1) Speed: the dragon's seconds an attempt over attempts 10 to the end (`t_attempt`, so the
+  dump's windows 1–9 do not count) at least 8 % below batch 7's W5 and W6 on the same measure; the bunny's reported.
+  (2) The trajectory at 0–1.5 s, D140's item (2) unchanged: each render arm's shell against its bulk at windows 1–9,
+  median and p90 (the bunny also the face's median), within D140's band's runs (bunny SB, ST at windows 1–4, D140's
+  twin; dragon FB and D140's twin) widened by their own width. (3) The end, each render arm: silhouette IoU, chamfer and
+  thin uncovered within D138's band of batches 4–7 widened by its width or better (bunny at least 0.9871, at most
+  0.0552, at most 5.2 %; dragon at least 0.9853, at most 0.0546, at most 5.5 %). (4) At rest: each render arm's last
+  kinetic record within D140's limits (bunny 1.53e-5, dragon 3.3e-5). (5) The render lead: each render arm ahead of
+  its twin on the yardstick silhouette (exterior) and the display front's 1 − IoU at the last kept frame (D135's
+  leads, LT against PT, reported beside). Reported, not gated: attempts and best merit against the band (bunny 73–94,
+  4.08–4.60e-5; dragon 103–114, 4.09–4.75e-5), the merit at every tenth window, the null commits by reason, the warm
+  solves' blocks and fallbacks, the minutes a run.
+  *Prediction.* The dragon −10 to −18 % an attempt (warm trials converge in a few blocks), the bunny about −4 %; the
+  commit-replay nulls as today's (the commit reads the candidate's potentials); (2)–(5) hold.
+- **D143, the cleanup gradient in the physics channel (a result-changing runtime A/B; approved by the user on
+  2026-10-10 as lever (b), released by the coordinator after D140's verdict; pre-registered with D142, before the
+  implementation and any run).**
+  *Definition* (`--cleanup_in_phys`, off by default: today's path bit for bit). Each iteration's gradient takes the
+  physics core and the cleanup (the spray cleanup and the near band) in one adjoint sweep, gp' = ∇(L_core + L_clean),
+  the render term in the other, gr = ∇L_render: PCGrad strips from gr its component against gp' (today against ∇L_core),
+  the render weight's rule reads |gp'| and the projected gr (today |∇L_core|), the step is gp' + λ pc(gp', gr) (today
+  ∇L_core + λ pc(∇L_core, gr) + ∇L_clean). Two adjoint sweeps a gradient in place of three; the cleanup's own record
+  (the merit, the selection) unchanged. What changes: the projection and the weight by the cleanup's share of the
+  physics direction (small far from arrival, larger near the end). The physics-only twin (λ = 0) takes the same step as
+  today but for the rounding of one sum.
+  *Tests*: off, the frozen recipe's defaults bit for bit; the gradient composed by the definition against a hand
+  computation on a small objective with the switch on and off (the weight's calibration included).
+  *Runs*: as D142's with `--cleanup_in_phys` in place of `--ot_warm_trials` (tags B1, B2, BT), one chain on GPU 1, the
+  same reading. *Gate*: D142's (2)–(5) unchanged; (1) the seconds an attempt over attempts 10 to the end at least 6 %
+  below batch 7's on both meshes. *Prediction*: about −8 % an attempt on both meshes (the cleanup's sweep is 0.58 s of
+  the bunny's 5.8 s window and 0.59 s of the dragon's 7.5 s); (2)–(5) hold, the render weight at windows 1–9 within a
+  few % of today's (the cleanup acts near arrival).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
