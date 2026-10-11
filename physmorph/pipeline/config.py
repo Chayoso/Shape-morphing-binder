@@ -70,6 +70,9 @@ class PipelineConfig:
     # ---- physics objective ----
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve
     ot_tol: float = 0.01            # marginal error of a converged solve
+    ot_warm_trials: bool = False    # A/B (D142): a line-search trial's transport solves start from the window's latest
+                                    #   solved potentials at the blur, the commit reads the accepted candidate's
+    cleanup_in_phys: bool = False   # A/B (D143): the cleanup's gradient in the physics channel (PCGrad, the render weight)
     # the fine part of the geometry energy is the target-surface proximity (losses/support.SurfaceProximity)
     loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
                                     #   and blur follow the particle spacing above the reference N

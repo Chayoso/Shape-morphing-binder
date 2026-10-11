@@ -118,6 +118,7 @@ class WindowOptimizer:
         # moved the discs (D130 (1): D129's source-window commit_replay nulls were the render term read on discs found
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
+        self.acc_solved = None              # D142: the accepted candidate's transport potentials
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
         # momentum balance: the body's centre-of-mass motion per window was u's net translation (ratio 1.0-1.1,
         # correlation +0.98, D93) and u carried half to two thirds of its rotation. Its displacement keeps no part
@@ -200,6 +201,19 @@ class WindowOptimizer:
             gp_x = torch.autograd.grad(Lp_core + Ldt, e.state(), retain_graph=True, allow_unused=True)
             gr_x = torch.autograd.grad(e.lr, (e.xT, e.FT), retain_graph=True, allow_unused=True)
             diag = (gp_x, gr_x)
+        if cfg.cleanup_in_phys:
+            # D143: the cleanup in the physics channel, two sweeps: PCGrad protects, and the render weight reads, the
+            # physics core and the cleanup together
+            with timed("adj_phys"):
+                gp = torch.autograd.grad(Lp_core + Ldt, leaves, retain_graph=True)
+            if cfg.grad_dump and it == 0:
+                self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
+            with timed("adj_render"):
+                gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
+            gr = pcgrad(gp, gr_raw)
+            if it == 0:
+                self._calibrate_lambda(gp, gr, gr_raw)
+            return [a + self.lam_r * b for a, b in zip(gp, gr)], diag
         with timed("adj_phys"):
             gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
         with timed("adj_cleanup"):
@@ -263,7 +277,12 @@ class WindowOptimizer:
                     self.dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 self.u.clamp_(-win.sp0, win.sp0)           # one spacing per window
                 self.free_of_rigid()
+            ot = self.tgt.grid_ot
+            if cfg.ot_warm_trials and ot is not None:
+                ot.warm = True                          # D142: the trial's solves start from the latest solved
             e_n = self.eval()
+            if ot is not None:
+                ot.warm = False
             with torch.no_grad():
                 new = self.scalar(e_n)
                 pred = -float(sum((gi.detach() * (p - b)).sum() for gi, p, b in zip(g, self.leaves, bak)))
@@ -276,6 +295,8 @@ class WindowOptimizer:
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
                 self.scored_discs = self.obj.discs
+                if cfg.ot_warm_trials and ot is not None:
+                    self.acc_solved = ot._solved          # D142: the commit reads these potentials
                 self.adam_t = t_
                 self.alpha = min(a_base * 1.1, cfg.alpha * self.alpha_scale)
                 self.alpha_base = a_base
@@ -393,6 +414,9 @@ class WindowOptimizer:
         win._adj = None                     # the tape is done: free it before the runner goes on
         if self.scored_discs is not None:   # replay the accepted candidate on the discs it was scored with
             self.obj.discs = self.scored_discs
+        ot = self.tgt.grid_ot
+        if cfg.ot_warm_trials and ot is not None and self.accepted > 0 and self.acc_solved is not None:
+            ot._solved, ot.repeat = self.acc_solved, True       # D142: the accepted candidate's potentials, no sweep
         commit = commit_rollout(win, self.obj, self.dFc, self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)

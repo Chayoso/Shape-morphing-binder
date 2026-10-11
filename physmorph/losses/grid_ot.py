@@ -112,6 +112,7 @@ class GridSinkhornLoss:
         self.cuda_blocks = cuda_blocks
         self._solved = None             # the potentials of the latest solved call
         self.repeat = False             # set by the caller: the next call is at the point of the latest solved one
+        self.warm = False               # set by the caller (D142): the next call's solves start from the latest solved potentials
 
     def transform(self, dual, log_weights, temperature):
         # Squared Euclidean cost is additive by axis. Log-domain separability
@@ -141,16 +142,17 @@ class GridSinkhornLoss:
         return -temperature * field.reshape(-1)
 
     @torch.no_grad()
-    def solve(self, a, b):
+    def solve(self, a, b, start=None):
         if (self.cuda_blocks and a.is_cuda and self.iters % 4 == 0
                 and a.device == b.device == self.b.device
                 and a.dtype == b.dtype == self.b.dtype
                 and a.shape == b.shape == self.b.shape):
             with torch.cuda.device(a.device):
-                return self._solve_cuda_blocks(a, b)
+                return self._solve_cuda_blocks(a, b, start)
         la, lb = a.log(), b.log()
-        f, g = torch.zeros_like(a), torch.zeros_like(b)
-        level = max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps)))))
+        f, g = (torch.zeros_like(a), torch.zeros_like(b)) if start is None else (start[0].clone(), start[1].clone())
+        level = (0 if start is not None
+                 else max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps))))))
         for iteration in range(self.iters):
             temperature = self.eps * 2. ** level
             fn = self.transform(g, lb, temperature)
@@ -170,11 +172,12 @@ class GridSinkhornLoss:
             raise _GridTransportNotConverged(f'grid transport did not converge: marginal error {error:g}')
         return f, g
 
-    def _solve_cuda_blocks(self, a, b):
+    def _solve_cuda_blocks(self, a, b, start=None):
         """Capture four unchanged sweeps; keep the original residual/blur schedule.
 
-        Every call starts from zero duals. Graphs own their buffers, not a temporal
-        warm start: line-search values must not depend on previous trials.
+        A call starts from zero duals (start None) or, D142, from given potentials at the blur's temperature.
+        Graphs own their buffers; by default (today's path) no temporal
+        warm start, so line-search values do not depend on previous trials.
         Like the owning optimizer, a loss instance is used serially.
         """
         same = a is b
@@ -210,9 +213,14 @@ class GridSinkhornLoss:
         lb.copy_(b.log())
         abuf.copy_(a)
         bbuf.copy_(b)
-        f.zero_()
-        g.zero_()
-        level = max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps)))))
+        if start is None:
+            f.zero_()
+            g.zero_()
+            level = max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps)))))
+        else:                                           # D142: from the given potentials, at the blur
+            f.copy_(start[0])
+            g.copy_(start[1])
+            level = 0
         for iteration in range(0, self.iters, 4):
             temperature = self.eps * 2. ** level
             temp.fill_(temperature)
@@ -222,15 +230,27 @@ class GridSinkhornLoss:
                 if level == 0:
                     break
                 level -= 1
-        count("ot_blocks", iteration // 4 + 1)
+        count("ot_blocks" if start is None else "ot_warm_blocks", iteration // 4 + 1)
         count("ot_solves")
         if level != 0 or temperature != self.eps or not residual <= self.tol:
             raise _GridTransportNotConverged(f'grid transport did not converge: marginal error {residual:g}')
         # The next cross/self solve rewrites the capture buffers.
         return f.clone(), g.clone()
 
+    def _solve_from(self, a, b, start):
+        """solve(a, b), from `start` when given (D142); a warm solve that does not converge is solved again from zero
+        duals with the eps-scaling, as without a start."""
+        if start is None:
+            return self.solve(a, b)
+        try:
+            return self.solve(a, b, start)
+        except _GridTransportNotConverged:
+            count("ot_warm_fallbacks")
+            return self.solve(a, b)
+
     def __call__(self, current):
         repeat, self.repeat = self.repeat and self._solved is not None, False
+        warm, self.warm = self.warm and self._solved is not None and not repeat, False
         total = current.sum()
         if self.mass_total is not None and abs(float(total.detach()) - self.mass_total) > 1e-6 * self.mass_total:
             # Never reward disappearance beyond the raster boundary.
@@ -248,11 +268,12 @@ class GridSinkhornLoss:
             f, g, fs, gs = self._solved
             count("ot_repeats")
         else:
+            prior = self._solved if warm else None      # D142: the latest solved potentials, the trial's start
             self._solved = None
             try:
                 with timed("ot_solve"):
-                    f, g = self.solve(a, self.b)
-                    fs, gs = self.solve(a, a)
+                    f, g = self._solve_from(a, self.b, None if prior is None else prior[:2])
+                    fs, gs = self._solve_from(a, a, None if prior is None else prior[2:])
             except _GridTransportNotConverged:
                 if needs_gradient:
                     raise

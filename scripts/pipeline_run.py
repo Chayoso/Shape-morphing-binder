@@ -102,6 +102,12 @@ def parse_args():
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
+    ap.add_argument("--ot_warm_trials", action=argparse.BooleanOptionalAction, default=False,
+                    help="A/B (D142): line-search trials warm-start their transport solves from the window's latest "
+                         "solved potentials; the commit reads the accepted candidate's (off = the frozen path)")
+    ap.add_argument("--cleanup_in_phys", action=argparse.BooleanOptionalAction, default=False,
+                    help="A/B (D143): the cleanup's gradient joins the physics channel for PCGrad and the render "
+                         "weight, two adjoint sweeps an iteration (off = the frozen path)")
     ap.add_argument("--loss_follows_n", action=argparse.BooleanOptionalAction, default=True,
                     help="transport grid, blur and render pictures follow the particle spacing above mass_ref_n")
     ap.add_argument("--cell_diag", type=float, default=26.0,
@@ -206,7 +212,8 @@ def main():
                               exterior_field=args.exterior_field, u_off=args.u_off,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
-                              ot_iters=args.ot_iters,
+                              ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,
+                              cleanup_in_phys=args.cleanup_in_phys,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,

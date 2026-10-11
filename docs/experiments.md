@@ -3969,6 +3969,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   below batch 7's on both meshes. *Prediction*: about −8 % an attempt on both meshes (the cleanup's sweep is 0.58 s of
   the bunny's 5.8 s window and 0.59 s of the dragon's 7.5 s); (2)–(5) hold, the render weight at windows 1–9 within a
   few % of today's (the cleanup acts near arrival).
+  **Implementation (2026-10-10 20:05 CDT, before any run; D142 and D143 together).** `--ot_warm_trials`:
+  `GridSinkhornLoss.warm` (the caller's flag for one call: its cross and self solves start from the latest solved
+  call's potentials, `solve(..., start)` at level 0 on both the CUDA-block and the plain paths; `_solve_from` falls back
+  to the cold solve on non-convergence, counted `ot_warm_fallbacks`; warm blocks counted `ot_warm_blocks`);
+  `WindowOptimizer.line_search` raises it for each trial's evaluation and lowers it after; on an acceptance it keeps
+  the transport's latest potentials (`acc_solved`), which `commit` hands to the commit rollout through D47's repeat.
+  `--cleanup_in_phys`: `WindowOptimizer.gradient` takes ∇(L_core + L_clean) in one sweep, ∇L_render in the other,
+  PCGrad and the weight's calibration on the pair. Both through the config and `pipeline_run.py`, off by default
+  (`tests/test_frozen_recipe.py` asserts it). Tests `tests/test_runtime_ab.py` (nine): a warm solve from a nearby
+  measure's potentials converges at the blur, within reach of the cold one, in fewer blocks (CPU and CUDA); a warm solve
+  from NaN potentials falls back to the cold solve bit for bit; the flag lasts one call; the gradient composed by
+  D143's definition against a hand computation, on and off, the weight's calibration included; the twin's step the
+  same either way to rounding; in a short run with `--ot_warm_trials`, a commit after an accepted candidate solves no
+  transport, trials solve warm. Suite on `repo_ab`: 344 passed, 2 skipped, exit 0. The default path against settled-base
+  (de4123f) under Warp's deterministic atomics (`tmp/rt/detcmp2.sh`, the 40k bunny, four windows): bit-equal
+  (archives, every history field, the metrics).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
