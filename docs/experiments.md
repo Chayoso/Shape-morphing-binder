@@ -3534,6 +3534,48 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   field's slope is low: the read places them one Newton step nearer the surface). Suite on `repo_d140`: 335 passed, 2
   skipped, exit 0 (`tmp/d140/suite_d140.log`; a first launch ran `repo_settled`'s tests, the environment script's
   default repository, and is not counted: `suite_wrong_repo_settled.log`).
+  **Result (runs 18:21–19:32 CDT, read 19:06–19:40; `output/gpu/d140`, `tmp/d140/d140_read2.py`; local
+  `output/results_2026-10-10/d140_floating/`, the table `d140_gate_table.md`): FAILED at item (2) on both meshes; the
+  entry stops there (no iteration).** Runs: bunny arm AN (9.7 min, 86 attempts), twin AT (9.3 min, 85); dragon arm AN
+  (21.3 min, 141), twin AT (15.8 min, 98).
+  (2) The 0–1.5 s trajectory leaves D135's band on both meshes. Bunny (band SB, ST at windows 1–4, the twin AT): the
+  face's shell runs ahead of its bulk by 8.9–9.6 pitches from 0.83 s on against the band's 6.3–8.7 (out at windows
+  1, 2, 5–9); the p90 out at windows 2, 4, 7, 8, the median at 5, 6, 9 (the arm's window 6 was an outer rejection, so
+  its windows 7–9 stand at 1.00–1.33 s; read by time the face is out from 0.83 s on all the same); the bulk overshoots
+  and comes back (its displacement 12.7, 14.9, 14.0, 13.9, 13.1 pitches at windows 5–9 against the twin's steady 11.0–
+  12.3). Dragon (band FB and the twin AT, which agree: the bulk 26.6 and 26.5 pitches at 1.5 s, so the code since the
+  freeze does not move it): the arm's body moves a third less in the first 1.5 s (the bulk 18.1 pitches at window 9),
+  its shell median 5.7–6.8 pitches at windows 4–9, below the band's lower edges 5.9–9.3 (out at 4–9), the p90 out at
+  2, 8, 9; seen side by side, D135 has unfolded into the dragon by 1.2 s while the arm stays a pointed block to 1.5 s,
+  and its crevice and loop open later (the crevice at about 4.5 s against 3.1 s). The render weight the rule sets is
+  1.4–3 times D135's at windows 1–9 (0.51 against 0.37 at window 1, 0.026 against 0.009 at window 9; the render's
+  share of the gradient 1/3 in both), and the arm's own render terms fall more slowly than its twin's (the silhouette
+  term 0.017 against 0.008 at window 9 on the bunny).
+  (1) Visible pieces (`d140_image.py` on every kept frame of the arms' side and front renders, every candidate checked
+  on the contact sheets): the dragon's mouth beads (class ii-a) are gone at every frame to the end (the mouth close-up);
+  the bunny shows no floating piece. Not gone: the dragon's crevice still tears into a foam of small beads, now at
+  4.85–5.7 s (its later opening), then a strand across its foot at 6.5–7 s and a bead apart from the body at
+  7.15–8.7 s (class i, 1.5 s against D135's 0.3 s); a bead in the loop at 7.4–7.65 s, one in a hole by the hind leg at
+  6.45 s and one in the neck–body hole at 13.4–13.65 s (class i). New on the bunny: small dark pits on the drawn
+  surface (a hook-shaped one at 9 s) and a serrated lower rim from the middle of the morph on
+  (`bunny_side_lower_closeup.jpg`). The front views add nothing floating.
+  (3) The end, read for the record: bunny silhouette IoU 0.9895 (above the band's 0.9871–0.9892, the best of the
+  shape's cell runs), chamfer 0.0552, thin 4.6 %, last kinetic record 5.7e-6; dragon 0.9892 (above 0.9864–0.9885),
+  0.0546, 4.5 %, 2.9e-5 (limit 3.3e-5): within or better. Twins: 0.9881 / 0.0552 / 4.7 % / 4.0e-6 and 0.9878 / 0.0546
+  / 4.2 % / 2.4e-5. Best merit 4.63e-5 (bunny, above 4.04–4.54e-5) and 4.66e-5 (dragon, inside); the dragon arm's 141
+  attempts are above 105–126. The yardstick and the render-lead item were not run (the entry stopped at (2)).
+  (4) Particles apart from the body (windows 3–6 / 3–10): bunny arm 2027 / 2027 against SB's 1205 and LT's 939 (above),
+  twin 1232; dragon arm 7 / 18 against FB's 16 / 2021 (within), twin 6 / 2413.
+  Cost: 6.76 s an attempt (bunny) and 9.05 s (dragon) against batch 5's W3 6.72 and 9.65 (within the runs' spread;
+  the twins 6.55 and 9.66); the largest sampled GPU memory 21.1 / 22.1 GB (the twins, which read the same discs, 20.6 /
+  22.1). The target's pictures on the random target samples: the anisotropic field draws 4,009 closed pockets just
+  under the surface (31.6k of 179.9k discs, 0.6–0.74 pitches inside Zhu–Bridson's surface) where the sample's voids are
+  wider than its kernels reach; they enter the shading pictures (the operator has no occlusion) at 0.008 rms against
+  the field change's 0.079 (`tmp/d140/d140_pockets.py`, `d140_tgtdiscs.py`).
+  Reading: the field removes the class (ii-a) blobs it was meant to remove (the mouth), but read by the render terms it
+  changes the motion from the first window (the dragon slower, the bunny's face ahead of its bulk), and the crevice's
+  beads, contiguous material torn at a gap narrower than two cells, are moved later rather than removed. The default
+  stays `zb`; `--exterior_field aniso` stays an A/B switch. Next is the user's decision.
 - **D138, the runtime phase: where a 300k attempt's time goes, and the exact speed-ups (opened 2026-10-09 20:07 CDT;
   the user: "최적화 빡세게 해서 10분 내외로"; relayed by the coordinator: profile first, exact speed-ups next, each
   bit-for-bit or within the replay noise, result-changing ones only as gated A/Bs the user decides; server `repo_frozen`
