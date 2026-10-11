@@ -4019,6 +4019,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   transport, trials solve warm. Suite on `repo_ab`: 344 passed, 2 skipped, exit 0. The default path against settled-base
   (de4123f) under Warp's deterministic atomics (`tmp/rt/detcmp2.sh`, the 40k bunny, four windows): bit-equal
   (archives, every history field, the metrics).
+  **D143 result (runs 2026-10-10 20:06–21:44 CDT on GPU 1, `repo_abf`, `output/gpu/rt_ab`, read 2026-10-11 by
+  `tmp/rt/rt_ab_read.py`): FAILED at item (2) on both meshes (every render arm) and at item (3) on the bunny's B1.**
+  (1) Speed passes: seconds an attempt over attempts 10 on, bunny B1 5.41, B2 5.46 (batch 7's W5/W6 5.96–6.05: −9.9 /
+  −9.0 %), dragon B1 7.74, B2 7.78 (8.64–8.65: −10.5 / −10.0 %). (2) The 0–1.5 s trajectory: bunny B1 out at window 6
+  (median 5.36 against at most 5.32), 8 (p90 14.09 against 14.06), 9 (median 5.40 against 5.38); B2 out at window 6
+  (5.45); dragon B1 out at window 9 (median 9.20 against at least 9.34), B2 at 8 and 9 (9.00 / 9.06 against 9.01 / 9.34):
+  the dragon's shell leads its bulk by 0.2–0.4 pitches less at 1.33–1.5 s, the bulk the same (26.4 / 26.5 pitches at
+  window 9). (3) Bunny B1 thin 5.47 % against at most 5.2 (silhouette IoU 0.9883, chamfer 0.0551); B2 0.9877, 0.0551,
+  4.62 %; dragon B1 0.9871, 0.0544, 4.40 %, B2 0.9869, 0.0544, 4.29 %: within. (4) At rest: last kinetic records 3.8e-6
+  / 5.4e-6 (bunny), 9.5e-6 / 1.0e-5 (dragon): within. (5) The render lead: bunny −50 / −50 % on the yardstick silhouette,
+  −38 / −35 % on the display front; dragon −63 / −61 %, −36 / −34 % (D135's −45 / −30 % and −52 / −31 %). Reported: the
+  dragon's runs take 151 and 159 attempts (the band 103–114) and 21.2 / 22.0 min against batch 7's 17.2–17.8: each
+  attempt is 10 % cheaper but the merit falls more slowly a window (at window 70 1.26–1.29e-4 against 8.6–9.4e-5, at
+  100 6.6–7.5e-5 against 4.6e-5), best merit 4.74e-5 / 4.65e-5; the bunny's 79 / 70 attempts, 7.8 / 7.0 min against
+  7.9–8.9, best 4.86e-5 / 5.05e-5 (at window 50 5.6–5.8e-5 against 5.1–5.2e-5); the twins BT 69 attempts / 7.0 min
+  (bunny) and 101 / 15.2 min (dragon). Null commits by reason as today's (commit_replay 2–5, outer 3–4).
+  *Reading aid, not gated (decided with the coordinator before the dragon half): the default code's render arm with
+  the same dump and readers (C1, `tmp/rt/ab_ctrl.sh`, GPU 0, 20:47–21:18).* Bunny C1: 8.0 min, 72 attempts, silhouette
+  IoU 0.9885, chamfer 0.0551, thin 4.39 %, last kinetic record 3.7e-6, best merit 4.47e-5; its item (2) also out at
+  window 6 (median 5.39 against at most 5.32: D140's band there is two runs 0.01 pitches apart, SB 5.31 and D140's twin
+  5.30) and within at windows 8 and 9 (p90 14.00, median 5.29). Dragon C1: 17.9 min, 113 attempts, 0.9875, 0.0544,
+  4.41 %, 1.2e-5, 4.13e-5; its item (2) within at every window (median 9.39 and 9.43 at windows 8 and 9). So the
+  bunny's window-6 misses belong to the band's width (the default code misses it the same way); the bunny's B1 misses
+  at windows 8–9, its thin (5.47 % against the default's 4.39 %) and the dragon's misses at windows 8–9 are the lever's
+  (the default passes them). Seconds an attempt with the dump: C1 +0.6 % (bunny) and +0.8 % (dragon) against batch 7.
+  Verdict as pre-registered: FAIL. `--cleanup_in_phys` stays an off switch; adoption is the user's call. The frames12
+  of every read run removed (logged in `output/gpu/cleanup.log`), the logs, JSONs and end evaluations kept.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
