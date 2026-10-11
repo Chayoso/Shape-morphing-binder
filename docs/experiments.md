@@ -3966,6 +3966,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   solves' blocks and fallbacks, the minutes a run.
   *Prediction.* The dragon −10 to −18 % an attempt (warm trials converge in a few blocks), the bunny about −4 %; the
   commit-replay nulls as today's (the commit reads the candidate's potentials); (2)–(5) hold.
+  **D142 result (runs 20:06–20:47 CDT on GPU 0, `repo_abf`, `output/gpu/rt_ab`, `tmp/rt/ab_chain.sh`, read by
+  `tmp/rt/rt_ab_read.py`): FAILED on the bunny at item (4), the end not at rest; the dragon half stopped at 20:47 on the
+  coordinator's instruction.** Bunny: A1 5.3 min, 52 attempts, 5.27 s an attempt over attempts 10 on (batch 7's W5/W6
+  5.96–6.05: −12 %), best merit 6.27e-5; A2 5.2 min, 51 attempts, 5.22 s (−13 %), 6.93e-5; the twin AT 6.5 min, 64
+  attempts, 5.57e-5 (the band 73–94 attempts, 4.08–4.60e-5). (4) the last kinetic record 1.36e-4 and 2.38e-4 against
+  the limit 1.53e-5 (9–16 times; the last six windows 1.2–2.8e-4): FAIL on both arms. (2) out at window 2 (the face's
+  median 4.66 at the band's edge 4.66) and window 6 (the median 5.37 / 5.43 against at most 5.32); A2's window 8 not
+  dumped (an outer rejection). (3) within (silhouette IoU 0.9873 both, chamfer 0.0552, thin 4.1 / 4.7 %); (5) the arms
+  ahead of the twin (yardstick silhouette −48 / −49 %, display front −33 / −38 %; D135's lead −45 / −30 %). The dragon's
+  A1 had finished before the stop (15.0 min, 117 attempts, 6.94 s an attempt over attempts 10 on against batch 7's
+  9.4–9.5 overall, silhouette IoU 0.9874, chamfer 0.0545, thin 4.0 %, best merit 4.92e-5) and is not at rest either
+  (the last kinetic record 1.14e-4 against 3.3e-5); its dump and archive were removed unread (logged), A2 and the twin
+  not run. Reading: each attempt is 12–13 % (bunny) and about 25 % (dragon) faster, but the runs stop on the
+  rejection streak while the body still moves, and the merit falls more slowly a window from window 20 on (bunny at
+  window 40: 6.8–7.4e-5 against 5.7–5.8e-5). A warm trial's value depends on where its solve started, within the
+  tolerance; with the line search's noise floor at 1e-7 of the objective, the Armijo test can accept steps whose
+  decrease is that start-dependence, so the windows make less real progress, the outer gate latches early and the
+  released motion is never brought down (a reading, not measured further: the entry stops here, no iteration).
+  `--ot_warm_trials` stays an off switch.
 - **D143, the cleanup gradient in the physics channel (a result-changing runtime A/B; approved by the user on
   2026-10-10 as lever (b), released by the coordinator after D140's verdict; pre-registered with D142, before the
   implementation and any run).**
