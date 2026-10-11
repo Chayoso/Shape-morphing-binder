@@ -4088,6 +4088,60 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pixel); no pits, no thickening, no new beads on either mesh (contact sheets and close-ups checked by eye). Reported to
   the coordinator; next is the user's decision. The implementation so far (field, Warp kernel, tracked read, the switch
   `--exterior_field zbs`, tests; 29 exterior tests passed on `repo_d144`) is on the branch `wip/d144`, not pre-registered.
+  **The user's GO (2026-10-11, relayed by the coordinator): the correction with t_low 1 and t_high 3.5, read by the
+  display, the target's pictures and the render terms.**
+  **Pre-registration (2026-10-11 18:40 CDT server clock, before the merge and any run).** *Definition*
+  (`--exterior_field zbs`; `zb`, the default, is today's field bit for bit): φ(q) = |q − x̄(q)| − 0.8 a f(EVmax), x̄ and
+  the kernel Zhu and Bridson's as today (radius 3 pitches, (1 − d²/R²)³), EVmax the largest real part of the eigenvalues
+  of ∇x̄ (from the characteristic cubic in closed form; the Jacobian is not symmetric), f = 1 for EVmax ≤ t_low,
+  γ³ − 3γ² + 3γ above, γ = (t_high − EVmax) / (t_high − t_low), f kept in [0, 1] (Solenthaler et al. 2007, eqs. 23, 25,
+  26 and "f ∈ [0..1]"). Constants: t_low = 1, derived (in a uniform medium x̄ moves with q, ∇x̄ = I, so a flat
+  surface's tangential eigenvalue is 1: the correction starts where the centre outruns the point); t_high = 3.5, Akinci
+  et al. 2012's published value for this correction with this kernel, adopted verbatim (Solenthaler et al.'s own 2.0 cut
+  our thin features into pieces, above). The field's gradient: Zhu and Bridson's less 0.8 a f'(EVmax) ∇EVmax, the last
+  by central differences of 0.01 pitches where f varies. Read by the target's pictures (`target.py`, one Warp kernel),
+  the render terms (`objective.py`: the discs found at a state; read at the window's states as Zhu and Bridson's are,
+  through x̄ and its distance, with each disc's f and ∇f kept from the search, since EVmax is a third derivative of the
+  weights; a new search takes the new f) and the base display (`+field=zbs`). The lattice and the search unchanged.
+  *Known limit* (synthetic slabs, above): a gap narrower than 3.5 pitches between two faces keeps a smaller blob (EVmax
+  1.7–3.1 there); the mouth's beads read 17–18. The crevice's beads (the shape cell's gap limit, D137/D139) are a
+  recorded limitation, not this entry's target.
+  *Tests* (before the runs; the suite on hyde06, exit status checked): the closed-form eigenvalue against
+  torch.linalg.eigvals and f against its formula; Zhu and Bridson's on a convex blob (a hundredth of a pitch at most);
+  no blob between two slabs at the mouth's gap (5 pitches); touching slabs (1.5 pitches) stay bridged; the gradient
+  against central differences; Warp against the tensor form; the tracked read where found and its float64 gradcheck; the
+  switch; a small run that reads the field.
+  *Runs* (settled-base + the change on a server copy with D140's read-only dump of windows 1–9): 300k bunny and dragon,
+  render arm (`--exterior_field zbs`) and twin (the same with `--render_weight_scale 0`), seed 97, one run a card on
+  GPUs 0–3; frames12 kept for the reading, then removed (logged); the arms rendered side and front (studio look, the
+  base display on the corrected field).
+  *Gate (all must hold).* (1) No mouth beads on the dragon arm's side view at 9 s and 13–17.5 s, and no new artefacts
+  (`d140_image.py` on every kept frame of the arms' side and front renders, every candidate checked on its contact sheet;
+  no floating or bead piece, pit or thickening absent from D135's inventory; the crevice's foam and its class-(i) bead
+  reported, not counted). (2) The trajectory at 0–1.5 s: at windows 1–9 each render arm's shell against its bulk,
+  median and p90 (the bunny also the face's median), within its band's runs' range widened by its own width; the band
+  now holds three baseline runs a mesh (D143 showed a two-run band 0.01 pitches wide at the bunny's window 6 that the
+  default code itself misses): bunny SB, D140's twin BAT and the runtime agent's default-code reference C1
+  (`output/gpu/rt_ab`, the same dump and readers); dragon FB, D140's twin DAT and C1. The bands (median / p90 / face,
+  pitches): bunny window 1 [1.32, 1.59] / [1.99, 2.20] / [1.72, 1.75], 2 [2.95, 3.31] / [5.07, 5.64] / [4.59, 4.68], 3
+  [3.90, 4.65] / [6.57, 9.96] / [6.41, 7.64], 4 [4.72, 5.14] / [8.85, 10.95] / [6.54, 9.30], 5 [5.05, 5.59] / [10.48,
+  12.31] / [7.47, 8.67], 6 [5.21, 5.48] / [11.82, 12.90] / [7.41, 8.28], 7 [4.81, 5.62] / [12.65, 13.94] / [6.94, 7.96],
+  8 [4.94, 5.48] / [13.97, 14.06] / [6.64, 8.14], 9 [5.07, 5.40] / [13.89, 15.21] / [6.29, 8.24]; dragon (median / p90)
+  window 1 [1.43, 1.46] / [1.92, 2.04], 2 [3.19, 3.94] / [5.12, 5.48], 3 [4.62, 6.48] / [7.43, 10.37], 4 [5.84, 8.45] /
+  [7.95, 15.75], 5 [6.93, 9.33] / [8.28, 19.38], 6 [7.96, 9.40] / [9.31, 20.44], 7 [8.49, 9.57] / [11.04, 19.89], 8
+  [9.01, 9.67] / [13.48, 18.70], 9 [9.32, 9.65] / [15.35, 18.71]. (3) The end, each render arm: silhouette IoU, chamfer
+  and thin uncovered within D138's band of batches 4–7 widened by its width or better (bunny at least 0.9871, at most
+  0.0552, at most 5.2 %; dragon at least 0.9853, at most 0.0546, at most 5.5 %). (4) At rest: each render arm's last
+  kinetic record within D140's limits (bunny 1.53e-5, dragon 3.3e-5). (5) The render lead: each render arm ahead of its
+  twin on the yardstick silhouette (exterior) and the display front's 1 − IoU at the last kept frame (the runtime
+  agent's end evaluation, `t3end_` / `e3end_`). (6) Cost, reported: seconds an attempt against the band (bunny
+  6.51–6.91, dragon 9.38–9.99), the disc searches, the largest GPU memory. If (2) fails the entry stops there and is
+  reported; no iteration.
+  *Prediction.* (1) holds: the mouth's beads (EVmax 17–18) go, the rest of the surface is Zhu and Bridson's to a
+  hundredth of a pitch on 95–99.6 % of the discs (the display check). (2) holds: the render terms see the same surface
+  but in concavities and gaps, where the correction lowers the offset; the risk is the bunny's narrow cells (the face at
+  window 1, 0.03 pitches wide; the p90 at window 8, 0.09 wide). (3)–(5) hold. Cost: +2 to +6 % an attempt (EVmax and
+  its differences in the disc search; the tracked read unchanged).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
