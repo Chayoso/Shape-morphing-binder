@@ -3764,6 +3764,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   exit 0. Pre-registered for batch 7's runs (2026-10-10 18:40 CDT, before they finish): bunny W5, W6 and dragon W5, W6
   on `repo_w7` at the shape's cell, each alone on GPU 0 or 1, no frames; the pass bands of batch 4; the seconds an
   attempt at most 6.8 (bunny) and 9.8 (dragon). Prediction: 6.45 and 9.3.
+  **Batch 7, read (19:20 CDT).** Bunny W5 8.9 min (697 s; 82 attempts, 6.54 s each), silhouette IoU 0.9879, chamfer
+  0.0551, thin 4.6 %, last kinetic record 2.9e-6, best merit 4.40e-5; W6 7.9 min (73 attempts, 6.51 s), 0.9881, 0.0551,
+  4.9 %, 4.3e-6, 4.60e-5. Dragon W5 17.2 min (109 attempts, 9.49 s), 0.9871, 0.0545, 4.6 %, 7.2e-6, 4.50e-5; W6 17.8 min
+  (114 attempts, 9.38 s), 0.9868, 0.0545, 4.0 %, 1.5e-5, 4.09e-5. All four pass every item (predicted 6.45 and 9.3 s).
+  W6's GPU carried about a minute of a kernel micro-bench during the bunny run (a slip; its seconds an attempt are
+  within the limit, W5 on GPU 0 is clean). Measured and stopped there: G2P's adjoint with the grid side owned by node
+  lanes as P2G's (`tmp/rt/g2p_node_bench.py`): 1.28 → 1.06 ms a step at the shape's cell, unchanged at 22 a cell, about
+  2 % of a window (the particle's own 64-node position-adjoint loop dominates the kernel).
+  **Where the exact path ends (the coordinator, 2026-10-10: the sub-2 % levers are not bundled).** At the shape's
+  cell, the code of batch 7: the bunny 7.9–8.9 min (6.5 s an attempt), the dragon 17.2–17.8 min (9.4–9.5 s), against
+  the frozen code's 22–27 and 38–44 min. Left exact, each under 2 % a window: G2P's adjoint above, hand-written adjoints
+  of the generated stress and volume kernels (~10 ms a sweep), small forward fusions; together the dragon about 8.8–9.0
+  s an attempt, about 16 min. The rest of a dragon window is definitional: the transport solves of the line search
+  (0.9–3.6 s a window) only through (a), the third adjoint sweep only through (b); with both, the dragon about 12.5–13.5
+  min and the bunny about 7.5. Ten minutes for the dragon would need fewer attempts or iterations (d), outside the
+  mandate (the coordinator puts it to the user with the final numbers).
+  **The shape's cell band for the A/Bs (a) and (b), batches 4–7** (`tmp/rt/rt_reband.py`; W4 stopped, not read): bunny
+  W1, W2, W3, W5, W6: silhouette IoU 0.9876–0.9881 (widened by its width 0.9871–0.9886), chamfer 0.0551 (no width: the
+  frozen band's 0.0550–0.0552 kept), thin 4.6–4.9 % (4.3–5.2), attempts 73–94 (52–115), seconds an attempt 6.51–6.91,
+  best merit 4.08–4.60e-5 (3.56–5.12e-5), last kinetic record 2.9–5.0e-6; dragon W1, W2, W3, W5, W6: 0.9865–0.9877
+  (0.9853–0.9889), chamfer 0.0545 (the frozen band's 0.0544–0.0546 kept), thin 3.7–4.6 % (2.8–5.5), attempts 103–114
+  (92–125), seconds an attempt 9.38–9.99, best merit 4.09–4.75e-5 (3.43–5.41e-5), last kinetic record 0.7–1.5e-5. D140
+  changes the render terms: the A/Bs are read against this band only if D140 is not adopted, else against a band of the
+  adopted code (two runs a mesh, as here).
 - **D141, the code cleanup: the paths the frozen recipe does not take are removed, the path it takes is unchanged bit for
   bit (opened 2026-10-09 22:30 CDT; the user: "코드도 한 번 정리 해서 가속화 돌리고. 시작하자."; the list checked by the
   coordinator with three changes: `connected_sets`, `--term_dump`/`--grad_dump`, `--exterior_radius` and the material
