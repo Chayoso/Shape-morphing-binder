@@ -5903,6 +5903,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the local machine, `scripts/ops/hyde01_render.sh --scene`; render_scene `+res=1080` for the previews): the cut
   (0–15.30 s, the still camera), the contact close-up (`camera=contact`, kept frames 38–145) and the whole run to 16 s,
   into `output/results_2026-10-14/d147_throw/300k_s97_1080p/`; 4K for the final cut later.
+  **The attributions read (17:09–17:55 CDT; chain 18, `clean_amended.txt`, `judge_ablate.txt`; the cuts by the
+  amended rule).** None is clean by the pre-registered reading (no piece beyond 3 spacings before the cut): throwY40k_a
+  (D135) 48 far frames, the largest 24 particles, 11.05–14.8 s, 12.4 spacings; throwY40k_b (D135, the same input) 6, 3,
+  11.15–12.0 s, 4.0; `--u_off` 106, 906 particles, 13.3–16 s, 100 spacings (the bodies come apart, end error 0.41); the
+  render-off twin 3, 4, 12.05–12.15 s, 3.75 (passes the rule otherwise: end 0.036, snap 1.97 / 1.87x, tumble 24 /
+  61°); D146b 4, 4, 11.75–12.0 s, 3.97 (passes otherwise: end 0.027, snap 1.57 / 1.60x, the smoothest, tumble 24.9 /
+  26.3°); the 300k s97 1, 1, 12.5 s, 3.18. Predictions: (3) clean, no; (1) clean of the piece, no (u holds the
+  surface: without it the bodies fall apart); (2) not clean, yes. Read: u and the render are not the mechanism, and
+  D146b does not remove it; the 13–24-particle droplet of run a is a draw (none of the four repeats of its input,
+  b, render-off, D146b and s97, has one); what repeats is 1–4 particles out to 3.2–4.0 spacings about 3–3.5 s after
+  body 1's landing, during the squash's recovery; single runs do not tell the arms apart at that size. s97's 1080p
+  renders: `300k_s97_1080p/s97_1080p_{cut,contact,full}.mp4` (hyde01 GPU 1, 110 / 43 / 113 s). Nothing launched
+  after; to the coordinator: accept s97 (its one particle not clean by the letter), a landing-softness attribution
+  (the drop height: geometry, the user's), or repeats per arm.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
