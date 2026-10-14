@@ -83,6 +83,17 @@ def pcgrad(g_keep, g_strip):
     return [b - (dot / k2) * a for a, b in zip(g_keep, g_strip)]
 
 
+def aged_adam_direction(m, v, age, beta1: float, beta2: float, eps: float):
+    """Adam's direction with each coordinate's own bias correction (D146b): m / (1 - beta1^age) over
+    sqrt(v / (1 - beta2^age)) + eps, age = the coordinate's accepted iterations with a nonzero gradient, this one
+    included. At age 1 it is Adam's first step (Kingma and Ba 2015, sec. 3: the correction undoes the zero start), for
+    a coordinate that has just started to act as for one in a fresh window; a carried coordinate keeps its averaged
+    moments, so one whose gradient turns from window to window takes a small step. A coordinate that has never acted
+    (age 0, zero moments) gets zero."""
+    a = age.clamp_min(1.0)
+    return (m / (1 - beta1 ** a)) / ((v / (1 - beta2 ** a)).sqrt() + eps)
+
+
 class WindowOptimizer:
     window_cls, objective_cls = Window, Objective          # the scene (D147) brings its own (pipeline/scene/solve.py)
 
@@ -101,6 +112,17 @@ class WindowOptimizer:
         self.mom = [torch.zeros_like(p) for p in self.leaves]
         self.vel = [torch.zeros_like(p) for p in self.leaves]
         self.adam_t = 0
+        # D146b (u_adam_carry): u's moments are the last committed window's, and each coordinate's bias correction counts
+        # its own age (the accepted iterations in which its gradient was nonzero), so a coordinate that starts to act gets
+        # Adam's first step and a carried one its averaged state; None = fresh moments, one shared count (the frozen path)
+        self.u_age = None
+        if cfg.u_adam_carry:
+            self.u_age = torch.zeros(N, device=cfg.device)
+            if tgt.u_adam is not None:
+                m, v, age = tgt.u_adam
+                self.mom[1].copy_(m)
+                self.vel[1].copy_(v)
+                self.u_age.copy_(age)
         self.alpha_scale = alpha_scale
         self.alpha = cfg.alpha * alpha_scale
         self.alpha_base = self.alpha                   # the last accepted search length, unscaled (line_search)
@@ -162,7 +184,8 @@ class WindowOptimizer:
         if not (rw is None and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
                 self.dFc.zero_()
-            for b in self.mom + self.vel:
+            # D146b: u's carried moments are not the warm start's to discard
+            for b in (self.mom + self.vel) if self.u_age is None else (self.mom[0], self.vel[0]):
                 b.zero_()
             self.adam_t = 0
             return e0, b0
@@ -267,12 +290,16 @@ class WindowOptimizer:
         for _ in range(cfg.max_ls_iters):
             t_ = self.adam_t + 1
             with torch.no_grad():
-                for p, gi, m_, v_ in zip(self.leaves, g, self.mom, self.vel):
+                for i, (p, gi, m_, v_) in enumerate(zip(self.leaves, g, self.mom, self.vel)):
                     m_.mul_(cfg.beta1).add_(gi, alpha=1 - cfg.beta1)
                     v_.mul_(cfg.beta2).addcmul_(gi, gi, value=1 - cfg.beta2)
-                    mh = m_ / (1 - cfg.beta1 ** t_)
-                    vh = v_ / (1 - cfg.beta2 ** t_)
-                    d = mh / (vh.sqrt() + win.eps_eff)
+                    if i == 1 and self.u_age is not None:  # D146b: u's carried state, each coordinate's own age
+                        d = aged_adam_direction(m_, v_, self.u_age + (gi != 0).float(), cfg.beta1, cfg.beta2,
+                                                win.eps_eff)
+                    else:
+                        mh = m_ / (1 - cfg.beta1 ** t_)
+                        vh = v_ / (1 - cfg.beta2 ** t_)
+                        d = mh / (vh.sqrt() + win.eps_eff)
                     p -= a_try * d
                 if cfg.dfc_clip > 0:
                     n = self.dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
@@ -300,6 +327,8 @@ class WindowOptimizer:
                 if cfg.ot_warm_trials and ot is not None:
                     self.acc_solved = ot._solved          # D142: the commit reads these potentials
                 self.adam_t = t_
+                if self.u_age is not None:
+                    self.u_age += (g[1] != 0).float()
                 self.alpha = min(a_base * 1.1, cfg.alpha * self.alpha_scale)
                 self.alpha_base = a_base
                 self.accepted += 1
@@ -479,6 +508,8 @@ class WindowOptimizer:
             stats["invalid_selection"] = True
         self.tgt.settled_step = (hist[-1]["alpha_base"] / self.alpha_scale
                                  if self.accepted > 0 and self.alpha_scale > 0 else None)
+        if self.u_age is not None and self.accepted > 0:   # D146b: the next window starts from u's state here
+            self.tgt.u_adam = (self.mom[1].detach().clone(), self.vel[1].detach().clone(), self.u_age.clone())
         return WindowResult(commit=commit if self.accepted > 0 else None, hist=hist, stats=stats)
 
 

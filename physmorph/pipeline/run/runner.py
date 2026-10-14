@@ -201,6 +201,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             balancer.lam = rollback["lam"]
             dfc_prev = Fp_pre = None
             tgt.settled_step = None
+            tgt.u_adam = None                       # D146b: u's carried moments go with the rejected lineage
             frames.truncate(rollback["frames"])
             guards = rollback["guards"]
             rec.update({"null_commit": 1, "outer_rejected": 1, "brake_reject": int(brake_reject)})
@@ -286,7 +287,9 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
         with torch.no_grad():
             q = torch.quantile(J.double(), torch.tensor([.01, .5, .99], device=J.device, dtype=torch.float64))
             rec.update(Jx_min=float(J.min()), Jx_p01=float(q[0]), Jx_p50=float(q[1]), Jx_p99=float(q[2]),
-                       Jx_max=float(J.max()))
+                       Jx_max=float(J.max()),
+                       Jx_mean=float(J.double().mean()))   # D145: sum J V0 / (N V0), the body's physical volume over
+                                                           # its rest volume (the target's fill volume, match_density)
     return rec
 
 

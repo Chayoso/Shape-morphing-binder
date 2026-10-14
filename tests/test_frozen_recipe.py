@@ -19,7 +19,7 @@ def test_the_defaults_are_the_frozen_recipe(monkeypatch):
     assert not a.u_off and a.render_weight_scale == 1.0 and not a.baseline                  # D124 not adopted
     assert a.exterior_field == "zb"                                                         # D140 until its gate
     assert not a.ot_warm_trials and not a.cleanup_in_phys                                   # D142, D143 until their gates
-    assert not a.relax_driven                                                               # D146 until its gate
+    assert not a.relax_driven and not a.u_adam_carry                                        # D146, D146b until their gates
     assert a.gap_split == "off"                                                              # D148 until its gate
 
 
@@ -37,13 +37,14 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # frozen defaults must be exactly this configuration, less the switches the cleanup (D141) removed with their paths: ls_probe,
 # render_body_only, spray_gate, support_form, support_target_ref, support_weight, surface_density and w_dt, each recorded
 # there at the value that ran the frozen path; plus D140's exterior_field (added after; "zb" is the field D135 ran with)
-# and the A/B switches of D142, D143 and D146 (ot_warm_trials, cleanup_in_phys, relax_driven), off: the path D135 ran
+# and the A/B switches of D142, D143, D146 and D146b (ot_warm_trials, cleanup_in_phys, relax_driven, u_adam_carry), off:
+# the path D135 ran
 D135_RUN_ARGS = {
     "animations": 300, "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0, "cell_follows_n": False,
     "drag": None, "exterior_field": "zb", "exterior_radius": 3.0, "f_ext": None, "floor": False, "floor_friction": 0.0, "grad_dump": "",
     "lambda_ema": 1.0, "layer_relief": True, "live_dir": "", "live_port": 0, "loss_follows_n": True,
     "cleanup_in_phys": False, "match_density": True, "min_spacing": 0.9, "ot_iters": 1600, "ot_warm_trials": False,
-    "gap_split": "off", "patience": 5, "poisson": None, "profile": False, "relax_driven": False,
+    "gap_split": "off", "patience": 5, "poisson": None, "profile": False, "relax_driven": False, "u_adam_carry": False,
     "reject_stop": 3, "render_exterior": True, "render_res_hi": None,
     "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
@@ -56,3 +57,12 @@ def test_the_defaults_are_d135s_configuration(monkeypatch):
     for k in ("src", "tgt", "n", "seed", "out"):
         a.pop(k)
     assert a == D135_RUN_ARGS
+
+
+def test_the_d146b_adoption_is_two_switches_on_the_frozen_recipe(monkeypatch):
+    """The re-freeze's D146 part (adopted by the user, 2026-10-14): the frozen recipe with --relax_driven and
+    --u_adam_carry and nothing else changed. The defaults stay the frozen recipe until the re-freeze flips both."""
+    a = vars(_args(monkeypatch, "--relax_driven", "--u_adam_carry"))
+    for k in ("src", "tgt", "n", "seed", "out"):
+        a.pop(k)
+    assert a == {**D135_RUN_ARGS, "relax_driven": True, "u_adam_carry": True}
