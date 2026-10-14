@@ -4793,8 +4793,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   in pitches (u acts on 5–12 % of the layer in windows 1–3 (the arrived scope), 87 % at window 6, ~100 % from 11; Δu's
   window-to-window correlation +0.85, never negative: the render's change of u is consistent, not D146's u dither, which
   cancels in the difference). After: the boundary and inside changes are alike (A 1.9 / 1.8, B 1.6 / 1.6, U 2.7 / 2.4
-  ΔRGB); C and D changed 9–10 per frame before the averaging and the arrow fade (numbers of the final pass in
-  `flicker_after.json`). Palettes checked with the dataviz validator (each ramp --ordinal PASS; C's red / blue poles CVD
+  ΔRGB); C 9.0 / 8.8 → 2.7 / 2.5 with the cosine's running mean over 5 windows (labelled in its bar title); D 10.3 /
+  8.9 → 9.2 / 8.0 with the arrows faded in over a 15–25 % change and thinned in a fixed order (D's churn is its field:
+  the per-particle change ratio moves from window to window), 2.7 / 2.7 with a 5-window running mean of ΔdFc and
+  |dFc(λ = 0)| (`+d_avg=5`, a side-view alternative for the user). B2, an alternative to B: the pull divided by its
+  typical value now (the layer's median, a 5-window running median, interpolated in time), 1/10 to 10 ×, with the same
+  inset (B's one-run scale reads uniform: its within-frame spread is one decade of four); `AB2CD` 2 × 2. Renders: hyde06
+  (side 8 min) and hyde01 GPU 1 (front 19 min, ~2.4× slower), 1080p; local `v2/` (panels, 2 × 2 at 3840 × 2160 and
+  half size, B2, `held/` raw, `alt/` D averaged), hyde06 `output/gpu/rgv/videos_v2/`. Palettes checked with the dataviz validator (each ramp --ordinal PASS; C's red / blue poles CVD
   ΔE 25.9; B violet against A orange, a yellow–brown B failed at ΔE 7.7). Rendering influence (the standing block): λ is
   set every window so that |λ ∇L_render| = ½ |∇L_phys| over all controls (1/3 of the first gradient's norm); per
   particle the render's share is 10–25 % on the layer (ears, face, feet, tail up to 30–46 %, p90); the counterfactual
