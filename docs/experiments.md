@@ -5854,6 +5854,38 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   of each wall; the representative cells kept in the gap; the pieces' hand adjoints against the generated ones; one
   piece only = the single field bit for bit; the pieces decide where they hold the cell), the CUDA ones with the 40k
   run. A, D148b and soft keep the gap nodes as run (no ring).
+  **The 40k comparison (read 14:25 CDT; `output/gpu/d148/cut_apart_40k_all.log`, `proto2_read_all.log`; dragon 40k,
+  seed 97).** Seconds an attempt: D1 2.25, D2 2.24 (defaults), A2 (`on`, the speed-up's code) 2.22, FN (`fine`) 2.29,
+  SF (`soft`) 2.29, WL (`walls`) 2.39; the old A 3.03, B 2.93. The direct count (apart from the body with a gap node in
+  the stencil; summed over the windows at 1–3 s / over the last third / unique particles): D1 852 / 459 / 391, D2 850 /
+  626 / 410, A 801 / 478 / 352, B 770 / 546 / 375, A2 920 / 470 / 406, FN 770 / 484 / 354, SF 610 / 516 / 310, WL 752 /
+  544 / 376; at 1–3 s the count is the arrival's flakes (windows 8–16 in every run), and two identical default runs
+  differ by 167 in the last third, more than any arm's distance from them: the count does not discriminate at 40k. The
+  crevice (`sheet40k_cmp_crevice.jpg`): D1 opens at 3.0 s with a bead, A2 at 3.0–3.15 s with a small blob at 3.0 s and
+  clean after, FN at 3.15 s with a ring blob, SF at 3.15–3.3 s with large blobs and a remnant at 3.8 s (the soft sides'
+  bead by construction, as predicted), WL at 3.15–3.3 s with blobs; none clean at 40k. 0–2 s the same in D1, A2, WL
+  (`sheet40k_cmp_early.jpg`). The bulk's displacement at windows 1–9 within 0.03 pitches of the defaults' in every arm
+  (WL's relative rows one window shifted by a missing row of the reading; aligned in band); no blow-up; the end's
+  silhouette D1 0.9750, D2 0.9754, A2 0.9732, FN 0.9752, SF 0.9748, WL 0.9755. By the letter WL fails (its last third
+  above A's), but the 40k check is non-discriminating for WL: at 40k the loss cell is the MPM cell (0.3075 wu = 1.00
+  dx), so the box's one-cell ring is one MPM cell and closes the crevice's pieces into one: 19 of D148's 272 gap nodes
+  stay (0.07), the apart particle-frames near D148's nodes with a walls node in their stencil 0.05–0.11 (A2 and D2 at
+  1–3 s and 3–6 s; `d148_wl_cover.py`), WL's split node-steps 320–640 a window against A2's 4 100–8 900. At 300k the
+  loss cell is 0.51 dx: 540 of 921 nodes stay (0.59), covering 0.74 (1–3 s) and 0.78 (3–6 s) of FB's apart
+  particle-frames near D148's nodes. The 300k bench on the speed-up's code with the warp-uniform skip (`bench_g2.log`):
+  eval ×1.22 (was ×1.25), tape ×1.39 (unchanged); the split G2P's adjoint 38.9 ms (was 40.6) against the frozen 25.7,
+  the main remaining cost.
+  **D148c 300k gate, pre-registered (14:30 CDT, before its runs; the coordinator's decision: WL to the 300k gate as
+  defined, the ring unchanged).** `tmp/d148/d148_gate_wl.sh` on `repo_d148wf` (the walls code, CUDA tests 21 passed),
+  at most 2 cards, seed 97 unless stated, in two lanes: WG (dragon render arm, side and front) → WB (bunny render arm,
+  side and front) → WG99 (dragon render arm, seed 99, side); WT (dragon twin, side) → WBT (bunny twin). Items (1)–(5)
+  as D148's gate: (1) no crevice foam or detached beads on the dragon side view at 3–6 s and nothing new elsewhere
+  (detector and eye; side views also at 1–3 s and 9–14 s); (2) 0–1.5 s within D135's band; (3) end quality, at rest,
+  the render lead over the twin; (4) no more floating pieces than D135; (5) cost. Added: the direct count at 300k
+  against GA, GT, GA99 and FB; the share of GA's bead sites WL's nodes cover, and whether a bead left in WL sits where
+  only D148's nodes are. Prediction: A's opening bead (1.5–2.25 s, mixed sides between nodes) gone where the walls'
+  nodes cover it; the opening later than A's 1.3–1.6 s by B's gate (possibly D135's 3.3 s); D135's foam at 3.3–4.2 s
+  gone where covered; a bead, if any is left, in the uncovered quarter.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
