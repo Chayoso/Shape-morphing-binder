@@ -39,6 +39,7 @@ if os.environ.get("D148_JSON"):             # another run's grid (the bunny): it
     DX, NG, LRES = float(_a["provenance"]["mpm"]["dx"]), int(_a["provenance"]["mpm"]["nx"]), int(_c["loss_res"])
     VP, GMIN = float(_c["gap_vp"]), np.asarray(_a["provenance"]["mpm"]["grid_min"], np.float64)
 NEAREST = os.environ.get("D148_NEAREST", "0") == "1"   # D148d: the nearest piece outside the box
+CARRY = os.environ.get("D148_CARRY", "0") == "1"       # D148e: the wall carried from the stencil (-1: uncertain)
 D0 = GMIN.astype(np.float32)
 CELL = float((D0 + DX * np.full(3, NG, np.float32) - D0).max() / LRES)     # the run's loss cell (float32, target.py)
 GDX = float((D0 + DX * np.full(3, NG, np.float32) - D0).max() / NG)        # the gate grid's cell (the MPM cell)
@@ -55,6 +56,9 @@ class Geo:
     def __init__(self, tgt):
         self.gp = GapPlanes(tgt, DX, GMIN, (NG,) * 3, CELL, keep_boxes=True, margin=1)
         self.bp = BoxPieces(self.gp, nearest_pieces=NEAREST)
+        if CARRY:
+            from physmorph.mpm.gap_walls import CarryTables
+            self.ct = CarryTables(self.gp)
         self.pm, self.pn = self.gp.m.reshape(-1, 3), self.gp.n.reshape(-1, 3)
         self.nodes = np.nonzero(np.abs(self.pn).sum(1) > 0)[0]
         self.is_gap = np.zeros(NG ** 3, bool)
@@ -78,8 +82,14 @@ class Geo:
                       self.wl["nc"], self.wl["occ"], self.wl["nearest"])
         return r.numpy()
 
-    def sides(self, g, q, rep):
-        """sides (0/1) at node g of the particles with images q and representative cells rep; and by-pieces flags."""
+    def sides(self, g, q, rep, x=None):
+        """sides (0/1) at node g of the particles with images q and representative cells rep; and by-pieces flags.
+        D148e (CARRY, x the positions for the base nodes): -1 where the wall is uncertain."""
+        if CARRY:
+            from physmorph.mpm.gap_walls import carry_sides
+            base = np.floor((x - GMIN) / DX).astype(np.int64) - 1
+            s = carry_sides(self.bp, self.ct, g, rep, base, (NG,) * 3)
+            return s, s >= 0
         s = (((q - self.pm[g]) @ self.pn[g]) > 0).astype(np.int8)
         by = np.zeros(len(q), bool)
         off, ca, cb = self.bp.boxi[g]
@@ -136,7 +146,7 @@ def node_fields(g, x, v, q, rep, tree, grads=None):
     w = weights(x[idx], g)
     keep = w > 0
     idx, w = idx[keep], w[keep]
-    s, by = GEO.sides(g, q[idx], rep[idx])
+    s, by = GEO.sides(g, q[idx], rep[idx], x[idx])
     out = dict(idx=idx, w=w, s=s, by=by, vol=float(w.sum() * VP))
     for k in (0, 1):
         sel = s == k
@@ -145,7 +155,9 @@ def node_fields(g, x, v, q, rep, tree, grads=None):
         out[f"v{k}"] = (w[sel, None] * v[idx[sel]]).sum(0) / max(out[f"m{k}"], 1e-30)
         if grads is not None:
             out[f"pull{k}"] = float((w[sel] * (-(grads[idx[sel]] @ GEO.pn[g]))).sum() / max(out[f"m{k}"], 1e-30))
-    out["split"] = out["m0"] > 1e-12 and out["m1"] > 1e-12 and out["vol"] < DX ** 3
+    out["would"] = out["m0"] > 1e-12 and out["m1"] > 1e-12 and out["vol"] < DX ** 3
+    out["single"] = bool((s < 0).any())                     # D148e: an uncertain wall keeps the node whole
+    out["split"] = out["would"] and not out["single"]
     out["vrel_n"] = float((out["v0"] - out["v1"]) @ GEO.pn[g])
     return out
 
@@ -239,12 +251,16 @@ def beads(path, tag, specs):
                 st = stencil(x[p:p + 1])[0]
                 gs = [int(g) for g in st if g >= 0 and GEO.is_gap[g]]
                 rows = []
+                n_single = 0
                 for g in gs:
                     nf = node_fields(g, x, v, q, rep, tree)
                     i = int(np.nonzero(nf["idx"] == p)[0][0]) if (nf is not None and (nf["idx"] == p).any()) else -1
                     if i < 0:
                         continue
                     sp_, by = int(nf["s"][i]), bool(nf["by"][i])
+                    if sp_ < 0:                     # D148e: an uncertain wall, the node whole
+                        n_single += 1
+                        continue
                     same = int(((nf["s"] == sp_) & (nf["idx"] != p)).sum())
                     own, oth = nf[f"v{sp_}"], nf[f"v{1 - sp_}"]
                     lab = int(GEO.piece_of(g, np.asarray([rep[p]]))[0])
@@ -283,7 +299,8 @@ def beads(path, tag, specs):
                         flips += int((bool(s1 & o2) and not s1 & s2) or (bool(o1 & s2) and not s1 & s2))
                         agree += int(bool(s1 & s2))
                 endok = es[es >= 0] == r[es >= 0, 0]
-                line.append(f"p{p}: node pairs whose chosen walls share cells {agree}, contradicting {contra} (flipped: the "
+                line.append(f"p{p}: single-field (uncertain) at {n_single} nodes; node pairs whose chosen walls share cells "
+                            f"{agree}, contradicting {contra} (flipped: the "
                             f"chosen wall met only as the other one {flips}); end "
                             f"position's wall = the chosen one at {int(endok.sum())} of {len(endok)} nodes that hold it")
                 line.append(
@@ -314,7 +331,8 @@ def nodes_report(tag, wins, getter):
                          nf["vol"] / DX ** 3, min(nf["m0"], nf["m1"]) / (nf["m0"] + nf["m1"]),
                          (nf.get("pull1", 0.0) - nf.get("pull0", 0.0)) if both else 0.0,
                          float(nf["w"][nf["by"]].sum() / max(nf["w"].sum(), 1e-30)), float(nf["by"].all()),
-                         float(nf["w"][~nf["by"]].sum()), float(nf["w"].sum())))
+                         float(nf["w"][~nf["by"]].sum()), float(nf["w"].sum()), float(nf["would"]),
+                         float(nf["would"] and nf["single"])))
         r = np.array([rr[1:] for rr in rows], float)
         both, split = r[:, 0] > 0, r[:, 1] > 0
         sep = split & (r[:, 2] <= 0)
@@ -334,6 +352,10 @@ def nodes_report(tag, wins, getter):
             msg += (f"; pieces decide {np.median(r[split, 7]):.2f} of a split node's mass (median), every particle at "
                     f"{int(arr.sum())} split nodes ({int((arr & (r[:, 2] <= 0)).sum())} separating)")
             msg += f"; the plane decides {r[split, 9].sum() / max(r[split, 10].sum(), 1e-30):.4f} of the split nodes' mass"
+        would = r[:, 11] > 0
+        if would.any():
+            msg += (f"; single-field fallback: {int((r[:, 12] > 0).sum())} of {int(would.sum())} nodes that would split, "
+                    f"{r[r[:, 12] > 0, 10].sum() / max(r[would, 10].sum(), 1e-30):.3f} of their mass")
         if grads is not None and split.any():
             msg += (f"; the terms' pull apart (side 1's pull along n minus side 0's) median {np.median(r[split, 6]):+.3e},"
                     f" > 0 at {(r[split, 6] > 0).mean():.2f}")
@@ -344,8 +366,100 @@ def nodes_report(tag, wins, getter):
         print(msg, flush=True)
 
 
+
+
+def consistency(pset, states, xe, label):
+    """(b) and (c) for a particle set over window states (w, x, q, rep): per window, the particles with a flip between
+    two of their split gap nodes (the chosen wall met at the other node only as its other wall), the flips, the share
+    of (particle, gap node) pairs left whole (uncertain), and the end wall the chosen one at the nodes that hold it."""
+    ends = GEO.cell_of(xe[pset])
+    for w, x, q, rep in states:
+        n_flip_p = flips_all = n_pairs = n_unc = agree = n_end = 0
+        for t, p in enumerate(pset):
+            st = stencil(x[p:p + 1])[0]
+            gs = [int(g) for g in st if g >= 0 and GEO.is_gap[g]]
+            chosen = {}
+            for g in gs:
+                s, _ = GEO.sides(g, q[p:p + 1], rep[p:p + 1], x[p:p + 1])
+                n_pairs += 1
+                if s[0] < 0:
+                    n_unc += 1
+                    continue
+                chosen[g] = int(s[0])
+            walls = {}
+            for g, sd in chosen.items():
+                a0, lab, ca_, cb_ = GEO.gp.boxes[g]
+
+                def cells(c):
+                    kk = np.stack(np.nonzero(lab == c), -1) + a0
+                    return set(np.ravel_multi_index(kk.T, tuple(GEO.bp.nc)).tolist())
+                ch, ot = (cb_, ca_) if sd == 1 else (ca_, cb_)
+                walls[g] = (cells(ch), cells(ot))
+                lb = int(GEO.piece_of(g, ends[t:t + 1])[0])
+                es = 1 if lb == cb_ else (0 if lb == ca_ else -1)
+                if es >= 0:
+                    n_end += 1
+                    agree += int(es == sd)
+            gl, fl = list(walls), 0
+            for i1 in range(len(gl)):
+                for i2 in range(i1 + 1, len(gl)):
+                    s1, o1 = walls[gl[i1]]
+                    s2, o2 = walls[gl[i2]]
+                    fl += int((bool(s1 & o2) or bool(o1 & s2)) and not s1 & s2)
+            flips_all += fl
+            n_flip_p += int(fl > 0)
+        print(f"  {label} window {w} ({w / 6:.2f} s): {len(pset)} particles, with a flip {n_flip_p}, flips {flips_all}; "
+              f"whole (uncertain) {n_unc / max(n_pairs, 1):.3f} of {n_pairs} (particle, gap node) pairs; end wall the "
+              f"chosen one at {agree} of {n_end}", flush=True)
+
+
+def foam(fb_frames, fb_dump, wg_frames, w_end):
+    """(d): the particles of D135's crevice foam at 3.15-4.8 s (FB's particles apart from the body near a gap node of
+    D148's set, projecting into the crevice's box), their walls on FB's state and on WG's."""
+    global Z
+    Z = np.load(fb_frames)
+    fr, raws = Z["frames"], np.asarray(Z["raws"])
+    tgt = np.asarray(Z["tgt"], np.float64)
+    a = 0.708 * float(np.median(cKDTree(tgt).query(tgt[::10], 9)[0][:, 8]))
+    m0 = GapPlanes(tgt, DX, GMIN, (NG,) * 3, CELL).mask.reshape((NG,) * 3)
+    pick = set()
+    for k in range(len(raws)):
+        if not 3.15 <= raws[k] / 240 <= 4.8:
+            continue
+        x = np.asarray(fr[k], np.float64)
+        ap = np.nonzero(apart_of(x, a))[0]
+        inbox = set(select(fr, k, (1550, 1150, 1950, 1550), True).tolist())
+        b = np.floor((x[ap] - GMIN) / DX).astype(int) - 1
+        near = np.zeros(len(ap), bool)
+        for o in OFFS:
+            n = b + o
+            ok = ((n >= 0) & (n < NG)).all(1)
+            near[ok] |= m0[n[ok, 0], n[ok, 1], n[ok, 2]]
+        pick |= set(ap[near].tolist()) & inbox
+    pset = np.asarray(sorted(pick), np.int64)
+    print(f"== (d) D135's crevice foam at 3.15-4.8 s: {len(pset)} particles", flush=True)
+    xe = np.asarray(fr[-1], np.float64)
+    states, prev = [], np.full(len(tgt), -1, np.int64)
+    for w in range(1, w_end + 1):
+        z = np.load(f"{fb_dump}/d137_{w:04d}.npz")
+        q = (z["x"] + z["T_tgt"] - z["T_self"]).astype(np.float64)
+        prev = GEO.rep(q, prev)
+        if w >= 6:
+            states.append((w, z["x"].astype(np.float64), q, prev.copy()))
+    consistency(pset, states, xe, "FB")
+    Zw = np.load(wg_frames)
+    frw, rww = Zw["frames"], np.asarray(Zw["raws"])
+    Q, R, ks = qrep_series(frw, rww, w_end, f"{T_}/wlf_WGfoam_qrep.npz")
+    states = [(w, np.asarray(frw[int(ks[w])], np.float64), Q[w].astype(np.float64), R[w]) for w in range(6, w_end + 1)]
+    consistency(pset, states, np.asarray(frw[-1], np.float64), "WG")
+
+
 if __name__ == "__main__":
     mode, src, tag = sys.argv[1], sys.argv[2], sys.argv[3]
+    if mode == "foam":                         # foam FB_FRAMES12 FB_DUMP WG_FRAMES12 W_END
+        GEO = Geo(np.asarray(np.load(src)["tgt"], np.float64))
+        foam(src, sys.argv[3], sys.argv[4], int(sys.argv[5]))
+        sys.exit()
     if mode in ("beads", "nodes"):
         Z = np.load(src)
         GEO = Geo(np.asarray(Z["tgt"], np.float64))

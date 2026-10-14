@@ -78,10 +78,12 @@ class Window:
             # soft (candidate (a)): the share of side 1 = Phi(signed distance / sig), sig^2 = eps / 2 of the side point's
             # plan (the gate grid's, eps = its cell squared); walls (D148c): one wall per particle, B's gate
             sig = float(tgt.gate[1]) / 2.0 ** 0.5 if cfg.gap_split == "soft" else 0.0
-            vp = cfg.gap_vp if cfg.gap_split in ("interface", "walls", "nearest") else 0.0
+            vp = cfg.gap_vp if cfg.gap_split in ("interface", "walls", "nearest", "carry") else 0.0
             wl = tgt.gap_walls
             walls = None if wl is None else (wl["box0"], wl["boxd"], wl["boxi"], wl["labels"], wl["nc"], None,
                                               wl.get("clamp", 0))
+            if wl is not None and "gidx" in wl:      # D148e: the carry tables
+                walls = walls + (wl["gidx"], wl["pairtab"], wl["pcode"], wl["lmax"])
             gap = (tgt.gap[0], tgt.gap[1], None, vp, sig, walls)
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,

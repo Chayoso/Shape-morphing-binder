@@ -47,24 +47,79 @@ def near_gap(b: wp.vec3i, near: wp.array(dtype=int), nx: int, ny: int, nz: int) 
 
 
 @wp.func
+def carried_side(p: int, g: int, ri: int, rj: int, rk: int, box0: wp.array(dtype=wp.vec3i),
+                 boxd: wp.array(dtype=wp.vec3i), boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int),
+                 b: wp.vec3i, gidx: wp.array(dtype=int), pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int),
+                 lmax: int, gdims: wp.vec3i) -> float:
+    """D148e: the side at node g (whose box lacks the representative cell (ri, rj, rk)) that the piece holding the
+    cell at the particle's stencil nodes continues as (CarryTables.pcode); -1 where uncertain or where the stencil
+    nodes disagree."""
+    kg = gidx[g]
+    gi = g // (gdims[1] * gdims[2])
+    gj = (g // gdims[2]) % gdims[1]
+    gk = g % gdims[2]
+    res = int(-1)
+    unc = int(0)
+    if kg < 0:
+        unc = 1
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                i2 = b[0] + oi
+                j2 = b[1] + oj
+                k2 = b[2] + ok
+                if unc == 0 and i2 >= 0 and i2 < gdims[0] and j2 >= 0 and j2 < gdims[1] and k2 >= 0 and k2 < gdims[2]:
+                    g2 = (i2 * gdims[1] + j2) * gdims[2] + k2
+                    bi2 = boxi[g2]
+                    if bi2[0] >= 0:
+                        c0 = box0[g2]
+                        d2 = boxd[g2]
+                        mi = ri - c0[0]
+                        mj = rj - c0[1]
+                        mk = rk - c0[2]
+                        if mi >= 0 and mi < d2[0] and mj >= 0 and mj < d2[1] and mk >= 0 and mk < d2[2]:
+                            lb2 = boxlab[bi2[0] + (mi * d2[1] + mj) * d2[2] + mk]
+                            pid = pairtab[kg * 343 + ((i2 - gi + 3) * 7 + (j2 - gj + 3)) * 7 + (k2 - gk + 3)]
+                            c = int(2)
+                            if pid >= 0 and lb2 >= 0 and lb2 < lmax:
+                                c = pcode[pid * lmax + lb2]
+                            if c == 2:
+                                unc = 1
+                            elif res < 0:
+                                res = c
+                            elif res != c:
+                                unc = 1
+    if unc == 1 or res < 0:
+        return -1.0
+    return float(res)
+
+
+@wp.func
 def side_share(p: int, g: int, qp: wp.vec3, plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
                sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
                boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i,
-               rep: wp.array(dtype=int), clampk: int) -> float:
+               rep: wp.array(dtype=int), clampk: int, b: wp.vec3i, gidx: wp.array(dtype=int),
+               pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int), lmax: int, gdims: wp.vec3i) -> float:
     """The particle's share of side 1 at node g: by the node's pieces (D148c, gap_walls.py) where the node has a box
     and the particle's representative cell lies in one of its two pieces, else gap_weight's (the plane and the point).
     clampk = 1 (D148d): a representative cell outside the box is read at the box cell closest to it, and boxlab holds
-    each box cell's nearest occupied cell's piece (gap_walls.BoxPieces(nearest=True)): the nearest wall."""
+    each box cell's nearest occupied cell's piece (gap_walls.BoxPieces(nearest=True)): the nearest wall.
+    clampk = 2 (D148e): outside the box, the wall carried from the particle's stencil nodes whose boxes hold the cell
+    (carried_side); a third piece or an uncertain wall gives -1: no share of side 1 here, and k_gap_uncertain makes
+    the node the single field for the step."""
     bi = boxi[g]
     if bi[0] >= 0:
         rp = rep[p]
         if rp >= 0:
             a0 = box0[g]
             d = boxd[g]
-            li = rp // (ncell[1] * ncell[2]) - a0[0]
-            lj = (rp // ncell[2]) % ncell[1] - a0[1]
-            lk = rp % ncell[2] - a0[2]
-            if clampk != 0:
+            ri = rp // (ncell[1] * ncell[2])
+            rj = (rp // ncell[2]) % ncell[1]
+            rk = rp % ncell[2]
+            li = ri - a0[0]
+            lj = rj - a0[1]
+            lk = rk - a0[2]
+            if clampk == 1:
                 li = wp.min(wp.max(li, 0), d[0] - 1)
                 lj = wp.min(wp.max(lj, 0), d[1] - 1)
                 lk = wp.min(wp.max(lk, 0), d[2] - 1)
@@ -74,6 +129,10 @@ def side_share(p: int, g: int, qp: wp.vec3, plane_m: wp.array(dtype=wp.vec3), pl
                     return 1.0
                 if lb == bi[1]:
                     return 0.0
+                if clampk == 2:
+                    return -1.0
+            elif clampk == 2:
+                return carried_side(p, g, ri, rj, rk, box0, boxd, boxi, boxlab, b, gidx, pairtab, pcode, lmax, gdims)
     return gap_weight(qp, plane_m[g], plane_n[g], sig)
 
 
@@ -85,7 +144,8 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
                 q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
                 near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
-                boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int), clampk: int,
+                boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
+                clampk: int, gidx: wp.array(dtype=int), pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int), lmax: int,
                 grid_m1: wp.array(dtype=float), grid_v1: wp.array(dtype=wp.vec3),
                 gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
                 nx: int, ny: int, nz: int):
@@ -113,7 +173,8 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 k = b[2] + ok
                 if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
                     g = gid(i, j, k, ny, nz)
-                    s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk)
+                    s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk,
+                                   b, gidx, pairtab, pcode, lmax, wp.vec3i(nx, ny, nz))
                     if s > 0.0:
                         xg = gmin + wp.vec3(float(i), float(j), float(k)) * dx
                         dgp = xg - xp
@@ -130,7 +191,8 @@ def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
                     q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
                     near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
-                    boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int), clampk: int,
+                    boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
+                clampk: int, gidx: wp.array(dtype=int), pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int), lmax: int,
                     gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, nx: int, ny: int, nz: int,
                     adj_gm1: wp.array(dtype=float), adj_gv1: wp.array(dtype=wp.vec3),
                     adj_x: wp.array(dtype=wp.vec3), adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
@@ -172,7 +234,8 @@ def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 k = b[2] + ok
                 if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
                     g = gid(i, j, k, ny, nz)
-                    s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk)
+                    s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk,
+                                   b, gidx, pairtab, pcode, lmax, wp.vec3i(nx, ny, nz))
                     if s > 0.0:
                         dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
                         w, dw = _weight_and_grad(dgp, inv_dx)
@@ -270,3 +333,34 @@ def k_grid_op_gap(grid_m: wp.array(dtype=float), grid_mom: wp.array(dtype=wp.vec
     else:
         grid_vel[g] = wp.vec3(0.0, 0.0, 0.0)
         grid_vel1[g] = wp.vec3(0.0, 0.0, 0.0)
+
+
+@wp.kernel(enable_backward=False)
+def k_gap_uncertain(x: wp.array(dtype=wp.vec3), q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3),
+                    plane_n: wp.array(dtype=wp.vec3), near: wp.array(dtype=int), sig: float,
+                    box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i), boxi: wp.array(dtype=wp.vec3i),
+                    boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int), clampk: int,
+                    gidx: wp.array(dtype=int), pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int), lmax: int,
+                    gvol: wp.array(dtype=float), gmin: wp.vec3, inv_dx: float, nx: int, ny: int, nz: int):
+    """D148e: a gap node where a particle's wall is uncertain (side_share -1) is the single field for the step: its
+    node volume is set beyond one cell, so B's gate keeps it whole (off the tape, after k_node_volume)."""
+    p = wp.tid()
+    xp = x[p]
+    if not valid_pos(xp):
+        return
+    b = base_node(xp, gmin, inv_dx)
+    if near_gap(b, near, nx, ny, nz) == 0:
+        return
+    qp = q[p]
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                i = b[0] + oi
+                j = b[1] + oj
+                k = b[2] + ok
+                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                    g = gid(i, j, k, ny, nz)
+                    s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk,
+                                   b, gidx, pairtab, pcode, lmax, wp.vec3i(nx, ny, nz))
+                    if s < 0.0:
+                        gvol[g] = 1.0e30
