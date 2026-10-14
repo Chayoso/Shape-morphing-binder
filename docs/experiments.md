@@ -6188,6 +6188,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   nearest piece is the other wall there (fewer flips than walls' plane on the dragon's opening beads, about a third;
   more on the bunny's early windows). "The same wall" needs the walls' identity carried between overlapping boxes, not
   a distance inside one box. D148d stays an option (`--gap_split nearest`, default off, not run).
+  **D148e, the last side-label variant (the coordinator 16:14 CDT: if its CPU check fails, D148 stops at WL and the
+  choice between WL and the deliverable goes to the user with videos).** The wall carried through the particle's own
+  stencil: at a gap node whose box does not hold the particle's representative cell, the piece of that box that shares
+  occupied cells (in the two boxes' overlap) with the piece holding the cell at the particle's stencil nodes whose
+  boxes do hold it; where that wall meets both of the node's pieces (a V's flanks, a hole's rim), meets neither (it does
+  not enter the overlap), or the stencil nodes disagree, the node is the single field for that step (D135 there). The
+  standard multi-field premise (one particle, one field) in its local form; no constant.
+  **The CPU check of D148e, pre-registered (16:16 CDT, before it is built or read).** On WG, WT, FB and WB as D148d's:
+  (a) the plane decides at most 1 % of the split nodes' mass at every window from 0.5 s; (b) no contradicting pair of
+  gap nodes (a flip) among the opening beads' particles (WG 136513, 183904; WT 40512, 213353) and the bunny's
+  (81315, 152193) at any of their windows, the nodes made single-field excluded (they hold no side); (c) the wall each
+  bead ends on the chosen one at every node that holds it and is split; (d) WL's gain kept: the particles of D135's
+  crevice foam at 3–6 s (FB's particles apart near a gap node in that box at 3.15–4.8 s) have (b) and (c) at their
+  nodes on FB's state and on WG's. Reported beside each: the share of the split nodes' mass that falls back to the
+  single field per window, and the walls' coverage; every item as numbers, walls and D148e side by side.
+  **D146b + WL's dragon arm, pre-registered (16:16 CDT, before its launch; GPU 0).** `repo_d148rf` (refreeze-prep
+  d2f779d + the D148 hooks: D140's read-only dump of windows 1–9, frames12), `--gap_split walls --relax_driven
+  --u_adam_carry`, seed 97, side and front renders: RW (`output/gpu/d148/dragon300k_RW*`). It is the arm of the D146b +
+  WL gate if D148e fails, read under the five items against D146b's own runs (`d148_gate_read2.py`: the arms CDL, CDL2,
+  the twin CDP; (2) their two-run band widened by its width, (3) the arms' end band widened, at rest, the lead, (4) not
+  above the larger D146b run, (5) not above 1.25 × their mean seconds an attempt). No dump in it: `test_dump_hooks`
+  proves the runner's `--term_dump` on the default path only, and dF_c and u need D146's per-particle hook, which no
+  test covers. The dump as a separate run after it on the same lane (RWX: the same arguments with `--term_dump` and
+  D146's hook from window 6 to 22, no render), for the loop beads that strand with consistent sides (dF_c, u and each
+  term's pull at their stranding window), at the bead sites RW's and WG's renders show.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
