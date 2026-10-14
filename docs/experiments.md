@@ -5539,6 +5539,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   passes the tumble bar, the run with the larger tumble, recorded with the bar passed by chance at 40k (1 of 2 for
   o100); the projection's proposal kept written only (≤ 2 % of the spin, listed as measured in the paper's budget
   table); the restitution above 1 explained in the paper as here (the controls do work while keeping the momentum).
+  **After the decision (14:10–14:25 CDT).** The split over the first contact's windows only (a later touch on the
+  floor brings the floor's torque in: o100_v2b's all-contact sum read (136 517, −28 829, −603 677)): the pair's grid
+  share minus gravity's torque (0.2, −0.1, −2.0) LB_v2M, (0.1, −0.1, −2.0) LB_v2N, (0.1, −0.1, −2.6) o75_v2b, (0.2,
+  −0.2, −2.9) o100_v2b, against each body's 180 000–390 000 about the pair's centroid: kept to 1e-5 in every run
+  (`runs/read_s4b.txt`). The renderer re-run with the camera that follows the pair (o100_v2 and LB_v2, 201 frames
+  each): both bodies in the frame from the throw to the end, the contact shadow under the pair in the air and under
+  each body on the floor (`runs/scene40k_LB_o100_v2.mp4`). The branch rebased onto settled-base 312d3ef: the scene
+  tests 18 passed and the suite 397 passed, 2 skipped (pytest exit 0, `T15_suite.log`); settled-base fast-forwarded
+  to it (5be7d37, then d5de218 with the reading's and chain 13's scripts). Chain 13: the 40k render-off twins of o100
+  (seed 97 twice) for the render's effect at 40k against the two render-on runs (`runs/read_s5.txt`).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
