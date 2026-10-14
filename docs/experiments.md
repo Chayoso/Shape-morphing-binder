@@ -4214,6 +4214,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   to what was used, on FB's kept frame 300, side view: with `+field=zbs` against `cdm_d144b.py` (twice), and with
   `+field=zb` against the 09b deliverable's frame (`output/gpu/frozen/render/fb_dragon300k_side_base/frames/0300.jpg`,
   rendered by `cdm_frozen.py` on the tag's code) (`output/gpu/d144/idcheck`).
+  **The final deliverables (2026-10-13 23:20–23:38 CDT; `tmp/d144/final_render.sh`, `output/gpu/final`; local
+  `output/results_2026-10-13/final/`).** D135's runs at the 09b defaults (dragon `frozen_b/dragon300k_FB`, bunny
+  `d139/bunny300k_SB`; their frames kept, no new run) drawn by `scripts/render_deliverable.py` (c31c7c8) with
+  `+field=zbs`, 4K, 20 fps, studio look: bunny and dragon front and side (head right), the D115 detail layer's front
+  with and without on the corrected surface, and as disclosure the dragon's mouth at 9–17.5 s, Zhu–Bridson against
+  corrected. `output/results_2026-10-09/frozen_b` is marked superseded in the results README (its files kept).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
