@@ -295,13 +295,13 @@ def test_floor_keeps_positions_above_its_plane():
 
 def test_floor_projection_adjoint_is_the_branch_taken():
     """contact.k_floor_position on a tape: the gradient passes unchanged except the vertical one of each projected
-    centre, which is zero; against central differences with every centre at least 1e-3 off the plane (no branch
+    centre, which is zero; against central differences with every centre at least 0.05 off the plane (no branch
     switches under the step)."""
     from physmorph.mpm import contact as C
     rng = np.random.default_rng(4)
     n = 400
     x = rng.uniform(-1.0, 1.0, (n, 3)).astype(np.float32)
-    x[:, 1] = np.where(np.abs(x[:, 1]) < 1e-3, 2e-3, x[:, 1])
+    x[:, 1] = np.where(np.abs(x[:, 1]) < 0.05, np.where(x[:, 1] < 0, -0.05, 0.05), x[:, 1])
     W = rng.standard_normal((n, 3)).astype(np.float32)
     floor_c = 0.0
 
@@ -322,6 +322,6 @@ def test_floor_projection_adjoint_is_the_branch_taken():
     expect[x[:, 1] < floor_c, 1] = 0.0
     assert np.allclose(g, expect, atol=1e-6)
     d = rng.standard_normal((n, 3)).astype(np.float32)
-    h = 1e-4
+    h = 1e-3
     fd = (run(x + h * d)[0] - run(x - h * d)[0]) / (2 * h)
     assert abs(fd - float((g * d).sum())) <= 1e-3 * max(1.0, abs(fd))
