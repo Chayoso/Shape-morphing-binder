@@ -1,4 +1,4 @@
-"""progress.py RUNS_DIR TAG[,TAG...] -- D147 redesign (the bodies meet mid-morph): each body's morph progress, the
+"""progress.py RUNS_DIR TAG[,TAG...] [STEP] -- D147 (the bodies meet mid-morph): each body's morph progress, the
 silhouette IoU with its final target in its Buckens frame (metrics.sil_iou on the archive's target, as the end metrics)
 against its launch and end values, p(t) = (IoU(t) - IoU(0)) / (IoU(end) - IoU(0)), at the first kept frame where the
 bodies come within one sample spacing of each other (pre-registered: the mean over the bodies in [0.35, 0.65]) and
@@ -18,6 +18,7 @@ from physmorph.pipeline.scene.frame import body_frame  # noqa: E402
 from physmorph.pipeline.scene.schedule import ramp  # noqa: E402
 
 runs = Path(sys.argv[1])
+STEP = float(sys.argv[3]) if len(sys.argv) > 3 else 0.5        # the curve's spacing, seconds
 for tag in sys.argv[2].split(","):
     j = json.loads((runs / f"{tag}.json").read_text())
     z = np.load(runs / f"{tag}.npz")
@@ -50,12 +51,23 @@ for tag in sys.argv[2].split(","):
     t_c = float(raws[k_c] * dt) if k_c is not None else None
     p_c = prog(k_c) if k_c is not None else None
     curve = []
-    for k in range(0, len(fr), max(1, int(round(0.5 / (dt * (raws[1] - raws[0])))))):
-        curve.append((round(float(raws[k] * dt), 2), [round(p, 3) for p in prog(k)]))
+    for k in range(0, len(fr), max(1, int(round(STEP / (dt * (raws[1] - raws[0])))))):
+        curve.append((round(float(raws[k] * dt), 3), [round(p, 4) for p in prog(k)]))
+    # the largest rise between neighbouring curve points per body, against the steady rate (the median rise over
+    # 1 s to the morph time): a late snap shows as a jump many times the steady rate
+    jumps = []
+    for b in range(len(rows)):
+        d = [(curve[i + 1][0], curve[i + 1][1][b] - curve[i][1][b]) for i in range(len(curve) - 1)]
+        steady = float(np.median([v for t, v in d if 1.0 <= t <= max(t_m, 2.0)])) if d else 0.0
+        early = [e for e in d if e[0] <= t_m + 1.0] or d          # to a second past the ramp's end (before landing)
+        (t_e, v_e), (t_j, v_j) = max(early, key=lambda e: e[1]), max(d, key=lambda e: e[1])
+        jumps.append({"steady": round(steady, 4), "early_t": t_e, "early_rise": round(v_e, 4),
+                      "early_ratio": round(v_e / steady, 2) if steady > 0 else None,
+                      "any_t": t_j, "any_rise": round(v_j, 4)})
     out = {"tag": tag, "morph_time": t_m, "t_first_contact": t_c,
            "s_at_contact": ramp(t_c, t_m) if (t_c is not None and t_m > 0) else None,
            "progress_at_contact": [round(p, 3) for p in p_c] if p_c else None,
            "progress_mean": round(float(np.mean(p_c)), 3) if p_c else None,
            "in_band": bool(p_c and 0.35 <= float(np.mean(p_c)) <= 0.65),
-           "iou_launch_end": [[round(i0, 4), round(i1, 4)] for i0, i1 in ends], "curve": curve}
+           "iou_launch_end": [[round(i0, 4), round(i1, 4)] for i0, i1 in ends], "jumps": jumps, "curve": curve}
     print(json.dumps(out), flush=True)
