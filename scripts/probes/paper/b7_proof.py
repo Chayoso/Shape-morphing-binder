@@ -274,15 +274,31 @@ for key, c, lab in (("layer", BLUE, "outer layer"), ("rim", AQUA, "silhouette ri
 axs[2].set_xscale("log"); axs[2].set_ylim(0, 1); axs[2].set_xlabel("window")
 axs[2].set_title("render gradient: squared-norm share by region\n(dotted: the region's share of particles)", fontsize=9); axs[2].legend(frameon=False, fontsize=7)
 hw = [h for h in hist if h.get("g_share") is not None and h.get("frame_end")]
-ws = np.arange(1, len(hw) + 1)
+ws = np.array([h["animation"] + 1 for h in hw])          # the window number (animation + 1), as the dumps'
 axs[3].plot(ws, [h["g_share"] for h in hw], color=BLUE, label="render share of the step")
-axs[3].plot(ws, [h["g_raw_cos"] for h in hw], color=INK2, lw=1, label="cos(g_phys, g_render), raw")
-axs[3].plot(ws, [h["g_cos"] for h in hw], color=ORANGE, lw=1, ls="--", label="cos after PCGrad")
-axs[3].axhline(0, color=GRID, lw=1); axs[3].set_xlabel("window"); axs[3].legend(frameon=False, fontsize=7)
-axs[3].set_title("render share of the step and\ncos(g_phys, g_render) per window", fontsize=9)
+axs[3].plot(ws, [h["g_raw_cos"] for h in hw], color=INK2, lw=1,
+            label="cos, full gradient (dFc at every driven step + u), before PCGrad")
+axs[3].plot(ws, [h["g_cos"] for h in hw], color=ORANGE, lw=1, ls="--", label="the same after PCGrad")
+dw = sorted(nums["windows"])
+axs[3].plot(dw, [nums["windows"][w]["cos_dFc_all"] for w in dw], "o", ms=4, color=AQUA,
+            label="cos of the step-averaged dFc fields (dumped windows)")
+axs[3].axhline(0, color=GRID, lw=1); axs[3].set_xlabel("window"); axs[3].legend(frameon=False, fontsize=6.5)
+axs[3].set_title("render share of the step and\ncos(g_phys, g_render), both before lambda (scale-free)", fontsize=9)
 fig.savefig(os.path.join(out, "fig2_how.png"))
 plt.close(fig)
-nums["pcgrad_windows_active"] = [i + 1 for i, h in enumerate(hw) if (h.get("g_raw_cos") or 0) < 0]
+nums["pcgrad_windows_active"] = [int(h["animation"]) + 1 for h in hw if (h.get("g_raw_cos") or 0) < 0]
+rc = np.array([h.get("g_raw_cos") for h in hw], float)
+nums["cos_full_step"] = {
+    "definition": "the record's g_raw_cos: cosine of the full physics and render gradients over every control leaf (dFc at "
+                  "every driven step and u), at the window's first gradient, before PCGrad; scale-free (lambda does not enter)",
+    "per_window": rc.tolist(), "w1_20_min": float(rc[ws <= 20].min()), "w1_20_max": float(rc[ws <= 20].max()),
+    "w1_20_median": float(np.median(rc[ws <= 20])), "w21_on_median": float(np.median(rc[ws > 20])),
+    "windows": [int(h["animation"]) + 1 for h in hw],
+    "negative_windows": [int(hw[i]["animation"]) + 1 for i in range(len(rc)) if rc[i] < 0], "run_median": float(np.median(rc))}
+nums["cos_dFc_region_definition"] = ("cos_dFc_<region>: cosine of the two channels' step-averaged dFc fields (each particle's "
+                                     "9-vector averaged over the driven steps, gl_*_tmean), summed over the region's particles; "
+                                     "dFc only, scale-free; averaging over the steps removes components that alternate within "
+                                     "the window, so it reads higher than the full-step cosine")
 nums["lambda_per_window"] = [h.get("lambda") for h in hw]
 
 # ---- fig4: the run ----

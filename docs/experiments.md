@@ -4654,15 +4654,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   14–21 % (1.4 %), thin 72–91 % (9 %), bulk 22–30 % (84 %): per particle 7–9 × on the layer, 10–15 × on the rim, 8–10 ×
   on thin parts. The physics gradient: thin 34–66 %, rim 3–12 %, bulk 40–67 %. λ times the render gradient against the
   physics gradient, medians per particle: 0.33 (layer, window 1) to 0.09–0.20 (windows 10–40), largest on the rim and
-  thin parts. On u the render gradient sits on the rim (39–69 %) and thin parts (65–95 %). cos(g_phys, g_render) of the
-  time-mean dFc vectors 0.23–0.53 in windows 1–45 (0.42–0.64 on the layer, rim and thin parts from window 5), −0.11 at
-  window 50. *How.* The render's position gradient (the covector at the released end) is 82–90 % on the outer layer; on
+  thin parts. On u the render gradient sits on the rim (39–69 %) and thin parts (65–95 %). Two cosines, both scale-free
+  (λ does not enter); corrected 2026-10-14 ~15:40 CDT, the first write-up quoted the second as if it were the first:
+  (a) the cosine of the full gradients over every control leaf (dFc at every driven step and u; the record's
+  `g_raw_cos`, the vector PCGrad acts on): 0.11–0.29 in windows 1–20 (median 0.21), median 0.002 from window 21 on,
+  negative in 18 windows (22, 31, 37, 39–41, 43, 44, 46, 47, 49, 50, 53, 55–59); (b) the cosine of the step-averaged dFc
+  fields (each particle's 9-vector averaged over the driven steps, summed over a region): 0.23–0.53 in windows 1–45
+  (0.42–0.64 on the layer, rim and thin parts from window 5), −0.11 at window 50; higher than (a) because averaging over
+  the steps removes components that alternate within the window; (b) serves the per-region comparison, (a) the step's
+  direction. *How.* The render's position gradient (the covector at the released end) is 82–90 % on the outer layer; on
   the stress control, after the 2T-step adjoint, the layer holds 18–45 %; the median render gradient by depth relative to
   the layer's: 0.95 (0–1 pitch), 0.69–0.78 (1–2), 0.49–0.60 (2–4), 0.34–0.47 (4–6), 0.26–0.39 (6–8), 0.18–0.33 (8–12),
   0.07–0.23 (≥ 12; the physics gradient 0.33–0.52 there). What one step along either channel moves falls alike to about
   a tenth of the layer's at 12–14 pitches (two MPM cells, the B-spline's reach). Render share of the step 0.333 at every
-  window; λ 0.37 (window 1) to about 1e-3. PCGrad acted (raw cos < 0) in 18 of 55 windows, all from window 21 on (21, 29,
-  35, 37–39, 41–44, 46, 47, 49, 51–55), changing the render gradient by 0–5 % of its norm at the dumped windows. The
+  window; λ 0.37 (window 1) to about 1e-3. PCGrad acted (cosine (a) < 0) in 18 of the 55 recorded windows, all
+  from window 22 on (the window numbers above; the first write-up counted records, not windows), changing the render gradient by 0–5 % of its norm at the dumped windows. The
   per-step split over the driven steps was not dumped (stated). *What (counterfactual, the same window from the same
   start).* Median |x_end(render) − x_end(λ = 0)|, layer / rim / thin / bulk: window 1 0.45 / 0.49 / 0.45 / 0.13 pitches,
   window 5 0.23 / 0.28 / 0.24 / 0.034, windows 10–40 0.07–0.09 / 0.09–0.11 / 0.03–0.05 / 0.002–0.005; the window's
