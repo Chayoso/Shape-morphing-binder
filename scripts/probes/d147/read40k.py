@@ -64,7 +64,7 @@ def v1(runs):
         sp = (j["scene"]["R"] ** 3 * 4.18879 / fr.shape[1]) ** (1 / 3)
         low = np.array([float(fr[k, :, 1].min()) for k in range(len(fr))]) - floor_y
         touch = int(np.argmax(low < sp)) if (low < sp).any() else len(fr)
-        last = j["history"][-1]["bodies"][0]
+        last = [r for r in j["history"] if "bodies" in r][-1]["bodies"][0]
         print(f"  G {int(gtag) / 100:.2f}: {j['metrics'][0]}  first floor contact frame {touch} "
               f"({touch * dt:.2f} s)  end: lowest {low[-1] / sp:.2f} spacings above the floor, |v_com| "
               f"{np.linalg.norm(last['v_com']):.4f}, |w| {np.linalg.norm(last['omega']):.4f}; CoM off its parabola "
@@ -76,7 +76,7 @@ def scene(runs, tag):
     if not f.exists():
         return
     j = load(f)
-    h = j["history"]
+    h = [r for r in j["history"] if "bodies" in r]          # the last record of a run that left the domain has none
     z = np.load(runs / f"{tag}.npz", mmap_mode="r")
     fr, rows = z["frames"], z["rows"]
     dt, g = j["mpm"]["dt"], -j["mpm"]["f_ext"][1]
@@ -112,7 +112,7 @@ def timeline(runs, tag):
     if not f.exists():
         return None
     j = load(f)
-    h = j["history"]
+    h = [r for r in j["history"] if "bodies" in r]          # the last record of a run that left the domain has none
     z = np.load(runs / f"{tag}.npz", mmap_mode="r")
     fr, rows, raws = z["frames"], z["rows"], (z["raws"] if "raws" in z.files else np.arange(len(z["frames"])))
     dt, g, floor_y = j["mpm"]["dt"], -j["mpm"]["f_ext"][1], float(z["floor_y"])
