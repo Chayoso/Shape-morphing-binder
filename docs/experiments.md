@@ -5039,7 +5039,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     1.55–1.58 against the 1.25 limit; the dragon runs to about 29 s and 30 minutes (the frozen code 17.5 s, 18–22 min).
   - Integration: branch `refreeze-prep` (d2f779d) = settled-base 5f6b371 + D146b, both switches still off. A
     frozen-recipe test asserts that the D146b-on configuration is the frozen recipe with exactly the two switches on.
-    The suite runs on hyde06 (`repo_refreeze_prep`). No default flipped, no tag.
+    The suite on hyde06 (`repo_refreeze_prep` = d2f779d): 402 passed, 2 skipped, exit 0 (`tmp/d146/suite_rf_run1.log`). No
+    default flipped, no tag.
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
