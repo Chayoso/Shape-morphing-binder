@@ -40,5 +40,7 @@ T=throwY40k_uoff,throwY40k_off,throwY40k_d146b
   for t in ${T//,/ }; do nice $PY $S/apart.py $R $t 9.0 16.0 > $R/apart_$t.txt 2>&1; done
   nice $PY $S/read40k.py $R $T > $R/read_ablate.txt 2>&1
   nice $PY $S/progress.py $R $T 0.15 > $R/progress_ablate.txt 2>&1
-  nice $PY $S/judge.py $R/read_ablate.txt $R/progress_ablate.txt $T > $R/judge_ablate.txt 2>&1 )
-log "chain18 end (apart_throwY40k_{uoff,off,d146b}.txt, judge_ablate.txt)"
+  nice $PY $S/judge.py $R/read_ablate.txt $R/progress_ablate.txt $T > $R/judge_ablate.txt 2>&1
+  nice $PY $S/cut.py $R $T > $R/cut_ablate.txt 2>&1
+  nice $PY $S/clean.py $R $R/cut_ablate.txt $T > $R/clean_ablate.txt 2>&1 )
+log "chain18 end (clean_ablate.txt, apart_throwY40k_{uoff,off,d146b}.txt, judge_ablate.txt)"
