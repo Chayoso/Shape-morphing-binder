@@ -4646,7 +4646,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   a static field whose zero set holds both the sphere and the teapot at every t, |f(x,0) − f(x,1)| 0.0006 against the
   SDFs' own difference 0.047; the losses met by ∂f/∂t = 0; kept as found), bob 0.9620 / 0.0974 (0.9919; frames of genus
   31–44 and up to 181 components over t), armadilo 0.9353 / 0.0628 (0.9883), homer 0.9440 / 0.0717 (0.9916). Volume over t
-  against the target: bunny 0.989–1.025, dragon 0.958–1.060 (the end 8.5 % below the mesh), bob 0.894–1.043, armadilo
+  against the target: bunny 0.989–1.025, dragon 0.958–1.060 (the end 8.5 % below the mesh), teapot 0.968 in every frame (the
+  static field: 43.02 wu^3 against the outer body's 44.46), bob 0.894–1.043, armadilo
   0.951–1.041, homer 0.926–1.099; most of the end's loss is the morph's boundary fit (each target's SDF alone reaches IoU
   0.977–0.985). Morph training 44–46 min a pair (200k points, 7–8 GB), SDFs on the CPU 20–39 min each. *The
   correspondence-free ICLR 2025 re-implementation (INSD) is deferred (my decision, 16:10 CDT):* it runs at about 2.25 steps
