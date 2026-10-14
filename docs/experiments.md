@@ -5885,6 +5885,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   particle); nothing like the 40k droplet (13 particles to 12 spacings). The cut by the rule: no second contact within
   a spacing by 16 s (the gap 3.3–6 spacings in the last second, the grid's contact impulses from 15.33 s, its cell
   wider than the 300k spacing): the whole run.
+  **The cut, amended by the coordinator after s97's reading (17:35 CDT), and s97's renders.** s97's one particle at
+  3.18 spacings in one frame stands as found: not clean by the letter. The cut: the user's intent was "before the
+  second collision"; the one-spacing test was a proxy for the contact; at 300k the MPM cell is wider than the sample
+  spacing, so the grid's contact begins before the spacing test fires (s97: impulses from 15.33 s with the bodies
+  3.3–6 spacings apart). The amended rule, for every run from now on (`cut.py`): the earlier of the last kept frame
+  before the bodies come within a spacing again and the last kept frame at or before the start of the first window
+  with a grid contact impulse after the parting; the conservative choice (it delivers less). Both values per run
+  (`runs/cut_amended.txt`): s97 15.30 s (spacing: the whole run, 16.0 s); throwY40k_a 14.80 s (15.25), _b 14.50 s
+  (14.85); throw40k_a 15.80 s (15.90), _b 15.15 s (15.30). s97 rendered on hyde01 GPU 1 (its queue, relayed through
+  the local machine, `scripts/ops/hyde01_render.sh --scene`; render_scene `+res=1080` for the previews): the cut
+  (0–15.30 s, the still camera), the contact close-up (`camera=contact`, kept frames 38–145) and the whole run to 16 s,
+  into `output/results_2026-10-14/d147_throw/300k_s97_1080p/`; 4K for the final cut later.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
