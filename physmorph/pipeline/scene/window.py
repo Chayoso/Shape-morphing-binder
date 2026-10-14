@@ -109,7 +109,8 @@ class SceneWindow:
             if cfg.min_spacing > 0:
                 rr = cfg.min_spacing * float(torch.as_tensor(vol0[r]).mean()) ** (1.0 / 3.0)
                 with timed("spacing_knn"):
-                    spacing = (gpu.knn(x0, 17)[1][:, 1:], rr)
+                    snbr = gpu.knn(x0, 17)[1][:, 1:]
+                    spacing = (gpu.symmetric_rows(snbr) if cfg.spacing_symmetric else snbr, rr)   # D149 as setup.py
             nbr, rest, frag = bonds[b]
             sub = lambda a: None if a is None else a[r]          # noqa: E731
             self.specs.append(RolloutSpec(x0=x0, m=body.mass, lam=lam0, mu=mu0, prm=prm, T=T, F0=sub(start.F),

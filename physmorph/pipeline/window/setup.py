@@ -61,12 +61,14 @@ class Window:
         layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, ref,          # the u gate is set by the objective
                  cfg.T if cfg.relax_driven else None)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
-        # rest volume gives, among each particle's 16 nearest at the window's start
+        # rest volume gives, among each particle's 16 nearest at the window's start; with spacing_symmetric (D149) among
+        # the symmetric closure of those lists, so that each pair pushes both of its particles
         spacing = None
         if cfg.min_spacing > 0:
             r = cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0)
             with timed("spacing_knn"):
-                spacing = (gpu.knn(start.x, 17)[1][:, 1:], r)
+                snbr = gpu.knn(start.x, 17)[1][:, 1:]
+                spacing = (gpu.symmetric_rows(snbr) if cfg.spacing_symmetric else snbr, r)
         nbr, rest, frag = bonds
         # D131: the tracked volume, carried from the last commit like F (the gradient's rollout and the eval
         # trajectory, which is the line search's and the commit's, read the same J0)

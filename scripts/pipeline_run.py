@@ -63,6 +63,10 @@ def parse_args(argv=None):
                     help="read the render terms on the exterior (surface discs) in place of the particle cloud")
     ap.add_argument("--min_spacing", type=float, default=0.9,
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
+    ap.add_argument("--spacing_symmetric", action=argparse.BooleanOptionalAction, default=False,
+                    help="D149 A/B: the minimum spacing's neighbours are the symmetric closure of each particle's 16 "
+                         "nearest at the window start, so every pair's push is equal and opposite (the push keeps the "
+                         "centre of mass); off (the default) = each particle's own 16 nearest, the frozen path")
     ap.add_argument("--exterior_radius", type=float, default=3.0,
                     help="D123 A/B: the exterior field's kernel radius in pitches, its offset in proportion (0.8 at 3); "
                          "3 = D59's field, the code as it was")
@@ -233,7 +237,8 @@ def run_config(args, cfg0, prep):
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               lambda_ema=args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res,
-                              min_spacing=args.min_spacing, exterior_radius=args.exterior_radius,
+                              min_spacing=args.min_spacing, spacing_symmetric=args.spacing_symmetric,
+                              exterior_radius=args.exterior_radius,
                               exterior_field=args.exterior_field, u_off=args.u_off, relax_driven=args.relax_driven,
                               gap_split=args.gap_split,
                               gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
