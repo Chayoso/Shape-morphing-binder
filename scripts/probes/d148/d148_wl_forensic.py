@@ -13,6 +13,7 @@ objective.py); dump reads them from the dump (x + T_tgt - T_self: the same image
 per side the cubic B-spline weighted mass, momentum (PIC: the particles' own velocities), the node volume (weights x the
 run's volume per particle), split where both sides hold mass and the volume is below one cell (B's gate), approaching
 where (v0 - v1) . n > 0 (n from side 0 to side 1)."""
+import json
 import os
 import sys
 
@@ -31,8 +32,13 @@ from physmorph.mpm.gap_walls import BoxPieces, rep_cells
 torch.set_num_threads(int(os.environ.get("OMP_NUM_THREADS", "16")))
 DX, NG, LRES = 0.2948594285057975, 44, 87
 VP = 44.7107 / 300000                       # the run's gap_vp: the target's fill volume / N (dragon300k_W*.log)
-HALF = DX * NG / 2.0
-GMIN = np.full(3, -HALF)
+GMIN = np.full(3, -DX * NG / 2.0)
+if os.environ.get("D148_JSON"):             # another run's grid (the bunny): its provenance and arm config
+    _a = json.load(open(os.environ["D148_JSON"]))
+    _c = next(iter(_a["arms"].values()))["config"]
+    DX, NG, LRES = float(_a["provenance"]["mpm"]["dx"]), int(_a["provenance"]["mpm"]["nx"]), int(_c["loss_res"])
+    VP, GMIN = float(_c["gap_vp"]), np.asarray(_a["provenance"]["mpm"]["grid_min"], np.float64)
+NEAREST = os.environ.get("D148_NEAREST", "0") == "1"   # D148d: the nearest piece outside the box
 D0 = GMIN.astype(np.float32)
 CELL = float((D0 + DX * np.full(3, NG, np.float32) - D0).max() / LRES)     # the run's loss cell (float32, target.py)
 GDX = float((D0 + DX * np.full(3, NG, np.float32) - D0).max() / NG)        # the gate grid's cell (the MPM cell)
@@ -48,7 +54,7 @@ def bspline(r):
 class Geo:
     def __init__(self, tgt):
         self.gp = GapPlanes(tgt, DX, GMIN, (NG,) * 3, CELL, keep_boxes=True, margin=1)
-        self.bp = BoxPieces(self.gp)
+        self.bp = BoxPieces(self.gp, nearest_pieces=NEAREST)
         self.pm, self.pn = self.gp.m.reshape(-1, 3), self.gp.n.reshape(-1, 3)
         self.nodes = np.nonzero(np.abs(self.pn).sum(1) > 0)[0]
         self.is_gap = np.zeros(NG ** 3, bool)
@@ -80,6 +86,8 @@ class Geo:
         if off >= 0:
             ijk = np.stack(np.unravel_index(rep.astype(np.int64), tuple(self.bp.nc)), 1) - self.bp.box0[g]
             d = self.bp.boxd[g]
+            if NEAREST:
+                ijk = np.minimum(np.maximum(ijk, 0), d - 1)
             ins = ((ijk >= 0) & (ijk < d)).all(1)
             lab = np.full(len(q), -9, np.int64)
             li = ijk[ins]
@@ -94,6 +102,8 @@ class Geo:
         off = self.bp.boxi[g][0]
         ijk = np.stack(np.unravel_index(cells.astype(np.int64), tuple(self.bp.nc)), 1) - self.bp.box0[g]
         d = self.bp.boxd[g]
+        if NEAREST:
+            ijk = np.minimum(np.maximum(ijk, 0), d - 1)
         ins = ((ijk >= 0) & (ijk < d)).all(1)
         lab = np.full(len(cells), -9, np.int64)
         li = ijk[ins]
@@ -252,6 +262,28 @@ def beads(path, tag, specs):
                     off, ca, cb = GEO.bp.boxi[rr[0]]
                     end_side.append(1 if lb == cb else (0 if lb == ca else -1))
                 es = np.asarray(end_side)
+                # one wall across its nodes: the chosen piece (side 1 -> cb, side 0 -> ca) at each node as global
+                # occupied cells; a pair of nodes contradicts when one's chosen wall shares a cell with the other's
+                # other wall, agrees when the chosen walls share a cell
+                walls = {}
+                for rr in rows:
+                    a0, lab, ca_, cb_ = GEO.gp.boxes[rr[0]]
+                    def cells(c):
+                        kk = np.stack(np.nonzero(lab == c), -1) + a0
+                        return set(np.ravel_multi_index(kk.T, tuple(GEO.bp.nc)).tolist())
+                    ch, ot = (cb_, ca_) if rr[1] == 1 else (ca_, cb_)
+                    walls[rr[0]] = (cells(ch), cells(ot))
+                gl = list(walls)
+                agree = contra = 0
+                for i1 in range(len(gl)):
+                    for i2 in range(i1 + 1, len(gl)):
+                        s1, o1 = walls[gl[i1]]
+                        s2, o2 = walls[gl[i2]]
+                        contra += int(bool(s1 & o2) or bool(o1 & s2))
+                        agree += int(bool(s1 & s2))
+                endok = es[es >= 0] == r[es >= 0, 0]
+                line.append(f"p{p}: node pairs whose chosen walls share cells {agree}, contradicting {contra}; end "
+                            f"position's wall = the chosen one at {int(endok.sum())} of {len(endok)} nodes that hold it")
                 line.append(
                     f"p{p}: apart {int(ap[p])}; {len(rows)} walls nodes, side 1 at {r[:, 0].mean():.2f}, by pieces "
                     f"{r[:, 1].mean():.2f}; same-side others median {np.median(r[:, 2]):.0f} (alone at "
@@ -279,7 +311,8 @@ def nodes_report(tag, wins, getter):
             rows.append((int(g), both, nf["split"], nf["vrel_n"], np.linalg.norm(nf["v0"] - nf["v1"]) if both else 0.0,
                          nf["vol"] / DX ** 3, min(nf["m0"], nf["m1"]) / (nf["m0"] + nf["m1"]),
                          (nf.get("pull1", 0.0) - nf.get("pull0", 0.0)) if both else 0.0,
-                         float(nf["w"][nf["by"]].sum() / max(nf["w"].sum(), 1e-30)), float(nf["by"].all())))
+                         float(nf["w"][nf["by"]].sum() / max(nf["w"].sum(), 1e-30)), float(nf["by"].all()),
+                         float(nf["w"][~nf["by"]].sum()), float(nf["w"].sum())))
         r = np.array([rr[1:] for rr in rows], float)
         both, split = r[:, 0] > 0, r[:, 1] > 0
         sep = split & (r[:, 2] <= 0)
@@ -298,6 +331,7 @@ def nodes_report(tag, wins, getter):
             arr = split & (r[:, 8] > 0)
             msg += (f"; pieces decide {np.median(r[split, 7]):.2f} of a split node's mass (median), every particle at "
                     f"{int(arr.sum())} split nodes ({int((arr & (r[:, 2] <= 0)).sum())} separating)")
+            msg += f"; the plane decides {r[split, 9].sum() / max(r[split, 10].sum(), 1e-30):.4f} of the split nodes' mass"
         if grads is not None and split.any():
             msg += (f"; the terms' pull apart (side 1's pull along n minus side 0's) median {np.median(r[split, 6]):+.3e},"
                     f" > 0 at {(r[split, 6] > 0).mean():.2f}")

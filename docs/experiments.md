@@ -6093,7 +6093,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   letter WL fails items (1) and (4) on the dragon; (2), (3), (5) pass. The bunny (WB, WBT) and WG99 to follow.
   The WL gate ran on the D135 base (`repo_d148wf`); every further D148 gate runs on D146b (`refreeze-prep` d2f779d,
   `--relax_driven --u_adam_carry`, `repo_d148r` / hook copy `repo_d148rf`), the user's adopted base.
-  *The bunny (16:00 CDT, `gate_read_wl_bunny.log`).* WB (render arm): silhouette 0.9881, chamfer 0.0551, thin 4.74 %, at
+  *The bunny (15:55 CDT, `gate_read_wl_bunny.log`).* WB (render arm): silhouette 0.9881, chamfer 0.0551, thin 4.74 %, at
   rest (kin 2.5e-6), the render lead held (yardstick silhouette 7.44e-4 against WBT's 1.29e-3, display front 0.0089
   against 0.0129); apart 1069 (≤ 1205); 7.62 s an attempt (≤ 8.40; BA's 8.86 was out), 10.3 min; (2) out at window 8
   (rel_p90 14.39 against [13.88, 14.15]) as BA (14.35). WBT: (3)–(5) pass, (2) below the band at windows 4 and 6–8 (BT
@@ -6104,7 +6104,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   walls' set moves from 540 to 560 nodes with the cell's eighth digit (target points on the cells' boundaries). Re-read
   on the run's cell (`d148_wl_cover.py`, `d148_bead_cover.py` now take it): the coverage 0.74 / 0.78 and every bead's
   coverage unchanged.
-  **The forensic of WL's beads (16:10 CDT, CPU; `d148_wl_forensic.py`, `tmp/d148/wlf2_*.log`).** The walls' sides
+  **The forensic of WL's beads (15:55 CDT, CPU; `d148_wl_forensic.py`, `tmp/d148/wlf2_*.log`).** The walls' sides
   recomputed as the run (the window-start images on the gate grid, the representative cells persistent from window 0,
   at the kept frame nearest each window start), the node fields per side from the particles' velocities (finite
   differences over a tenth of a second; on FB, D135's state, the dump's own velocities and the terms' gradients).
@@ -6129,7 +6129,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   about 2.4 s, own-side share 0.93), which jump within one window from |v| 0.09 to 0.78–0.81 wu/s away from both
   fields (|v − own| 0.74–0.79): their pull is not in the grid fields; dF_c, u and the terms on them need a term-dump
   run (the WL runs saved frames only).
-  **D148d proposed (16:15 CDT, not built, not run):** at a node whose box does not hold the particle's representative
+  **D148d proposed (16:00 CDT, not built, not run):** at a node whose box does not hold the particle's representative
   cell, the side is the node's piece nearest to that cell (the piece of the box's occupied cell nearest to it) in place
   of the plane; the plane only where the nearest is a third piece. A wall is continuous, so the wall holding the kept
   cell continues into the neighbouring box, and the wall across the gap lies at least the gap farther. Implementation: a
@@ -6138,6 +6138,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   zero on WG's and FB's states, the opening beads' sides consistent at all their nodes, and the nearest wall the one
   each bead ends on. Then a 300k pair on D146b with `--term_dump` (windows 6–22) for the beads with consistent sides.
   The early opening itself (the divergence released) is not a gate item ((2) passes) and is left as it is.
+  **D148d approved (16:05 CDT, the coordinator under the autonomy rule: a measured defect of WL's own definition, the
+  nearest wall in place of the plane inside the same framework; the user not asked).** Recorded with it: the dragon's
+  crevice now opens at about 1.5 s instead of D135's 3.3 s (the transport's divergence released by the split; item (2)
+  passes); the user may see that as a change of the trajectory. Built as `--gap_split nearest` (`walls` kept as run):
+  `BoxPieces(nearest_pieces=True)` stores per box cell the piece of the box's occupied cell nearest to it (an occupied
+  cell keeps its own), the kernels' `side_share(..., clampk = 1)` read a representative cell outside the box at the box
+  cell closest to it; the plane only where that piece is a third one; B's gate as walls. Tests added (CPU): (17) the map
+  keeps every occupied cell's piece and gives every empty box cell of the two slabs (the gap's middle too) the slab on
+  its side; (18) a representative cell outside every box: walls leaves it to the plane (the single field with the side
+  points far off), nearest reads it at the closest box cell (the plane test with the side points in place, as (16));
+  (19) the hand adjoints against the generated ones with the clamp (the sides constants). The default path untouched
+  (no kernel of the single field changed; `test_frozen_recipe` and (1)–(16) unchanged).
+  **The CPU check, pre-registered (16:07 CDT, before its output is read).** `d148_wl_forensic.py` with
+  `D148_NEAREST=1` (the sides as D148d assigns them) on WL's trajectories (WG, WT; their window-start images as before),
+  on D135's state (FB's dump) and on the bunny (WB, its ear blob at 1.85–1.90 s, frame 38, box 1998,575,2012,616).
+  Passes when: (a) the plane decides at most 1 % of the split nodes' mass at every window from 0.5 s (WG, FB, WB);
+  (b) the opening beads' particles (WG 136513, 183904 at frame 40; WT 40512 at 46, 213353 at 42) and the bunny's have no
+  pair of gap nodes whose chosen walls contradict (one node's chosen piece sharing an occupied cell with the other's
+  other piece) at any of their windows; (c) the wall each bead ends on (its last position's cell, by the nearest-piece
+  map) is the chosen one at every node that holds it. The same readings in walls mode beside, for the comparison
+  (expected: contradictions at the opening beads). Fails: stop and report.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
