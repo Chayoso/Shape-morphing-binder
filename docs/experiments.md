@@ -5652,6 +5652,71 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the gate's runs: the split G2P's adjoint in the trajectory's cell order (`k_g2p_adj_gap_warp`, the frozen
   `k_g2p_adj_warp`'s form with a sum per field), tested against the per-particle form to rounding on CUDA; if that
   test fails, the gate runs on the per-particle form.
+  **The memory defect found on the way (10:56–11:26 CDT).** The first gate runs (GA, GA99, BT) ran out of memory at
+  window 6 (GA, GA99) and window 2 (BT), the card's use climbing 7–14 GB a window. Not the split: the 300k bunny twin
+  with `--gap_split off` on the same code climbed the same way (7.9, 18.7, 26.1, 33.5 GB at windows 1–4,
+  `d148_memprobe.py`), and the old trajectories were freed only by the garbage collector (`d148_refprobe.py`). The
+  cause: since D147's step split (d661523) `Trajectory._st` kept the step's Warp tape, so the tape trajectory and its
+  tape referenced each other and each window's 7 GB tape trajectory outlived the window. Fixed by c38951c (`self._st =
+  None` after the step; no arithmetic change; the 300k twin flat at 13.4–15.0 GB over 5 windows); traj.py back under
+  500 lines by c5db4ac (the array helpers moved to `mpm/arrays.py`, re-exported); suite on both 381 passed, 2 skipped,
+  exit 0. The gate relaunched at 11:26 on the fixed code with the split G2P's adjoint in cell order (its test against
+  the per-particle form passed, 10 of 10 in `tests/test_gap_split.py`).
+  **Gate result (runs 11:26–13:11 CDT, read 12:00–13:30; `output/gpu/d148/{dragon,bunny}300k_{GA,GT,GA99,BA,BT}`,
+  `tmp/d148/d148_gate_read.py`, `d148_tracks.py`; local `output/results_2026-10-14/d148_gap_split/`): FAILED by the
+  letter at (1) (new beads on the dragon's side view), (2) (the bunny, both arms), (4) and (5); the crevice's foam and
+  its bead at 3–6 s are gone in every dragon run; (3) holds.**
+  (1) The dragon's side view (GA, GT, GA99; the detector on every kept frame, every candidate in the body's region
+  checked on its contact sheet, `tracks_{GA,GT,GA99}_body.jpg`): at 3–6 s no foam, strand or bead in the crevice in any
+  run (D135, FB: foam 3.0–4.4 s, strand 4.2–4.8 s, bead 5.15 s; `sheet300k_crevice_{a,b}.jpg`); the crevice opens at
+  1.3–1.6 s (D135 3.3 s) and is a clean gap from 1.9 s on. Absent from D135's inventory, so the second clause fails:
+  a bead of 1–2 particles apart from the body in the opening crevice at 1.5–2.25 s (GA), 1.65–1.7 s (GT), 1.75–2.05 s
+  (GA99); at the loop's early opening a ragged piece or bead of 1–3 particles at 2.35–2.55 s (GA) and 2.5–2.9 s (GT)
+  (GA99 a frayed rim at 3.05–6.05 s, where D135 has its loop events at 4.25–6.65 s); a round bead of 1–2 particles in
+  the crevice's upper hole at 10.25–10.65 s (GA) and 10.6–13.85 s (GT; not in GA99). The neck–body hole's serrated rim
+  at 12.05–13.9 s (GA99) is D135's neck-rim event. The bunny (BA side and front): shading creases only, as D135.
+  (2) The dragon within D144's bands at every window in all three runs (GA, GT, GA99); the bunny out: BA at window 8's
+  p90 (14.35 against [13.88, 14.15], above), BT at window 4's median (4.22 against [4.30, 5.56]) and window 8's p90
+  (13.38, below), every other cell within. The 0–1.5 s side by side: GA as FB to 1.2 s, the crevice opening at
+  1.3–1.5 s (`sheet300k_side_early.jpg`). By the rule the entry stops here (no iteration).
+  (3) Silhouette IoU / chamfer / thin / last kinetic record: GA 0.9874 / 0.0545 / 5.41 % / 8.2e-6, GT 0.9882 / 0.0546
+  / 4.14 % / 8.7e-6, GA99 0.9885 / 0.0545 / 4.87 % / 1.7e-5, BA 0.9881 / 0.0551 / 4.72 % / 5.9e-6, BT 0.9873 / 0.0551
+  / 4.48 % / 3.2e-6: within. The render lead: yardstick silhouette and display front GA 5.70e-4 / 0.0090, GA99 6.40e-4
+  / 0.0101 against GT 1.09e-3 / 0.0125; BA 7.66e-4 / 0.0090 against BT 1.28e-3 / 0.0122: ahead. Roughness 7.63° (GA),
+  7.70° (GA99), 4.14° (BA) within D146's limits (8.6°, 4.95°). Relief (D119, the 5.4-pitch band kept): GA 0.60, GA99 0.59, GT 0.62 (D135 FB, FA 0.59, FT 0.61; limit 0.56),
+  BA 0.62, BT 0.66 (SB 0.60, BL0 0.59, BP0 0.63; limit 0.56): within.
+  (4) Particles apart in windows 3–6 / 3–10 against the larger of D135's two runs: GA 15 / 2043 (16 / 2136), GA99 18 /
+  1917 (out at 3–6 by 2), GT 12 / 2262 (6 / 2823: out at 3–6 by 6), BA 992 / 992 (1205 / 1205), BT 1361 / 1361 (1235 /
+  1235: out by 126).
+  (5) Seconds an attempt: GA 13.84, GT 13.62, GA99 14.08 against 12.06 (+43–46 % over W3's 9.65); BA 8.86, BT 9.11
+  against 8.40 (+32–36 % over 6.72); memory flat at 20.5–22.3 GB. Where (`d148_bench.py` on FB's window-20 state, 40
+  steps): the eval rollout 39.4 against 26.6 ms (×1.48), the tape's forward and adjoint 269 against 88 ms (×3.04); of
+  the taped rollout's kernels 61 % (160 ms) is Warp's generated adjoint of the side-1 deposit (the frozen P2G's hand
+  adjoint is 14 ms), then the split G2P's adjoint in cell order 31 ms (the frozen one 26 ms), the side-1 deposit 11 ms
+  and the split G2P 8.2 ms (5.5). An exact speed-up's task: the side-1 deposit's hand adjoint and an early exit for the
+  particles with no gap node in reach.
+  The split record (separating share of the split nodes' mass): dragon 0.13–0.35 at windows 1–5, 0.57–0.83 from window
+  6; bunny 0.19–0.84.
+  **The new beads' forensic (`d148_bead2.py`, `d148_bead3.py`: the particles drawn as each bead, their gap nodes, and
+  the run's side rule recomputed at the window starts before it).** Every bead is 1–3 particles (opening GA 2, GT 1;
+  loop GT 3; upper hole GA 2, GT 1). Coverage: every one within reach of gap nodes (5–68 pairs), so no uncovered gap.
+  None alone on its side at any window start (0 of its pairs). Their sides disagreed with the side they ended on in the
+  windows before they were stranded: the opening bead GA 28–88 % of its (particle, node) pairs at 0–1.5 s, GT 26–59 %;
+  the upper-hole bead GA 75–100 % from 3.5 to 10.5 s (agreement from 11 s, when it rejoined), GT 100 % at 2–3 s (then
+  agreement, but left 3.0–3.7 pitches from the target until it rejoined at 14 s); the loop piece 5–17 %. Their own
+  positions sit on the node's plane (on each side for 0.4–0.75 of their pairs). Classification: mislabelled particles
+  at the cut, inside the split's early opening. The side of a particle near the transport map's discontinuity is the
+  side its barycentric image falls on, and the image is resolved only to the plan's blur (one of the gate grid's cells,
+  the shape's cell, 6 pitches): within about a cell of the cut the label is a coin toss and flips between windows; a
+  particle put in the far side's field there is drawn out of its own side at the separating nodes, stretched and left
+  in the gap. Not an uncovered gap, and not a lone particle at the window start.
+  **D148b (pre-registered 13:30 CDT, not run; the user decides).** One definition inside D148's frame: each particle's
+  side point from the objective's own transport on the loss grid (blur one loss cell, half the shape's cell at 300k)
+  instead of the gate grid's, the barycentric image computed with the separable solve (the dense solve exceeded its
+  budget at 300k, D137); planes, rule and contact unchanged. What it changes: the band of uncertain labels at the cut
+  halves (3 pitches instead of 6); the early opening (1.3–1.6 s), the bunny's item (2) and the cost do not change by
+  it. Prediction: the beads at the opening and in the upper hole fewer, not none. Gate: D148's items unchanged. Cost
+  first by the exact speed-ups above. Not recommended on this evidence alone: the band halves, it does not vanish.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
