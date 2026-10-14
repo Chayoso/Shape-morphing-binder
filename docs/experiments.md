@@ -4940,6 +4940,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   command, `scripts/probes/d147/resume.sh`: the floor drops' readings, the scene tests, the full suite, P1 with the
   sample's fill volume and P7 from the contact, the 40k batch, the readings; each GPU stage through the lock
   directory and only after the previous one passed).
+  *A consequence of M-b for the scene's timeline (02:50 CDT, pre-registered before any scene run).* The gated bounce
+  of two 40k spheres lasts 3.6 s at v_rel / c = 0.1 and 3.0 s at 0.2 (P1, P6): about eleven wave crossings, the
+  compression alone 1.7 s; the frozen material's shear F is smoothed (s = 0.955, 4.5 % of each step's increment kept),
+  so the response is mostly volumetric and slow (Hertz with the full shear modulus gives about 1.6 s). With the
+  registered numbers (G 0.05, the floor 1 wu under the launch) the pair falls about 10 wu during the contact and lands
+  still pressed together. The registered run stays as it is (the controls may change the contact), and one variant
+  is added to the batch, its numbers set from the measured contact time and not tuned on a result: G 0.02 (F1's value
+  that held), the floor 5.2 wu under the lowest particle at launch (the pair falls ½ g (3.6 s + 0.5 s)² ≈ 5.5 wu from the
+  apex before landing, so it separates in the air and lands about half a second later), 10 s (60 windows); render arm
+  only (`scene40k_LB`). Prediction: the bodies part in the air at about 4.6 s and land separately at about 5 s,
+  tumbling; the shape criteria as the registered scene's. Which of the two timelines goes to 300k is read on these
+  runs' frames.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
