@@ -4527,7 +4527,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pitches) and removes blobs it draws in empty space between near surfaces; every metric is computed on the uncorrected
   field or on the particles. The display-only detail layer (D115) appears only in the supplement, side by side with the
   base display, applied to no baseline.
-  **The access gap (02:28–09:05 CDT) and what ran in it (read 2026-10-14 09:05–09:40).** The pool kept working: B4's 18
+  **The access gap (02:28–09:05 CDT) and what ran in it (read 2026-10-14 09:05–09:12).** The pool kept working: B4's 18
   Xu runs (done 05:19), B7's 300k reach run (repo_d145g, 03:40–03:52), B3's 190 gallery runs (114 V / W and 76 ablation
   runs, done 08:15) and B9's eight 40k gravity runs; no run failed and no log shows a full disk. What did not run: (a)
   the job items (the kept-frames proof, B6, the harness dry run) imported the old `repo_settled` checkout, because
@@ -4544,7 +4544,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Xu frames removed later) and wrote its archive (about 12 GB) at 03:50: the output most likely passed 50 GB, to about
   51–54 GB, for about two minutes (03:50–03:52, until the archive was cut and removed); not measured directly (the pool
   did not log du). Fixed: repo_d145g counts as a full archive again.
-  **First readings (2026-10-14 09:15–09:40; D145's reading conventions; numbers are min–max over seeds 97 / 99 / 101).**
+  **First readings (2026-10-14 09:05–09:12; D145's reading conventions; numbers are min–max over seeds 97 / 99 / 101).**
   *B4, Xu et al. (α 1e-2, own-sample metrics from the run's JSON; `d145_b4/tab_b4.jsonl`).* Silhouette IoU / chamfer /
   thin uncovered / last kinetic record: bunny 0.958–0.969 / 0.0589–0.0591 / 34–36 % / 0.37–0.39; dragon 0.969–0.971 /
   0.0652–0.0656 / 36–37 % / 0.12–0.14; teapot 0.9745–0.9756 / 0.059 / 35–39 % / 0.17–0.20; bob 0.937–0.942 / 0.102 /
@@ -4577,12 +4577,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *B5 (interim, the bunny pair):* Buonomo et al.'s t = 1 sample against the independent sample, silhouette IoU 0.9601,
   chamfer 0.0596 (the sampling floor 0.9893 / 0.0567); the remaining five pairs are running. *B6 (bunny):* the OT
   displacement's end lies a median 0.57 sampling pitches from the nearest target point (p99 1.2, max 22).
-  **The kept-frames proof (read 10:00 CDT): SAME.** `repo_d145s` against repo_d145 + the cut, 40k bunny seed 97, four
+  **The kept-frames proof (read 09:16 CDT): SAME.** `repo_d145s` against repo_d145 + the cut, 40k bunny seed 97, four
   windows, deterministic mode: the kept frames (4 arrays), every metric (37) and every history field but clocks (552)
   bit for bit equal (`d145_detproof/detproof.txt`; silhouette IoU 0.8722, chamfer 0.1415 in both). From here B1, B2, B8,
   B9 and B10 run from repo_d145s (results identical to the deliverable code's); repo_d145g gets the same output-only
   change for any further B7 run.
-  **Amendment 3 (recorded 2026-10-14 10:05 CDT, before any run it adds; the user's limits, relayed by the coordinator:
+  **Amendment 3 (recorded 2026-10-14 09:18 CDT, before any run it adds; the user's limits, relayed by the coordinator:
   results under /data/relcfd/chayo up to 500 GB, all four cards when D146 / D147 do not use them, add runs where they
   make a claim clearly stronger).** (1) The disk guard: du plus the estimated end files of every running 300k run ≤ 490
   GB; the one-dragon-at-a-time rule is lifted; bulk files of read runs are still removed (logged); nothing written to
@@ -4596,7 +4596,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   old code); B2's should arms (already queued); B5's seeds 2 and 3 and the correspondence-free ICLR 2025
   re-implementation on the six pairs (the B5 agent). Reading as registered: the five-seed bands for bunny and dragon
   replace the three-seed ones in T1; the cell arm is read against B1's L on the same meshes.
-  **Amendment 4: B11, a mesh-based baseline (should-have; recorded 2026-10-14 10:30 CDT, before any of its runs; the
+  **Amendment 4: B11, a mesh-based baseline (should-have; recorded 2026-10-14 09:26 CDT, before any of its runs; the
   coordinator's decision on a user question).** As-rigid-as-possible interpolation from the sphere, on the targets of
   genus 0 only, a standard citable pipeline and nothing new. *Meshes.* bunny (its five base holes capped by trimesh's
   standard fan fill; our sampler fills the same volume through its voxel fill), armadilo and homer, each in the
