@@ -78,9 +78,10 @@ class Window:
             # soft (candidate (a)): the share of side 1 = Phi(signed distance / sig), sig^2 = eps / 2 of the side point's
             # plan (the gate grid's, eps = its cell squared); walls (D148c): one wall per particle, B's gate
             sig = float(tgt.gate[1]) / 2.0 ** 0.5 if cfg.gap_split == "soft" else 0.0
-            vp = cfg.gap_vp if cfg.gap_split in ("interface", "walls") else 0.0
+            vp = cfg.gap_vp if cfg.gap_split in ("interface", "walls", "nearest") else 0.0
             wl = tgt.gap_walls
-            walls = None if wl is None else (wl["box0"], wl["boxd"], wl["boxi"], wl["labels"], wl["nc"], None)
+            walls = None if wl is None else (wl["box0"], wl["boxd"], wl["boxi"], wl["labels"], wl["nc"], None,
+                                              wl.get("clamp", 0))
             gap = (tgt.gap[0], tgt.gap[1], None, vp, sig, walls)
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
@@ -127,7 +128,7 @@ class Window:
         """D148: the particles' side points (the window start's transport images), and with D148c's walls their
         representative cells, in the spec and the eval trajectory."""
         g = self.spec.gap
-        walls = g[5] if rep is None or g[5] is None else g[5][:5] + (rep,)
+        walls = g[5] if rep is None or g[5] is None else g[5][:5] + (rep,) + g[5][6:]
         self.spec.gap = g[:2] + (q,) + g[3:5] + (walls,)
         wp.to_torch(self.tr.gap_q).copy_(q)
         if rep is not None:

@@ -142,7 +142,8 @@ class PipelineConfig:
                                     #   volume is below one cell, "soft" (D148c) A with soft sides (each particle's share of
                                     #   side 1 the plan's mass beyond the plane under its blur), "fine" (D148b) A with the side
                                     #   points from the loss grid's plan; "walls" (D148c) one wall per particle and gap
-                                    #   region, persistent, with B's gate (mpm/gap_walls.py); "off" = the single field
+                                    #   region, persistent, with B's gate (mpm/gap_walls.py); "nearest" (D148d) walls with
+                                    #   the nearest piece in place of the plane outside the box; "off" = the single field
     gap_vp: float = 0.0             # variant B: the volume per particle (the sample's fill volume / N), set by the run script
     coh_k: int = 8                  # material bond neighbours (source kNN)
 
@@ -171,9 +172,9 @@ class PipelineConfig:
         self.volume_exact = {False: "off"}.get(self.volume_exact, self.volume_exact)
         if self.volume_exact not in ("off", "carried"):
             raise ValueError("volume_exact must be \"off\" or \"carried\"")
-        if self.gap_split not in ("off", "on", "interface", "soft", "fine", "walls"):
-            raise ValueError("gap_split must be \"off\", \"on\", \"interface\", \"soft\", \"fine\" or \"walls\"")
-        if self.gap_split in ("interface", "walls") and not self.gap_vp > 0:
+        if self.gap_split not in ("off", "on", "interface", "soft", "fine", "walls", "nearest"):
+            raise ValueError("gap_split must be \"off\", \"on\", \"interface\", \"soft\", \"fine\", \"walls\" or \"nearest\"")
+        if self.gap_split in ("interface", "walls", "nearest") and not self.gap_vp > 0:
             raise ValueError("gap_split interface reads the node volume: gap_vp must be the volume per particle")
         if self.exterior_field not in ("zb", "aniso", "zbs"):
             raise ValueError("exterior_field must be \"zb\", \"aniso\" or \"zbs\"")

@@ -316,9 +316,10 @@ def test_representative_cells_persist_in_the_gap():
     assert rep.tolist() == [0, 3, 3, 3]
 
 
-def _walls_spec(spec, rep_of, normal=(0, 1.0, 0), q_shift=(0, 0, 0)):
+def _walls_spec(spec, rep_of, normal=(0, 1.0, 0), q_shift=(0, 0, 0), nc=(2, 1, 1), clamp=None):
     """Gap planes everywhere, every node's box one occupancy row of two cells: cell 0 piece 1 (side 0), cell 1 piece 2
-    (side 1); the particles' representative cells by rep_of."""
+    (side 1); the particles' representative cells by rep_of (cells of an occupancy row nc; beyond cell 1 outside every
+    box); clamp (D148d): 1 reads a cell outside the box at the box cell closest to it."""
     ng = spec.prm.nx * spec.prm.ny * spec.prm.nz
     pm, pn = _planes(spec.prm, (0, 0, 0), normal)
     box0 = np.zeros((ng, 3), np.int32)
@@ -327,7 +328,8 @@ def _walls_spec(spec, rep_of, normal=(0, 1.0, 0), q_shift=(0, 0, 0)):
     labels = np.asarray([1, 2], np.int32)
     rep = rep_of(np.asarray(spec.x0)).astype(np.int32)
     q = (np.asarray(spec.x0) + np.asarray(q_shift)).astype(np.float32)
-    return dataclasses.replace(spec, track_geom=False, gap=(pm, pn, q, 0.0, 0.0, (box0, boxd, boxi, labels, (2, 1, 1), rep)))
+    pieces = (box0, boxd, boxi, labels, nc, rep) + (() if clamp is None else (clamp,))
+    return dataclasses.replace(spec, track_geom=False, gap=(pm, pn, q, 0.0, 0.0, pieces))
 
 
 def test_walls_hand_adjoints_are_the_generated_ones(monkeypatch):
@@ -366,3 +368,68 @@ def test_pieces_decide_where_they_hold_the_cell():
                                                  gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0)), dc, u)
     for a, b in zip(by_plane[:4], by_pieces[:4]):
         assert torch.equal(a, b)
+
+
+def test_nearest_piece_map_keeps_the_pieces_and_fills_the_gap():
+    """(17) D148d: BoxPieces(nearest_pieces) keeps every occupied cell's piece and gives every empty box cell the piece of
+    its nearest occupied cell: in the two slabs' boxes, every empty cell (the gap's too) takes the slab on its side."""
+    from physmorph.mpm.gap_walls import BoxPieces
+    pts = _slabs(1.5, 1.0, 0.2)
+    gp = GapPlanes(pts, 1.0, np.full(3, -8.0), (16,) * 3, 0.5, keep_boxes=True, margin=1)
+    plain, near = BoxPieces(gp), BoxPieces(gp, nearest_pieces=True)
+    occupied = plain.labels > 0
+    assert np.array_equal(near.labels[occupied], plain.labels[occupied])
+    checked = 0
+    for g, (a0, lab, ca, cb) in gp.boxes.items():
+        off, d = near.boxi[g][0], lab.shape
+        nl = near.labels[off:off + lab.size].reshape(d)
+        assert (nl > 0).all()
+        cc = gp.lo + (np.stack(np.meshgrid(*[np.arange(k) for k in d], indexing="ij"), -1) + a0 + 0.5) * gp.cell
+        y = cc[..., 1]
+        for c in (ca, cb):
+            below = bool((gp.lo[1] + (np.nonzero(lab == c)[1] + a0[1] + 0.5) * gp.cell < 0).all())
+            sel = (y < 0) if below else (y > 0)
+            assert (nl[sel & (lab == 0)] == c).all()
+            checked += int((sel & (lab == 0)).sum())
+    assert checked > 0
+
+
+def _outside(x):
+    """below y = 0: cell 3 of the row (outside every node's box of two cells, its closest box cell is cell 1, side 1);
+    above: cell 0 (side 0, inside)."""
+    return np.where(x[:, 1] < 0, 3, 0)
+
+
+def test_nearest_piece_decides_outside_the_box():
+    """(18) D148d: a representative cell outside the node's box. walls (clamp 0) leaves it to the plane (the side points
+    far on side 0: every particle side 0, the single field's forward); nearest (clamp 1) reads it at the box cell closest
+    to it (side 1 below y = 0): the plane test with the side points in place, as (16)."""
+    spec, dc, u = _window_case("cpu")
+    kw = dict(normal=(0, -1.0, 0), q_shift=(0, 10.0, 0), nc=(4, 1, 1))
+    walls = _tape_outputs(_walls_spec(spec, _outside, clamp=0, **kw), dc, u)
+    nearest = _tape_outputs(_walls_spec(spec, _outside, clamp=1, **kw), dc, u)
+    frozen = _tape_outputs(dataclasses.replace(spec, track_geom=False), dc, u)
+    pm, pn = _planes(spec.prm, (0, 0, 0), (0, -1.0, 0))
+    by_plane = _tape_outputs(dataclasses.replace(spec, track_geom=False,
+                                                 gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0)), dc, u)
+    for a, b in zip(frozen[:4], walls[:4]):
+        assert torch.equal(a, b)
+    for a, b in zip(by_plane[:4], nearest[:4]):
+        assert torch.equal(a, b)
+    assert not torch.equal(walls[0], nearest[0])
+
+
+def test_nearest_hand_adjoints_are_the_generated_ones(monkeypatch):
+    """(19) D148d: the sides stay constants, so the hand adjoints are unchanged: with cells outside the box read at the
+    closest box cell, the deposit's and the G2P's hand adjoints against the generated ones."""
+    import physmorph.mpm.traj as TR
+    spec, dc, u = _window_case("cpu")
+    spec = _walls_spec(spec, _outside, nc=(4, 1, 1), clamp=1)
+    monkeypatch.setattr(TR, "HAND_ADJOINTS", False)
+    gen = _tape_outputs(spec, dc, u)
+    monkeypatch.setattr(TR, "HAND_ADJOINTS", True)
+    hand = _tape_outputs(spec, dc, u)
+    for a, b in zip(gen[:4], hand[:4]):
+        assert torch.equal(a, b)
+    for a, b in zip(gen[4:], hand[4:]):
+        torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * float(a.abs().max()))

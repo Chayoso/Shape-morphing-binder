@@ -274,15 +274,17 @@ def beads(path, tag, specs):
                     ch, ot = (cb_, ca_) if rr[1] == 1 else (ca_, cb_)
                     walls[rr[0]] = (cells(ch), cells(ot))
                 gl = list(walls)
-                agree = contra = 0
+                agree = contra = flips = 0
                 for i1 in range(len(gl)):
                     for i2 in range(i1 + 1, len(gl)):
                         s1, o1 = walls[gl[i1]]
                         s2, o2 = walls[gl[i2]]
                         contra += int(bool(s1 & o2) or bool(o1 & s2))
+                        flips += int((bool(s1 & o2) and not s1 & s2) or (bool(o1 & s2) and not s1 & s2))
                         agree += int(bool(s1 & s2))
                 endok = es[es >= 0] == r[es >= 0, 0]
-                line.append(f"p{p}: node pairs whose chosen walls share cells {agree}, contradicting {contra}; end "
+                line.append(f"p{p}: node pairs whose chosen walls share cells {agree}, contradicting {contra} (flipped: the "
+                            f"chosen wall met only as the other one {flips}); end "
                             f"position's wall = the chosen one at {int(endok.sum())} of {len(endok)} nodes that hold it")
                 line.append(
                     f"p{p}: apart {int(ap[p])}; {len(rows)} walls nodes, side 1 at {r[:, 0].mean():.2f}, by pieces "

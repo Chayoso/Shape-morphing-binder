@@ -6174,6 +6174,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   other piece) at any of their windows; (c) the wall each bead ends on (its last position's cell, by the nearest-piece
   map) is the chosen one at every node that holds it. The same readings in walls mode beside, for the comparison
   (expected: contradictions at the opening beads). Fails: stop and report.
+  **The CPU check read (16:30 CDT, `tmp/d148/wlf3_*`, `wlf4_*`): it fails (b) and (c); (a) passes; the gate not run.**
+  The tests on the CPU (`repo_d148d` = refreeze-prep d2f779d + D148d): 19 passed, 5 CUDA skipped. (a) The plane decides
+  0.0000 of the split nodes' mass at every window 0.5–3.5 s on WG and on D135's state, 0.5–2.3 s on the bunny (walls:
+  98 % at 0.5 s, 70 % at 1.0 s, 16 % at 1.5 s). (b) Pairs of a bead particle's gap nodes whose chosen walls contradict
+  (D148d / walls), each a definite flip (the chosen wall met at the other node only as its other wall, not a wall
+  split in two by the box): WG's opening beads 48–96 / 153–160 a window; WT 40512 48 / 153–160; WT 213353 0 / 0–272;
+  the loop beads (WG 267025, WT 167991) 4–8 / 2–8 (unchanged); the bunny's ear blob (81315, 152193) 32–60 at every
+  window 0.85–2.0 s / 0 at 0.85–1.35 s and 18–66 after. (c) The end wall the chosen one: WG's opening beads at 2–4 of
+  their 26–32 nodes, WT 40512 at 0–2 of 16–26, WT 213353 at 25–27 of 30–33, the loop beads at all, the bunny's at 8–15
+  of 12–19. Reading: the nearest piece removes the plane but not the mixed walls: a far node's box often holds the
+  particle's wall only beyond the other one from the box cell closest to the kept cell, or not at all, so the Euclidean
+  nearest piece is the other wall there (fewer flips than walls' plane on the dragon's opening beads, about a third;
+  more on the bunny's early windows). "The same wall" needs the walls' identity carried between overlapping boxes, not
+  a distance inside one box. D148d stays an option (`--gap_split nearest`, default off, not run).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

@@ -41,7 +41,8 @@ def attach(tr, gap, A, Z, n_grid: int, rg: bool):
     tr.gap_q = A(q, wp.vec3) if q is not None else Z(wp.vec3)
     tr.gap_vp = float(vp)
     tr.gap_sig = float(gap[4]) if len(gap) > 4 else 0.0
-    pieces = gap[5] if len(gap) > 5 else None         # D148c: (box0, boxd, boxi, labels, nc, rep) of gap_walls.py
+    pieces = gap[5] if len(gap) > 5 else None         # D148c: (box0, boxd, boxi, labels, nc, rep[, clamp]) of gap_walls.py
+    tr.gap_clamp = int(pieces[6]) if pieces is not None and len(pieces) > 6 else 0     # D148d: the nearest piece
 
     def ints(a, vec):
         t = torch.as_tensor(np.asarray(a) if isinstance(a, np.ndarray) else a, device=str(dev)).int()
@@ -53,7 +54,7 @@ def attach(tr, gap, A, Z, n_grid: int, rg: bool):
         tr.gap_boxi = wp.full(prm.ngrid, wp.vec3i(-1, -1, -1), dtype=wp.vec3i, device=dev)
         tr.gap_boxlab, tr.gap_ncell = wp.zeros(1, dtype=wp.int32, device=dev), wp.vec3i(1, 1, 1)
     else:
-        box0, boxd, boxi, labels, nc, rep = pieces
+        box0, boxd, boxi, labels, nc, rep = pieces[:6]
         tr.gap_box0, tr.gap_boxd, tr.gap_boxi = ints(box0, True), ints(boxd, True), ints(boxi, True)
         tr.gap_boxlab, tr.gap_ncell = ints(labels, False), wp.vec3i(*[int(v) for v in nc])
         if rep is not None:
@@ -86,7 +87,7 @@ def p2g_side1(tr, t: int, dfc, bnb, bnc, bK: int, tape=None):
         tr.gmom1[t].zero_()
     x, v, C, F, P, gm1, gp1 = tr.x[t], tr.v[t], tr.C[t], tr.F[t], tr.P[t], tr.gm1[t], tr.gmom1[t]
     head = [x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK, tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig,
-            tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab, tr.gap_ncell, tr.gap_rep]
+            tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab, tr.gap_ncell, tr.gap_rep, tr.gap_clamp]
     wp.launch(GKK.k_p2g_side1, dim=tr.N, inputs=head + [gm1, gp1, gmin, dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny,
                                                         prm.nz], device=dev, record_tape=tape is None)
     if tape is None:
@@ -128,7 +129,7 @@ def g2p(tr, t: int, dfc, tape):
     gmin, dx, inv_dx = _geo(tr)
     x, F, gv, gv1, v1, C1, Fn = tr.x[t], tr.F[t], tr.gvel[t], tr.gvel1[t], tr.v[t + 1], tr.C[t + 1], tr.Fraw[t + 1]
     sides = [tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig, tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab,
-             tr.gap_ncell, tr.gap_rep]
+             tr.gap_ncell, tr.gap_rep, tr.gap_clamp]
     wp.launch(GG.k_g2p_gap, dim=N, inputs=[x, v1, C1, F, dfc, Fn, gv, gv1] + sides + [gmin, dx, inv_dx, prm.dt, prm.nx,
                                                                                     prm.ny, prm.nz],
               device=dev, record_tape=tape is None)
