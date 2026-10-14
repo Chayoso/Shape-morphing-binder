@@ -4149,6 +4149,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `test_settled_contracts.py::test_a_nonfinite_window_cost_cannot_commit` (its first window did not commit); that test
   failed 1 of 2 times on a pristine copy of settled-base and passed 2 of 2 on the change: it is nondeterministic on
   today's code, not this change's (`suite_d144_run1.log`).
+  **Result (runs 2026-10-11 18:56–19:52 CDT, one a card on GPUs 0–3, `tmp/d144/d144_chain.sh`, `output/gpu/d144`; read
+  2026-10-11 19:21 and 2026-10-13 22:05–22:40 by `tmp/d144/d144_read.py` and the detector; local
+  `output/results_2026-10-13/d144_gate/`): FAILED by the letter at items (1) and (2); (3)–(5) pass and the cost is
+  none; the mouth's beads are gone. The entry stops there; adoption is the user's call.** Runs: bunny arm Z1 8.0 min (74
+  attempts, 6.51 s each), twin ZT 10.3 min (97, 6.37 s); dragon arm Z1 19.1 min (124, 9.25 s), twin ZT 18.9 min (125,
+  9.05 s); the largest sampled GPU memory 19.2 / 19.7 / 22.4 / 21.0 GB.
+  (1) The mouth: no bead on the dragon arm's side view at 9 s, 13–17.5 s or to its end at 18.85 s (the detector's
+  pieces there 0 against D135's 33; `dragon_side_mouth_9-17.5s_D135_vs_D144.jpg`, `dragon_side_mouth_end_D144.jpg`).
+  The crevice's foam at 3.2–4.1 s and its class-(i) bead at 5.1–5.35 s as D135's (the recorded limitation); the loop's
+  hole opens with a frayed edge at 5.25–6.55 s; the neck–body hole without a bead on its rim. New: a small bead floating
+  in the gap between the hind leg and the body (pixel (1698, 1144) of the side view) from 12.8 to 15.2 s, on particles
+  apart from the body in most of its frames (class i), where D135 drew a rim blob for two frames at 12.5–12.8 s
+  (`dragon_side_bead_12.5-15.2s_D135_vs_D144.jpg`): a piece absent from D135's inventory, so (1) fails by the letter.
+  Bunny side and front and the dragon's front: shading creases only (checked on the contact sheets).
+  (2) The 0–1.5 s trajectory against the three-run bands: the dragon within at every window (window 9's median 9.33 at
+  the band's edge 9.32); the bunny within at every cell but window 8's p90, 13.92 against 13.97–14.06 (0.05 pitches
+  outside the band's narrowest cell, three runs 14.00–14.03); the side by side at 0–1.5 s as D135's on both meshes
+  (`{bunny,dragon}_{side,front}_0-1.5s_D135_vs_D144.jpg`).
+  (3) The end: bunny silhouette IoU 0.9877, chamfer 0.0551, thin 4.51 %; dragon 0.9873, 0.0545, 4.67 %: within. (4) At
+  rest: last kinetic record 5.4e-6 (bunny), 8.0e-6 (dragon): within. (5) The render lead: the yardstick silhouette −42 % /
+  −52 % against the twins and the display front −26 % / −26 % (bunny / dragon): ahead. (6) Cost: 6.51 s an attempt on the
+  bunny (the band 6.51–6.91) and 9.25 s on the dragon (below its 9.38–9.99); best merit 4.60e-5 / 4.41e-5 (the bands
+  4.08–4.60e-5 / 4.09–4.75e-5).
+  Reading: the correction does what it was chosen for (the mouth's blobs in empty space) and changes the early motion by
+  at most 0.05 pitches beyond the narrowest band cell; the render terms on the corrected field move the late trajectory
+  enough for one detached cluster of particles to float in the hind-leg gap for 2.4 s, which no field definition hides.
+  The default stays `zb`; `--exterior_field zbs` stays an A/B switch.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
