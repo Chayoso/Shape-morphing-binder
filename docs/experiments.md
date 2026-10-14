@@ -5790,6 +5790,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   with budding ears at the same silhouette progress: both halfway in geometry, the sharp one reads as formed; sent to
   the coordinator (a longer ramp the lever; the user's call). The cut by the rule at 15.25 / 14.85 s. Chain 16 (the
   300k on this definition) from 16:24.
+  **The droplet, traced, and its attributions pre-registered before their runs (16:30–17:15 CDT).** The user keeps
+  the definition (t_m 7.6 s, short-eared bunnies at the contact). The coordinator saw a small detached droplet near
+  a head from about 14 s in throwY40k_a. `apart.py` (each body's particles joined within two sample spacings, every
+  component but the main one per kept frame, followed back to where it sat on the body): in run a body 1 (landed at
+  8.9 s, bounced, in free flight about 10 wu above the floor, 65 spacings from the other body) sheds sets at
+  12.50–12.65 s that join into one 13-particle piece from the front of the head (height fraction 0.70–0.76 of the
+  bunny, z +2.2 to +2.7 in its frame: the face, not an ear tip), 4.1 spacings off at 12.55 s, 12.4 (1.4 wu) at
+  14.15 s, back to 7.9 at the cut (15.25 s) and rejoined at about 15.85 s: in view from 12.55 s to the cut; body 0
+  sheds single particles from the ear tops at 2.0–2.6 spacings (on the surface). Run b: up to 47 particles at
+  11.0–11.15 s from body 1's ears and head, but within 2.0–3.3 spacings; 2–3 particles past 3 spacings at 11.15 and
+  11.75–12.0 s. Not the contact, not the floor (in the air), not the render (particles); every piece 2–4 s after a
+  landing, while the shape recovers from the squash (the progress 0.04 at 9.75 s, back at up to 11x the steady rate)
+  and from the head and the ears the recovery re-extrudes: D146's and D148's class, which the re-frozen recipe
+  addresses on one body. The 300k s97 (the continuous target) finished at 17:08 (`scene300k_scene_throw_s97`, 96
+  windows, 44 min); its twin stopped at its start (the coordinator: the attributions first; a D135 twin and s99 would
+  be wasted if D146b cleans it). The attributions (chain 18 on `wip/d147-d146b` = wip/d147 merged with refreeze-prep
+  2b0cafc, `repo_d147q`): throwY40k_a's input with (1) `--u_off`, (2) the render-off twin, (3) D146b (`--relax_driven
+  --u_adam_carry`). The reading, written before the runs (`clean.py`): a run is clean when no piece apart from its
+  body lies beyond 3 spacings of it in any kept frame before its cut (cut.py's rule on that run); per run the far
+  frames, the largest far piece, its time range and distance. If (3) is clean, the showcase's 300k runs are redone
+  on the re-frozen recipe; if none of the three is, the numbers go to the coordinator before anything else runs.
+  Predictions: (3) clean or nearly (D146b removed the late wobble's pull-back on one body); (1) clean of this piece
+  but rougher (u carries the surface); (2) not clean (the render is not the mechanism). One run each: the 40k runs
+  repeat no droplet exactly (a has it, b has none past 3.3 spacings), so a clean single run is weak evidence.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
