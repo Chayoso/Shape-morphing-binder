@@ -213,7 +213,8 @@ class Scene:
     def __init__(self, a):
         dev = "cuda"
         self.a, self.dev = a, dev
-        x1, vol = load_normalized("assets/isosphere.obj", a.n, a.seed, sample="stratified", return_volume=True)
+        fill = {}                                       # the sample's own fill volume (one particle per voxel of it)
+        x1, vol = load_normalized("assets/isosphere.obj", a.n, a.seed, sample="stratified", return_volume=True, fill=fill)
         x2 = load_normalized("assets/isosphere.obj", a.n, a.seed + 50, sample="stratified")
         R = float(np.abs(x1).max())
         diag = float(np.linalg.norm(x1.max(0) - x1.min(0)))
@@ -238,7 +239,7 @@ class Scene:
         self.floor_y = float(x[:, 1].min()) - a.drop if a.floor else -1.0e9
         lam0, mu0 = lame(a.young, a.poisson)
         self.m_p = 40000.0 / a.n                          # each body is the canonical body (mass 40000 units)
-        self.vp = self.vol_body / a.n                     # the sample's volume per particle
+        self.vp = (fill["volume"] if a.vp_fill else self.vol_body) / a.n   # per particle: the sample's fill (M-b fix)
         A = lambda arr, dt: wp.array(arr, dtype=dt, device=dev)                 # noqa: E731
         I3 = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
         self.N = N
@@ -549,6 +550,7 @@ def main():
     ap.add_argument("--floor", action="store_true")
     ap.add_argument("--drop", type=float, default=0.0, help="the floor this far below the lowest particle (wu)")
     ap.add_argument("--floor_gate", type=int, default=0, help="1: the floor by the bodies' volume gate")
+    ap.add_argument("--vp_fill", type=int, default=1, help="0: the mesh volume / N as each particle's (M-b's first runs)")
     ap.add_argument("--young", type=float, default=1.4e5)
     ap.add_argument("--poisson", type=float, default=0.2)
     ap.add_argument("--smoothing", type=float, default=0.955)
