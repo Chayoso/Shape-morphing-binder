@@ -56,8 +56,8 @@ def test_every_kind_view_and_resolution_writes_its_frames(run, tmp_path):
     from scripts.render_gradient_viz import main
     viz, dense = run
     out = tmp_path / "out"
-    main(["render_gradient_viz.py", viz, dense, str(out), "+viz=A,B,C,D,U", "+views=35,90", "+res=180"])
-    for kd in ("A", "B", "C", "D", "U", "grid", "gridhalf"):
+    main(["render_gradient_viz.py", viz, dense, str(out), "+viz=A,B,B2,C,D,U", "+views=35,90", "+res=180"])
+    for kd in ("A", "B", "B2", "C", "D", "U", "grid", "gridhalf"):
         for az in (35, 90):
             d = out / f"{kd}_{az}_180"
             assert sorted(os.listdir(d)) == ["0000.jpg", "0001.jpg", "0002.jpg"], d
@@ -67,6 +67,9 @@ def test_every_kind_view_and_resolution_writes_its_frames(run, tmp_path):
     held = tmp_path / "held"
     main(["render_gradient_viz.py", viz, dense, str(held), "+viz=U", "+az=35", "+res=180", "+interp=0"])
     assert sorted(os.listdir(held / "frames")) == ["0000.jpg", "0001.jpg", "0002.jpg"]
+    alt = tmp_path / "alt"                                    # B2 in B's place in the 2 x 2
+    main(["render_gradient_viz.py", viz, dense, str(alt), "+viz=A,B2,C,D", "+az=90", "+res=180", "+c_avg=5"])
+    assert len(os.listdir(alt / "gridB2_90_180")) == 3 and not (alt / "grid_90_180").exists()
 
 
 def test_render_deliverable_hands_viz_on(run, tmp_path):
