@@ -48,6 +48,23 @@ def _grad_m(gm: wp.array(dtype=float), i: int, j: int, k: int, nx: int, ny: int,
 
 
 @wp.func
+def bspline_cdf(d: float) -> float:
+    """Phi(d): the part of the 1-D cubic B-spline (support [-2, 2], unit integral) below d."""
+    if d <= -2.0:
+        return 0.0
+    if d >= 2.0:
+        return 1.0
+    a = -wp.abs(d)
+    if a <= -1.0:
+        lo = (2.0 + a) * (2.0 + a) * (2.0 + a) * (2.0 + a) / 24.0
+    else:
+        lo = 1.0 / 24.0 + (-a * a * a * a / 8.0 - a * a * a / 3.0 + 2.0 * a / 3.0) + 1.0 / 8.0 + 1.0 / 3.0
+    if d > 0.0:
+        return 1.0 - lo
+    return lo
+
+
+@wp.func
 def _boundary(vg: wp.vec3, i: int, j: int, k: int, nx: int, ny: int, nz: int, wall_nodes: int,
               node_y: float, floor_y: float, friction: float):
     """k_grid_op's separating walls and floor, unchanged."""
@@ -85,7 +102,7 @@ def k_grid_op_contact(gm0: wp.array(dtype=float), gmom0: wp.array(dtype=wp.vec3)
                       gvel0: wp.array(dtype=wp.vec3), gvel1: wp.array(dtype=wp.vec3),
                       dt: float, f_ext: wp.vec3, gmin_y: float, dx: float, nx: int, ny: int, nz: int,
                       floor_y: float, friction: float, wall_nodes: int, mu_c: float, cell_vol: float, gate: int,
-                      flag: wp.array(dtype=int)):
+                      flag: wp.array(dtype=int), floor_gate: int):
     g = wp.tid()
     i = g // (ny * nz)
     j = (g // nz) % ny
@@ -122,12 +139,27 @@ def k_grid_op_contact(gm0: wp.array(dtype=float), gmom0: wp.array(dtype=wp.vec3)
                 v1 = v1 - (m0 / m1) * dv0
                 flag[g] = 1
     node_y = gmin_y + float(j) * dx
+    # the floor: k_grid_op's (every node below floor_y), or (floor_gate) the same gate as between the bodies, the floor a
+    # body of infinite mass whose node volume is the part of the node's kernel below it: in contact when the field's
+    # node volume and the floor's fill the cell, V_b >= dx^3 (1 - Phi((floor_y - y_i) / dx)) = dx^3 Phi((y_i - floor_y) / dx)
+    fy0 = floor_y
+    fy1 = floor_y
+    if floor_gate != 0:
+        fy0 = -1.0e9
+        fy1 = -1.0e9
+        h = (node_y - floor_y) / dx
+        if h < 2.0:                                       # the floor's kernel share is non-zero (as m1 > 0 between bodies)
+            need = cell_vol * bspline_cdf(h)
+            if gvol0[g] >= need:
+                fy0 = 1.0e9
+            if gvol1[g] >= need:
+                fy1 = 1.0e9
     if m0 > 1.0e-12:
-        gvel0[g] = _boundary(v0, i, j, k, nx, ny, nz, wall_nodes, node_y, floor_y, friction)
+        gvel0[g] = _boundary(v0, i, j, k, nx, ny, nz, wall_nodes, node_y, fy0, friction)
     else:
         gvel0[g] = wp.vec3(0.0, 0.0, 0.0)
     if m1 > 1.0e-12:
-        gvel1[g] = _boundary(v1, i, j, k, nx, ny, nz, wall_nodes, node_y, floor_y, friction)
+        gvel1[g] = _boundary(v1, i, j, k, nx, ny, nz, wall_nodes, node_y, fy1, friction)
     else:
         gvel1[g] = wp.vec3(0.0, 0.0, 0.0)
 
@@ -198,12 +230,12 @@ class Scene:
         lo = x.min(0) - (4.0 * R + 4 * dx)
         hi = x.max(0) + (4.0 * R + 4 * dx)
         if a.floor:
-            lo[1] = x[:, 1].min() - 3 * dx
+            lo[1] = x[:, 1].min() - a.drop - 3 * dx
         self.nxyz = tuple(int(np.ceil((hi[d] - lo[d]) / dx)) for d in range(3))
         self.gmin = wp.vec3(*lo.tolist())
         self.lo = lo
         self.ngrid = int(np.prod(self.nxyz))
-        self.floor_y = float(x[:, 1].min()) if a.floor else -1.0e9
+        self.floor_y = float(x[:, 1].min()) - a.drop if a.floor else -1.0e9
         lam0, mu0 = lame(a.young, a.poisson)
         self.m_p = 40000.0 / a.n                          # each body is the canonical body (mass 40000 units)
         self.vp = self.vol_body / a.n                     # the sample's volume per particle
@@ -275,7 +307,7 @@ class Scene:
                                                           K.WALL_NODES], device=dev)
         else:
             gate = 1 if a.mode == "multi" else 0
-            if gate:
+            if gate or a.floor_gate:
                 for b in range(2):
                     self.gvol[b].zero_()
                     wp.launch(k_p2g_volume, dim=a.n, inputs=[self._s(self.x, b), self._s(self.J, b), self.vp,
@@ -284,7 +316,8 @@ class Scene:
             wp.launch(k_grid_op_contact, dim=self.ngrid,
                       inputs=[self.gm[0], self.gmom[0], self.gm[1], self.gmom[1], self.gvol[0], self.gvol[1],
                               self.gvel[0], self.gvel[1], a.dt, fext, float(self.lo[1]), dx, nx, ny, nz,
-                              self.floor_y, a.mu, K.WALL_NODES, a.mu, dx ** 3, gate, self.flag], device=dev)
+                              self.floor_y, a.mu, K.WALL_NODES, a.mu, dx ** 3, gate, self.flag, int(a.floor_gate)],
+                      device=dev)
         for b, f in bodies:
             S = lambda arr: self._s(arr, b)                                        # noqa: E731
             wp.launch(K.k_g2p, dim=a.n, inputs=[S(self.x), S(self.v), S(self.C), S(self.F), S(dfc), S(self.Fnew),
@@ -294,8 +327,6 @@ class Scene:
                                                   self.nbr0, self.rest0, self.frag0, 0, 0.0, self.nbr0, 0, self.rest0],
                   device=dev)
         wp.launch(K.k_volume_carry, dim=self.N, inputs=[self.F, self.J, self.F], device=dev)
-        if a.floor:
-            wp.launch(K.k_floor_clamp, dim=self.N, inputs=[self.x, self.v, self.floor_y, a.mu], device=dev)
 
     def moments(self):
         """Per field (body): momentum, angular momentum about the origin, mass and kinetic energy on the grid
@@ -346,7 +377,8 @@ def run(a):
             r = {"step": s + 1, "t": (s + 1) * a.dt, "com0": com[0].tolist(), "com1": com[1].tolist(),
                  "v0": vcm[0].tolist(), "v1": vcm[1].tolist(), "P": P.tolist(), "L": L.tolist(), "KE": KE,
                  "P0": Pb[0].tolist(), "P1": Pb[1].tolist(), "contact_nodes": ncon, "gap": g, "gap_sp": gs,
-                 "near01": n01, "near10": n10, "Jmin": float(wp.to_torch(sc.J).min())}
+                 "near01": n01, "near10": n10, "Jmin": float(wp.to_torch(sc.J).min()),
+                 "low": [float(x[sl, 1].min()) - sc.floor_y for sl in sc.sl] if a.floor else None}
             rec.append(r)
             if ncon and first_contact is None:
                 first_contact = r
@@ -469,7 +501,7 @@ def adjoint_dL(sc, state, D_t, eps0, a):
             wp.launch(k_grid_op_contact, dim=ng,
                       inputs=[gms[t][0], gmoms[t][0], gms[t][1], gmoms[t][1], gvol[0], gvol[1], gvels[t][0],
                               gvels[t][1], a.dt, fext, float(sc.lo[1]), dx, nx, ny, nz, sc.floor_y, a.mu,
-                              K.WALL_NODES, a.mu, dx ** 3, 1, flag], device=dev)
+                              K.WALL_NODES, a.mu, dx ** 3, 1, flag, int(a.floor_gate)], device=dev)
             for b in range(2):
                 wp.launch(K.k_g2p, dim=n, inputs=[S(xs[t], b), S(vs[t + 1], b), S(Cs[t + 1], b), S(Fs[t], b),
                                                   S(dfc, b), S(Fr[t + 1], b), gvels[t][b], sc.gmin, dx, inv_dx, a.dt,
@@ -496,6 +528,8 @@ def main():
     ap.add_argument("--gap", type=float, default=0.5, help="surface gap at the start (wu)")
     ap.add_argument("--g", type=float, default=0.0, help="gravity (wu/s^2)")
     ap.add_argument("--floor", action="store_true")
+    ap.add_argument("--drop", type=float, default=0.0, help="the floor this far below the lowest particle (wu)")
+    ap.add_argument("--floor_gate", type=int, default=0, help="1: the floor by the bodies' volume gate")
     ap.add_argument("--young", type=float, default=1.4e5)
     ap.add_argument("--poisson", type=float, default=0.2)
     ap.add_argument("--smoothing", type=float, default=0.955)
