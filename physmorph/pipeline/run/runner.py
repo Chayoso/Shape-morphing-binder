@@ -287,7 +287,9 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
         with torch.no_grad():
             q = torch.quantile(J.double(), torch.tensor([.01, .5, .99], device=J.device, dtype=torch.float64))
             rec.update(Jx_min=float(J.min()), Jx_p01=float(q[0]), Jx_p50=float(q[1]), Jx_p99=float(q[2]),
-                       Jx_max=float(J.max()))
+                       Jx_max=float(J.max()),
+                       Jx_mean=float(J.double().mean()))   # D145: sum J V0 / (N V0), the body's physical volume over
+                                                           # its rest volume (the target's fill volume, match_density)
     return rec
 
 
