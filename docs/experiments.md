@@ -4792,6 +4792,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   in the scene. (4) Time always advances (g): no selection rejection or truncation in the scene. (5) How the floor
   is drawn in the studio look (a plane of the backdrop's grey with a contact shadow, or none and the bodies stop on
   an invisible floor). (6) The bunnies face each other at launch.
+  **D147 go (the coordinator, 02:05 CDT): the design as written; the 300k scene as two bodies of 150k; the scene's
+  numbers, drag 0 and time always advancing in the scene (recorded: the scene's physics must run its whole length;
+  the single-body stop rule is untouched); the floor drawn as a plane in the backdrop's grey with a soft contact
+  shadow, behind a scene option of the deliverable renderer, single-body renders byte-identical; the bunnies facing
+  each other at launch. V0 strict: the Buckens frame against the world frame within the run-to-run spread on the 40k
+  bunny and dragon, two seeds each. If the user adopts D146's switch later, the 300k scene is re-run once (in the
+  slack).**
+  **Implementation (2026-10-14 02:00–02:20 CDT on `wip/d147`, to settled-base after the suite).** As designed, with one
+  structural choice made in the writing: each body is the frozen single-body Trajectory on its own particles (not a
+  slice of one), so every neighbour list, the cell-ordered transfers, the hand adjoints and the layer's rigid modes are
+  per body by construction; `traj.Trajectory.step` runs three methods (before the grid, the grid operation, after
+  it), the only change in the frozen files besides code motion in `window/solve.py` (the window and objective classes
+  as class attributes), `window/rollout.py` and `window/telemetry.py` (a dispatch to the scene's when the window is
+  one) and `scripts/pipeline_run.py` (its prepare and config as functions the scene script calls, so that each body is
+  the frozen recipe's run). New: `mpm/contact.py` (k_grid_op_pair, k_grid_op_one: one body with the gated floor,
+  k_node_volume, bspline_cdf), `mpm/bodies.py` (Bodies, BodiesAdjoint, the bridge with the per-step positions),
+  `pipeline/scene/` (frame, window, objective, rollout, solve, runner, spec), `scripts/scene_run.py`,
+  `scripts/render_scene.py` (reached by `render_deliverable.py +scene=1`), `tests/test_scene_frame.py`,
+  `tests/test_scene_bodies.py`. The scene spec also carries the body count (one body for V0 and V1), the frame
+  ("body", or "fixed" at launch: V0's world arm) and the drag (V0 keeps the frozen 0.9).
+  *40k runs, pre-registered 02:20 CDT before any of them (`scripts/probes/d147/specs/`, `output/gpu/d147/runs/`,
+  batch `output/scratch/d147_batch40k.sh`).* V0: one body at rest without forces at the frozen drag, bunny (50
+  windows) and dragon (75), seeds 97 and 99, the objective in the frame fixed at launch against the Buckens frame, the
+  scene's runner for both (every window committed, no stop rule). Pass: on each mesh the two arms' difference in
+  silhouette IoU, chamfer and thin uncovered (each against its own target, in its frame) within the larger seed spread
+  of the two arms (|s97 − s99|), and the Buckens frame's turn at the end below 3°. Context, not a criterion: both arms
+  against the frozen 40k runs at the same seeds. Prediction: pass; the frame turns at most 2° (M-a: 1.5° at 300k).
+  V1: one bunny thrown (0.67 wu/s, apex at 1 s) onto the gated floor at G 0.05 and 0.1 (F1's failing case), 50
+  windows. Pass: reached (silhouette IoU in its frame not more than 0.01 below V0's Buckens arm at seed 97), at rest on
+  the floor at the end (lowest particle within one spacing of the floor, rigid speed below 0.01 wu/s), the centre of
+  mass on its parabola to 1e-3 wu until the first floor contact. Prediction: reached at both; at 0.1 the sag shows in
+  the transport and costs windows. The 40k scene (two bodies of 40k, seed 97, render arm and twin, 48 windows): E1–E6
+  as in the design; predictions: the first gated contact at about 1.0 s within two spacings, a bounce with restitution
+  0.3–0.8, no stuck particles, both bodies spinning from the friction, landing at about 2.5 s; each body within 0.01
+  of the gallery bunny's silhouette IoU by 8 s; the render arm ahead of its twin on the silhouette in the bodies' frames.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
