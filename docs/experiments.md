@@ -4919,6 +4919,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   server access stopped); the pipeline's two-body adjoint (each body's own arrays and hand adjoints, BodiesAdjoint) is
   tested by tests/test_scene_bodies.py, not run yet. At 02:28 CDT hyde06 started rejecting the local key (hyde01
   still accepts it): the readings of P8, P9 and the scene tests wait for the access.
+  *P7 read from the code (02:40 CDT, no run).* The probe advanced its two spheres until they were two cells apart and
+  taped 40 steps from there; closing at 1.3 wu/s they move 0.22 wu in that window and never reach the gate, so body
+  1's velocity does not depend on body 0's control within it: the tape's zero is the true derivative, and the
+  differences' 1.6e-5 is the replay noise of the atomics (about 1e-7 of the velocity) over 2h = 0.002. Not a defect
+  of Warp's adjoints on array slices (a CPU check on hyde06 had shown a slice's gradient landing in its parent's).
+  The probe now tapes from the first gated contact with h = 0.01, and the pipeline's adjoint test puts its two bodies
+  in contact from the window's first steps (`tests/test_scene_bodies.py`). Both run when the access returns (one
+  command, `scripts/probes/d147/resume.sh`: the floor drops' readings, the scene tests, the full suite, P1 with the
+  sample's fill volume and P7 from the contact, the 40k batch, the readings; each GPU stage through the lock
+  directory and only after the previous one passed).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
