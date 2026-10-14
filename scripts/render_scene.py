@@ -105,6 +105,7 @@ def main():
                                                              math.sin(math.radians(EL)),
                                                              math.cos(math.radians(EL)) * math.cos(math.radians(AZ))))
     extent_xz = float((hi - lo)[[0, 2]].max())
+    raw = (lambda k: int(z["raws"][k])) if "raws" in z.files else (lambda k: k)   # noqa: E731  (the simulated step)
     keep = list(range(0, len(frames), STRIDE))
     if "frames" in opts:
         f0, f1 = (int(v) for v in opts["frames"].split("-"))
@@ -124,9 +125,9 @@ def main():
         cov = (rot * torch.stack((sig ** 2, sig ** 2, (sig / 4) ** 2), 1)[:, None]) @ rot.transpose(1, 2)
         with torch.no_grad():
             img = cam(q, n, cov, torch.full((len(q),), .92, device=dev), normal_kernel=normal_filter_size(2160, False))
-        Image.fromarray((img.clamp(0, 1) * 255).round().byte().cpu().numpy()).save(out / "frames" / f"{k:04d}.jpg",
+        Image.fromarray((img.clamp(0, 1) * 255).round().byte().cpu().numpy()).save(out / "frames" / f"{raw(k):04d}.jpg",
                                                                                      quality=93)
-        log.write(json.dumps({"frame": k, "discs": [len(p) for p, _ in discs]}) + "\n")
+        log.write(json.dumps({"frame": raw(k), "discs": [len(p) for p, _ in discs]}) + "\n")
         log.flush()
     print("wrote", out, len(keep), "frames", flush=True)
 
