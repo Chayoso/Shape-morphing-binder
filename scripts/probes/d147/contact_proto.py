@@ -440,11 +440,12 @@ def gradcheck(a):
     """A taped window through the contact: a constant control dFc = eps * D on body 0 (D a fixed random symmetric
     field), L = body 1's centre-of-mass x velocity at the end. dL/d eps by the tape against central differences."""
     sc = Scene(a)
-    # advance to just before the contact (no tape)
+    # advance to the first gated contact (no tape). The first version stopped two cells short of it: closing at 1.3
+    # wu/s the bodies did not touch within the taped 40 steps, so the tape's zero was the true derivative and the
+    # differences' 1.6e-5 the atomics' replay noise over 2h
     while True:
         sc.step()
-        x, _ = sc.particles()
-        if cross_gap(x, sc.sl, sc.vp ** (1 / 3))[0] < 2.0 * sc.dx:
+        if int(wp.to_torch(sc.flag).sum()) > 0:
             break
     state = {k: wp.clone(getattr(sc, k)) for k in ("x", "v", "C", "F", "J")}
     rng = np.random.default_rng(1)
