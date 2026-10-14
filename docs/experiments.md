@@ -5024,6 +5024,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - the particles move by a median 0.12 spacings (the outer layer 0.16, its 99th percentile 0.77).
   The extra 10 s mostly shows the reduced wobble over a shape that improves the measures by 6–8 %. Cost: 29.7–30.6 min
   a dragon run against the frozen code's 18–22 min.
+  **ABL, u_adam_carry alone, bunny (15:10–15:29 CDT).**
+  - Late wobble: (a) ×0.61, (b) 1.34, (c) ×0.52 (the released half's pull-back stays without relax_driven), (d) −0.13,
+    (8) +0.26.
+  - 0–1.5 s within everywhere: window-8 p90 14.08 (D146a's BL 14.12, CBL 14.17, CBL2 14.24), so the bunny's early shift
+    comes with the two switches together.
+  - End 0.9871 / 0.0551 / 4.88 %, at rest 6.5e-6, roughness 3.93°.
+  - The two switches are complementary on the bunny as on the dragon (ADL).
+  **ADOPTED (the user, 2026-10-14, relayed by the coordinator after the plain side-by-side videos:
+  "D146 + Gaussian 떠 있는 거 없애기 + 최적화 하면 끝나겠다").**
+  - The final algorithm: D135 + D146b (`--relax_driven --u_adam_carry`) + D148's fix of the floating pieces (its gate
+    in progress), then the runtime optimisation, then a re-freeze that flips the defaults together.
+  - Accepted costs: the bunny's window-8 p90 at 0–1.5 s about +0.1 pitch (repeats); the driven / other ratio
+    1.55–1.58 against the 1.25 limit; the dragon runs to about 29 s and 30 minutes (the frozen code 17.5 s, 18–22 min).
+  - Integration: branch `refreeze-prep` (d2f779d) = settled-base 5f6b371 + D146b, both switches still off. A
+    frozen-recipe test asserts that the D146b-on configuration is the frozen recipe with exactly the two switches on.
+    The suite runs on hyde06 (`repo_refreeze_prep`). No default flipped, no tag.
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
