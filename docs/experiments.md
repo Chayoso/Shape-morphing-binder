@@ -5657,6 +5657,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   coordinator. Predictions: progress 0.45–0.6 (the body follows its target within a window, the silhouette a little
   ahead of s on the near-sphere side); the contact softer on the half-formed shapes, parting at e ≈ 0.85; landing at
   about 9.2 / 11.2 s; the end shape error as o100's (0.03–0.04); the renders with the camera that follows the pair.
+  **The redesign's 40k (14:44–15:10 CDT; `runs/throw40k_a`, `_b`, `progress_throw40k.txt`, `read_throw40k.txt`;
+  the scene tests with the schedule's three 21 passed).** By the rule both pass: the progress at the first contact
+  (4.05 s, s = 0.55 there) 0.41 / 0.41 (a) and 0.42 / 0.41 (b), in the band (predicted 0.45–0.6: the silhouette
+  trails s, 0.39 at 4.0 s, 0.57 at 5.0 s, 0.81 at 7.5 s, 0.96 at 8.0 s); the contact 3.83–6.17 s, parted in the air at
+  6.33 s; landing 8.85 / 11.05 s (a), 8.9 / 11.0 s (b), the morph done at 7.6 s; end shape error 0.029 (a), 0.039 (b);
+  the tumble 30.4 / 40.5° and 30.1 / 39.3° (both over the bar). 11.5 min a run at 40k (96 windows, a target built per
+  window). The video (`output/results_2026-10-14/d147_throw/throw40k_a.mp4`, the camera following the pair): the
+  spheres 5.6 wu apart at the launch, half-formed at the contact (the ears budding), the bunnies formed by 8 s. Not
+  in the rule and seen: the drop from the apex is now about 11 wu, the landing at about 4 wu/s (v / c 0.3), the floor
+  squashes each body (the silhouette progress back to 0.1–0.2 for half a second) and it bounces about 7 wu high
+  (the floor's restitution about 0.8: elastic, drag 0, no assimilation); at 16 s both are in the air again and
+  touch (a second contact, 15.2–16 s). The geometry forces it: the launch at or above the floor and the contact at
+  the apex make the drop at least g t_c² / 2 (6.8 wu), and a weaker gravity only lengthens each bounce (its air time
+  2e times the fall's). Sent to the coordinator with the video (keep the bounce, or a frozen-algorithm question for
+  the landing); chain 10 armed on `scene_throw` for 19:00 (`repo_d147n`).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
