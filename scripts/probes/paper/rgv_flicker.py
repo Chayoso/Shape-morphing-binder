@@ -1,4 +1,4 @@
-"""rgv_flicker.py OUT_JSON VIZ_NPZ OLD_SCALES_NPZ [IMG name=DIR ...] -- the RGV videos' flicker, measured (CPU).
+"""rgv_flicker.py OUT_JSON VIZ_NPZ OLD_SCALES_NPZ|none [IMG name=DIR ...] -- the RGV videos' flicker, measured (CPU).
 
 (A) On the particles: each kept frame's colour position on its bar (t in [0, 1]) per outer-layer particle, for the
 first design (values held through each window, V1/V2 divided by each window's own 99th percentile, V3 absolute) and the
@@ -31,7 +31,9 @@ DU, GATE = np.asarray(z["du"], np.float64), np.asarray(z["ugate"])
 DN = np.linalg.norm(np.asarray(z["ddfc"], np.float64), axis=2)
 D0 = np.asarray(z["dfc0n"], np.float64)
 COS = np.asarray(z["cosrp"], np.float64)
-old = json.loads(str(np.load(old_p)["scales"]))
+COS5 = np.stack([COS[max(0, w - 2):w + 3].mean(0) for w in range(len(COS))])   # the renderer's +c_avg=5
+OLD = old_p != "none"                                       # "none": the second design only
+old = json.loads(str(np.load(old_p)["scales"])) if OLD else {}
 new = json.loads(str(z["scales"]))
 gp99 = np.array([np.percentile(P[w][lay[w]], 99) for w in range(W)])
 d099 = np.array([np.percentile(D0[w][lay[w]], 99) for w in range(W)])
@@ -53,6 +55,8 @@ def lin(A, k):
 
 
 def t_old(k):
+    if not OLD:
+        return {}
     w = win_of[k]
     lo1 = old["v1w_hi"] * 1e-3
     lo2 = old["v2w_hi"] * 1e-2
@@ -69,7 +73,9 @@ def t_new(k):
     tc = .5 + .5 * np.clip(lin(COS, k), -1, 1)
     t2 = np.clip(lin(DN, k) / np.maximum(lin(D0, k), 1e-30), 0, 1)
     t3 = np.clip(.5 + .5 * lin(DU, k) / new["v3_max"], 0, 1)
-    return {"A_share": r / np.maximum(r + p, 1e-30), "B_strength": tb, "C_cosine": tc, "D_change": t2, "V3": t3}
+    tc5 = .5 + .5 * np.clip(lin(COS5, k), -1, 1)
+    return {"A_share": r / np.maximum(r + p, 1e-30), "B_strength": tb, "C_cosine": tc, "C_cosine_avg5": tc5,
+            "D_change": t2, "V3": t3}
 
 
 res = {"pairs": len(raws) - 1, "boundary_pairs": int(np.sum(win_of[1:] != win_of[:-1])), "old": {}, "new": {}}
@@ -86,7 +92,7 @@ for k in range(1, len(raws)):
             mm = ma if kind == "V3" else m
             v = float(np.mean(np.abs(cur[kind][mm] - prev[kind][mm]))) if mm.any() else np.nan
             acc[des].setdefault(kind, {"boundary": [], "inside": []})["boundary" if bnd else "inside"].append(v)
-    if bnd:
+    if bnd and OLD:
         w, wp = win_of[k], win_of[k - 1]
         split["field"].append(float(np.mean(np.abs(np.log10(np.maximum(R[w][m], 1e-30)) -
                                                    np.log10(np.maximum(R[wp][m], 1e-30))))) / 3)
@@ -95,8 +101,9 @@ for k in range(1, len(raws)):
 for des in acc:
     for kind, d in acc[des].items():
         res[des][kind] = {k2: float(np.nanmean(v)) if v else None for k2, v in d.items()}
-res["old_V1_render_boundary_split"] = {"field_mean_abs": float(np.mean(split["field"])),
-                                       "reference_mean_abs": float(np.mean(split["ref"]))}
+if OLD:
+    res["old_V1_render_boundary_split"] = {"field_mean_abs": float(np.mean(split["field"])),
+                                           "reference_mean_abs": float(np.mean(split["ref"]))}
 cors = []
 for w in range(W - 1):
     m = ACT[w] & ACT[w + 1]

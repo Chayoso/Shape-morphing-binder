@@ -10,6 +10,8 @@ backdrop and disc footprint), and the u channel. Also reached as render_delivera
   B  "How strong is the render's pull?"  |lambda g_render| on ONE log scale for the whole run (4 decades below the
      run's 99.5th percentile on the outer layer, light lavender = weak, deep violet = strong), and an inset of the
      total render and physics pulls over the morph with a cursor at the current time;
+  B2 the same pull against its typical value now: divided by the outer layer's median of it (a running median over
+     5 windows, interpolated in time), 1/10 to 10 times, with the same inset (B and B2 are alternatives);
   C  "Where do the render and the physics disagree?"  the cosine at each particle between lambda g_render (before
      PCGrad) and g_phys, as 9-vectors (their means over the steps): blue = the same way, light neutral = unrelated,
      red = against each other; the plain body (hatched) where the render's share is under 5 %; +c_avg=K: the
@@ -25,7 +27,8 @@ backdrop and disc footprint), and the u channel. Also reached as render_delivera
   U  g Delta u = g (u(render on) - u(lambda = 0)) in pitches, blue inward, red outward, one linear scale for the run;
      the plain body (hatched) where u does not act (outside the outer layer or its gate closed).
 g = dL/d dF_c of the window's first gradient summed over its 20 driven steps (the render's after PCGrad and times
-lambda where named so). +grid=1 (with A-D) also writes the four panels as one 2 x 2 frame (2W x 2H, each panel at its
+lambda where named so). +grid=1 (with A-D) also writes the four panels as one 2 x 2 frame (B2 in B's place when B is
+not asked; 2W x 2H, each panel at its
 own resolution) and its half-size copy.
 
 VIZ_NPZ: scripts/probes/paper/rgv_values.py (the measurement copy repo_rgv's records per committed window). Time:
@@ -56,7 +59,7 @@ from physmorph.render.support import normal_filter_size        # noqa: E402
 
 dev = torch.device("cuda")
 GREY = (.64, .69, .72)                                          # StudioRaster's albedo: the plain body
-KINDS = ("A", "B", "C", "D", "U")
+KINDS = ("A", "B", "B2", "C", "D", "U")
 
 
 def srgb_to_linear(h):
@@ -240,7 +243,9 @@ def main(argv=None):
     ARROW = float(opts.get("arrow_px", 46.0))                                # px at 1080 lines
     C_AVG = int(opts.get("c_avg", 1))                                       # C: running mean over this many windows
     INTERP = opts.get("interp", "1") == "1"
-    GRID = opts.get("grid", "1") == "1" and all(k in kinds for k in "ABCD")
+    GB = "B" if "B" in kinds else "B2"                                     # the grid's B slot: B, else B2
+    GRID = opts.get("grid", "1") == "1" and all(k in kinds for k in ("A", GB, "C", "D"))
+    GNAME = "grid" if GB == "B" else "gridB2"
     MESH = opts.get("mesh", Path(args[1]).name.split("300k")[0].split("_")[0])
     z = np.load(args[1], allow_pickle=False)
     out = Path(args[3])
@@ -262,6 +267,9 @@ def main(argv=None):
     A = {"rend": z["g_rend"], "phys": z["g_phys"], "ddfc": z["ddfc"], "du": z["du"], "layer": z["layer"],
          "ugate": z["ugate"], "dfc0": z["dfc0n"], "cos": z["cosrp"]}  # read once (an npz member is re-read per access)
     du_max, b_lo, b_hi = sc["v3_max"], sc["b_lo"], sc["b_hi"]
+    # B2's reference: the outer layer's median |lambda g_render| per window, its running median over 5 windows
+    medr = np.array([np.median(np.asarray(A["rend"][w])[np.asarray(A["layer"][w])]) for w in range(n_win)])
+    MED5 = np.array([np.median(medr[max(0, w - 2):w + 3]) for w in range(n_win)])
     t_end = raws[-1] / 240.0
     print(f"{MESH}: pitch {a:.4f}, dense {a_c:.4f}; {len(raws)} kept frames, {n_win} windows; kinds {kinds} views {views} "
           f"res {ress}; interp {INTERP}; grid {GRID}; scales {sc}", flush=True)
@@ -300,8 +308,10 @@ def main(argv=None):
             w0 = w1 = int(win_of[k])
             al = 0.0
         V0, V1 = window(w0), window(w1)
-        return ({ch: (1 - al) * V0[ch] + al * V1[ch] for ch in ("rend", "phys", "ddfc", "du", "act", "dfc0", "cos",
-                                                                 "ref_dfc0")}, (w0 if al < .5 else w1))
+        out = {ch: (1 - al) * V0[ch] + al * V1[ch] for ch in ("rend", "phys", "ddfc", "du", "act", "dfc0", "cos",
+                                                               "ref_dfc0")}
+        out["ref_b2"] = (1 - al) * MED5[w0] + al * MED5[w1]
+        return out, (w0 if al < .5 else w1)
 
     def surface(x):
         """render_deliverable.Surface's base discs and normals (the deliverable's +fit=0 display)."""
@@ -328,7 +338,7 @@ def main(argv=None):
             proj[(az, r)] = (world_to_view_torch(campos, center), campos, math.tan(math.radians(15)), W, H)
     single = len(kinds) * len(views) * len(ress) == 1
     dirs = {}
-    for kd in kinds + (["grid", "gridhalf"] if GRID else []):
+    for kd in kinds + ([GNAME, GNAME + "half"] if GRID else []):
         for az in views:
             for r in ress:
                 d = out / "frames" if single else out / f"{kd}_{int(az)}_{r}"
@@ -450,6 +460,7 @@ def main(argv=None):
         alb, hatch = {}, {}
         alb["A"] = RAMP_A(share)
         alb["B"] = RAMP_B((torch.log10(r_d.clamp_min(1e-30)) - math.log10(b_lo)) / (math.log10(b_hi) - math.log10(b_lo)))
+        alb["B2"] = RAMP_B(.5 + .5 * torch.log10((r_d / V["ref_b2"]).clamp_min(1e-30)))   # 1/10x .. 10x the typical
         hatch["C"] = (share < .05).float()
         alb["C"] = torch.where(hatch["C"][:, None] > 0, grey, RAMP_C(.5 + .5 * at_discs(V["cos"]).clamp(-1, 1)))
         dn_d, d0_d = at_discs(V["ddfc"].norm(dim=1)), at_discs(V["dfc0"])
@@ -518,6 +529,16 @@ def main(argv=None):
                                  f"{b_lo:.1g}, medium = {math.sqrt(b_lo * b_hi):.1g}, strong = {b_hi:.1g} (objective "
                                  f"units); λ is reset every window so that the render's total is half the physics' total "
                                  f"over all controls, and both fade as the body arrives"] + small
+                    elif kd == "B2":
+                        title = "How strong is the render's pull here, against its typical pull now?"
+                        colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_B,
+                                   [(0, "1/10×\nweaker than usual now"), (.5, "1×\ntypical"),
+                                    (1, "10×\nstronger than usual now")],
+                                   "the render's pull on this particle's control,\nagainst the typical pull at this moment", f_s)
+                        inset(dr, int(40 * sz), int(Hd - 330 * sz), int(470 * sz), int(110 * sz), raws[k] / 240.0, sz)
+                        small = [f"|λ ∂L_render/∂dFᴄ| summed over the window's 20 driven steps, divided by the typical "
+                                 f"pull now: the outer layer's median, a running median over 5 windows (0.83 s), "
+                                 f"interpolated in time ({float(V['ref_b2']):.2g}); the absolute fade is in the inset"] + small
                     elif kd == "C":
                         title = "Where do the render and the physics disagree?"
                         colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_C,
@@ -579,12 +600,12 @@ def main(argv=None):
                 if GRID:
                     Wd, Hd = panels["A"].size
                     g = Image.new("RGB", (2 * Wd, 2 * Hd))
-                    for kd, (ox, oy) in zip("ABCD", ((0, 0), (Wd, 0), (0, Hd), (Wd, Hd))):
+                    for kd, (ox, oy) in zip(("A", GB, "C", "D"), ((0, 0), (Wd, 0), (0, Hd), (Wd, Hd))):
                         g.paste(panels[kd], (ox, oy))
                     ImageDraw.Draw(g).line([(Wd, 0), (Wd, 2 * Hd)], fill=(40, 45, 52), width=max(2, int(3 * sz)))
                     ImageDraw.Draw(g).line([(0, Hd), (2 * Wd, Hd)], fill=(40, 45, 52), width=max(2, int(3 * sz)))
-                    g.save(dirs[("grid", az, r)] / f"{k:04d}.jpg", quality=93)
-                    g.resize((Wd, Hd), Image.LANCZOS).save(dirs[("gridhalf", az, r)] / f"{k:04d}.jpg", quality=93)
+                    g.save(dirs[(GNAME, az, r)] / f"{k:04d}.jpg", quality=93)
+                    g.resize((Wd, Hd), Image.LANCZOS).save(dirs[(GNAME + "half", az, r)] / f"{k:04d}.jpg", quality=93)
         if i % 20 == 0 or k == keep[-1]:
             print(json.dumps(dict(frame=k, raw=int(raws[k]), window=wn + 1, discs=len(p),
                                   arrow_sites=int(len(sites[0])) if "D" in kinds else 0)), flush=True)
