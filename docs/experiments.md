@@ -4596,6 +4596,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   old code); B2's should arms (already queued); B5's seeds 2 and 3 and the correspondence-free ICLR 2025
   re-implementation on the six pairs (the B5 agent). Reading as registered: the five-seed bands for bunny and dragon
   replace the three-seed ones in T1; the cell arm is read against B1's L on the same meshes.
+  **Amendment 4: B11, a mesh-based baseline (should-have; recorded 2026-10-14 10:30 CDT, before any of its runs; the
+  coordinator's decision on a user question).** As-rigid-as-possible interpolation from the sphere, on the targets of
+  genus 0 only, a standard citable pipeline and nothing new. *Meshes.* bunny (its five base holes capped by trimesh's
+  standard fan fill; our sampler fills the same volume through its voxel fill), armadilo and homer, each in the
+  pipeline's target frame (B5's export); after capping each is checked to be one closed manifold component with Euler
+  characteristic 2 (genus 0), and said so. Dragon, teapot and bob are reported N/A with their genus read the same way:
+  a target of genus ≥ 1 cannot be reached from a sphere by an interpolation of fixed connectivity, while our method
+  opens those gaps and holes physically (a sentence for the paper's claim). *Correspondence.* The target is mapped to
+  the sphere by conformalized mean curvature flow (Kazhdan, Solomon & Ben-Chen 2012) with libigl's cotangent Laplacian
+  and mass matrix (libigl's Python bindings, MPL 2.0), run to convergence and projected onto the unit sphere; flipped
+  triangles are counted and reported. *Compatible connectivity.* One mesh, two embeddings: the target's triangles with
+  the vertices at their spherical positions on the source sphere (the centre and radius of the pipeline's seed-97 source
+  sample) as the start, the target mesh as the end. *Interpolation.* As-rigid-as-possible shape interpolation (Alexa,
+  Cohen-Or & Levin 2000) in its surface form: per-triangle affine maps completed by the unit normal (Sumner & Popović
+  2004), polar decomposition A = R S, A(t) = slerp(I, R; t)((1 − t) I + t S), the vertices solved in least squares from
+  the per-triangle Jacobians (the gradient-domain solve of Xu et al. 2005, Poisson shape interpolation), the centroid
+  moved linearly; 21 frames, t = 0, 0.05, …, 1. Licences recorded (libigl MPL 2.0, trimesh MIT). *Protocol (as B5 /
+  B6).* Each frame's watertightness, self-intersecting face pairs where libigl's bundled check is available (else
+  stated), enclosed volume against the target's; each frame sampled at 300k by the pipeline's stratified sampler in
+  the pipeline's frame (seed 97) into the archive format; the harness at p = 0.25 / 0.5 / 0.75 and the end (apart
+  particles, occupied volume, the display), and the end against the independent sample (silhouette IoU, chamfer,
+  yardstick, display). Volume, momentum and rest are measured, not assumed. CPU-side; queued after the must items.
+  Prediction: the end reaches the target mesh (it is its end frame), silhouette IoU near the sampling floor; the
+  intermediate frames stay one closed surface with the volume varying by several percent and self-intersections where
+  thin parts (ears, fingers) swing; dragon, teapot and bob not reachable.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
