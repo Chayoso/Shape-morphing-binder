@@ -477,10 +477,10 @@ def adjoint_dL(sc, state, D_t, eps0, a):
     gms = [G(float) for _ in range(T)]
     gmoms = [G(wp.vec3) for _ in range(T)]
     gvels = [G(wp.vec3) for _ in range(T)]
-    gvol = [wp.zeros(ng, dtype=float, device=dev) for _ in range(2)]
+    # per step: the generated adjoint of the contact kernel replays its forward body, gate included, at backward time
+    gvols = [[wp.zeros(ng, dtype=float, device=dev) for _ in range(2)] for _ in range(T)]
     dfc_t = (eps0 * D_t).contiguous().requires_grad_(False)
     dfc = wp.from_torch(dfc_t.clone(), dtype=wp.mat33, requires_grad=True)
-    Dw = wp.from_torch(D_t.contiguous(), dtype=wp.mat33)
     fext = wp.vec3(0.0, -a.g, 0.0)
     flag = wp.zeros(ng, dtype=int, device=dev)
     loss = wp.zeros(1, dtype=float, device=dev, requires_grad=True)
@@ -495,7 +495,7 @@ def adjoint_dL(sc, state, D_t, eps0, a):
                                                   S(Ps[t], b), S(sc.m, b), S(sc.vol, b), sc.nbr0, S(sc.frag0, b), 0,
                                                   gms[t][b], gmoms[t][b], sc.gmin, dx, inv_dx, a.dt, 0.0, nx, ny, nz],
                           device=dev)
-                gvol[b].zero_()
+                gvol = gvols[t]
                 wp.launch(k_p2g_volume, dim=n, inputs=[S(xs[t], b), S(Js[t], b), sc.vp, gvol[b], sc.gmin, inv_dx,
                                                        nx, ny, nz, dx], device=dev, record_tape=False)
             wp.launch(k_grid_op_contact, dim=ng,
