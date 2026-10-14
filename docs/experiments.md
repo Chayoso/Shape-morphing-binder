@@ -4686,7 +4686,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   d2f779d + one line in `run/runner.py`), proven bit for bit (40k bunny, four windows, deterministic mode;
   `tmp/d145/detproof_jm.sh`) before it goes onto refreeze-prep, so the post-refreeze B1 runs carry it for all six meshes.
   The proof read SAME (the kept frames, 37 metrics, 552 shared history fields; Jx_mean 1.003–1.009 over the four windows)
-  and 2b0cafc was pushed onto refreeze-prep (on d2f779d, ~16:55 CDT).
+  and 2b0cafc was pushed onto refreeze-prep (on d2f779d, ~16:40 CDT by the server clock). The bunny's physical
+  volume (bunny300k_JV97, read 16:28): Σ J V0 over the target's fill volume 1.000 at the start, 0.9976–1.0128 over 131
+  samples (every T frames), 1.0067 at the end (per-particle J at the end p01–p99 0.951–1.157): within −0.24 % … +1.28 %.
   **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
   `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
   every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /
