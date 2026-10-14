@@ -5814,6 +5814,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Predictions: (3) clean or nearly (D146b removed the late wobble's pull-back on one body); (1) clean of this piece
   but rougher (u carries the surface); (2) not clean (the render is not the mechanism). One run each: the 40k runs
   repeat no droplet exactly (a has it, b has none past 3.3 spacings), so a clean single run is weak evidence.
+  **The 300k s97 on the continuous target (16:24–17:08 CDT; 96 windows in 44 min, 2 × 150k; `judge_300k_s97.txt`,
+  `clean_300k_s97.txt`, `cut_300k_s97.txt`, `apart_scene300k_scene_throw_s97.txt`).** PASS by the rule: the
+  progress at the first contact (3.9 s) 0.446; parted in the air at 6.25 s; landed 8.9 / 11.0 s; end error 0.021
+  (the 40k runs 0.027–0.028); the largest early rise 2.72 / 2.90x steady (3.75 / 4.35 s, the contact); the tumble 26.3
+  / 46.6° (body 0 under the bar, as at 40k). The pieces (8–16 s, spacing 0.0725 wu): at most 3 particles apart in
+  any frame, all single particles (body 1 at 11.55–12.65 s, body 0 at 12.9–13.95 and 15.6–15.7 s) within 2.0–2.8
+  spacings but one particle at 3.18 in the one kept frame at 12.5 s: not clean by the letter (one far frame, one
+  particle); nothing like the 40k droplet (13 particles to 12 spacings). The cut by the rule: no second contact within
+  a spacing by 16 s (the gap 3.3–6 spacings in the last second, the grid's contact impulses from 15.33 s, its cell
+  wider than the 300k spacing): the whole run.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
