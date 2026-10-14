@@ -4685,6 +4685,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `Jx_mean` (the mean of the carried J at each window's end, record-only) on branch `d145-jmean` (2b0cafc = refreeze-prep
   d2f779d + one line in `run/runner.py`), proven bit for bit (40k bunny, four windows, deterministic mode;
   `tmp/d145/detproof_jm.sh`) before it goes onto refreeze-prep, so the post-refreeze B1 runs carry it for all six meshes.
+  The proof read SAME (the kept frames, 37 metrics, 552 shared history fields; Jx_mean 1.003–1.009 over the four windows)
+  and 2b0cafc was pushed onto refreeze-prep (on d2f779d, ~16:55 CDT).
   **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
   `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
   every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /
