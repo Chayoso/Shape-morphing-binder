@@ -4220,6 +4220,146 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `+field=zbs`, 4K, 20 fps, studio look: bunny and dragon front and side (head right), the D115 detail layer's front
   with and without on the corrected surface, and as disclosure the dragon's mouth at 9–17.5 s, Zhu–Bridson against
   corrected. `output/results_2026-10-09/frozen_b` is marked superseded in the results README (its files kept).
+- **D145, the evidence plan for the paper (pre-registered 2026-10-14 00:56 CDT server clock, before any of its runs;
+  the coordinator's brief for SIGGRAPH 2027 and the user's deadline: every evidence run done by 2026-11-07, figures
+  and videos by 11-15, writing to 11-30; AWAITING THE USER'S GO, nothing launched).** No new switch, weight or
+  schedule: every arm below is an existing flag of `scripts/pipeline_run.py`. Evidence, not adoption: there is no gate;
+  each block states its prediction and how it is read, and every result is reported, failures included.
+  *Code.* The evidence code is the tag `deliverable-2026-10-13` (592e97a: the 09b defaults plus the exact runtime
+  batches 4–7), unless D146 (the late per-window wobble, another agent, GPUs 2–3) changes a definition; then the
+  re-freeze's tag. Blocks marked [indep] do not run our default code and start first; blocks marked [D146] start at
+  D146's decision, at the latest on 2026-10-21 on the deliverable tag. If a re-freeze lands after that, the slot
+  11-02 – 11-06 re-runs the must-have [D146] blocks (≈ 37 GPU-h).
+  *Seeds.* 97, 99, 101 for every arm whose band is read (three runs; D143 showed two-run bands too narrow). Not 98:
+  a run's target sample is drawn with seed + 1, and the evaluation's independent samples (`d90/*_ind300k.npz`,
+  `d92/ind_*.npz`) are drawn with seed 99, so a seed-98 run is read against a sample drawn with its own target's seed.
+  Seeds 99 and 101 draw their target and the render's eight pictures with seeds 100 / 102 and 200–800 / 202–802.
+  *Meshes.* 300k: bunny and dragon (every block) and teapot, bob, armadilo, homer (D137's four, independent 300k samples
+  in `d90`); 40k: the 19-mesh gallery (D136's list, independent samples in `d92`).
+  *Measures (each run, at the last kept frame; for bunny and dragon in the main block also over every kept frame).*
+  Against the independent sample: the yardstick (`render_terms_probe`, exterior silhouette and shading), the display
+  (`surface_layer_probe` 1 − IoU front, crop, back), silhouette IoU over 24 views and chamfer (`gallery_ind` at 40k).
+  Reported against the run's own sample: silhouette IoU, chamfer, thin uncovered. At rest: the last kinetic record.
+  Momentum (`mom.sh`): centre-of-mass drift, |L| at the window starts (largest, mean). Floating material: apart
+  particles in windows 3–6 and 3–12 (`d120_apart.py`), the stream's det Fg, and visible pieces by `d140_image.py` on
+  the 4K renders (checked by eye). Render influence: g_share and λ per window from the record, render arm against
+  its twin against the three-seed spread. Runtime: wall, attempts, seconds an attempt, the largest GPU memory.
+  Intermediate frames (for the baselines): at matched progress p = 1 − S(x_t, target) / S(source, target) = 0.25, 0.5,
+  0.75 (S the run's debiased Sinkhorn divergence), apart particles at 1.5 pitches, the display's apart sets and holes,
+  the enclosed volume against the target's.
+  *Reading.* An arm differs from the default on a measure when its three runs and the default's three do not overlap;
+  a one-run arm (the 40k ablations) differs where it lies outside the default's three-run range. The gallery: per mesh
+  V − W on the independent silhouette IoU at each seed, the meshes where all three seeds agree, a paired Wilcoxon over
+  the 19 meshes' three-seed means; the gains also as a share of the gap to the sampling floor (own sample against
+  independent sample). A crashed run is re-run once at the same seed; no run is repeated for an unfavourable result.
+  **Claims and their evidence.**
+
+  | claim | table / figure | measures | meshes, N | comparison |
+  |---|---|---|---|---|
+  | C1 rendering controls the physics: the render terms on the exterior steer the MPM body through dFc and improve the morph beyond the seed spread without putting momentum in | T1 (300k twins), T2 (40k gallery), F-reach, F-lead | yardstick, display, sil IoU / chamfer (ind.), momentum, at rest, g_share | 6 meshes at 300k × 3 seeds; 19 at 40k × 3 seeds | render arm L vs its λ = 0 twin P, same code and seed |
+  | C2 the volume-conserving body (J carried, densities matched, volumetric assimilation): exact mass and volume, no dilated stream, no floating flakes, the end is the body's rest | T3 (volume rows), F-flakes (dragon side 0.8–2 s) | apart particles w3–6, det Fg, visible pieces, at rest, release probe, yardstick / display | bunny, dragon 300k × 3 seeds; 19 at 40k × 1 seed | default vs the three switches off (each, and all three) |
+  | C3 sub-cell surface control: u and the relief-referenced relaxation carry thin parts and relief below the cell; what u moves is held by the released physics | T4 (surface rows), F-ablation stills | thin uncovered, relief bands 2.7 / 5.4 / 10.8 pitches, roughness, hold ratio (`d116_pulse.py`), yardstick / display, momentum | bunny, dragon 300k × 3 seeds; 19 at 40k × 1 seed | default vs `--u_off`, `--no-layer_relief`, `--min_spacing 0` |
+  | C4 against our prior work and an external method: better end shape and intermediate frames, exact mass, comparable time | T5 (methods), F-methods (t = 0.25 / 0.5 / 0.75 / 1), V-methods | end: sil IoU, chamfer, yardstick, display (ind.); intermediate: apart, holes, volume ratio; at rest; wall time on the same card | 6 meshes at 300k | ours vs Xu et al. TVCG 2025 (D118's faithful protocol) vs the external baseline (below) vs OT displacement |
+  | C5 the discretisation's trade-off and cost, stated: the shape's cell rises as one body but cannot open gaps under two cells; the runtime | T6 (cell, runtime), F-cell | shell against bulk at windows 1–9, gaps' opening time, visible beads, yardstick; wall per run | bunny, dragon 300k × 3 seeds (+ 4 meshes × 1 seed) | shape cell (diag/26, 183 ppc) vs `--cell_follows_n` (≈ diag/51, 23 ppc) |
+
+  **Blocks, with the prediction of each (from D105, D120, D124, D132–D139, D144).**
+  - B1 [D146, must] main twins, 300k: 6 meshes × {L, P = `--render_weight_scale 0`} × 3 seeds = 36 runs; bunny and
+    dragon (12 runs) read on every kept frame (`runeval3.sh`), the others at the end. Prediction: bunny and dragon L
+    ahead of P on the yardstick silhouette by 35–55 % and the display front by 15–30 % (D135 stage 2, D144: −37…−52 %,
+    −24…−26 %), shading 15–35 %; silhouette IoU within ±0.001; the four other meshes ahead by ≥ 10 % on the yardstick
+    silhouette on at least three (bob the likeliest exception); the bunny's end kinetic energy may sit above its twin's
+    (D105, D120: reported); g_share 0.33 at calibration on every window.
+  - B2 [D146, must for the first five arms] ablations, 300k, bunny and dragon, the render arm, 3 seeds each:
+    `--u_off`; `--no-layer_relief`; the volume body off (`--volume_exact off --no-match_density --no-assim_volume`,
+    D120's body); `--no-render_exterior`; `--cell_follows_n` (also C5). Should-have: `--volume_exact off`,
+    `--no-match_density`, `--no-assim_volume` each alone; `--lambda_ema 0.3`; `--min_spacing 0`. The twin is B1's P.
+    Predictions: u off: thin 2–3.5×, yardstick 1.3–1.8×, display 1.3–1.5×, silhouette IoU −0.001 to −0.003, relief at
+    5.4 pitches higher (0.60 against 0.55), hold 98–99 % without u against about 70 % with it (D124). No layer relief:
+    relief at 5.4 pitches 0.20–0.25 against 0.55 (D98 against D105), display 0–15 % worse. The volume body off: apart
+    particles in windows 3–6 about 4–5× the default's on the bunny and several hundred × on the dragon (D120 4590 / 9234
+    against D135 939 / 12), flakes on the dragon's side view at 0.8–2 s, the end within 15 % on the yardstick and the
+    display. Each volume switch alone: `--volume_exact off` brings the stream back (det Fg about 2 or more);
+    `--no-match_density` and `--no-assim_volume` leave the end held by the control (the bunny's end kinetic energy 10×
+    the default's or more, D131–D132). No exterior: the render reads the particle cloud; the yardstick's exterior
+    silhouette near the twin's (D62: read on the cloud, the render left the exterior's silhouette where the twin has
+    it), the display lead at most half the default's. Cell from N: gaps open 2–3 s earlier on the dragon, the bunny's
+    face printed at 0.15–0.6 s (shell median at window 1 1.96–2.38 against 1.41–1.50), bob's yardstick +40–50 %.
+    `--lambda_ema 0.3`: render share 0.46–0.70 in windows 3–11, the end within spread (D120). Minimum spacing off:
+    roughness 2–4× (D70: 11–22° against 3–7° at 300k).
+  - B3 [D146, must] the 40k gallery, 19 meshes × {V, W} × 3 seeds = 114 runs (D136's chain: `run12.sh`,
+    `d120_apart.py`, `gallery_ind.py`). [indep] variant: the same on the deliverable tag runs first as provisional and
+    is used only if D146 changes nothing. Prediction: V ahead of W on the independent silhouette IoU at the three-seed
+    mean on ≥ 17 of 19 meshes; beast behind (D136: −0.00071, the recorded deviation). Should-have: `--u_off`,
+    `--no-layer_relief`, the volume body off and `--no-render_exterior` on the gallery, one seed each (76 runs).
+  - B4 [indep, must] Xu et al. TVCG 2025 (our prior F-control work) as D118 reproduced it (branch
+    `xu-paper-protocol` b502b5a, `--baseline xu --xu_form tvcg --xu_protocol paper --xu_timesteps` per mesh as D118,
+    α = 1e-2, the best by its own loss; that branch's code, so D146 does not touch it), 6 meshes × 3 seeds; the four
+    meshes the paper did not run take its longest published length (950 steps), the user's call. Prediction: silhouette IoU 0.96–0.97 against our 0.987–0.988, chamfer 0.059–0.065
+    against 0.055, not at rest (end kinetic energy about 0.4), particles hazing the surface.
+  - B5 [indep, must] the external baseline: Buonomo, Digne and Chaine, Volume Preserving Neural Shape Morphing (SGP
+    2025; github.com/camillebnm/neural_shape_morphing, MIT, GRSI replicability stamp; landmark-free; volume
+    preserving), sphere → each of the 6 meshes, one SDF a shape, 2000 epochs as published, frames reconstructed at 256³
+    at 21 times. Should-have: seeds 2–3, and the landmark-free re-implementation of Sang et al.'s ICLR 2025 velocity
+    field that ships in the same repository (the released ICLR 2025 code and 4Deform need correspondences, and
+    4Deform has no licence; neither is run). Same representation: each frame's mesh sampled by the pipeline's own
+    stratified volume sampler at 300k in the target's frame, read by the same probes against the same independent
+    sample, drawn by the same display; the native meshes' watertightness, genus, components and volume also reported.
+    Prediction: a smooth watertight surface and volume within about 1 %; the thin parts (ears, horns, fingers)
+    rounder than ours; the end silhouette near ours (within 0.01); per-pair time tens of minutes to hours at 100k+
+    points (the paper: 12 min at 73k, 2 h 35 at 200k on an RTX 4070).
+  - B6 [indep, should] OT displacement interpolation on the same 300k samples (debiased Sinkhorn, blur one target
+    spacing, x(t) = (1 − t) x + t T(x); seconds a mesh): what transport alone gives. Prediction: its end is the target
+    sample (the floor), its intermediate frames tear thin parts into clouds (apart particles at p = 0.5 ≥ 10× ours).
+  - B7 [D146] mechanism and disclosure measurements on a read-only measurement copy (the hooks of D121, the release
+    probe of D131/D135 and D140's window-1–9 dump; not committed to the pipeline): the render gradient's reach and the
+    λ = 0 counterfactual of one window (bunny 300k, should-have); ten zero-control windows from the end of bunny and
+    dragon L / P (the end is the body's own rest, should-have); the shell against the bulk for B2's cell arm (must, with
+    the cell arm). One sequence drawn as raw particles beside the disc display (videos are the simulation,
+    should-have).
+  - Cut if late: a third cell point (`--cell_diag 36` changes the loss grid and the u gate with the cell; a clean
+    MPM-cell-only point has no switch); the 40k / 100k / 300k runtime curve; B5 seeds 2–3.
+  - Not proposed (each needs a new switch): PCGrad off, the released-end scoring off, the layer relaxation off.
+  **Ranking by protection against rejection.** Must: B1 bunny and dragon; B5; B1 four meshes; B2's five arms; B4; B3
+  V / W; B2 cell arm with its shell readings; the visible-piece renders; the runtime table (from B1's logs). Should:
+  B6; B2's five other arms; B7 reach, release probe, raw-particle render; B3's ablations; the INSD variant; B5 seeds
+  2–3; the cell arm on the four other meshes. Cut if late: the items above.
+  **Budget (GPU-hours on one RTX 6000 Ada a run; one run a card).** Per run: bunny 300k 10–13 min (arm 9–10, twin 12,
+  end evaluation 1–2), dragon 300k 22–24, the other four 8–16 (D137's walls × 0.35–0.4), 40k 1.5–6.6 (3.5 mean), an
+  every-frame evaluation 30 (bunny) / 50 (dragon), Xu 5–16, Buonomo et al. 20–60 a pair (uncertain). Must: [indep]
+  B4 3.2 + B5 6 + harness 1 = 10; [D146] B1 17.3 (incl. 8 for every-frame readings) + B2 five arms 12 + B3 6.7 + renders
+  for the detector 1 = 37; final renders 5. Should: B5 seeds and INSD 12, B6 0.5, B2 five arms 12, B3 ablations 4.4, B7
+  2.5, cell on four meshes 1 = 32. Cut-if-late 3. Re-freeze reserve 37. Total ≈ 90 GPU-h without the reserve, ≈ 125
+  with it: about 45 / 63 hours of wall on GPUs 0–1 alone, half that on four cards.
+  **Schedule (GPUs 0–1; 2–3 are D146's until it ends).** 10-14 the plan, the user's go. 10-15 – 10-18 [indep]: GPU 0
+  B5 (env, SDFs, six pairs; then the INSD variant and seeds 2–3), GPU 1 B4 (18 runs), B6, the harness's dry run on
+  D135's kept runs (SB, FB), B3's provisional gallery; the server cleanup. D146's decision expected 10-19 – 10-21, at
+  the latest 10-21. 10-21 – 10-26 [D146] B1 bunny / dragon → B2 must arms → B1 four meshes → B3 → visible-piece renders
+  → B2 should arms → B3 ablations → B7 (every-frame readings between runs). 10-27 – 11-01 readings, tables into this
+  entry, crash re-runs. 11-02 – 11-06 the re-freeze slot (or the cut-if-late items). 11-07 evidence lock (a tag).
+  11-08 – 11-15 figures and videos: `scripts/render_deliverable.py +field=zbs +fit=0`, studio look, 4K 20 fps: the
+  teaser (6 meshes, mid-morph and end), bunny / dragon front and side, the four meshes front, the methods side by side
+  (bunny, dragon; every method through the same display), ablation stills (u, relief, volume body, exterior, cell), the
+  dragon's side at 0.8–2 s (volume body off against on), the render lead over time (three-seed bands), the reach
+  figure, the 19-mesh gallery; disclosures in the supplement: the corrected field (zb | zbs, the mouth), D115's detail
+  layer with and without (display-only, metrics on the base discs, no layer on any baseline), raw particles against the
+  display.
+  **Limitations stated with their evidence.** The narrow-gap beads of the single-velocity grid on the shape's cell (the
+  dragon's crevice 3.2–4.4 s; B2's cell arm opens it early at the cost of printing; D137, D139, D140, D144). Bob's rim
+  and beast's small twin lead (B1's bob, B3's beast). 183 particles a cell at 300k (B2's cell arm against the default,
+  as evidence, not tuning). The corrected field for the display only (D144's numbers: 0.4–5.2 % of discs move, median
+  1e-4 pitches). The relief limited by the 300k sample (D104, D123); D115's layer display-only.
+  **Reviewer attacks and the answering evidence.** u a hand edit: B2's u arm, the hold ratio, the gate (within one cell
+  of the remaining transport), u rigid-free (D94), the angular momentum. Videos are not the simulation: every frame a
+  committed simulated state (the eval rollout is the commit rollout), raw particles beside the display, metrics on
+  Zhu–Bridson discs, the zbs and D115 disclosures. Small 40k gains: error-type relative changes at 300k (B1), the
+  gallery's three-seed bands and the share of the sampling floor's gap. Speed: B1's wall against B5's on the same card.
+  The display layer: supplement only, with / without. 183 ppc: B2's cell arm.
+  **Disk.** Server output 36 GB; a 300k run writes a full archive before it is cut to every 12th frame (dragon about 18
+  GB, removed after the cut; kept frames 0.8–1.3 GB a run). Before [D146]: the logs archived and superseded kept
+  frames removed to ≤ 25 GB (d105, d118, d120, rt, d121_proof, d116, d112; the `d111` dense samples, `d90` / `d92`
+  references and `frozen_b` kept); then never two dragon archives at once on GPUs 0–1, kept frames removed after their
+  readings except seed 97's L / P of the six meshes and B2's u and volume arms (renders), ≤ 45 GB throughout.
+  Local: only deliverables and decision evidence in `output/results_<date>/`, a Korean line each in `output/README.md`.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
