@@ -98,18 +98,23 @@ def _view(b, margin, dist, aspect):
     return torch.tensor(0.5 * (lo + hi), dtype=torch.float32, device=dev), float(r)
 
 
+def _basis(az, el):
+    """The still camera's direction from its target and its forward, right and up axes (StudioRaster's placement)."""
+    a, e = math.radians(az), math.radians(el)
+    out = np.array([math.cos(e) * math.sin(a), math.sin(e), math.cos(e) * math.cos(a)])
+    fwd = -out
+    right = np.cross(fwd, [0.0, 1.0, 0.0])
+    right /= np.linalg.norm(right)
+    return out, fwd, right, np.cross(right, fwd)
+
+
 def _still(b, margin, dist, aspect, az, el):
     """A still camera aimed at the centre of the box b (lo, hi), its distance (StudioRaster: 3.6 r from the centre,
     a 30 degree vertical field) grown until every corner of the box projects inside the frame with the margin: the
     composition centred on the box and the whole box in view, perspective included."""
     lo, hi = b[:3], b[3:]
     c = 0.5 * (lo + hi)
-    a, e = math.radians(az), math.radians(el)
-    out = np.array([math.cos(e) * math.sin(a), math.sin(e), math.cos(e) * math.cos(a)])
-    fwd = -out
-    right = np.cross(fwd, [0.0, 1.0, 0.0])
-    right /= np.linalg.norm(right)
-    up = np.cross(right, fwd)
+    out, fwd, right, up = _basis(az, el)
     ty = math.tan(math.radians(15.0))
     tx = ty * aspect
     corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
@@ -124,11 +129,19 @@ def _still(b, margin, dist, aspect, az, el):
     return torch.tensor(c, dtype=torch.float32, device=dev), float(r)
 
 
+def width_fraction(x, center, r, aspect, az, el):
+    """The share of the frame's width the particles x cover through the camera (centre, r): a record of the framing."""
+    out, fwd, right, _ = _basis(az, el)
+    q = np.asarray(x, np.float64) - (np.asarray(center, np.float64) + 3.6 * r * out)
+    u = (q @ right) / (q @ fwd)
+    return float((u.max() - u.min()) / (2.0 * math.tan(math.radians(15.0)) * aspect))
+
+
 def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect, mode="static", az=0.0, el=12.0):
     """Each kept frame's (centre, radius) for StudioRaster, whose visible half-height at the centre is about the radius
     (distance 3.6 r, 30 degree field). static (the deliverable's main shot): one camera for the whole run, framing
     both bodies over every frame and the floor they land on, a modest margin, the horizon fixed. contact: one camera
-    framing the bodies over the rendered frames only (+frames: a still close-up of that span, the same fit). follow:
+    framing the bodies alone (no floor) over the rendered frames (+frames: a still close-up of that span). follow:
     the box around both bodies at each kept frame (down to the floor once the gap below them is under the box's
     height), its corners smoothed over the kept frames by a Gaussian in simulated steps (a camera that zooms with the
     pair)."""
@@ -137,7 +150,7 @@ def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect, mode="static"
         v = _still(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.08, dist, aspect, az, el)
         return [v] * len(keep)
     if mode == "contact":
-        b = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, False) for k in keep])
+        b = np.stack([_box(np.asarray(frames[k], np.float32), -1e9, False) for k in keep])     # the bodies only
         v = _still(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.12, dist, aspect, az, el)
         return [v] * len(keep)
     box = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, False) for k in keep])
@@ -194,7 +207,8 @@ def main():
             img = cam(q, n, cov, torch.full((len(q),), .92, device=dev), normal_kernel=normal_filter_size(HGT, False))
         Image.fromarray((img.clamp(0, 1) * 255).round().byte().cpu().numpy()).save(out / "frames" / f"{raw(k):04d}.jpg",
                                                                                      quality=93)
-        log.write(json.dumps({"frame": raw(k), "discs": [len(p) for p, _ in discs]}) + "\n")
+        wf = width_fraction(x.cpu().numpy(), center.cpu().numpy(), radius, WID / HGT, AZ, EL)
+        log.write(json.dumps({"frame": raw(k), "discs": [len(p) for p, _ in discs], "width_frac": round(wf, 4)}) + "\n")
         log.flush()
     print("wrote", out, len(keep), "frames", flush=True)
 
