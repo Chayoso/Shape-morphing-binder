@@ -94,15 +94,38 @@ class Bodies:
         return wp.from_torch(torch.cat([wp.to_torch(tr.layer_ug) for tr in self.trajs]).contiguous())
 
 
-def body_trajectory(spec: RolloutSpec, dfc, layer_u=None, requires_grad=False, persistent=True) -> Trajectory:
-    """One body's Trajectory from its spec (the frozen single-body construction of window/setup and function.py)."""
+class FloorTrajectory(Trajectory):
+    """A body's Trajectory over a floor: the step's last position update writes a buffer (xq), which
+    contact.k_floor_position projects into x[t + 1], every centre at least floor_c high (D147, V1d)."""
+
+    def __init__(self, *args, floor_c: float, **kw):
+        super().__init__(*args, **kw)
+        self.floor_c = float(floor_c)
+        self.xq = [wp.zeros(self.N, dtype=wp.vec3, device=self.device, requires_grad=self.requires_grad)
+                   for _ in range(self.T + 1)]
+
+    def _x_out(self, t: int):
+        return self.xq[t + 1]
+
+    def _after_positions(self, t: int):
+        wp.launch(CT.k_floor_position, dim=self.N, inputs=[self.xq[t + 1], self.floor_c, self.x[t + 1]],
+                  device=self.device)
+
+
+def body_trajectory(spec: RolloutSpec, dfc, layer_u=None, requires_grad=False, persistent=True,
+                    vp: float | None = None) -> Trajectory:
+    """One body's Trajectory from its spec (the frozen single-body construction of window/setup and function.py); over a
+    floor (spec.prm.floor_y) with the sample's volume per particle vp, a FloorTrajectory whose centres stay half a
+    pitch above the floor."""
     bonds = ((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None)
-    return Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, spec.T, Fp=spec.Fp, v0=spec.v0, F0=spec.F0,
-                      C0=spec.C0, dFc=dfc, device=spec.device, requires_grad=requires_grad, vol0=spec.vol0,
-                      Fg0=spec.Fg0, track_geom=spec.track_geom, bonds=bonds, persistent=persistent, layer=spec.layer,
-                      layer_u=layer_u, bond_history=spec.bond_history, control_steps=spec.control_steps,
-                      polar_adjoint=spec.polar_adjoint, spacing=spec.spacing, volume_exact=spec.volume_exact,
-                      J0=spec.J0)
+    kw = dict(Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dfc, device=spec.device, requires_grad=requires_grad,
+              vol0=spec.vol0, Fg0=spec.Fg0, track_geom=spec.track_geom, bonds=bonds, persistent=persistent,
+              layer=spec.layer, layer_u=layer_u, bond_history=spec.bond_history, control_steps=spec.control_steps,
+              polar_adjoint=spec.polar_adjoint, spacing=spec.spacing, volume_exact=spec.volume_exact, J0=spec.J0)
+    args = (spec.x0, spec.m, spec.lam, spec.mu, spec.prm, spec.T)
+    if vp is not None and spec.prm.floor_y > -1.0e8:
+        return FloorTrajectory(*args, floor_c=spec.prm.floor_y + 0.5 * float(vp) ** (1.0 / 3.0), **kw)
+    return Trajectory(*args, **kw)
 
 
 _WARMED: set = set()
@@ -127,7 +150,7 @@ class BodiesAdjoint:
         for (s, e), spec in zip(self.rows, specs):
             dcw = [wp.from_torch(self.dc[t, s:e], dtype=wp.mat33, requires_grad=True) for t in range(T)]
             uw = wp.from_torch(self.u[s:e], dtype=wp.float32, requires_grad=True) if spec.layer is not None else None
-            trajs.append(body_trajectory(spec, dcw, uw, requires_grad=True, persistent=True))
+            trajs.append(body_trajectory(spec, dcw, uw, requires_grad=True, persistent=True, vp=vps[len(trajs)]))
             self.dc_wp.append(dcw)
             self.u_wp.append(uw)
         self.bodies = Bodies(trajs, vps, mu)

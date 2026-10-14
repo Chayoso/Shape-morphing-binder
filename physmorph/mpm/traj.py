@@ -283,15 +283,19 @@ class Trajectory:
                   device=self.device)
         return self.bond_nbr, self.bond_rest, frag, self.bond_K
 
+    def _x_out(self, t: int):            # where the step's last position update writes (bodies.FloorTrajectory: a buffer
+        return self.x[t + 1]             # it projects onto the floor's half-space, _after_positions)
+
+    def _after_positions(self, t: int):
+        pass
+
     def _hand_tape(self):
         """The tape the step is recorded on when the transfers take the hand-written adjoints (D138), else None."""
         return wp._src.context.runtime.tape if HAND_ADJOINTS and self.requires_grad else None
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""
-        if t >= self.control_steps:
-            return self.release_dFc
-        return self.dFc if self.dFc_seq is None else self.dFc_seq[t]
+        return self.release_dFc if t >= self.control_steps else (self.dFc if self.dFc_seq is None else self.dFc_seq[t])
 
     def step(self, t: int):
         """One step in three parts, so that bodies stepped together (mpm/bodies.py, D147) share the grid operation."""
@@ -351,7 +355,7 @@ class Trajectory:
                 ADJ.record_g2p(tape, self, t, dfc, N)
         if self.carries:
             wp.launch(K.k_volume_update_motion, dim=N, inputs=[self.C[t + 1], self.J[t], self.J[t + 1], prm.dt], device=dev)
-        x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
+        x_next = self.xu[t + 1] if self.layer else self._x_out(t)
         F_next = self.Fs[t + 1] if self.carries else self.F[t + 1]
         snbr = self.space_nbr if self.space_K > 0 else self.nbr0
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
@@ -373,9 +377,10 @@ class Trajectory:
                       self.ls[t + 1], self.lb[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,
-                      self.x[t + 1]], device=dev, record_tape=tape is None)
+                      self._x_out(t)], device=dev, record_tape=tape is None)
             if tape is not None:
                 ADJ.record_layer_project(tape, self, t, layer_u, N)
+        self._after_positions(t)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],
                       prm.dt], device=dev)

@@ -125,7 +125,7 @@ class SceneWindow:
                 r = body.rows
                 seq = [wp.from_torch(self.dc_buf[t, r], dtype=wp.mat33) for t in range(T)]
                 uw = wp.from_torch(self.u_buf[r], dtype=wp.float32)
-                trajs.append(body_trajectory(spec, seq, uw, requires_grad=False, persistent=True))
+                trajs.append(body_trajectory(spec, seq, uw, requires_grad=False, persistent=True, vp=body.vp))
             self.tr = Bodies(trajs, [bd.vp for bd in bodies], self.mu)
             self.tr.capture()
         self._adj = None

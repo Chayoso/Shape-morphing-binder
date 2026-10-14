@@ -157,6 +157,17 @@ def k_grid_op_one(gm0: wp.array(dtype=float), gmom0: wp.array(dtype=wp.vec3), gv
         gvel0[g] = wp.vec3(0.0, 0.0, 0.0)
 
 
+@wp.kernel
+def k_floor_position(x_in: wp.array(dtype=wp.vec3), floor_c: float, x_out: wp.array(dtype=wp.vec3)):
+    """The floor constrains positions as well (D147, V1d): the updates below the grid (u, the minimum spacing, the
+    relaxation) move positions past the grid's floor, which constrains only node velocities; every particle centre is
+    kept half a sample pitch above the floor's plane (floor_c), where the sample's own surface touches it. Positions only,
+    as the updates it follows; differentiated by the branch taken."""
+    p = wp.tid()
+    xp = x_in[p]
+    x_out[p] = wp.vec3(xp[0], wp.max(xp[1], floor_c), xp[2])
+
+
 @wp.kernel(enable_backward=False)
 def k_node_volume(x: wp.array(dtype=wp.vec3), J: wp.array(dtype=float), vp: float, gvol: wp.array(dtype=float),
                   gmin: wp.vec3, dx: float, inv_dx: float, nx: int, ny: int, nz: int):

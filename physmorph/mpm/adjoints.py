@@ -398,7 +398,7 @@ def record_update(tape, tr, t: int, x_next, F_next, bnb, brest, bnc, bK: int, sn
 def record_layer_project(tape, tr, t: int, layer_u, N: int):
     """Record kernels.k_layer_project's adjoint for step t of Trajectory `tr` on `tape`."""
     dev = tr.device
-    xu, s, b, xo = tr.xu[t + 1], tr.ls[t + 1], tr.lb[t + 1], tr.x[t + 1]
+    xu, s, b, xo = tr.xu[t + 1], tr.ls[t + 1], tr.lb[t + 1], tr._x_out(t)
     if getattr(tr, "_proj_bins", None) is None:
         tr._proj_bins = wp.zeros(2 * _NBINS, dtype=wp.vec3, device=dev)
     bins = tr._proj_bins

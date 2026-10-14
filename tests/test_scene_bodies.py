@@ -253,3 +253,66 @@ def test_one_body_in_a_fixed_frame_is_the_frozen_objective():
     for k in ("lv", "lr", "lstab"):
         a, b = float(getattr(e1, k)), float(getattr(e2, k))
         assert abs(a - b) <= 1e-4 * max(abs(a), 1e-12), (k, a, b)
+
+
+def _floor_body(T, u_val=0.0, floor_gap=0.05):
+    """One ball whose lowest particle stands floor_gap above the centres' floor (the floor's plane half a pitch lower),
+    with its outer layer and a uniform u (outward along the layer's normals: down on the bottom)."""
+    from physmorph.pipeline.window.layer import layer_relax_data, layer_spacing
+    x = _ball((0.0, 0.0, 0.0))
+    vp = 0.125
+    floor_c = float(x[:, 1].min()) - floor_gap
+    prm = _prm(floor_y=floor_c - 0.5 * vp ** (1.0 / 3.0), f_ext=(0.0, -1.0, 0.0))
+    xt = torch.tensor(x, device="cuda")
+    sp = layer_spacing(xt)
+    mask, nrm, nbr, w = layer_relax_data(xt, sp)
+    spec = _specs([x], [np.zeros_like(x)], prm, T)[0]
+    spec.layer = (mask, nrm, nbr, w, 1.0 / T, None, None)
+    spec.control_steps = T
+    u = torch.full((len(x),), u_val, device="cuda")
+    return spec, prm, floor_c, u, vp
+
+
+def test_floor_keeps_positions_above_its_plane():
+    """u pushes the bottom layer down (outward); the grid's floor alone stops velocities, not positions: with the
+    floor's position constraint every centre ends at or above floor_c, some exactly on it, and the velocities are the
+    ones the grid gave (the projection moves positions only)."""
+    T = 6
+    spec, prm, floor_c, u, vp = _floor_body(T, u_val=0.5)
+    seq = [wp.zeros(len(u), dtype=wp.mat33, device="cuda") for _ in range(T)]
+    uw = wp.from_torch(u.contiguous(), dtype=wp.float32)
+    tr = body_trajectory(spec, seq, uw, requires_grad=False, persistent=False, vp=vp)
+    free = body_trajectory(spec, seq, uw, requires_grad=False, persistent=False)        # no position constraint
+    for traj in (tr, free):
+        Bodies([traj], [vp], 0.5).rollout()
+    x, xf = wp.to_torch(tr.x[T]), wp.to_torch(free.x[T])
+    assert float(xf[:, 1].min()) < floor_c - 0.05                    # without it u pushes the bottom through
+    assert float(x[:, 1].min()) >= floor_c - 1e-6
+    assert int((x[:, 1] - floor_c).abs().lt(1e-6).sum()) > 0
+    v1, vf1 = wp.to_torch(tr.v[1]), wp.to_torch(free.v[1])            # the first step: the same grid, same velocities
+    assert torch.equal(v1, vf1)
+
+
+def test_floor_adjoint_matches_finite_differences():
+    """BodiesAdjoint over the floor (the projection on the tape, its branch taken): dL/d eps against differences."""
+    T = 8
+    spec, prm, floor_c, u, vp = _floor_body(T, u_val=0.0, floor_gap=0.01)
+    spec.layer = None
+    adj = BodiesAdjoint([spec], [vp], 0.5)
+    N = int(spec.x0.shape[0])
+    D = torch.randn(T, N, 3, 3, generator=torch.Generator().manual_seed(7)).cuda() * 0.01
+    W = torch.randn(N, 3, generator=torch.Generator().manual_seed(8)).cuda()
+
+    def loss(eps, grad=False):
+        dfc = (eps * D).requires_grad_(grad)
+        xT, FT, vT, V, X = adj.apply(dfc, None)
+        L = (xT * W).sum() + 0.1 * (V[-2] * W).sum()
+        if grad:
+            (g,) = torch.autograd.grad(L, dfc)
+            return float(L.detach()), float((g * D).sum())
+        return float(L)
+
+    _, an = loss(0.0, grad=True)
+    h = 0.1
+    fd = (loss(h) - loss(-h)) / (2 * h)
+    assert abs(an - fd) <= 0.05 * abs(fd) + 1e-6, (an, fd)
