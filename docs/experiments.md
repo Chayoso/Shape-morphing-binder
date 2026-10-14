@@ -4551,6 +4551,247 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   path in windows 1–6 and 2–5 % in 7–9 (FA); (3)–(5) hold, the risk being the relief (the relaxation still acts every
   window, as D119 did not, but at 0.36 instead of 0.13 of a rough residual left a window); the runs may end earlier or
   later. If it passes, the default is not changed: the result goes to the coordinator for the user's decision.
+- **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
+  tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
+  separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
+  구가 bunny가 되어가며 충돌 해도 나중에 final은 bunny가 되어서 나뒹굴거나 해야 할 거 같은데"; the coordinator decides
+  the routine choices and gives the go; the single-body path does not change, bit for bit; branch `wip/d147` holds the
+  throwaway contact prototype, `scripts/probes/d147/contact_proto.py`, `output/gpu/d147/`).**
+  *What the frozen pipeline lacks for it.* (1) Two bodies that touch and part: on one grid every node inside both
+  kernels carries one velocity, so two bodies within two cells of each other move as one there and stick (Hu et al.
+  2018: "the kernel support across the boundary naturally causes velocity field smoothing"; the prototype's
+  single-field arm, P3). (2) An objective under which gravity, contact and spin may move a body: F1 stopped at G 0.1
+  and under a sideways acceleration because the target, the cameras and the settling terms are fixed in the world
+  and the selection merit rose as the centre of mass moved. (3) Time that always advances: the selection rejects a
+  window whose merit rises by 5 % and restarts it from its start, and three rejections end the run; a collision or a
+  landing raises the merit whatever the control does. (4) Two sources, two targets and a transport per body.
+  *Measured before the design (M-a, read-only, `output/scratch/d147_buckens_drift.py` on D146's archive
+  `d146/dragon300k_FT_frames12.npz`).* The material frame of an ordinary morph, R = polar(Σ (x − c)(X − X̄)ᵀ) with X
+  the source sample: on the 300k dragon it turns 0.05° by 0.6 s, 0.84° by 1.8 s, 1.38° by 3.6 s and stays at
+  1.50–1.53° to the end (14.3 s); the centre of mass moves 0.0000 wu; the frame's stretch S has eigenvalues 0.55,
+  1.47, 2.03 at the end (well conditioned, far from the polar decomposition's degenerate case). The transport's flow
+  is nearly irrotational (Brenier: the optimal map is a gradient, its Jacobian symmetric), so the material frame of
+  a morph without spin stays within 1.5° of the world's: on the gallery a body-frame objective is a near no-op
+  (checked by V0 below).
+  *The contact prototype (M-b, pre-registered 02:00 CDT before any of its runs; `wip/d147`, `scripts/probes/d147/
+  contact_proto.py`, `output/gpu/d147/`; queued for a free card through the lock directory, all four held by D145 and
+  D146 at 01:30–02:00).* Two spheres of 20000 particles each (the stratified sampler, the shape's cell, E 1.4e5, ν
+  0.2, the frozen F smoothing and the carried volume, drag 0, dt 1/240), 0.5 wu apart, no morph objective: P1 the
+  gated rule head-on at v_rel / c = 0.1; P2 Bardenhagen's rule without the gate; P3 one field (the frozen grid); P4,
+  P5 an impact offset of half a radius with μ = 0 and 0.5; P6 v_rel / c = 0.2; P8, P9 two spheres dropped 1 wu onto a
+  floor (G 0.05) with the frozen grid floor and with the gated floor; P7 a taped window of 40 steps through the
+  contact, the adjoint against central differences. Predictions: the interior node volume over the cell has a
+  spread below 0.03 (the gate's noise); P1 bounces: at the first gated node the nearest cross-body particles are at
+  most 1.5 spacings apart (touching), after the bounce no particle of either body lies within 1.5 spacings of the
+  other, the total linear momentum stays at its start to 1e-5 relative and the angular momentum at zero; restitution
+  between 0.3 and 0.8 (no prior: the bulk response is exact, the shear F smoothed). P2: the first contact at a
+  surface gap of 2–4 cells (0.6–1.2 wu), the bodies turned back before they touch. P3: they stick (the relative
+  velocity goes to zero and stays). P4 deflects with little spin, P5 spins both. P8 rests with its lowest particles
+  1–2 cells above the floor, P9 within one spacing. P7: the tape within 5 % of the differences, or a mismatch the
+  branch switches explain (measured, not a gate of the design).
+  *Papers, contact (an agent's reading of the method sections; Huang et al. 2011 behind a login, read through Pan et
+  al. 2008 of the same group and González Acosta et al. 2021, who adopted its normal; Lemiale et al. 2010 and Fei et al.
+  2021 secondary).* Bardenhagen, Brackbill & Sulsky 2000: a nodal field per grain, the single-field velocity as the
+  centre-of-mass velocity, "we define contact precisely when these fields differ"; approaching when (v_g − v_cm)·n_g >
+  0, then v_g loses its normal part relative to v_cm ("allows grains to separate freely"), Coulomb by μ' = min(μ,
+  |Δv × n| / Δv·n); a normal per grain, "which results in small errors in momentum conservation"; Pan et al. 2008:
+  with it two colliding elastic spheres "move forward together" with strong dissipation. Bardenhagen et al. 2001:
+  contact kept while the interpolated normal traction is compressive (releasing on departure "slightly increase[d]
+  system energy"), and a velocity-change cap with a tuned α. Huang et al. 2011 / Pan et al. 2008 / Homel & Herbold
+  2017: one normal for the pair, n₁ = −n₂ = (n₁ − n₂)/|n₁ − n₂| from the mass gradients, "for perfect conservation
+  of linear momentum"; the projection p_r ← p_r − ((m_s p_r − m_r p_s)·n) n / (m_r + m_s) and the opposite change on
+  p_s. Nairn 2003 (explicit cracks): the contact detected by the relative node volume V/V_cell, separated below 0.9,
+  in contact above 1.1, the velocity test between ("stiffer materials … closer to one"); the velocity and traction
+  tests alone found contact "long before visual evidence". Nairn 2013, Nairn, Bardenhagen & Smith 2018, Nairn et al.
+  2020: approaching is "necessary, but not sufficient"; the gap δn = (x̄_b − x̄_a)·n̂ − 0.8h from the fields' mass-
+  weighted positions, the 0.8 a fitted offset (0.92 GIMP, 0.96 CPDI by fit; errors up to 12 % at 5 % strain; every
+  grid method detects early when the interface sits mid-cell); volume-gradient normals and their variants ("the best
+  method depends on the problem"); one normal, since per-material normals broke momentum conservation. Liang et al.
+  2024: false detection through shared nodes "is particularly prevalent" with B-splines; Han et al. 2019: the visible
+  gap between elastic bodies is "proportionate to the Eulerian grid spacing"; Hu et al. 2018 (CPIC): one field
+  "cannot represent discontinuous velocities", separation only across known rigid boundaries. Differentiable MPM:
+  ChainQueen and DiffTaichi take the gradient of the branch taken (DiffTaichi: collisions "differentiable almost
+  everywhere … similar to ReLU", saw-tooth gradients for rigid bodies without time-of-impact); PlasticineLab and
+  SoftMAC smooth the contact by exp(−ζd) in the backward pass only (a sharpness constant; the hard-gradient arm
+  optimised worse); BFEMP (IPC barrier, MPM–FEM, Newton); none with a field per body for two deformable bodies (the
+  agent found no such paper). The gate chosen here is Nairn 2003's volume test with both thresholds at exactly one,
+  which the partition of unity makes the touching condition (the agent derived the same: the first trigger of two
+  touching spheres of 7.5 cells at about 0.09 h of overlap, 0.03 wu; the classical rule's first shared node at a
+  surface gap of about 3.6 h, 1.1 wu); its weak point is noise in the node volume (measured in the prototype) and thin
+  features below a cell (an ear 0.5 h thick needs about 0.3 h of overlap).
+  *Papers, the body frame (an agent's reading of the method sections; not accessed: Canavin & Likins' journal paper,
+  read through Canavin's 1976 dissertation it comes from, Shabana, Barbič & James 2005, Smith et al. 2019, read
+  through Kim & Eberle's course notes).* Müller et al. 2005 (shape matching): with q = X − X̄ and p = x − c, the best
+  linear map is A_pq A_qq⁻¹, A_qq symmetric ("only scaling but no rotation"), so the best rotation is the polar
+  factor of A_pq = Σ m p qᵀ; the optimal translations are the two centres of mass; matching about the centres of mass
+  with the masses as weights conserves linear and angular momentum. Canavin 1976 (the source of Canavin & Likins
+  1977) defines the floating frames of a flexible body: principal axes (undefined for a sphere; Littlejohn & Reinsch
+  1997: branch cuts and axis flips at degenerate shapes), Tisserand (zero relative angular momentum, H = Iω; a
+  velocity constraint, so the frame is integrated in time and needs an initial orientation; Escapa 2014), and Buckens
+  ("simply a first order Tisserand constraint", Σ m q × u = 0 with constant coefficients: holonomic, a function of
+  the configuration). The Buckens condition is the stationarity condition of min_R Σ m |Rq − p|², so its frame is
+  polar(A_pq) (also the Eckart frame of molecular physics, Kudin & Dymarsky 2005). Littlejohn & Reinsch 1997: the
+  zero-angular-momentum frame is path dependent (its curvature does not vanish: the falling cat), and the kinetic
+  energy splits into a purely rotational part and a frame-independent deformation part. Terzopoulos & Witkin 1988:
+  x = c + R(r + e) about the centre of mass, the reference's rotation under its own Newton–Euler equations.
+  Coros et al. 2012: controls on the rest shape are momentum conserving "as for muscles"; in mid-air a rest-shape
+  change does not move the centre of mass; their objectives are in the world frame. Müller et al. 2007 (PBD damping)
+  and Lu, Jin & Fedkiw 2016: the least-squares rigid velocity v_cm + ω × r with ω = I⁻¹L, removed "without
+  influencing the global motion". DiffeoMorph (arXiv 2512.17129): a shape loss aligned by an inner optimisation over
+  rotations; at the alignment's optimum the rotation can be detached (Danskin), the one case where a stop-gradient
+  is exact; for a frame that does not minimise the loss itself it is not. The polar factor's derivative: for A = RS,
+  dR = R[ω]× with ω = (tr S·I − S)⁻¹ vee(RᵀdA − dAᵀR) (McAdams et al. 2011, eq. 12; Twigg & Kačić-Alesić 2010;
+  eigenvalues 2 / (σᵢ + σⱼ) on the twist directions, Kim & Eberle); it is finite whenever no two singular values sum
+  to zero, also at S = sI, where torch's SVD backward divides by σᵢ² − σⱼ². The resulting position gradient,
+  gᵢ = R[aᵢ − (mᵢ/M) Σaⱼ + mᵢ (κ × qᵢ)], κ = (tr S·I − S)⁻¹ Σ aⱼ × yⱼ, a = ∂ℓ/∂y, sums to zero and has no
+  moment (Σ m y qᵀ = S): a self-equilibrated load, as the controls are. A stop-gradient frame leaves a net force and
+  torque in the gradient that a control can only deliver through contact (Coros et al.: optimisers "automatically
+  discover" contact propulsion): a biased gradient and a reason to exploit the collision.
+  *Decisions (made by the agent with the papers above; the coordinator reviews).*
+  (a) *Contact: one grid field per body, Bardenhagen's multi-velocity rule at the shared nodes, gated by the cell's
+  volume.* P2G deposits each body into its own field (mass, momentum with the stress impulse, as MLS-MPM does); the
+  grid operation computes each field's post-force velocity (gravity included); at a node where both fields have
+  mass: the normal n = normalize(∇m₁ − ∇m₀) (the
+  difference of the two fields' mass gradients, central differences of the node masses, the gradient of the grid's
+  mass field; one normal shared by the pair, from body 0 into body 1, as Huang et al. 2011 and Homel & Herbold 2017),
+  the bodies are in contact when their node volumes fill the cell, V₀ + V₁ ≥ dx³, and
+  approaching, (v₀ − v_cm)·n > 0 with v_cm = (m₀v₀ + m₁v₁)/(m₀ + m₁) (on the post-force velocities, so
+  compressed bodies whose stress pushes them apart are released by the same test, the concern of Bardenhagen 2001 and
+  Pan et al. 2008); then body 0's velocity loses its normal part
+  relative to v_cm, Δv₀ = −d n − min(1, μ d / |t|) t with d = (v₀ − v_cm)·n and t the tangential part of v₀ − v_cm
+  (Coulomb), and body 1 takes −(m₀/m₁) Δv₀. G2P gathers each particle from its own field. The changes are equal and
+  opposite at one node, so linear and angular momentum are conserved by construction. The gate: for two half-spaces
+  touching at a plane, any partition-of-unity kernel gives V₀ + V₁ = dx³ at every node near the plane (Φ(a) + Φ(−a) =
+  1, Φ the kernel's cumulative), less with a gap, more with an overlap; it is the touching condition itself, with no
+  constant: Bardenhagen's rule without it acts as soon as both kernels reach a node, up to four cells apart for the
+  cubic B-spline (the classical premature contact; prototype arm P2). Node volumes are the sample's volume per
+  particle times the tracked J (`--volume_exact carried`), deposited outside the tape (they only decide the branch).
+  The floor is the same rule with the floor as a body of infinite mass whose node volume is the kernel's part below
+  it: in contact when V_b ≥ dx³ Φ((y_i − y_floor)/dx), so a body rests on the floor instead of on nodes up to two
+  cells above it (the frozen code's grid floor; arm P8 against P9). Friction μ = 0.5 between the bodies and on the
+  floor (a material constant of the scene, rubber on rubber, stated not tuned). Differentiable: the kernel is on the
+  tape with Warp's generated adjoint; the gate and the approach test are branch conditions, constants of the adjoint
+  (each step keeps its own gate volumes, since the generated adjoint replays the forward body); the normal is
+  differentiated through the node masses. The jump at the switch is the usual non-smoothness of contact; spread
+  over many nodes and steps it is smoothed in the aggregate, and the prototype's gradient check (P7) measures it.
+  (b) *The single-body path stays bit for bit.* Each body is the frozen single-body Trajectory on its own particles
+  (its stress, cell-ordered P2G with the hand adjoints, G2P, update, volume, bonds, minimum spacing and layer
+  relaxation, every neighbour list local to the body, its own grid field on the shared world grid). The trajectory's
+  step is split into three methods, before the grid, the grid operation, after the grid, which one body runs in the
+  same order (code motion: the suite checks bit for bit); a new module steps two bodies: both parts before the grid,
+  the pair's grid operation (the contact kernel, which also applies gravity, the walls and the floor to each field),
+  both parts after it; its adjoint and torch bridge mirror the persistent adjoint (forward and adjoint as CUDA
+  graphs), with the per-step positions as an extra output. The scene's optimiser is a subclass of the window
+  optimiser; solve.py only gains the methods it overrides (the rollouts, the rigid modes of u, the commit), again code
+  motion. Nothing of the scene runs unless the scene script is used.
+  (c) *Each body's frame: the Buckens (shape-matching) frame.* c_b = the body's centroid, R_b = polar(A_b),
+  A_b = Σ_p (x_p − c_b)(X_p − X̄_b)ᵀ, X the body's source sample at launch in its target's orientation. Every term of
+  the body's objective (transport, surface proximity, end drift, near band, spray cleanup, silhouette, shading) is
+  the frozen single-body term evaluated on y = R_bᵀ(x − c_b) against the body's own target in its canonical frame.
+  R is differentiated exactly through a custom polar backward, Ā = R[κ]×, κ = (tr S·I − S)⁻¹ vee(RᵀḠ − ḠᵀR) for
+  A = RS (finite for every A of rank ≥ 2, also the sphere's A ∝ I where the SVD's backward divides by zero); c by
+  autograd. The objective is then invariant under each body's rigid motions and its position gradient has no rigid
+  part (Σ∇ = 0, Σ r × ∇ = 0; a test). Not chosen: a Kabsch fit of the body to its target (undetermined while the body
+  is a sphere and blind to a sphere's spin: the bunny would be formed in a frame that does not turn while the
+  material spins, an internal circulation instead of a tumble); principal axes (degenerate for a sphere, flipping);
+  the Tisserand frame, ω = I⁻¹L integrated in time (path dependent; the integral would have to be differentiated
+  through the windows; equal to Buckens to first order in the deformation, M-a shows the deformation's part is
+  1.5°).
+  (d) *Velocity terms in the body frame.* The released motion and the end drift read v − (v_c + ω × r) per body and
+  step, (v_c, ω) the mass-weighted least-squares rigid velocity (v_c the mean, ω = I⁻¹ Σ r × v): the deformation's
+  kinetic energy (König), so a body that flies, spins or tumbles at rest pays nothing. The rollout's per-step
+  positions become an output of the multi-body adjoint (seeds for x_t) for this; the single-body bridge is unchanged.
+  (e) *Render: the cameras ride each body.* The 18 views and the target pictures of the frozen pipeline stay fixed in
+  each body's canonical frame, which is the same as drawing the body at y: the views turn and travel with the body,
+  each body is drawn alone, and the term keeps its resolution in pitches. Not chosen: one world camera set with
+  per-body targets placed at the centres (not invariant to the tumble, sees one body occlude the other, changes
+  resolution with distance). The deliverable video is a world view of both bodies and the floor (studio look; how
+  the floor is drawn is open, below).
+  (f) *Momentum budget.* The control dFc enters only the stress: Σ_i w_ip (x_i − x_p) = 0 cancels its net force, and
+  the Kirchhoff stress P(F + dFc)ᵀ = P_e F_eᵀ is symmetric, so APIC keeps angular momentum (Jiang et al. 2015): a test,
+  per body, with random controls, to float rounding. u and the relaxation are free of each body's six rigid
+  displacement modes (per body: twelve modes, not six of the pair), so neither moves a centre of mass or turns a
+  body's positions; they and the minimum spacing still change Σ r × m v, because they move positions without
+  velocities (D99, D102: u +0.45 to +0.62 and the minimum spacing +0.27 to +0.55 of that injection at 300k; D101's
+  projection failed its adjoint test). In a spinning body that injection scales with the spin; it is recorded per
+  body and window and read against the contact's and the floor's torques, not fixed beforehand (measure first).
+  (g) *Time always advances (the scene's acceptance).* The reference of a window in a dynamic scene is the
+  uncontrolled continuation, not the previous window's merit: the line search already accepts a control only when it
+  beats the window's start control (zero, or the warm start, itself kept only if it beats zero) on that window's own
+  objective, collision included. So in the scene every window commits its line-searched control, or the zero
+  control's rollout when no step was accepted or its replay failed; no outer rejection, no best-window truncation,
+  the run lasts the scene's length. Invalid rollouts (non-finite, inverted, outside the domain) end the run.
+  (h) *Material and forces.* Drag 0 (the existing `--drag 0`; M1: reached on all four meshes): the frozen 0.9 /s
+  acts in the world frame and would take 83 % of a throw's speed in 2 s. Gravity by G = ρgH/E (F1's definition,
+  g = 32.5 G wu/s²). The assimilation (D135) stays: an impact's elastic dent is half made plastic at the commit and
+  the body-frame objective works it out; recorded as a risk. Restitution comes from the material: the volume is
+  carried exactly (bulk response), the shear F is smoothed (s = 0.955), so the bounce is mainly volumetric; measured
+  in the prototype.
+  (i) *Two sources, two targets.* Each body is the canonical single body: its own stratified sphere sample of N_b
+  particles (seed and seed + 50), mass 40000 / N_b a particle, its own density match, its own bunny sample (seed + 1
+  and seed + 51, with their eight render draws), its own TargetPack, transport, ot_scale and unit ratios built in its
+  canonical frame (the domain the single-body run would use; the loss grid follows N_b). One render weight λ for the
+  sum (the bodies are alike). The bodies are contiguous index ranges [0, N_b), [N_b, 2N_b); every neighbour list
+  (bonds, minimum spacing, the layer graph) and the fragment mask are per body. The world MPM grid: the shape's cell
+  (diag / 26), a non-cubic box over the scene's reach plus the stencil margin.
+  (j) *The scene's numbers (pre-registered from dimensionless groups, not tuned).* Impact speed v_rel / c = 0.1 (a
+  rubber ball's regime; c = 13.4 wu/s, so v_rel = 1.34 wu/s, 0.67 each); gravity G = 0.05 (g = 1.62 wu/s²;
+  between F1's 0.02 that held and 0.1 that failed in the world frame); the collision at t_c = 1.0 s (window 6, the
+  bodies half-formed: D139's rise and the ears growing out at 0–1 s) at the apex (v_y = g t_c, rise 0.81 wu), the
+  surfaces 1.34 wu apart at launch; the bottoms 1.0 wu above the floor at launch, landing at about 2.5 s; an oblique
+  impact: the centres offset by half a radius vertically at contact, so that friction spins the bodies about the
+  axis normal to the view (they land turning and tumble); each bunny's target turned to face the other at launch;
+  8 s (48 windows). The 40k scene is two bodies of 40k (each as a gallery run); the 300k scene is 300k particles,
+  two bodies of 150k (one 48 GB card holds a 300k run's 24–36 GB; two of 300k would not fit).
+  *Evaluation (each body in its own frame; render arm and its render-off twin, seed 97; the 300k scene also seed 99).*
+  E1 momentum: (i) a test, per body, controls on, no contact or gravity: linear and angular momentum unchanged to
+  float rounding; (ii) in the scene, before the floor: the total linear momentum P₀ + M g t to 1e-4 relative, the
+  total angular momentum about the pair's centre of mass and each body's budget (contact, floor, below-grid
+  injection) per window. E2 ballistics: each centre of mass against its parabola until the first contact (internal
+  forces cannot move it: to 1e-3 wu). E3 contact: the gap at the first gated node (cross-body nearest particles,
+  in spacings; touching is about one spacing), the restitution and the spins after, no sticking (once the centres
+  part, no particle of one body within 1.5 spacings of the other; no particle left behind on the other body), the
+  interpenetration at the deepest point. E4 shape: per body at the end and over time, silhouette IoU, chamfer and
+  thin uncovered in its frame against its target, against the 40k gallery's bunny (silhouette 0.975–0.978):
+  reached = not more than 0.01 below. E5 floating pieces: the apart particles (d120_apart's measure) per body and
+  window, and a frame-by-frame reading of the 4K frames around the collision and the landing (particle indices,
+  [[frame-by-frame-particle-forensics]]). E6 render's influence: λ, g_share, the twin's E4 against the arm's.
+  V0 (before the scene): one body, no gravity, no floor, the body-frame objective against the frozen world one, 40k
+  bunny and dragon, seeds 97/99: inside the frozen code's run-to-run spread on silhouette, thin and chamfer.
+  V1: one body thrown under G 0.05 and 0.1 onto the floor (F1's failing case): reached in its frame, at rest on the
+  floor at the end.
+  *Tests (pytest on hyde06, the exit status read).* The existing suite unchanged (the single-body path bit for bit);
+  T-mom (per-body momentum under random controls; total momentum through a contact); T-sep (head-on bounce: the
+  relative velocity reverses; the single-field control sticks); T-gate (two half-spaces: V₀ + V₁ = dx³ at the
+  interface nodes within the sampling's noise); T-frame (y invariant under x → Qx + t; Σ∇ = 0 and Σ r × ∇ = 0; the
+  polar backward against finite differences, A ∝ I included); T-rigid (a rigid motion has zero body-frame velocity);
+  T-adj (the multi-body adjoint against finite differences through a contact); T-one (one body at R = I, c = 0: the
+  scene objective equals the frozen one term by term).
+  *Code (new files unless marked; every file under 500 lines).* `physmorph/mpm/contact.py` (the pair's grid
+  operation with the gated contact, the walls and the gated floor; the gate's volume deposit; the B-spline
+  cumulative), `physmorph/mpm/bodies.py` (two bodies stepped together, their adjoint and torch bridge),
+  `physmorph/mpm/traj.py` (marked: the step split in three, code motion), `physmorph/pipeline/scene/` (`frame.py` the
+  polar backward, the body frame and the rigid velocity; `window.py` the scene's window and each body's view of it;
+  `objective.py` the sum of the frozen objectives in the bodies' frames; `solve.py` the scene's optimiser; `runner.py`
+  the scene's window loop, records and archive; `spec.py` the scene's numbers and initial state),
+  `physmorph/pipeline/window/solve.py` (marked: the methods the scene's optimiser overrides, code motion),
+  `scripts/scene_run.py` (its own flags: the scene file, N_b, seed, render weight scale), `scripts/render_deliverable.py`
+  (marked: two bodies, a field per body so that their surfaces do not merge where they touch, the floor),
+  `tests/test_scene_*.py`. About 1500 lines; the frame, the contact kernel, the two-body stepping and its adjoint, the
+  window and the objective are drafted on `wip/d147` (not run yet), to move to settled-base on the go.
+  *Schedule (today 10-14; evidence lock 11-07).* 10-14 design, prototype (P1–P9). 10-15 – 10-17 code and tests,
+  suite on hyde06. 10-18 V0, V1 (40k). 10-19 – 10-21 the 40k scene, arm and twin, readings, the 4K frames.
+  10-22 – 10-24 the 300k scene (two of 150k), arm and twin, seed 99. 10-25 – 10-28 the two-body renderer, the 4K
+  video, figures. 10-29 – 11-07 slack and repeats. GPU: about 2 h at 40k, 6–8 h at 300k (a 300k run's 10–18 min per
+  60–100 windows, two bodies' objectives, 48 windows). If late, cut in this order: (1) the second 300k seed;
+  (2) friction between the bodies (μ = 0: no spin from the collision; the landing still tumbles them by the floor's
+  friction); (3) the 300k twin (the 40k twin carries E6); (4) the 300k scene itself: the 40k scene as the paper's
+  showcase with the 300k single-body videos beside it. Minimal convincing result: one 300k scene with the contact,
+  momentum and shape tables and its 4K video.
+  *Open for the coordinator.* (1) The 300k scene as two bodies of 150k. (2) The scene's numbers in (j). (3) Drag 0
+  in the scene. (4) Time always advances (g): no selection rejection or truncation in the scene. (5) How the floor
+  is drawn in the studio look (a plane of the backdrop's grey with a contact shadow, or none and the bodies stop on
+  an invisible floor). (6) The bunnies face each other at launch.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
