@@ -167,6 +167,34 @@ def timeline(runs, tag):
     return out
 
 
+def l_split(runs, tag):
+    """The angular momentum's change per term (window records' L_split, per unit mass times the particle's mass): over the
+    contact's windows and over the whole run, each body about its own start centre of mass, and the pair's grid share
+    about the pair's start centroid (the contact and the stress must keep it: gravity's torque taken out)."""
+    f = runs / f"{tag}.json"
+    if not f.exists():
+        return
+    j = load(f)
+    h = [r for r in j["history"] if "bodies" in r and r.get("L_split")]
+    if not h:
+        print(f"== L split {tag}: no records")
+        return
+    m = 40000.0 / (int(j["provenance"]["scene_args"]["n"]))
+    terms = ("L_grid", "L_gravity", "L_u", "L_space", "L_relax")
+    for name, sel in (("contact windows", [r for r in h if np.linalg.norm(r["contact_impulse"]) > 0]), ("all", h)):
+        if not sel:
+            continue
+        print(f"== L split {tag}, {name} ({len(sel)} windows), momentum units")
+        for b in range(len(sel[0]["L_split"])):
+            for ref in ("own", "pair"):
+                tot = {k: m * np.sum([r["L_split"][b][ref][k] for r in sel], axis=0) for k in terms}
+                print(f"  b{b} about {ref:4s}: " + "  ".join(f"{k[2:]}=({v[0]:+.0f},{v[1]:+.0f},{v[2]:+.0f})"
+                                                           for k, v in tot.items()))
+        pair = m * np.sum([[r["L_split"][b]["pair"]["L_grid"] for b in range(len(r["L_split"]))] for r in sel], axis=(0, 1))
+        grav = m * np.sum([[r["L_split"][b]["pair"]["L_gravity"] for b in range(len(r["L_split"]))] for r in sel], axis=(0, 1))
+        print(f"  the pair's grid share minus gravity's torque (contact + stress, should be ~0): {np.round(pair - grav, 1)}")
+
+
 def select(runs):
     """The 300k scene's variant by the rule written before reading (D147): among those that part in the air, land and
     tumble within the scene's length, the lower end shape error; within 0.002 (the 40k run-to-run silhouette spread),
@@ -192,3 +220,5 @@ if __name__ == "__main__":
     for tag in ("scene40k_L", "scene40k_P", "scene40k_LB", "scene40k_LS"):
         scene(runs, tag)
     select(runs)
+    for tag in (sys.argv[2].split(",") if len(sys.argv) > 2 else []):
+        l_split(runs, tag)

@@ -80,6 +80,8 @@ class SceneOptimizer(WindowOptimizer):
     def commit(self, hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0) -> WindowResult:
         res = super().commit(hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
         if res.commit is not None:
+            with torch.no_grad():
+                res.stats["L_split"] = momentum_split(self.win, self.u.detach())
             return res
         from .rollout import commit_rollout             # the uncontrolled continuation: time advances
         with torch.no_grad():
@@ -89,4 +91,34 @@ class SceneOptimizer(WindowOptimizer):
         res.stats.update(zero_commit=1, dfc=self.dFc.detach()[:self.cfg.T].clone(), commit_reason=c.reason,
                          commit_E_final=float(c.E_final), selection_merit=float(c.E_final))
         res.commit = c if c.valid else None
+        if res.commit is not None:
+            with torch.no_grad():
+                res.stats["L_split"] = momentum_split(self.win, self.u.detach())
         return res
+
+
+def momentum_split(win, u: torch.Tensor) -> list:
+    """A record: each body's change of angular momentum over the committed window (per unit mass, APIC's affine part
+    included; window/telemetry.below_grid_record on the body's own trajectory), split into the grid's steps (the stress
+    with the control, the contact, gravity, the floor), u's displacement, the minimum spacing's push and the rest of the
+    updates below the grid (the relaxation, the bonds, the floor's position constraint); about the body's own start
+    centre of mass and about the pair's start centroid (there the bodies' grid shares add up to what the contact and the
+    stress keep). Gravity's torque, sum_t dt sum_p (x_p - c) x g, is given apart for both points."""
+    from types import SimpleNamespace
+    from ..window.telemetry import below_grid_record
+    du = (wp.to_torch(win.tr.layer_ug) * u * win.lmask)[:, None] * win.lnrm
+    g = torch.tensor(win.prm.f_ext, dtype=torch.float64, device=u.device)
+    dt = float(win.prm.dt)
+    keys = ("L_start", "L_grid", "L_u", "L_space", "L_relax")
+    out = []
+    for body, tr in zip(win.bodies, win.tr.trajs):
+        r = body.rows
+        rec = {}
+        for name, x0 in (("own", win.x0[r]), ("pair", win.x0)):
+            b = below_grid_record(SimpleNamespace(tr=tr, T=win.T, N=body.n, x0=x0), du[r])
+            c = x0.mean(0).double()
+            grav = sum(torch.linalg.cross(wp.to_torch(tr.x[t]).double() - c, g.expand(body.n, 3), dim=1).sum(0)
+                       for t in range(win.T)) * dt
+            rec[name] = {**{k: b[k] for k in keys}, "L_gravity": grav.tolist()}
+        out.append(rec)
+    return out

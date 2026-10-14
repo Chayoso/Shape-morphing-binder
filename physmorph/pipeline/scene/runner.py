@@ -23,7 +23,7 @@ from .frame import rigid_velocity
 from .solve import SceneOptimizer, SceneTarget
 
 _STATS = ("g_share", "g_cos", "g_phys_norm", "g_rend_norm", "ls_trials", "accepted", "rejected", "replay_rel",
-          "null_reason", "zero_commit", "t_start", "t_grad", "t_ls", "t_commit", "u_gate", "ext_builds")
+          "null_reason", "zero_commit", "t_start", "t_grad", "t_ls", "t_commit", "u_gate", "ext_builds", "L_split")
 
 
 def momentum(x, v, C, mass: float, dx: float) -> dict:
