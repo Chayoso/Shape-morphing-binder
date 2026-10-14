@@ -6174,7 +6174,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   other piece) at any of their windows; (c) the wall each bead ends on (its last position's cell, by the nearest-piece
   map) is the chosen one at every node that holds it. The same readings in walls mode beside, for the comparison
   (expected: contradictions at the opening beads). Fails: stop and report.
-  **The CPU check read (16:30 CDT, `tmp/d148/wlf3_*`, `wlf4_*`): it fails (b) and (c); (a) passes; the gate not run.**
+  **The CPU check read (16:12 CDT, `tmp/d148/wlf3_*`, `wlf4_*`): it fails (b) and (c); (a) passes; the gate not run.**
   The tests on the CPU (`repo_d148d` = refreeze-prep d2f779d + D148d): 19 passed, 5 CUDA skipped. (a) The plane decides
   0.0000 of the split nodes' mass at every window 0.5–3.5 s on WG and on D135's state, 0.5–2.3 s on the bunny (walls:
   98 % at 0.5 s, 70 % at 1.0 s, 16 % at 1.5 s). (b) Pairs of a bead particle's gap nodes whose chosen walls contradict
