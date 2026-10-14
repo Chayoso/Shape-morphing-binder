@@ -103,23 +103,31 @@ def momentum_split(win, u: torch.Tensor) -> list:
     with the control, the contact, gravity, the floor), u's displacement, the minimum spacing's push and the rest of the
     updates below the grid (the relaxation, the bonds, the floor's position constraint); about the body's own start
     centre of mass and about the pair's start centroid (there the bodies' grid shares add up to what the contact and the
-    stress keep). Gravity's torque, sum_t dt sum_p (x_p - c) x g, is given apart for both points."""
+    stress keep). The point moves only the grid's share and the start: L about c = L about c_b + (c_b - c) x P (the
+    affine part and the updates below the grid, (x' - x) x v, do not depend on it). Gravity's torque,
+    sum_t dt sum_p (x_p - c) x g, is given apart for both points."""
     from types import SimpleNamespace
     from ..window.telemetry import below_grid_record
     du = (wp.to_torch(win.tr.layer_ug) * u * win.lmask)[:, None] * win.lnrm
     g = torch.tensor(win.prm.f_ext, dtype=torch.float64, device=u.device)
     dt = float(win.prm.dt)
     keys = ("L_start", "L_grid", "L_u", "L_space", "L_relax")
+    c_pair = win.x0.mean(0).double()
     out = []
     for body, tr in zip(win.bodies, win.tr.trajs):
         r = body.rows
+        b = below_grid_record(SimpleNamespace(tr=tr, T=win.T, N=body.n, x0=win.x0[r]), du[r])
+        c_own = win.x0[r].mean(0).double()
+        P0, PT = (wp.to_torch(tr.v[t]).double().sum(0) for t in (0, win.T))
         rec = {}
-        for name, x0 in (("own", win.x0[r]), ("pair", win.x0)):
-            b = below_grid_record(SimpleNamespace(tr=tr, T=win.T, N=body.n, x0=x0), du[r])
-            c = x0.mean(0).double()
+        for name, c in (("own", c_own), ("pair", c_pair)):
+            s = c_own - c
             grav = sum(torch.linalg.cross(wp.to_torch(tr.x[t]).double() - c, g.expand(body.n, 3), dim=1).sum(0)
                        for t in range(win.T)) * dt
-            rec[name] = {**{k: b[k] for k in keys}, "L_gravity": grav.tolist()}
+            shift = {"L_start": torch.linalg.cross(s, P0, dim=0), "L_grid": torch.linalg.cross(s, PT - P0, dim=0)}
+            rec[name] = {k: (torch.tensor(b[k], dtype=torch.float64, device=u.device) + shift[k]).tolist()
+                         if k in shift else b[k] for k in keys}
+            rec[name]["L_gravity"] = grav.tolist()
         out.append(rec)
     return out
 

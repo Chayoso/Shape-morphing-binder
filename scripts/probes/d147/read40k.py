@@ -119,18 +119,36 @@ def timeline(runs, tag):
     dt, g, floor_y = j["mpm"]["dt"], -j["mpm"]["f_ext"][1], float(z["floor_y"])
     R = j["scene"]["R"]
     sp = (4.18879 * R ** 3 / (rows[0][1] - rows[0][0])) ** (1 / 3)
-    contact = [r for r in h if np.linalg.norm(r["contact_impulse"]) > 0]
-    t_on = contact[0]["t"] - 2 * j["config"]["T"] * dt if contact else None
-    t_off = contact[-1]["t"] if contact else None
+    win_s = 2 * j["config"]["T"] * dt
+    hit_w = [bool(np.linalg.norm(r["contact_impulse"]) > 0) for r in h]
+    contact = [r for r, c in zip(h, hit_w) if c]
+    t_on = contact[0]["t"] - win_s if contact else None
+    # the contact's episodes (runs of windows with a contact impulse); the pair parts at the end of the first window
+    # after the first episode's start with no impulse and the bodies more than a spacing apart (the floor's own test);
+    # a later touch (the bodies rolling into each other on the floor) is a re-contact, not the first contact's end
+    episodes, k = [], 0
+    while k < len(h):
+        if hit_w[k]:
+            e = k
+            while e + 1 < len(h) and hit_w[e + 1]:
+                e += 1
+            episodes.append((round(h[k]["t"] - win_s, 3), round(h[e]["t"], 3)))
+            k = e + 1
+        else:
+            k += 1
+    k0 = h.index(contact[0]) if contact else len(h)
+    part = next((r for r, c in zip(h[k0:], hit_w[k0:]) if not c and r["gap_sp"] > 1.0), None)
+    t_part = part["t"] if part is not None else None
+    t_off = max((r["t"] for r in contact if t_part is None or r["t"] < t_part), default=None)
     land = []
     for s, e in rows:
         low = np.array([float(fr[k, s:e, 1].min()) for k in range(len(fr))]) - floor_y
         hit = np.nonzero(low < sp)[0]
         land.append(float(raws[hit[0]] * dt) if len(hit) else None)
     first_land = min([t for t in land if t is not None], default=None)
-    parted_in_air = bool(contact) and first_land is not None and t_off <= first_land
-    pre = next((r for r in h if not np.linalg.norm(r["contact_impulse"]) > 0), h[0])
-    post = next((r for r in h if t_off is not None and r["t"] > t_off + 1e-9), h[-1])
+    parted_in_air = t_part is not None and first_land is not None and t_part <= first_land
+    pre = next((r for r, c in zip(h, hit_w) if not c), h[0])
+    post = part if part is not None else h[-1]
     c0, c1 = (np.array(b["com"]) for b in post["bodies"])
     n = (c1 - c0) / max(np.linalg.norm(c1 - c0), 1e-12)
     vrel_pre = np.dot(np.array(pre["bodies"][1]["v_com"]) - np.array(pre["bodies"][0]["v_com"]), n)
@@ -154,11 +172,11 @@ def timeline(runs, tag):
             d = cKDTree(x).query(x, 2)[0][:, 1]
             cnt.append(int((d > 2 * sp).sum()))
         iso.append((float(raws[k] * dt), cnt))
-    win_s = 2 * j["config"]["T"] * dt
     last = [r for r in h if r["t"] > h[-1]["t"] - 1.0 - 1e-9]     # the last second: does each body hold its shape?
     hold = [[round(r["bodies"][b]["d_sil"], 5) for r in last] for b in range(len(rows))]
     out_hold = {"last_second_dsil": hold, "window_s": win_s}
-    out = {"tag": tag, **out_hold, "contact_s": (t_off - t_on) if contact else 0.0, "t_contact": t_on, "t_part": t_off,
+    out = {"tag": tag, **out_hold, "contact_s": (t_off - t_on) if contact else 0.0, "t_contact": t_on, "t_part": t_part,
+           "contact_span_s": (contact[-1]["t"] - t_on) if contact else 0.0, "episodes": episodes,
            "restitution": float(-vrel_post / vrel_pre) if vrel_pre else None, "landing_s": land,
            "parted_in_air": parted_in_air, "tumble_deg": tumble,
            "tumbles": all(t is not None and t > 30.0 for t in tumble), "end_rigid_speed": rest,
@@ -207,9 +225,9 @@ def select(runs):
         return None
     best = min(o["end_shape_error"] for o in ok)
     tie = [o for o in ok if o["end_shape_error"] <= best + 0.002]
-    pick = min(tie, key=lambda o: o["contact_s"])
+    pick = min(tie, key=lambda o: o["contact_span_s"])      # the registered duration: first to last impulse
     print(f"== select: {pick['tag']} (of {[o['tag'] for o in ok]} that part in the air, land and tumble; "
-          f"end shape error {pick['end_shape_error']:.4f}, contact {pick['contact_s']:.2f} s)")
+          f"end shape error {pick['end_shape_error']:.4f}, contact {pick['contact_s']:.2f} s, span {pick['contact_span_s']:.2f} s)")
     return pick["tag"]
 
 

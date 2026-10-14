@@ -210,6 +210,10 @@ def test_scene_runs_end_to_end():
                      device=P0.device)
     assert float((P - P0).norm()) <= 1e-4 * (cfg.mass_ref_n / n) * n * 0.5      # rounding of a body's momentum
     assert all(v == 0 for v in res["guards"].values())
+    for h in hist:                                      # the angular momentum's split is recorded for each body
+        assert h["L_split"] is not None and len(h["L_split"]) == 2
+        for b in h["L_split"]:                          # the updates below the grid do not depend on the point
+            assert all(b["own"][k] == b["pair"][k] for k in ("L_u", "L_space", "L_relax"))
 
 
 def test_one_body_in_a_fixed_frame_is_the_frozen_objective():
