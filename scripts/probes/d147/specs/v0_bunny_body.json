@@ -1,1 +1,1 @@
-{"bodies": 1, "vrel_c": 0.0, "G": 0.0, "floor": false, "frame": "body", "drag": 0.9, "seconds": 8.33}
+{"bodies": 1, "vrel_c": 0.0, "G": 0.0, "floor": false, "frame": "body", "drag": 0.9, "yaw": [0.0, 0.0], "seconds": 8.33}

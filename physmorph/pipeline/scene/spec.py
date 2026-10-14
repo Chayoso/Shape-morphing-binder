@@ -28,7 +28,8 @@ class SceneSpec:
     lift: float = 1.0            # wu: the lowest particle above the floor at launch
     mu: float = 0.5              # Coulomb, between the bodies and on the floor
     seconds: float = 8.0         # the scene's length
-    yaw: tuple = (0.0, 180.0)    # degrees about the vertical: each target's turn at launch
+    yaw: tuple = (90.0, -90.0)   # degrees about the vertical at launch: the bunny faces +z in its frame, so they face
+                                 # each other along x (its tail at -z, its head forward; checked on the mesh)
     floor: bool = True
     bodies: int = 2              # 1: one body (V0 at rest without forces, V1 thrown onto the floor)
     frame: str = "body"          # "body": each body's Buckens frame; "fixed": the frame at launch (V0's world frame)
