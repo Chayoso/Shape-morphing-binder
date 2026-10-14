@@ -4577,6 +4577,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *B5 (interim, the bunny pair):* Buonomo et al.'s t = 1 sample against the independent sample, silhouette IoU 0.9601,
   chamfer 0.0596 (the sampling floor 0.9893 / 0.0567); the remaining five pairs are running. *B6 (bunny):* the OT
   displacement's end lies a median 0.57 sampling pitches from the nearest target point (p99 1.2, max 22).
+  **The kept-frames proof (read 10:00 CDT): SAME.** `repo_d145s` against repo_d145 + the cut, 40k bunny seed 97, four
+  windows, deterministic mode: the kept frames (4 arrays), every metric (37) and every history field but clocks (552)
+  bit for bit equal (`d145_detproof/detproof.txt`; silhouette IoU 0.8722, chamfer 0.1415 in both). From here B1, B2, B8,
+  B9 and B10 run from repo_d145s (results identical to the deliverable code's); repo_d145g gets the same output-only
+  change for any further B7 run.
+  **Amendment 3 (recorded 2026-10-14 10:05 CDT, before any run it adds; the user's limits, relayed by the coordinator:
+  results under /data/relcfd/chayo up to 500 GB, all four cards when D146 / D147 do not use them, add runs where they
+  make a claim clearly stronger).** (1) The disk guard: du plus the estimated end files of every running 300k run ≤ 490
+  GB; the one-dragon-at-a-time rule is lifted; bulk files of read runs are still removed (logged); nothing written to
+  /home or /tmp. (2) Cards: D145 holds up to four through the locks, three while B5's pairs are waiting for a card (B5
+  claims when one card is free). (3) B2's exterior-against-cloud arm (X) is moved right after B1's seed-97 runs, read
+  and reported first (the coordinator: if the exterior also loses at 300k on the display and the yardstick against the
+  independent sample, that is a user decision on the frozen algorithm). (4) Added runs: B1's bunny and dragon render arm
+  and twin at seeds 103 and 105 (8 runs; their targets and pictures use seeds 104 / 106 and 204–804 / 206–806, none the
+  evaluation's 99), so the 300k twin comparison of the two main meshes rests on five seeds; the cell arm
+  (`--cell_follows_n`) on teapot, bob, armadilo and homer at seeds 97, 99 and 101 (12 runs; D137 had them once on the
+  old code); B2's should arms (already queued); B5's seeds 2 and 3 and the correspondence-free ICLR 2025
+  re-implementation on the six pairs (the B5 agent). Reading as registered: the five-seed bands for bunny and dragon
+  replace the three-seed ones in T1; the cell arm is read against B1's L on the same meshes.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
