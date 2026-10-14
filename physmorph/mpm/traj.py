@@ -1,9 +1,8 @@
 """Differentiable MPM rollout via per-step state arrays (wp.Tape adjoint).
 
-Each timestep reads state t and writes state t+1, so the tape retains every
-intermediate for the reverse pass. Fresh Trajectory per forward => clean tape.
-Inputs may be CUDA torch tensors (the pipeline: copied on the device, no host round
-trip) or numpy arrays (tests).
+Each timestep reads state t and writes state t+1, so the tape retains every intermediate for the reverse pass. Fresh
+Trajectory per forward => clean tape. Inputs may be CUDA torch tensors (the pipeline: copied on the device, no host
+round trip) or numpy arrays (tests).
 """
 from __future__ import annotations
 
@@ -380,9 +379,7 @@ class Trajectory:
 
     def _hand_tape(self):
         """The tape the step is recorded on when the transfers take the hand-written adjoints (D138), else None."""
-        if not (HAND_ADJOINTS and self.requires_grad):
-            return None
-        return wp._src.context.runtime.tape
+        return wp._src.context.runtime.tape if HAND_ADJOINTS and self.requires_grad else None
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""
@@ -391,8 +388,7 @@ class Trajectory:
         return self.dFc if self.dFc_seq is None else self.dFc_seq[t]
 
     def step(self, t: int):
-        """One step: the particles onto the grid, the grid operation, the grid back to the particles. In three parts so
-        that several bodies (mpm/bodies.py, D147) can share the grid operation; one body runs them in this order."""
+        """One step in three parts, so that bodies stepped together (mpm/bodies.py, D147) share the grid operation."""
         self._pre_grid(t)
         self._grid(t)
         self._post_grid(t)
@@ -425,10 +421,9 @@ class Trajectory:
         self._st = (dfc, bnb, brest, bnc, bK, tape)
 
     def _grid(self, t: int):
-        prm = self.prm
-        wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt,
-                  wp.vec3(*prm.f_ext), prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y,
-                  prm.floor_friction, K.WALL_NODES], device=self.device)
+        p = self.prm
+        wp.launch(K.k_grid_op, dim=p.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], p.dt, wp.vec3(*p.f_ext),
+                  p.grid_min[1], p.dx, p.nx, p.ny, p.nz, p.floor_y, p.floor_friction, K.WALL_NODES], device=self.device)
 
     def _post_grid(self, t: int):
         prm, dev, N = self.prm, self.device, self.N
