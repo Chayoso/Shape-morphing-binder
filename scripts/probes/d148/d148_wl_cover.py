@@ -33,7 +33,8 @@ for spec in sys.argv[6:]:
     z = np.load(path)
     fr, raws = z["frames"], np.asarray(z["raws"])
     tgt = np.asarray(z["tgt"], np.float64)
-    cell = 2.0 * half / lres
+    _d0 = np.full(3, -half).astype(np.float32)             # the run's loss cell in float32 (target.py)
+    cell = float((_d0 + dx * np.full(3, ngrid, np.float32) - _d0).max() / lres)
     g0 = GapPlanes(tgt, dx, gmin, (ngrid,) * 3, cell)
     g1 = GapPlanes(tgt, dx, gmin, (ngrid,) * 3, cell, keep_boxes=True, margin=1)
     m0, m1 = g0.mask.reshape((ngrid,) * 3), g1.mask.reshape((ngrid,) * 3)

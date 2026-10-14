@@ -40,7 +40,8 @@ q = pixels(np.asarray(fr[K], np.float64))
 sel = np.nonzero((q[:, 0] >= x0b + wq) & (q[:, 0] <= x1b - wq) & (q[:, 1] >= y0b + hq) & (q[:, 1] <= y1b - hq))[0]
 half = dx * ngrid / 2.0
 gmin = np.full(3, -half)
-cell = 2.0 * half / lres
+_d0 = np.full(3, -half).astype(np.float32)                 # the run's loss cell in float32 (target.py): the ring's pieces
+cell = float((_d0 + dx * np.full(3, ngrid, np.float32) - _d0).max() / lres)   # move with its last digits (560 vs 540)
 m0 = GapPlanes(tgt, dx, gmin, (ngrid,) * 3, cell).mask.reshape((ngrid,) * 3)
 m1 = GapPlanes(tgt, dx, gmin, (ngrid,) * 3, cell, keep_boxes=True, margin=1).mask.reshape((ngrid,) * 3)
 offs = np.stack(np.meshgrid(*[np.arange(4)] * 3, indexing="ij"), -1).reshape(-1, 3)

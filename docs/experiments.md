@@ -6083,6 +6083,53 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   show in it. The predictions: the opening bead gone where covered, falsified; the opening delayed by B's gate,
   falsified (about 1.5 s); D135's foam gone, confirmed; the beads left only in the uncovered part, falsified. By the
   letter WL fails items (1) and (4) on the dragon; (2), (3), (5) pass. The bunny (WB, WBT) and WG99 to follow.
+  The WL gate ran on the D135 base (`repo_d148wf`); every further D148 gate runs on D146b (`refreeze-prep` d2f779d,
+  `--relax_driven --u_adam_carry`, `repo_d148r` / hook copy `repo_d148rf`), the user's adopted base.
+  *The bunny (16:00 CDT, `gate_read_wl_bunny.log`).* WB (render arm): silhouette 0.9881, chamfer 0.0551, thin 4.74 %, at
+  rest (kin 2.5e-6), the render lead held (yardstick silhouette 7.44e-4 against WBT's 1.29e-3, display front 0.0089
+  against 0.0129); apart 1069 (≤ 1205); 7.62 s an attempt (≤ 8.40; BA's 8.86 was out), 10.3 min; (2) out at window 8
+  (rel_p90 14.39 against [13.88, 14.15]) as BA (14.35). WBT: (3)–(5) pass, (2) below the band at windows 4 and 6–8 (BT
+  out at 4 and 8). On the side view the gap at the ear opens at 1.7–2.1 s with a blob in BA and WB alike (WB's flagged
+  apart in 2 frames at 1.85–1.90 s, BA's back on the body at 2.0 s; `z_wb_ear.jpg`).
+  *A correction to the readers.* `d148_cut_apart.py`, the coverage and the bead forensics built the gap nodes on the loss
+  cell in float64 (921 nodes at 300k, 272 at 40k); the runs build them on target.py's float32 cell (940, 271): the
+  walls' set moves from 540 to 560 nodes with the cell's eighth digit (target points on the cells' boundaries). Re-read
+  on the run's cell (`d148_wl_cover.py`, `d148_bead_cover.py` now take it): the coverage 0.74 / 0.78 and every bead's
+  coverage unchanged.
+  **The forensic of WL's beads (16:10 CDT, CPU; `d148_wl_forensic.py`, `tmp/d148/wlf2_*.log`).** The walls' sides
+  recomputed as the run (the window-start images on the gate grid, the representative cells persistent from window 0,
+  at the kept frame nearest each window start), the node fields per side from the particles' velocities (finite
+  differences over a tenth of a second; on FB, D135's state, the dump's own velocities and the terms' gradients).
+  (i) Why the split opens at about 1.5 s and D135 at 3.3 s: at the 560 walls nodes the transport's flow already
+  diverges across the planes. On D135's own state 209 of the 251 nodes that would split are separating at 0.5 s
+  ((v0 − v1)·n median −0.28 wu/s, |v0 − v1| 0.36), 307 of 385 at 1.5 s (−0.23), slightly approaching from 2.17 s
+  (+0.01 to +0.07); the objective's summed gradient pulls the two sides apart at 0.82–0.86 of them at 0.5–1.33 s. In WG
+  220 nodes separate at the first reading (0.5 s, |v0 − v1| 0.40, −0.34). B's gate never binds: these exterior nodes
+  hold a median 0.28 cells of particle volume at 0.5 s and at most 0.06 from 1.0 s. The split releases the divergence
+  from the first windows; D135's single field turns it into a stretched bridge that fails at 3.3 s as the foam.
+  (ii) The opening beads (WG 136513, 183904; WT 40512, 213353): never alone on their side (1 500–4 200 same-side
+  particles at each node, own-side mass share 0.5–0.9), at nodes whose fields part at 0.4–0.7 wu/s, moving between the
+  two fields (|v − own| ≈ |v − other| ≈ 0.3–0.5 wu/s): both fields pull on them. The pieces decide their side at only
+  0.35–0.62 of their gap nodes; at the rest their representative cell lies outside the node's box and the plane decides
+  (A's rule). Their images lie 0.1–0.6 cells from them but in the gap's empty cells, so the cell kept from before is
+  behind them, outside the boxes of their far stencil nodes (the box is the kernel's support, ±2 cells). Over all the
+  split nodes the plane decides 98 % of the mass at 0.5 s, 70 % at 1.0 s, 16 % at 1.5 s, 3 % at 1.83 s, none after
+  2.5 s (the same on D135's state): during the opening WL is A at the far nodes, A's mixed sides and A's beads; the
+  premise "one side at every node" failed for the particles that matter. (iii) Beads with consistent sides: WG's
+  crevice bead at 3.25 s (84804: the pieces decide all 16 of its nodes from 2.65 s, own-side share 0.5, the fields
+  hardly parting, (v0 − v1)·n −0.06 to +0.01) and the loop beads (WG 267025, WT 167991: side 0 at their 8 nodes from
+  about 2.4 s, own-side share 0.93), which jump within one window from |v| 0.09 to 0.78–0.81 wu/s away from both
+  fields (|v − own| 0.74–0.79): their pull is not in the grid fields; dF_c, u and the terms on them need a term-dump
+  run (the WL runs saved frames only).
+  **D148d proposed (16:15 CDT, not built, not run):** at a node whose box does not hold the particle's representative
+  cell, the side is the node's piece nearest to that cell (the piece of the box's occupied cell nearest to it) in place
+  of the plane; the plane only where the nearest is a third piece. A wall is continuous, so the wall holding the kept
+  cell continues into the neighbouring box, and the wall across the gap lies at least the gap farther. Implementation: a
+  nearest-occupied-piece map per gap node over its box, read at the representative cell clamped into the box; the hand
+  adjoints unchanged (the sides are constants). The check before any run on the CPU: the plane-decided mass to about
+  zero on WG's and FB's states, the opening beads' sides consistent at all their nodes, and the nearest wall the one
+  each bead ends on. Then a 300k pair on D146b with `--term_dump` (windows 6–22) for the beads with consistent sides.
+  The early opening itself (the divergence released) is not a gate item ((2) passes) and is left as it is.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
