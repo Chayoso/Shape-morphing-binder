@@ -42,10 +42,10 @@ def yaw_matrix(deg: float) -> np.ndarray:
 
 
 def layout(spec: SceneSpec, sources: list, vps: list, young: float, poisson: float, mass_ref_n: int, dx: float,
-           dt: float, T: int):
+           dt: float, T: int, radius: float | None = None):
     """(x0 (N,3), v0 (N,3), R0 per body, prm of the world grid, a dict of the scene's derived numbers). sources: each
     body's source sample about its centroid in its target's orientation (the frame's reference); vps: each sample's
-    volume per particle."""
+    volume per particle; radius: the bodies' largest radius as targets (the domain's reach)."""
     X0 = np.asarray(sources[0], np.float64)
     R = float(max(np.linalg.norm(np.asarray(s), axis=1).max() for s in sources))
     H = float(X0[:, 1].max() - X0[:, 1].min())
@@ -67,11 +67,17 @@ def layout(spec: SceneSpec, sources: list, vps: list, young: float, poisson: flo
     x0 = np.concatenate([s @ r.T + c0 for s, r, c0 in zip(sources, R0, start)]).astype(np.float32)
     v0 = np.concatenate([np.tile(v, (len(s), 1)) for s, v in zip(sources, vel)]).astype(np.float32)
     floor_y = float(min(c0[1] - R for c0 in start) - spec.lift) if spec.floor else -1.0e9
-    reach = vh * (spec.seconds - tc) + 2.0 * R + 4.0 * dx       # how far a body may travel back out and roll
+    # the domain from the scene's extents: a body (its largest radius as source or target, Rb, in any orientation)
+    # stays within a horizontal reach of its launch and contact centres, travelling at most at the throw's horizontal
+    # speed after the contact and rolling no faster (the same reach in z, where friction and tumbling may carry it);
+    # vertically from the floor (the centres held half a pitch above it) to the apex; beyond that, the stencil's two
+    # cells, the runner's two-cell margin and one cell
+    Rb = max(R, float(radius or 0.0))
+    reach = vh * (spec.seconds - tc) + Rb + 5.0 * dx
+    xs = [c0[0] for c0 in start + at_contact]
     bottom = floor_y if spec.floor else min(c0[1] for c0 in start) - reach
-    side = 2.0 * R + 6.0 * dx
-    lo = np.array([min(c0[0] for c0 in start) - reach, bottom - 4.0 * dx, -side])
-    hi = np.array([max(c0[0] for c0 in start) + reach, max(c0[1] for c0 in at_contact) + side, side])
+    lo = np.array([min(xs) - reach, bottom - 5.0 * dx, -reach])
+    hi = np.array([max(xs) + reach, max(c0[1] for c0 in at_contact) + Rb + 5.0 * dx, reach])
     n = [int(math.ceil((hi[k] - lo[k]) / dx)) for k in range(3)]
     prm = MPMParams(dx=dx, dt=dt, drag=spec.drag, f_ext=(0.0, -g, 0.0), grid_min=tuple(float(v) for v in lo),
                     nx=n[0], ny=n[1], nz=n[2], floor_y=floor_y, floor_friction=spec.mu)

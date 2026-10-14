@@ -80,7 +80,8 @@ def main():
         if b == 0:
             dx, dt, prov = prep.prm.dx, prep.prm.dt, provenance(base, prep.prm)
         start += a.n
-    x0, v0, R0, prm, info = layout(spec, srcs, vps, cfg.young, cfg.poisson, cfg.mass_ref_n, dx, dt, cfg.T)
+    Rt = max(float(np.linalg.norm(t - t.mean(0), axis=1).max()) for t in tgts)
+    x0, v0, R0, prm, info = layout(spec, srcs, vps, cfg.young, cfg.poisson, cfg.mass_ref_n, dx, dt, cfg.T, radius=Rt)
     if spec.frame == "fixed":                   # V0: the objective in the frame the body has at launch (the world's)
         for bd, R in zip(bodies, R0):
             bd.fixed = (gpu.tensor(x0[bd.rows].mean(0)), gpu.tensor(R.astype(np.float32)))
