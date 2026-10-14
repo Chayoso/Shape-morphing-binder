@@ -91,6 +91,11 @@ class PipelineConfig:
 
     min_spacing: float = 0.0        # the position update keeps particles this far apart, in pitches of the rest
                                     #   volume (0: off; 0.9 is the spacing of a Poisson-disk sample of that density, D70)
+    spacing_symmetric: bool = False  # D149 A/B: the minimum spacing's neighbours are the symmetric closure of each
+                                    #   particle's 16 nearest at the window start (q is p's iff p lists q or q lists p),
+                                    #   so every pair's push is equal and opposite and the push keeps the centre of mass;
+                                    #   off = each particle's own 16 nearest (the frozen path), where a pair listed by one
+                                    #   side only moves one particle
 
     # ---- the comparison baseline (D112) ----
     baseline: str = ""              # "xu": the same simulator, windows and step control with Xu et al.'s objective

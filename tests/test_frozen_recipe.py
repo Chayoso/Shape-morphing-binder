@@ -21,6 +21,7 @@ def test_the_defaults_are_the_frozen_recipe(monkeypatch):
     assert not a.ot_warm_trials and not a.cleanup_in_phys                                   # D142, D143 until their gates
     assert not a.relax_driven and not a.u_adam_carry                                        # D146, D146b until their gates
     assert a.gap_split == "off"                                                              # D148 until its gate
+    assert not a.spacing_symmetric                                                          # D149 until its gate
 
 
 def test_every_switch_reaches_the_old_path(monkeypatch):
@@ -37,7 +38,8 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # frozen defaults must be exactly this configuration, less the switches the cleanup (D141) removed with their paths: ls_probe,
 # render_body_only, spray_gate, support_form, support_target_ref, support_weight, surface_density and w_dt, each recorded
 # there at the value that ran the frozen path; plus D140's exterior_field (added after; "zb" is the field D135 ran with)
-# and the A/B switches of D142, D143, D146 and D146b (ot_warm_trials, cleanup_in_phys, relax_driven, u_adam_carry), off:
+# and the A/B switches of D142, D143, D146, D146b and D149 (ot_warm_trials, cleanup_in_phys, relax_driven, u_adam_carry,
+# spacing_symmetric), off:
 # the path D135 ran
 D135_RUN_ARGS = {
     "animations": 300, "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0, "cell_follows_n": False,
@@ -45,7 +47,7 @@ D135_RUN_ARGS = {
     "lambda_ema": 1.0, "layer_relief": True, "live_dir": "", "live_port": 0, "loss_follows_n": True,
     "cleanup_in_phys": False, "match_density": True, "min_spacing": 0.9, "ot_iters": 1600, "ot_warm_trials": False,
     "gap_split": "off", "patience": 5, "poisson": None, "profile": False, "relax_driven": False, "u_adam_carry": False,
-    "reject_stop": 3, "render_exterior": True, "render_res_hi": None,
+    "reject_stop": 3, "render_exterior": True, "render_res_hi": None, "spacing_symmetric": False,
     "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
     "young": None,

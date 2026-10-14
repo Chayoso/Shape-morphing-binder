@@ -77,6 +77,29 @@ def knn(points: torch.Tensor, k: int, queries: torch.Tensor | None = None):
     return KNN(points).query(points if queries is None else queries, k)
 
 
+def symmetric_rows(nbr: torch.Tensor) -> torch.Tensor:
+    """The symmetric closure of neighbour rows (D149): q is in row p iff q is in p's row or p is in q's.
+
+    (N, K) -> (N, K') int64 on nbr's device. Each row lists its neighbours in ascending order, then p's own index as
+    padding up to the widest row (K' = the largest degree). The minimum spacing's kernels skip a pair at zero distance,
+    so the padding acts on nothing. A self entry of the input is dropped. Each unordered pair sits in both of its rows,
+    so a pairwise update that is opposite in its two particles sums to zero over the body."""
+    N, K = int(nbr.shape[0]), int(nbr.shape[1])
+    dev = nbr.device
+    p = torch.arange(N, device=dev, dtype=torch.int64).repeat_interleave(K)
+    q = nbr.reshape(-1).to(torch.int64)
+    keep = q != p
+    p, q = p[keep], q[keep]
+    key = torch.unique(torch.cat((p * N + q, q * N + p)))      # sorted: by row, then by column; duplicates merged
+    rows, cols = key // N, key % N
+    deg = torch.bincount(rows, minlength=N)
+    width = max(int(deg.max()), 1) if len(key) else 1
+    slot = torch.arange(len(key), device=dev) - (torch.cumsum(deg, 0) - deg)[rows]
+    out = torch.arange(N, device=dev, dtype=torch.int64)[:, None].repeat(1, width)
+    out[rows, slot] = cols
+    return out
+
+
 def median_kth_spacing(points: torch.Tensor, kth: int, subsample: int | None = None, seed: int = 0) -> float:
     """Median distance to the kth neighbour (kth=1: nearest other point). With `subsample`
     the median is taken on a seeded subset and rescaled by (n_sub/N)^(1/3) to the full
