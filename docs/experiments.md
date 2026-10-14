@@ -4176,7 +4176,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   at most 0.05 pitches beyond the narrowest band cell; the render terms on the corrected field move the late trajectory
   enough for one detached cluster of particles to float in the hind-leg gap for 2.4 s, which no field definition hides.
   The default stays `zb`; `--exterior_field zbs` stays an A/B switch.
-  **The user's decision: a repeat to tell D144 from run spread. Pre-registered 2026-10-13 22:40 CDT server clock, before
+  **The user's decision: a repeat to tell D144 from run spread. Pre-registered 2026-10-13 22:37 CDT server clock (commit
+  22e31a7, pushed before the launch at 22:37; the time first written, 22:40, was an estimate), before
   the runs.** *Runs:* one more render arm a mesh, bunny Z2 and dragon Z2: the same code (b071cc5 with D140's read-only
   dump of windows 1–9, `repo_d144f`), the same seed 97, `--exterior_field zbs`, one a card (the spread is the atomics',
   as between PT and PT2 or LT and LF); read by the same readers (`d144_chain.sh`: shell against bulk, end rows,
