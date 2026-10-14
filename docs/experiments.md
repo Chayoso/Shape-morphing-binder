@@ -4699,6 +4699,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   2123; windows 77 / 69, 108 / 119. Reading so far: each arm is ahead on the representation it optimises — the exterior
   read on the display surface and the exterior yardstick (15–33 %), the cloud read on the particle measures (the 40k
   gallery's silhouette IoU is one, hence that ablation's sign) and on thin coverage; the verdict waits for seeds 99 / 101.
+  **B1, bunny 300k, the render arm against its twin over three seeds (97 / 99 / 101; read 17:25 CDT; `d145_b1/
+  tab_bunny.jsonl`, `band145.py`).** Against the independent sample, L relative to P, the three-run ranges apart:
+  yardstick silhouette −44 % (7.6–8.0e-4 against 1.35–1.52e-3), shading −28 %; display 1 − IoU front −31 %, crop −26 %,
+  back −30 %, front image difference −21 %; net rotation −39 % (0.0012–0.0023° against 0.0032–0.0035°). Overlapping (no
+  difference beyond the spread): own-sample silhouette IoU (0.9877–0.9891 against 0.9874–0.9881), chamfer, thin uncovered
+  (4.6–4.8 % against 4.3–4.7 %, the render arm slightly higher), end kinetic energy (1.7–3.4e-6 against 2.8–6.3e-6), early
+  apart particles, angular net / gross, windows (59–77 against 58–76), minutes (7.2–9.3 against 7.4–9.0). Apart and BEHIND:
+  the largest centre-of-mass displacement (momentum probe on the kept frames) 2e-4 against 1e-4 pitches. Render share
+  0.333 at every window, λ at the first window 0.34–0.37.
+  **Where the centre-of-mass drift comes from (the coordinator: the user's standing requirement, every measure
+  including momentum; read 17:35 CDT from the runs' own records).** Each window's record splits the body's net
+  translation over the committed rollout by the position update that made it (`telemetry.below_grid_record`: the grid's
+  advection dt v, the minimum spacing's push, u's displacement, the relaxation and bonds), as vectors; summed over the
+  committed windows, in pitches, L / P ranges: the grid 3.3–4.9e-5 / 3.1–4.8e-5 (the float32 floor of P2G / G2P: stress
+  cannot move the centre of mass in exact arithmetic; equal in both arms), the minimum spacing 1.27–1.74e-4 / 1.16–1.35e-4,
+  u 0.7–1.3e-10 / 1.4–1.6e-10 (rigid-free, D94), the relaxation and bonds 3–4e-7 / 2–6e-7, the whole 1.54–1.81e-4 /
+  1.38–1.45e-4. So neither arm is at the float32 floor: about four fifths of either arm's drift is the minimum spacing's
+  push (pairwise pushes over frozen per-particle neighbour lists, which need not be symmetric, so their sum need not
+  vanish), and the render arm's excess (1.5–4e-5 pitches) is in that push too, not in dFc (whose only part is the grid's
+  floor, equal in both) and not in u. Recorded as found; a change of the minimum spacing's definition would be the
+  user's decision after the experiments.
   **B7, the render gradient's proof, bunny (read 2026-10-14 14:50–15:20 CDT; the user: "랜더 Gradient가 어디서 어떻게
   영향을 미치는지도 proof 해야 할 거 같아", top priority by the coordinator; the dragon reach run promoted to must and
   queued for 19:00).** Data: the hooked run G97 (repo_d145g, bunny 300k seed 97; dumps at windows 1, 2, 3, 5, 10, 20, 40,
