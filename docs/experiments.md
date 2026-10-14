@@ -5774,6 +5774,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   readings, the gated static renders with the cut and the close-up); fail → no 300k, the readings to the coordinator.
   Predictions: the plateau gone, the progress within about 0.05 of a smooth curve to the end, the largest early rise
   under 2x steady; the progress at the contact 0.45–0.55 (the sphere-side blur slows nothing); the end error as before.
+  **The continuous target at 40k (15:58–16:24 CDT; `judge_throwY40k.txt`, `progress_throwY40k.txt`,
+  `cut_throwY40k.txt`; the scene tests 21 passed, 1 skipped (u_adam_carry not in this recipe)).** PASS by the rule in
+  both runs: the progress at the first contact (3.95 / 4.0 s) 0.447 (a) and 0.392 (b); parted in the air at 6.15 s;
+  landed 8.9 / 10.95 s and 8.85 / 11.0 s; end error 0.028 / 0.027; the largest early rise 2.01 / 2.12 (a) and 2.91 /
+  2.77 (b) times the steady rate, now during the contact (3.6 / 4.2 s), not at the ramp's end; the tumble 16.5 / 37.3°
+  and 28.0 / 41.5° (body 0 under the bar in both, reported). The predictions: the plateau gone, yes (0.87 at 6.0 s,
+  0.97 at 6.6 s, 1.00 at 7.05 s, nothing at 7.6 s); the largest early rise under 2x, no (2.0–2.9x, at the contact);
+  the progress at the contact 0.45–0.55, partly (0.39–0.45). Seen: the sharp interpolation shows the shapes at the
+  contact as small rounded bunnies with short ears (`frames_Ya_static/0948.jpg`) where the blurred one showed blobs
+  with budding ears at the same silhouette progress: both halfway in geometry, the sharp one reads as formed; sent to
+  the coordinator (a longer ramp the lever; the user's call). The cut by the rule at 15.25 / 14.85 s. Chain 16 (the
+  300k on this definition) from 16:24.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
