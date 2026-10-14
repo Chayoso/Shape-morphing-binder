@@ -5327,6 +5327,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Prediction: no particle under the floor's centre plane; the body bounces on landing (elastic) and comes to rest
   rolling slower; the end silhouette within 0.01 of V0's (0.973), since the slump (the assimilation's) and the sinking
   (the position updates') are both gone.
+  **scene_na (runs 10:23–10:38 CDT, the old floor and domain; first reading from the window records, the rule's reading
+  follows in chain 3).** Without the assimilation the long flight's pair parts in the air: in contact from about 0.5 s,
+  no contact impulse from window 19 (3.2 s) on, the bodies falling apart and landing at about 5 s; both bunnies near
+  their targets in flight (silhouette terms 0.0010 and 0.0009 at 4.2 s). After the landing they lose their shapes: the
+  silhouette terms rise to 0.15–0.19 by 9 s, the line search finds no step in windows 43–60 (zero-control commits)
+  and the end thin share is 79 %. The registered timeline stays in contact to 7 s and ends near (silhouette terms
+  0.011 / 0.012); the stiff one leaves the domain at 5.8 s. Reading so far: the assimilation off restores the bounce
+  (predicted), and without it the bodies do not keep the shape after landing (the coordinator's question answered
+  negatively, on the old floor where the bottoms sink; V1e and S2 run with the floor's position constraint). With it on
+  the impact becomes rest shape; off, the landed body has no rest shape near the bunny and the controls alone do not
+  hold one: the written proposal (the control's share assimilated, the loads' strain left elastic) is the definition
+  that would give both.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
