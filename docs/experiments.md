@@ -4761,6 +4761,46 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   control of every particle, concentrated about tenfold on the rim and the thin parts; it moves those parts toward the
   target and lowers the silhouette and shading errors by 30–46 % at the end, without moving the centre of mass, the
   transport term or the rest.
+  **B7 videos (RGV), the render gradient on the deforming body (2026-10-14 15:05–17:30 CDT; the user: "렌더 Gradient가
+  어디서 얼마나 영향을 받는지 … dFc가 특히 랜더에 의해 어떻게 영향을 받는지 … 진짜 '랜더'해서"; then "딱 보면 … dFc에
+  render gradient가 영향을 주는 곳 … 크기 … 충돌하는 부분 … 이렇게 바뀐 거"; code 0ddbe98 and after, `scripts/
+  render_gradient_viz.py`, `scripts/probes/paper/rgv_*`; server `repo_rgv`, `repo_rgvr`, `output/gpu/rgv/`; local
+  `output/results_2026-10-14/render_gradient_viz/` with a Korean README).** Data: RG97, bunny 300k seed 97 on `repo_rgv`
+  = repo_d145g + `rgv_patch.py` (the counterfactual's file also keeps both passes' committed dFc, mean over the driven
+  steps, and u with its gate; no flag added), the gradient dump and the λ = 0 counterfactual at EVERY window (79, 71
+  committed; 25.6 min, peak 22.9 GB). The hook test passes (bit for bit under deterministic atomics; with the render
+  weight at zero every control difference is exactly 0). Against L97 / G97 (`rgv_proof.py`): window-1 relative merit /
+  transport / silhouette 1.6e-6 / 2.1e-5 / 8.0e-5 and 3.1e-5 / 3.4e-5 / 3.1e-5, the replay pair L97–G97 3.2e-5 / 5.5e-5
+  / 1.1e-4; matched-time layer / bulk at most 0.71 / 0.27 and 0.70 / 0.26 pitches (replay 0.75 / 0.27); silhouette IoU
+  0.9877 (0.9891, 0.9874), chamfer 0.0551; windows 71 (77, 55). Renderer: the deliverable's base display (+fit=0
+  +field=zbs) with a display-only colour per disc (StudioRaster albedo=..., the default path byte-identical: the tag's
+  renderer against this one on L97 frames, fit=0 front / side and fit=1, SAME; suite 400 → 402 passed, 2 skipped, exit 0).
+  First design (V1 the two pulls, V2 |ΔdFc|, V3 g Δu; values held per window, V1/V2 each window over its own p99): the
+  user found the colours unreadable and the frames blinking; measured, the mean change of a particle's bar position
+  between consecutive kept frames was 0.071–0.148 at window boundaries and 0 inside, half of V1's jump the per-window
+  rescale, and on the pictures the body's mean |ΔRGB| 8.1 / 11.7 / 6.0 at boundaries against 1.0–1.1 inside. Second
+  design (the coordinator's four questions, one panel each, a 2 × 2 grid; values linear in time between window centres,
+  no per-window rescaling, the hatched plain body where a panel's quantity is undefined): A the render's share of the
+  pull, s = |λ g_r| / (|λ g_r| + |g_p|) (layer median 25 % at window 1, 10–15 % later, p90 22–46 %: ears, face, feet,
+  tail, rim; physics-led elsewhere); B |λ g_r| on one log scale for the run (4 decades, the totals over time inset;
+  within-frame spread on the layer 0.8–1.2 decades p10–p90 at windows 2, 12, 30, 60); C the per-particle cosine of the
+  two pulls before PCGrad (agree 37–65 % / conflict 8–27 % of the layer where the render acts in windows 1–20, 19–20 % /
+  45–50 % from window 21; PCGrad active in 29 of 71 windows, all from window 24: it acts on the whole gradient, so a red
+  patch alone is not removed; the cosine's window-to-window correlation is 0.27, so it is shown as a running mean over
+  5 windows, labelled); D the render's change of the control, |ΔdFc| / |dFc(λ = 0)| (layer median 39 % at window 1, 8 %
+  at windows 11–20, 14–17 % later; over 20 % on 72 → 12 → 29–39 % of the layer) with 2D arrows of sym(ΔdFc)'s principal
+  axis (white ↔ stretch added, dark →← compression added; faded in over a 15–25 % change, fixed thinning order); U g Δu
+  in pitches (u acts on 5–12 % of the layer in windows 1–3 (the arrived scope), 87 % at window 6, ~100 % from 11; Δu's
+  window-to-window correlation +0.85, never negative: the render's change of u is consistent, not D146's u dither, which
+  cancels in the difference). After: the boundary and inside changes are alike (A 1.9 / 1.8, B 1.6 / 1.6, U 2.7 / 2.4
+  ΔRGB); C and D changed 9–10 per frame before the averaging and the arrow fade (numbers of the final pass in
+  `flicker_after.json`). Palettes checked with the dataviz validator (each ramp --ordinal PASS; C's red / blue poles CVD
+  ΔE 25.9; B violet against A orange, a yellow–brown B failed at ΔE 7.7). Rendering influence (the standing block): λ is
+  set every window so that |λ ∇L_render| = ½ |∇L_phys| over all controls (1/3 of the first gradient's norm); per
+  particle the render's share is 10–25 % on the layer (ears, face, feet, tail up to 30–46 %, p90); the counterfactual
+  moves the layer's control by 54 % (window 1) → 9 % (windows 11–20) → 20–25 % (later) of its size and u by 50–72 %, and
+  the window's silhouette term is 50–79 % lower late in the run; iterations equal in 70 of 71 windows. 4K and the dragon
+  wait for the user.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from

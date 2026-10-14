@@ -1,5 +1,5 @@
 """render_gradient_viz.py VIZ_NPZ DENSE_NPZ[,DENSE_NPZ...] OUT_DIR [+viz=A,B,C,D,U] [+views=35,90] [+res=1080]
-[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+mesh=bunny]
+[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+c_avg=1] [+mesh=bunny]
 -- the render gradient's videos (RGV): four questions about the render loss and the stress control dF_c, one panel
 each, drawn on the deforming body in the deliverable's studio look (scripts/render_deliverable.py's base display,
 +fit=0: the exterior's discs of each kept frame's particles, their twice-averaged normals, the same camera, lights,
@@ -12,13 +12,15 @@ backdrop and disc footprint), and the u channel. Also reached as render_delivera
      total render and physics pulls over the morph with a cursor at the current time;
   C  "Where do the render and the physics disagree?"  the cosine at each particle between lambda g_render (before
      PCGrad) and g_phys, as 9-vectors (their means over the steps): blue = the same way, light neutral = unrelated,
-     red = against each other; the plain body (hatched) where the render's share is under 5 %;
+     red = against each other; the plain body (hatched) where the render's share is under 5 %; +c_avg=K: the
+     cosine's running mean over K windows (it changes much from one window to the next);
   D  "What did the render do to dF_c?"  how much the render changed the particle's control, |Delta dF_c| /
      |dF_c(lambda = 0)| of the 20-step means (the same window optimised twice from the same start), linear 0-100 %,
      plain grey to deep teal; the plain body (hatched) where |dF_c(lambda = 0)| is under 1 % of its 99th percentile
      on the outer layer; 2D arrows on a material grid (glyph_cell pitches on the source positions, drawn where at the
      surface, facing the camera and not hidden, the change over 20 %; arrow_px long on the screen at 1080 lines,
-     shortened by the foreshortening, none under 0.35 of it, at most one per 1.15 lengths): the principal axis of
+     shortened by the foreshortening, each fading in and out with its change (15-25 %) and its foreshortening, at
+     most one per 1.15 lengths in a fixed order of the particles): the principal axis of
      sym(Delta dF_c) along the surface, white double-headed = stretch added, dark converging = compression added;
   U  g Delta u = g (u(render on) - u(lambda = 0)) in pitches, blue inward, red outward, one linear scale for the run;
      the plain body (hatched) where u does not act (outside the outer layer or its gate closed).
@@ -189,9 +191,9 @@ def wrap(draw, text, fnt, width):
     return out + ([cur] if cur else [])
 
 
-def arrow(draw, p1, p2, kind, sz):
+def arrow(draw, p1, p2, kind, sz, alpha=None):
     """A 2D arrow along p1-p2: kind +1 stretch (double-headed, white with a dark outline), -1 compression (two heads
-    meeting at the middle, dark with a white outline)."""
+    meeting at the middle, dark with a white outline); alpha (0-255) on an RGBA layer."""
     p1, p2 = np.asarray(p1, float), np.asarray(p2, float)
     d = p2 - p1
     ln = float(np.hypot(*d))
@@ -201,6 +203,8 @@ def arrow(draw, p1, p2, kind, sz):
     v = np.array([-u[1], u[0]])
     hl, hw = .32 * ln, .2 * ln
     fill, edge = (WHITE, DARK) if kind > 0 else (DARK, WHITE)
+    if alpha is not None:
+        fill, edge = fill + (alpha,), edge + (alpha,)
     lw = max(2, int(round(3.2 * sz)))
     if kind > 0:
         shafts = [(p1 + u * hl * .6, p2 - u * hl * .6)]
@@ -234,6 +238,7 @@ def main(argv=None):
     FRAMES = [int(v) for v in opts["frames"].split("-")] if "frames" in opts else None
     GCELL = float(opts.get("glyph_cell", 5.0))                               # pitches
     ARROW = float(opts.get("arrow_px", 46.0))                                # px at 1080 lines
+    C_AVG = int(opts.get("c_avg", 1))                                       # C: running mean over this many windows
     INTERP = opts.get("interp", "1") == "1"
     GRID = opts.get("grid", "1") == "1" and all(k in kinds for k in "ABCD")
     MESH = opts.get("mesh", Path(args[1]).name.split("300k")[0].split("_")[0])
@@ -268,6 +273,7 @@ def main(argv=None):
     perm = torch.randperm(len(key), generator=torch.Generator(device="cpu").manual_seed(0)).to(dev)
     _, first = np.unique(key[perm].cpu().numpy(), return_index=True)
     G_IDX = perm[torch.as_tensor(first, device=dev)]
+    G_RANK = torch.randperm(len(G_IDX), generator=torch.Generator(device="cpu").manual_seed(1)).to(dev)
     del x_src
 
     @functools.lru_cache(maxsize=3)
@@ -276,6 +282,9 @@ def main(argv=None):
         V = {ch: torch.as_tensor(np.asarray(A[ch][w], np.float32 if ch != "layer" else bool), device=dev) for ch in A}
         V["act"] = (V["layer"] & (V["ugate"] > .5)).float()  # where u acts (its gate is 0 or 1)
         V["ref_dfc0"] = torch.quantile(V["dfc0"][V["layer"]], .99)
+        if C_AVG > 1:                                          # C: the running mean of the cosine over C_AVG windows
+            lo_, hi_ = max(0, w - C_AVG // 2), min(n_win, w + C_AVG // 2 + 1)
+            V["cos"] = torch.as_tensor(np.asarray(A["cos"][lo_:hi_], np.float32).mean(0), device=dev)
         return V
 
     def values(k):
@@ -373,6 +382,51 @@ def main(argv=None):
             dr.text((X(tk) - 4 * sz, y0 + h + 3 * sz), f"{tk}", font=f, fill=INK2)
         dr.text((x0 + w - 10 * sz, y0 + h + 3 * sz), "s", font=f, fill=INK2)
 
+    def body_arrows(img, cam, key, p, n, cov, op, sites, sz):
+        """D's arrows on the body, composited over it: at the subsample's sites facing the camera and not hidden (the
+        depth of the drawn discs), ARROW px long on the screen times the axis' foreshortening (2 pitches along it
+        against 2 across the view at that depth), each faded by its own fade and by the foreshortening over 0.3-0.45,
+        thinned to one per 1.15 lengths in a fixed order of the particles (no popping as the values change)."""
+        gq_, gn_, et_, sg_, fd_, rk_ = sites
+        if not len(gq_):
+            return img
+        Wd, Hd = img.size
+        _, campos, _, _, _ = proj[key]
+        _, zq = project(key, p)
+        zmin, zmax = float(zq.min()), float(zq.max())
+        zc = ((zq - zmin) / max(zmax - zmin, 1e-9))[:, None].expand(-1, 3).contiguous()
+        cv = cam.raster_colors(p, n, cov, op, torch.ones_like(p))[..., 0]
+        depth = cam.raster_colors(p, n, cov, op, zc)[..., 0] / cv.clamp_min(1e-6)
+        c2, zg = project(key, gq_)
+        q1, _ = project(key, gq_ - a * et_)
+        q2, _ = project(key, gq_ + a * et_)
+        dq = q2 - q1
+        full = 2 * a * (Hd / (2 * math.tan(math.radians(15)))) / zg.clamp_min(1e-6)
+        fore = (dq.norm(dim=1) / full).clamp(max=1.0)
+        u2 = dq / dq.norm(dim=1, keepdim=True).clamp_min(1e-9)
+        half = .5 * ARROW * sz * fore
+        e1, e2 = c2 - u2 * half[:, None], c2 + u2 * half[:, None]
+        ci = c2.round().long()
+        inb = (ci[:, 0] >= 0) & (ci[:, 0] < Wd) & (ci[:, 1] >= 0) & (ci[:, 1] < Hd)
+        ci = ci.clamp_min(0)
+        ci[:, 0], ci[:, 1] = ci[:, 0].clamp(max=Wd - 1), ci[:, 1].clamp(max=Hd - 1)
+        zn = (zg - zmin) / max(zmax - zmin, 1e-9)
+        vis = ((((campos - gq_) * gn_).sum(1) > 0) & inb & (cv[ci[:, 1], ci[:, 0]] > .5)
+               & (zn <= depth[ci[:, 1], ci[:, 0]] + 1.0 * a / max(zmax - zmin, 1e-9)))
+        alpha = fd_ * ((fore - .3) / .15).clamp(0, 1) * vis.float()
+        over = Image.new("RGBA", (Wd, Hd), (0, 0, 0, 0))
+        do = ImageDraw.Draw(over)
+        taken = []
+        for q in torch.argsort(rk_).tolist():
+            if float(alpha[q]) <= 0:
+                continue
+            cxy = c2[q].cpu().numpy()
+            if any((cxy[0] - t0) ** 2 + (cxy[1] - t1) ** 2 < (1.15 * ARROW * sz) ** 2 for t0, t1 in taken):
+                continue
+            taken.append((cxy[0], cxy[1]))
+            arrow(do, e1[q].cpu().numpy(), e2[q].cpu().numpy(), float(sg_[q]), sz, alpha=int(255 * float(alpha[q])))
+        return Image.alpha_composite(img.convert("RGBA"), over).convert("RGB")
+
     grey = torch.tensor(GREY, device=dev, dtype=torch.float32)
     keep = list(range(0, len(raws), STRIDE)) + ([len(raws) - 1] if (len(raws) - 1) % STRIDE else [])
     if FRAMES is not None:
@@ -409,7 +463,8 @@ def main(argv=None):
             hatch["U"] = 1 - on3
         if "D" in kinds:                                       # the arrows' sites: the subsample now at the surface
             dsd, js = gpu.KNN(p).query(x[G_IDX], 1)
-            js = js.reshape(-1).long()[dsd.float().reshape(-1) < 1.0 * a]
+            gsel = dsd.float().reshape(-1) < 1.0 * a
+            js = js.reshape(-1).long()[gsel]
             gq, gn = p[js], n[js]
             d8, i8 = tx.query(gq, 8)
             w8 = torch.exp(-(d8.float() / a) ** 2)
@@ -422,8 +477,12 @@ def main(argv=None):
             lam = ev.gather(1, j[:, None]).squeeze(1)
             e = evec.gather(2, j[:, None, None].expand(-1, 3, 1)).squeeze(2)
             et = e - (e * gn).sum(1, keepdim=True) * gn
-            ok = (relg > .2) & (d0g >= .01 * V["ref_dfc0"]) & (et.norm(dim=1) > .3)
-            sites = (gq[ok] + .3 * a * gn[ok], gn[ok], nnf.normalize(et[ok], dim=1), torch.sign(lam[ok]), relg[ok])
+            # each arrow fades in and out (no popping): over a change of 15-25 % (drawn "over 20 %") and over a
+            # tangent part of the axis of 0.2-0.4; its place in the thinning is a fixed rank of its particle
+            fade = ((relg - .15) / .1).clamp(0, 1) * ((et.norm(dim=1) - .2) / .2).clamp(0, 1)
+            ok = (fade > 0) & (d0g >= .01 * V["ref_dfc0"])
+            sites = (gq[ok] + .3 * a * gn[ok], gn[ok], nnf.normalize(et[ok], dim=1), torch.sign(lam[ok]), fade[ok],
+                     G_RANK[gsel][ok])
         lam_w = S["w_lam"][wn]
         info = f"t = {raws[k] / 240.0:5.2f} s   ·   window {wn + 1} of {n_win}   ·   λ = {lam_w:.3g}"
         pcg = S["w_graw_cos"][wn]
@@ -435,6 +494,8 @@ def main(argv=None):
                 panels = {}
                 for kd in kinds:
                     img = Image.fromarray(draw_body(cam, p, n, cov, op, alb[kd], hatch.get(kd)))
+                    if kd == "D":                              # the arrows on the body first, under the legends
+                        img = body_arrows(img, cam, (az, r), p, n, cov, op, sites, sz)
                     dr = ImageDraw.Draw(img)
                     Wd, Hd = img.size
                     bx, by, bw = int(Wd - 700 * sz), int(Hd - 130 * sz), int(520 * sz)
@@ -462,7 +523,9 @@ def main(argv=None):
                         colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_C,
                                    [(0, "−1\nred: against each other"), (.5, "0\nunrelated"),
                                     (1, "+1\nblue: the same way")],
-                                   "do the render and the physics pull\nthis particle's control the same way?", f_s)
+                                   ("do the render and the physics pull this particle's\ncontrol the same way? "
+                                    f"(averaged over {C_AVG} windows, {C_AVG / 6:.2f} s)" if C_AVG > 1 else
+                                    "do the render and the physics pull\nthis particle's control the same way?"), f_s)
                         hatch_legend(dr, cam, bx, int(Hd - 228 * sz), sz, Hd,
                                      "render barely acts here (share under 5 %)", f_s)
                         small = ["cosine at this particle between λ ∂L_render/∂dFᴄ (before PCGrad) and ∂L_phys/∂dFᴄ, "
@@ -470,6 +533,9 @@ def main(argv=None):
                                  "PCGrad acts on all controls at once: it removes the conflicting part of the render "
                                  "gradient only in windows where the two disagree overall (this window: "
                                  f"{'yes' if pcg < 0 else 'no'})"] + small
+                        if C_AVG > 1:
+                            small = [f"the cosine is a running mean over {C_AVG} windows ({C_AVG / 6:.2f} s): per particle it changes "
+                                     f"much from one window to the next"] + small
                     elif kd == "D":
                         title = "What did the render do to dFᴄ?"
                         colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_D,
@@ -483,44 +549,6 @@ def main(argv=None):
                         dr.text((ax + 76 * sz, ay), "the render's change stretches along this line", font=f_s, fill=INK)
                         arrow(dr, (ax, ay + 50 * sz), (ax + 60 * sz, ay + 50 * sz), -1, sz)
                         dr.text((ax + 76 * sz, ay + 38 * sz), "it compresses along this line", font=f_s, fill=INK)
-                        # the arrows on the body: facing the camera, not hidden (depth), the change over 20 %
-                        gq_, gn_, et_, sg_, rel_ = sites
-                        _, campos, _, _, _ = proj[(az, r)]
-                        if len(gq_):
-                            pv, zq = project((az, r), p)
-                            zmin, zmax = float(zq.min()), float(zq.max())
-                            zc = ((zq - zmin) / max(zmax - zmin, 1e-9))[:, None].expand(-1, 3).contiguous()
-                            cv = cam.raster_colors(p, n, cov, op, torch.ones_like(p))[..., 0]
-                            depth = cam.raster_colors(p, n, cov, op, zc)[..., 0] / cv.clamp_min(1e-6)
-                            c2, zg = project((az, r), gq_)
-                            # a fixed length on the screen (ARROW px), shortened by the axis' foreshortening: the
-                            # projected length of 2 pitches along it against 2 pitches across the view at that depth
-                            q1, _ = project((az, r), gq_ - a * et_)
-                            q2, _ = project((az, r), gq_ + a * et_)
-                            dq = q2 - q1
-                            full = 2 * a * (Hd / (2 * math.tan(math.radians(15)))) / zg.clamp_min(1e-6)
-                            fore = (dq.norm(dim=1) / full).clamp(max=1.0)
-                            u2 = dq / dq.norm(dim=1, keepdim=True).clamp_min(1e-9)
-                            half = .5 * ARROW * sz * fore
-                            e1, e2 = c2 - u2 * half[:, None], c2 + u2 * half[:, None]
-                            facing = (((campos - gq_) * gn_).sum(1) > 0) & (fore > .35)
-                            ci = c2.round().long()
-                            inb = (ci[:, 0] >= 0) & (ci[:, 0] < Wd) & (ci[:, 1] >= 0) & (ci[:, 1] < Hd)
-                            ci = ci.clamp_min(0)
-                            ci[:, 0], ci[:, 1] = ci[:, 0].clamp(max=Wd - 1), ci[:, 1].clamp(max=Hd - 1)
-                            zn = (zg - zmin) / max(zmax - zmin, 1e-9)
-                            vis = facing & inb & (cv[ci[:, 1], ci[:, 0]] > .5) & \
-                                (zn <= depth[ci[:, 1], ci[:, 0]] + 1.0 * a / max(zmax - zmin, 1e-9))
-                            order = torch.argsort(rel_, descending=True)
-                            taken = []
-                            for q in order.tolist():
-                                if not bool(vis[q]):
-                                    continue
-                                cxy = c2[q].cpu().numpy()
-                                if any((cxy[0] - t0) ** 2 + (cxy[1] - t1) ** 2 < (1.15 * ARROW * sz) ** 2 for t0, t1 in taken):
-                                    continue
-                                taken.append((cxy[0], cxy[1]))
-                                arrow(dr, e1[q].cpu().numpy(), e2[q].cpu().numpy(), float(sg_[q]), sz)
                         small = ["the same window optimised twice from the same start, with the render and with λ = 0; "
                                  "colour |ΔdFᴄ| / |dFᴄ(λ = 0)| of the 20-step means; arrows (only where the change "
                                  "is over 20 %): the principal axis of sym(ΔdFᴄ) along the surface; dFᴄ is added "
