@@ -84,6 +84,11 @@ class Bodies:
     def cat(self, name: str, t: int) -> torch.Tensor:
         return torch.cat([wp.to_torch(getattr(tr, name)[t]) for tr in self.trajs])
 
+    @property
+    def layer_ug(self):
+        """The bodies' u gates in body order (a copy, as a Warp array: what the window optimiser reads)."""
+        return wp.from_torch(torch.cat([wp.to_torch(tr.layer_ug) for tr in self.trajs]).contiguous())
+
 
 def body_trajectory(spec: RolloutSpec, dfc, layer_u=None, requires_grad=False, persistent=True) -> Trajectory:
     """One body's Trajectory from its spec (the frozen single-body construction of window/setup and function.py)."""

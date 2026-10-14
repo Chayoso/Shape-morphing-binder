@@ -37,7 +37,7 @@ TRACKED = ("physmorph/gpu.py", "physmorph/prepare.py", "physmorph/pipeline/confi
            "physmorph/mpm/kernels.py", "physmorph/mpm/traj.py", "physmorph/mpm/function.py")
 
 
-def parse_args():
+def parse_args(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--src", default="assets/isosphere.obj")
     ap.add_argument("--tgt", default="assets/bunny.obj")
@@ -137,7 +137,7 @@ def parse_args():
                     help="diagnostic: directory of each term's per-particle position gradient at every committed window")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
     ap.add_argument("--live_dir", default="", help="file-backed viewer sink (scripts/viewer_serve.py)")
-    return ap.parse_args()
+    return ap.parse_args(argv)
 
 
 def eval_gates(res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
@@ -183,17 +183,24 @@ def live_hooks(args, src, tgt, prm, cfg):
     return sink.begin_run(ARM, src, tgt, prm, cfg, sigma0_from_nn(tgt, 0.9))
 
 
-def main():
-    args = parse_args()
-    gpu.require_cuda()
+def prepared(args, seed: int):
+    """(the material config, the prepare stage's result) of a run (the multi-body scene, scripts/scene_run.py, prepares
+    each body with it)."""
     material = {k: getattr(args, k) for k in ("young", "poisson", "assim") if getattr(args, k) is not None}
     cfg0 = PipelineConfig(loss_follows_n=args.loss_follows_n, **material)
-    prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
+    prep = prepare(args.src, args.tgt, args.n, seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
                    surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws,
                    match_density=args.match_density,
                    cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0)
+    return cfg0, prep
+
+
+def main():
+    args = parse_args()
+    gpu.require_cuda()
+    cfg0, prep = prepared(args, args.seed)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -201,6 +208,12 @@ def main():
         prm = dataclasses.replace(prm, f_ext=tuple(args.f_ext))
     if args.floor:
         prm = dataclasses.replace(prm, floor_friction=args.floor_friction)
+    cfg = run_config(args, cfg0, prep)
+    run_main(args, prep, src, tgt, prm, cfg)
+
+
+def run_config(args, cfg0, prep):
+    """The run's PipelineConfig from its flags (the frozen recipe at the defaults) and the prepare stage."""
     # the render pictures follow the particle spacing as the transport grid does (prepare.py): above mass_ref_n
     # particles a pixel keeps its size in pitches (D74: at 300k a 64-px pixel was 3.8 pitches, 1.9 at 40k).
     # One resolution, the fine one, from the first window (D89): the coarse stage fitted a picture whose pixel
@@ -224,6 +237,10 @@ def main():
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form)
     if args.baseline:                      # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
+    return cfg
+
+
+def run_main(args, prep, src, tgt, prm, cfg):
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)

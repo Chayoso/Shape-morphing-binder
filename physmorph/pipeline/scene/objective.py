@@ -14,6 +14,14 @@ from .frame import body_frame, deformation_velocity
 from .window import SceneWindow
 
 
+class _Discs(tuple):
+    """The bodies' disc sets (one entry per body, None until found); p0 counts them all (the optimiser's record)."""
+
+    @property
+    def p0(self):
+        return range(sum(len(d.p0) for d in self if d is not None))
+
+
 class SceneObjective:
     def __init__(self, win: SceneWindow):
         self.win, self.cfg = win, win.cfg
@@ -24,7 +32,7 @@ class SceneObjective:
     # the exterior's discs of each body (the optimiser keeps the set the accepted candidate was scored with)
     @property
     def discs(self):
-        return tuple(p.discs for p in self.parts)
+        return _Discs(p.discs for p in self.parts)
 
     @discs.setter
     def discs(self, value):

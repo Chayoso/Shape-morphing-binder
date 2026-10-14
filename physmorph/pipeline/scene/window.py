@@ -32,6 +32,7 @@ class Body:
     tgt: object
     vp: float
     mass: float
+    cfg: object = None                  # the body's own run config (its loss grid and berth from its prepare); None = the scene's
 
     @property
     def rows(self):
@@ -49,7 +50,7 @@ class BodyWindow:
     def __init__(self, scene: "SceneWindow", b: int, y0: torch.Tensor, lmask: torch.Tensor):
         body = scene.bodies[b]
         self.scene, self.b = scene, b
-        self.cfg, self.prm, self.tgt = scene.cfg, scene.prm, body.tgt
+        self.cfg, self.prm, self.tgt = body.cfg or scene.cfg, scene.prm, body.tgt
         self.x0, self.lmask, self.N = y0, lmask, body.n
         self.wu = 1.0 / body.tgt.unit_ratio
         self.eps_eff = scene.cfg.eps / body.tgt.unit_grad_ratio

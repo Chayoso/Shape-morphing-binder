@@ -84,14 +84,16 @@ def pcgrad(g_keep, g_strip):
 
 
 class WindowOptimizer:
+    window_cls, objective_cls = Window, Objective          # the scene (D147) brings its own (pipeline/scene/solve.py)
+
     def __init__(self, start: StartState, prm, cfg: PipelineConfig, tgt: TargetPack,
                  balancer: LambdaBalancer, vol0, bonds, alpha_scale=1.0, on_iter=None, log=print):
         self.cfg, self.tgt, self.balancer, self.log, self.on_iter = cfg, tgt, balancer, log, on_iter
         PROF_STATE["on"] = bool(cfg.profile)          # the runner takes the sections before each window (run.runner)
         with timed("win_setup"):
-            self.win = Window(start, prm, cfg, tgt, vol0, bonds)
+            self.win = self.window_cls(start, prm, cfg, tgt, vol0, bonds)
         with timed("obj_setup"):
-            self.obj = Objective(self.win)
+            self.obj = self.objective_cls(self.win)
         N = self.win.N
         self.dFc = torch.zeros(cfg.T, N, 3, 3, device=cfg.device, requires_grad=True)
         self.u = torch.zeros(N, device=cfg.device, requires_grad=True)

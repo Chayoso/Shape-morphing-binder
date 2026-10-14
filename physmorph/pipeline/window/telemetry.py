@@ -144,6 +144,8 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
     (APIC's affine part included): at the window's start (L_start), its change by the grid's steps (L_grid) and by
     the position updates below the grid (L_jump, D99), split into the minimum spacing's (L_space), u's (L_u) and
     the rest, the relaxation's (L_relax; D101). Uniform mass."""
+    if getattr(win, "scene", False):                # the multi-body scene records each body itself (D147)
+        return {}
     tr, T, N = win.tr, win.T, win.N
     dt, frac = float(tr.prm.dt), 1.0 / float(tr.control_steps)
     nbr = wp.to_torch(tr.space_nbr).reshape(N, -1).long() if tr.space_K > 0 else None

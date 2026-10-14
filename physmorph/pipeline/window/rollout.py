@@ -71,6 +71,9 @@ def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
 
 def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:
     """Differentiable rollout (the persistent tape; forward and adjoint as CUDA graphs)."""
+    if getattr(win, "scene", False):                # the multi-body scene (D147)
+        from ..scene import rollout as SR
+        return SR.graph_terms(win, obj, leaf, u)
     dfc = win.expand(leaf)
     with timed("mpm_tape"):
         xT, FT, vT, _, V = win.adjoint().apply(dfc, u)
@@ -98,6 +101,9 @@ def _trajectory_min_det(win: Window, dc: torch.Tensor) -> float:
 def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:
     """No-grad rollout of a candidate on the persistent trajectory (no tape, no adjoint
     buffers). The outputs are copies: the next candidate rewrites the buffers."""
+    if getattr(win, "scene", False):                # the multi-body scene (D147)
+        from ..scene import rollout as SR
+        return SR.eval_terms(win, obj, leaf, u)
     with torch.no_grad():
         dc = win.load(leaf, u)
         tr, T, N = win.tr, win.T, win.N
@@ -138,6 +144,9 @@ class Commit:
 def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit:
     """Roll out the accepted controls once more and validate the rollout itself (CUDA
     atomics make a replay differ from the accepted candidate by noise)."""
+    if getattr(win, "scene", False):                # the multi-body scene (D147)
+        from ..scene import rollout as SR
+        return SR.commit_rollout(win, obj, leaf, u, lam_r)
     with torch.no_grad():
         e = eval_terms(win, obj, leaf, u)
         E_final = obj.scalar(e, lam_r)
