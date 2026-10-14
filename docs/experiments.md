@@ -5229,6 +5229,37 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   gated contact, h = 0.01): the tape 7.47e-5 against differences 6.84e-5, 9 % apart: above the 5 % hoped, below what a
   sign or a missing path would give; the contact's branches (gate and approach) switch at some nodes over a control
   of 1e-2 per entry. The pipeline's own adjoint test (smaller controls) is within 5 %.
+  *How to use the contact code (a note for D148, 09:45 CDT).* `mpm/contact.py`: `k_grid_op_pair(gm0, gmom0, gvol0,
+  gvel0, gm1, gmom1, gvol1, gvel1, dt, f_ext, gmin_y, dx, nx, ny, nz, floor_y, mu, impulse)` replaces `k_grid_op` for
+  two grid fields on one grid (same dims, origin, dx): each field's post-force velocity mom / m + dt f_ext; at a node
+  with both masses, the shared normal normalize(∇m1 − ∇m0) by central differences of the node masses, the gate
+  gvol0 + gvol1 >= dx³, the approach test (v0 − v_cm)·n > 0, the normal part of the relative velocity removed and
+  Coulomb mu on the tangential part, equal and opposite in momentum; then the domain walls and the gated floor per
+  field (floor_y = −1e9: none); `impulse[0]` accumulates field 0's momentum change (a record, zero it yourself). It is
+  launched on the tape and differentiated by Warp's generated adjoint (the gate and the approach test are branch
+  conditions; the normal is differentiated through the node masses). `k_node_volume(x, J, vp, gvol, gmin, dx, inv_dx,
+  nx, ny, nz)` deposits each particle's current volume vp·J (vp = the sample's fill volume / N: the interior then reads
+  one) for the gate; launch it with `record_tape=False`, into a buffer per step on a tape (the generated adjoint of
+  the pair's kernel replays the gate at backward time; a shared buffer would replay the last step's volumes).
+  `k_grid_op_one` is the one-field version (walls, gated floor). `mpm/bodies.py`: `Bodies(trajs, vps, mu)` steps two
+  Trajectory objects (each a body's own particles and arrays) on one prm: every `tr._pre_grid(t)` (stress, P2G into
+  that trajectory's `gm[t]`, `gmom[t]`, with `adjoints.record_p2g` on a tape), the two `k_node_volume`, the pair's
+  kernel, every `tr._post_grid(t)` (G2P with `record_g2p`, the update with `record_update`, the volume carry, the layer
+  with `record_layer_project`); `BodiesAdjoint(specs, vps, mu)` is PersistentAdjoint for the pair (forward and adjoint
+  as CUDA graphs, seeds for x_t, v_t of every step and F_T; `apply(dfc, u)` returns x_T, F_T, v_T, V, X concatenated in
+  body order). The hand adjoints (`mpm/adjoints.py`: record_p2g, record_g2p, record_update, record_layer_project)
+  take a Trajectory-like `tr` and a step t and read `tr.x[t]`, `tr.v[t]`, `tr.C[t]`, `tr.F[t]`, `tr.P[t]`, `tr.gm[t]`,
+  `tr.gmom[t]`, `tr.gvel[t]`, `tr.v[t+1]`, `tr.C[t+1]`, `tr.Fraw[t+1]`, `tr.m`, `tr.vol`, `tr.prm`, `tr.device`,
+  `tr.order`, `tr.order_blocks` (and the layer's and the bonds' arrays). For two particle groups of ONE body sharing
+  one Trajectory, either (a) give the groups contiguous rows and pass the hand adjoints a view object whose per-step
+  lists are Warp slices of the trajectory's arrays (Warp slices alias their parent's memory and gradient; checked on
+  hyde06), with the cell order computed per group and every neighbour index the P2G reads (the fragment bonds'
+  `bond_velocity`) local to the group's slice, or (b) add a per-particle field offset to P2G / G2P and their adjoints
+  (`g + field[p] * ngrid` into fields stacked in one array; 0 everywhere reproduces the frozen path). (a) keeps the
+  frozen kernels untouched, as D147 did by giving each body its own Trajectory. Measured (M-b, P1b): the gate's
+  interior noise std 0.026 of the cell; it fires harmlessly at nodes where one side's kernel tail barely reaches;
+  approach-only release gives no cohesion (two sides part freely once their post-force velocities separate); one field
+  at v_rel/c 0.1 does not stick, it keeps a one-cell air gap and crushes the facing layers (J 0.74).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
