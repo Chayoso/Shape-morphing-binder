@@ -166,7 +166,8 @@ def select(runs):
     """The 300k scene's variant by the rule written before reading (D147): among those that part in the air, land and
     tumble within the scene's length, the lower end shape error; within 0.002 (the 40k run-to-run silhouette spread),
     the shorter contact."""
-    cand = [o for o in (timeline(runs, t) for t in ("scene40k_L", "scene40k_LB", "scene40k_LS")) if o]
+    tags = sys.argv[2].split(",") if len(sys.argv) > 2 else ["scene40k_L", "scene40k_LB", "scene40k_LS"]
+    cand = [o for o in (timeline(runs, t) for t in tags) if o]
     ok = [o for o in cand if o["parted_in_air"] and all(t is not None for t in o["landing_s"]) and o["tumbles"]]
     if not ok:
         print("== select: no variant parts in the air, lands and tumbles: report, no choice")
