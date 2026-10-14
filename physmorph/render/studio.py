@@ -139,7 +139,9 @@ class StudioRaster:
         return self.raster_colors(x, primitives.normals, primitives.covariance,
                                   primitives.opacity, torch.ones_like(x))[..., 0]
 
-    def __call__(self, x, normals, covariance, opacity, *, normal_kernel=3, return_buffers=False):
+    def __call__(self, x, normals, covariance, opacity, *, normal_kernel=3, return_buffers=False, albedo=None):
+        """albedo: None, the body's grey (every deliverable render); or a display-only colour per primitive (N, 3),
+        rastered like the normals and divided by the coverage (scripts/render_gradient_viz.py)."""
         if not self.direct_covariance:
             scales, rotations = decompose_cov_torch(covariance)
         def raster(colors):
@@ -156,7 +158,8 @@ class StudioRaster:
         view = self.to_camera
         nv = (normal * view).sum(-1).clamp_min(1e-4)
         ambient = .20 + .12 * (.5 + .5 * normal[..., 1])
-        radiance = self.albedo * ambient[..., None]
+        surface = self.albedo if albedo is None else (raster(albedo) / coverage[..., None].clamp_min(1e-6)).clamp(0, 1)
+        radiance = surface * ambient[..., None]
         # GGX with Schlick Fresnel and Smith visibility, fixed satin-ceramic roughness.
         roughness = .36
         alpha2 = roughness ** 4
@@ -171,7 +174,7 @@ class StudioRaster:
             fresnel = .04 + .96 * (1 - vh) ** 5
             visibility_l = nl / (nl * (1 - k) + k)
             specular = distribution * fresnel * visibility_v * visibility_l / (4 * nv * nl).clamp_min(1e-5)
-            diffuse = self.albedo * (1 - fresnel[..., None]) / math.pi
+            diffuse = surface * (1 - fresnel[..., None]) / math.pi
             radiance = radiance + (diffuse + specular[..., None]) * energy * nl[..., None]
         coverage = coverage[..., None]
         linear = radiance * coverage + self.background * (1 - coverage)
