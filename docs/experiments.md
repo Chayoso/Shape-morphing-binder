@@ -4434,6 +4434,56 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   VA, E, M; XU), `d145_b5` (BUO, INSD). B4's first four runs went through a first worker without the card locks (GPUs
   0–1, before the lock protocol existed); their remaining readings are added by `read300.sh`. The B5 setup (environment,
   inputs in the pipeline's frame, the six pairs, the conversion) runs as a separate agent under the same card rules.
+  **Operations, 2026-10-14 01:20–02:50 CDT (what runs and how; no result is read yet).** (1) Server cleanup to ≤ 25 GB
+  (the user's go): 41 → 22 GB, superseded kept frames, archives and bench states of d105, d118, d120, rt, d121_proof,
+  d116, d112, d96, show and the frame folders of d15r–d56 (19.5 GB), their logs, JSON, txt and csv first in
+  `output/logs_archive_2026-10-14_d145.tgz`, every removal in `cleanup.log` (`tmp/d145/cleanup_d145.sh`). (2) Code
+  copies on hyde06: `repo_d145` = `git archive` of deliverable-2026-10-13 (592e97a); `repo_xu145` = `git archive` of
+  b502b5a with `XuPaper.alpha` 1e-2, identical to D118's XPA copy `repo_r97x_a01` but for docs (`diff -r`).
+  `repo_d145s` = repo_d145 whose `pipeline_run.py` writes the kept frames (every 12th simulated frame and the last
+  delivered one, `<out>_frames12.npz`, exactly `tmp/frames12.py`'s cut) in place of the full archive (dragon about 18
+  GB), as D146's `repo_d146h` does: output only, the simulation, the JSON and every metric are computed before the write
+  (`tmp/d145/patch_s.py`; `diff` shows that hunk alone). Its proof is queued and not yet read: the same 40k bunny, seed
+  97, four windows, under Warp's run-to-run deterministic mode (`tmp/rt/det_run.py`, D141), on repo_d145 then the cut
+  and on repo_d145s, compared bit for bit on the kept frames, every metric and every history field but clocks
+  (`detproof.sh`, `det_cmp12.py`, `output/gpu/d145_detproof/detproof.txt`). Only if it reads SAME do B1–B3 and B8–B10
+  move to repo_d145s. `repo_d145g` = repo_d145 with D121's hooks ported (B7; the agent's report): the per-window
+  gradient dump at chosen windows with the render gradient after PCGrad and the cleanup's, per-particle sums over the
+  driven steps, and the λ = 0 counterfactual before the normal window (a copied balancer, render weight 0, dumps off;
+  every TargetPack field it touches restored by identity — `settled_step`, `ot_scale`, `grid_ot` and the transport's
+  `_solved` / `repeat` / `warm` — and recorded in each file); the suite 353 passed, 2 skipped, exit 0; the extended
+  bit-for-bit hook test passes under deterministic atomics; the 40k equivalence (bunny, six windows, dumps at 1, 2, 3, 5
+  and the counterfactual at 1 and 5) against two unhooked runs: window 1 merit / transport / silhouette 2.5e-5 / 8.3e-6
+  / 5.4e-6 relative (replay noise 3.9e-5 / 9.2e-6 / 9.1e-6), windows 1–6 within the noise, the same iterations and
+  accepts in every window, silhouette IoU 0.9448 (unhooked 0.9445, 0.9431); the 300k run (bunny, seed 97, dumps at
+  windows 1, 2, 3, 5, 10, 20, 40 and every 5th after, the counterfactual at 1, 5, 10, 20, 40) is queued after B1's bunny
+  and dragon, read by `tmp/d145/b7/b7_figure.py` against B1's L97 / P97. (3) The pool (`tmp/d145/pool.sh`, third form
+  from 02:23, at the coordinator's request): an item holds its card only for the simulation and the GPU readings; the
+  CPU readings (apart particles, the tail pulse, the removal of frames not kept) run detached without a card
+  (`read300.sh` / `read300_cpu.sh`); job items (the harness, OT, the proof, the B4 catch-up readings) hold the card for
+  their duration; the end-of-run disk estimate counts a kept-frames-only copy at 2 GB. A known defect, to fix first when
+  access returns: the estimate also counts `repo_d145g` at 2 GB although it writes the full archive (about 12 GB).
+  D145 held no card from 01:58 to 02:58 (D147's prototypes, the coordinator's request); a CPU-only reading that had held
+  GPU 2 for 40 min was stopped and re-queued without a card. (4) Readers written (not yet run on a D145 result):
+  `tab145.py` (one row per 300k run from its JSON and the readings; `d118_rows.py` fails to import in that environment,
+  as in D144's chain, and is not used), `band145.py` (three-seed bands and the non-overlap reading of two arms),
+  `gal145.py` (the 40k gallery: per mesh V − W per seed, all-seed agreement, the floor-gap share, Wilcoxon over meshes),
+  `b10_curves.py` (B10 from the records), `harness.py` / `harness.sh` (the progress p on one grid per mesh and the
+  intermediate frames), `t5_145.py` (T5), `ot_disp.py` (B6: the plan on a one-pitch grid, blur one pitch, the
+  barycentric map computed separably at every node and interpolated to the particles), `ind_shift.py` (B9's
+  independent sample lifted onto the floor by the difference of the samples' y means). (5) B5 (the agent's interim
+  report): the bunny's and the dragon's exported target and source coincide with the pipeline's samples (SB / FB's
+  `tgt` and first frame, largest difference 0.0); `teapot.obj` holds two closed inward-facing cavity shells (21.6 and
+  0.03 wu^3) inside its outer body (44.5 wu^3): the pipeline's sampler fills them (its target is the solid teapot), so
+  the baseline's input is the outer body only, in the same frame; the ten SDF networks train on the CPU so that a pair
+  needs a card only for its morph and reconstruction; the bunny pair runs on GPU 1. (6) Access: from about 02:28 CDT
+  hyde06 refuses the key (publickey); my three status pollers retried every 60 s until about 02:50 (roughly 50–60
+  failed attempts) before they were stopped; no ssh since. Everything above runs detached on the server. When access
+  returns, in order: fix the estimate for repo_d145g and check du stayed under 50 GB while unobserved (an overshoot is
+  recorded here with its time and size); read the proof, then move the queue's B1–B3 / B8–B10 lines to repo_d145s (and
+  apply the same output-only change to repo_d145g, its proof covering it); check the harness dry run, B6 and the B4
+  readings; resume B5's five other pairs (`baselines/buonomo/scripts/run_pair2.sh MESH ADADIV BUO`, one after another).
+  (A slip of mine at 01:47: one local command began with a stray `python -` with empty input; nothing ran.)
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
