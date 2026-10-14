@@ -5672,6 +5672,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the apex make the drop at least g t_c² / 2 (6.8 wu), and a weaker gravity only lengthens each bounce (its air time
   2e times the fall's). Sent to the coordinator with the video (keep the bounce, or a frozen-algorithm question for
   the landing); chain 10 armed on `scene_throw` for 19:00 (`repo_d147n`).
+  **The user's choice and the cut, pre-registered before the 300k (15:30 CDT).** The user chose to keep the physics
+  (the bounce) and to cut the delivered video after the first floor bounces, before the second contact in the air;
+  the 300k on `scene_throw` from 19:00 as armed (s97, its render-off twin, s99). The cut, the rule written before the
+  300k runs are read (`cut.py`): the last kept frame before the bodies come within one sample spacing of each other
+  again after they part (they part at the first kept frame after the first contact with no particle of one body
+  within a spacing of the other); no second contact: the whole run. On the 40k runs (the implementation's check,
+  not the 300k's reading): contact 4.05 s, parted 6.1 / 6.05 s, second contact 15.95 / 15.35 s, the cut 15.9 / 15.3 s.
+  Chain 10 reads first (the timeline, the progress, the cut) and renders s97 (the whole run at 4K for the record, and
+  the cut as the deliverable) only if s97 passes the progress and parting rule; a seed that fails is reported before
+  any deliverable is rendered.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
