@@ -4360,6 +4360,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   references and `frozen_b` kept); then never two dragon archives at once on GPUs 0–1, kept frames removed after their
   readings except seed 97's L / P of the six meshes and B2's u and volume arms (renders), ≤ 45 GB throughout.
   Local: only deliverables and decision evidence in `output/results_<date>/`, a Korean line each in `output/README.md`.
+  **Amendment, the user's GO and answers (relayed by the coordinator; recorded 2026-10-14 01:20 CDT server clock,
+  before any D145 run).** (1) The external baseline is Buonomo et al. (SGP 2025) with the correspondence-free ICLR 2025
+  re-implementation from its repository and the OT displacement as extras; 4Deform dropped. The paper states why the
+  released ICLR 2025 code and 4Deform were not run (both need correspondences that a sphere-to-target morph does not
+  have; 4Deform carries no licence). (2) Seeds 97 / 99 / 101. (3) The cell comparison has two points: the shape's cell
+  and `--cell_follows_n`; no `--cell_diag 36`. (4) PCGrad off, the released-end scoring off and the relaxation off stay
+  out: no new switch. (5) Xu et al. on the four meshes outside their paper (teapot, bob, armadilo, homer): their longest
+  published length, 950 steps (the dragon's), stated in the protocol; bunny 420, dragon 950 as D118. (6) Start now with
+  the [indep] items: B5, B4, B6, the harness's dry run on SB / FB, the server cleanup to ≤ 25 GB (logged), and B3's
+  provisional gallery on the deliverable tag; B1–B3 proper at D146's decision, or on 10-21 on the deliverable tag with
+  word to the coordinator. (7) Disk, across the whole server (D146 included): never two dragon archives at once; before
+  a dragon run, `du` and D146's status files (`output/gpu/d146*`) are checked; the total under 50 GB with at least 10 GB
+  of headroom when a dragon run starts; space held by the other agent only through the coordinator.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
