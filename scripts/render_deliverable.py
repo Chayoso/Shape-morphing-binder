@@ -51,6 +51,10 @@ from physmorph.render.support import normal_filter_size        # noqa: E402
 dev = torch.device("cuda")
 opts = dict(s[1:].split("=", 1) for s in sys.argv[1:] if s.startswith("+"))
 argv = [s for s in sys.argv if not s.startswith("+")]
+if opts.get("scene") == "1":                                 # the two-body scene (D147): scripts/render_scene.py
+    from scripts.render_scene import main as _scene_main
+    _scene_main()
+    sys.exit(0)
 CARRY_H = opts.get("carry", "v") == "h"
 FIT_UNTIL = float(opts.get("fit_until", 1.0))                # diagnostic: fit only over this share of the frames
 DECAY = opts.get("decay", "0") == "1"                        # the step of a disc over 1 / sqrt(its fits so far, in frames)
