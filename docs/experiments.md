@@ -4615,6 +4615,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the driven / other ratio to 1.1–1.5 (whether (b)'s 1.25 holds is the open item); (2)–(6) hold. Risks: u's late steps
   are damped wherever its gradient turns, so the late merit may fall more slowly and the run end earlier or later; the
   bunny's u acts from window 4 (its gate 54–87 % open at windows 4–6), so its 0–1.5 s band is the item to watch.
+  *State at 02:40 CDT (hyde06 refused the key from about 02:28; no ssh until the user restores it).* The implementation
+  is on branch `wip/d146b` (cc2293a; settled-base keeps none of it until its suite passes). On hyde06 (`repo_d146b`,
+  before the key was lost) the new tests passed (4 / 4, with relax_driven's 5 and the frozen recipe's 3). The full suite
+  ran 360 passed and 2 failed, exit 1. Both failures are `test_volume_exact.py::test_the_eval_trajectory_replays_bit_for_bit`
+  on a card shared with a running render; on the same card that test failed 3 of 8 times on the pristine deliverable
+  code and passed 8 of 8 on this code. A clean run is required before any D146b run. The detached D146a jobs go on:
+  the dragon renders (DL, DP), then the earlier queue's bunny render arm, the baselines' end readings and the bunny
+  baselines. Once access returns, one command (`tmp/d146/d146b_resume.sh` in the session's scratch, uploaded with it)
+  deploys cc2293a, runs the new tests and up to three suite runs, builds the hook copy and starts the D146b arms.
+  The arms run one card at a time within the two-card cap and one dragon at a time, in this order: CDL, CBL, CBP, CDP,
+  then ABL and ADL.
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
