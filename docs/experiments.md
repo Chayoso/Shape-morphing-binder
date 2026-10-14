@@ -4679,6 +4679,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   volume within X % (Σ J V0); on the common occupancy measure ours is comparable to the baselines, with an early transient
   while the surface is spread (dragon peak 1.075 at τ 0.06–0.10)"; no claim of better volume preservation on the
   occupancy measure: on the dragon Buonomo et al.'s range is narrower early and ours ends nearer 1 (1.015 against 0.897).
+  Cheaper routes (the coordinator, ~16:20): the dragon's Σ J V0 comes from G97 itself, run on `repo_d145gf` (repo_d145g
+  with the full-archive write restored by `tmp/d145/unpatch_s.py`; against the deliverable only the read-only hooks
+  differ) with the J read before the cut; `dragon300k_JV97` dropped, `bunny300k_JV97` kept. And the run record gains
+  `Jx_mean` (the mean of the carried J at each window's end, record-only) on branch `d145-jmean` (2b0cafc = refreeze-prep
+  d2f779d + one line in `run/runner.py`), proven bit for bit (40k bunny, four windows, deterministic mode;
+  `tmp/d145/detproof_jm.sh`) before it goes onto refreeze-prep, so the post-refreeze B1 runs carry it for all six meshes.
   **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
   `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
   every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /
