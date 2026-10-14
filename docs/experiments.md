@@ -4551,6 +4551,70 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   path in windows 1–6 and 2–5 % in 7–9 (FA); (3)–(5) hold, the risk being the relief (the relaxation still acts every
   window, as D119 did not, but at 0.36 instead of 0.13 of a rough residual left a window); the runs may end earlier or
   later. If it passes, the default is not changed: the result goes to the coordinator for the user's decision.
+  *Implementation* (109b8c2): as planned; tests `tests/test_relax_driven.py` (5), the suite on hyde06 (`repo_d146`)
+  358 passed, 2 skipped, exit 0 (`tmp/d146/suite_d146.log`).
+  **D146a first readings (runs 01:41–02:03 CDT, `tmp/d146/d146_gate.sh`, `output/gpu/d146g`; the renders, the detector
+  and the bunny render arm still to come): the released half is calm, the window-rate pulse stays.** Dragon DL (render
+  arm) against FA, 7–11 / 11–15 s, per window (spacings): the outer layer's path in the released half 0.017 / 0.010
+  against 0.048 / 0.042, its below-grid part 0.004 / 0.002 against 0.044 / 0.040; in the driven half 0.077 / 0.057
+  against 0.090 / 0.080; the whole window −32 % / −45 %. Per step (frames12, 1e-3 spacings): layer D 3.19 / 2.33, R
+  0.81 / 0.52 (FA 3.87 / 3.38, 2.15 / 1.87); per particle the layer's late rms 0.0227 spacings a frame (FB 0.0329).
+  Item (c), the in-window excursion: 0.0061 against 0.042 (×0.15; the twin DP 0.0073, the bunny twin BP 0.0026). But
+  |u| stays (0.113 / 0.099 against 0.118 / 0.107): the relaxation now answers u inside the driven half (slope −0.55
+  against −0.28), and the layer's window-to-window reversal stays (−0.48 / −0.60 against −0.56 / −0.63; 78 / 81 % of its
+  particles flip, against 82 / 85 %): item (d) fails, and with the released half still the driven-half intervals
+  will dominate the picture more than before ((b), read on the renders). End (render arm DL): silhouette IoU 0.9875,
+  chamfer 0.0545, thin uncovered 3.9 %, within; the run delivers 115 windows (18.2 s; FB 105). DP (twin): 0.9886, 0.0547,
+  3.7 %. BP (bunny twin): 0.9877, 0.0553, 4.1 %, 8.4 min; layer per step 7–11 s D 1.44, R 0.29 (SB's render arm 2.12,
+  1.48).
+  **What carries the reversal (`d146_alt.py`, hook v2, per particle on window k's layer, k−1 → k; FA2 windows 42–72,
+  DL and DP 42–90).** Window k's net normal move split into u's own part, the relaxation and minimum spacing below the
+  grid in each half and the grid's advection in each half, each regressed on window k−1's net normal move: u's part
+  slope −0.55 / −0.53 / −0.53 (correlation −0.34 / −0.38 / −0.42), the relaxation's −0.03…+0.02, the grid's −0.01…0.00;
+  the net −0.59 / −0.56 / −0.58. u_k correlates +0.20 / +0.20 / +0.07 with u_{k−1}. Each window's u takes back about
+  half of the last window's net move of the layer, with the switch on or off, render arm or twin: the optimiser's u,
+  re-solved from zero with fresh Adam moments every window, overshoots and corrects itself, a period-2 dither at the
+  window rate. The relaxation's released-half pull-back (D146a's target) and this dither are the two parts of the late
+  wobble; D146a removes the first.
+- **D146b, u's Adam moments carry from one window to the next (pre-registered 2026-10-14 02:15 CDT server clock, before
+  any D146b run; the coordinator approved it as inside the framework: the optimiser's state of the existing u control).**
+  *Read first.* (1) Kingma and Ba 2015 (Adam, ICLR), sec. 3: m and v start at zero, so their exponential averages are
+  biased by (1 − β^t) and are divided by it; sec. 2.1: the effective step |Δ| ≤ α (1 − β1) / √(1 − β2) ≈ 3.2 α in the
+  sparse case (a gradient after many zeros), α otherwise. (2) Diehl, Bock and Schlöder 2005 (the real-time iteration,
+  SIAM J. Control Optim. 43): in a receding horizon the consecutive problems are nearly the same, and the solver's state
+  of the last one (its iterate, shifted) is carried into the next instead of a cold restart; one iteration a sample then
+  contracts. Our windows are such a sequence for u (the same particles' normal positions), whose solver state is now
+  restarted. (3) Goh 2017 ("Why momentum really works", Distill): momentum averages the gradient over iterations and
+  cancels the components that turn sign (the high-curvature directions) while steady ones accumulate; restarting it
+  every window gives every window's first step at full size, which is the dither's mechanism. (4) Xiao et al. 2026
+  (dynamic-sparse LLM training, arXiv 2606.00888): parameters regrown mid-run suffer a cold start under standard Adam,
+  remedied by aligning the bias correction to each parameter's own age. *The change:* `config.u_adam_carry` /
+  `--u_adam_carry` (an A/B switch, off = the frozen path): u's m and v carry from one committed window to the next; u
+  itself still starts at zero every window (its last displacement is in the positions); dFc's moments stay per window
+  (its warm start already carries its control); on an outer reject the carried moments go with the rejected lineage
+  (cold restart, as the step memory and the warm start); a null window leaves them as they were. *The bias correction:*
+  each coordinate counts its own age, the accepted iterations in which its gradient was nonzero (this one included), and
+  divides m and v by 1 − β1^age and 1 − β2^age: a coordinate that starts to act (a particle entering the layer or u's
+  gate) takes exactly Adam's first step g / (|g| + ε), as every coordinate does now at a window's first iteration; a
+  carried one reads its averaged moments, so a coordinate whose gradient turns from one window to the next takes a small
+  step and a steady one its full step. A count shared over the coordinates would misread a newcomer's age: too small a
+  first step after a few iterations, up to 3.2× too large after many (source 1's sparse case); none is added. No new
+  constant. *Tests* (`tests/test_u_adam_carry.py`, 4): the first step is Adam's and an idle coordinate stays (no NaN);
+  a late starter gets the first step (the shared count's two errors shown); over two windows of eight iterations a
+  turning coordinate moves < 0.35 × as far as with fresh moments and a steady one as far; in a run the moments reach the
+  next window, stay fresh with the switch off and reset after an outer reject. *Runs* (`repo_d146c`: the code + the same
+  hooks as D146a's, `d146_gate.sh`, the two-card cap, one dragon at a time): the main arm both switches
+  (`--relax_driven --u_adam_carry`), 300k seed 97, bunny render arm and twin and dragon render arm and twin; then
+  `--u_adam_carry` alone, bunny and dragon render arms, if the cards allow. *Gate:* D146a's items unchanged — (1) (a)
+  the side view's late grey change ≤ 0.6 × the deliverable's, (b) the driven / other ratio ≤ 1.25, (c) the in-window
+  excursion ≤ 0.5 × the baseline's, (d) the layer's reversal cosine above −0.3; (2) the 0–1.5 s bands; (3) the end,
+  the relief and the roughness; (4) at rest; (5) the render lead; (6) no new visible piece; (7) cost — plus the
+  coordinator's: (8) u's per-particle reversal slope (`d146_alt.py`) from −0.53 to ≥ −0.15, and (b)'s ratio below
+  D146a's own. *Prediction:* u's slope −0.05 to −0.2; the layer's reversal −0.1 to −0.3; the driven-half layer path
+  halves (the dither's share), so with D146a's calm release the late plateau falls to 0.4–0.55 × the deliverable's and
+  the driven / other ratio to 1.1–1.5 (whether (b)'s 1.25 holds is the open item); (2)–(6) hold. Risks: u's late steps
+  are damped wherever its gradient turns, so the late merit may fall more slowly and the run end earlier or later; the
+  bunny's u acts from window 4 (its gate 54–87 % open at windows 4–6), so its 0–1.5 s band is the item to watch.
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
