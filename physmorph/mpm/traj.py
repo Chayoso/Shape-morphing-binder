@@ -438,6 +438,7 @@ class Trajectory:
         prm, dev, N = self.prm, self.device, self.N
         inv_dx, gmin = 1.0 / prm.dx, wp.vec3(*prm.grid_min)
         dfc, bnb, brest, bnc, bK, tape = self._st
+        self._st = None          # D148: not kept past the step (with the tape in it, a cycle only gc frees: 7 GB a window)
         if self.gap:                                 # D148: each particle's side's field at the gap nodes
             GK.g2p(self, t, dfc, tape)
         else:
