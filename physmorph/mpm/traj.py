@@ -391,8 +391,15 @@ class Trajectory:
         return self.dFc if self.dFc_seq is None else self.dFc_seq[t]
 
     def step(self, t: int):
+        """One step: the particles onto the grid, the grid operation, the grid back to the particles. In three parts so
+        that several bodies (mpm/bodies.py, D147) can share the grid operation; one body runs them in this order."""
+        self._pre_grid(t)
+        self._grid(t)
+        self._post_grid(t)
+
+    def _pre_grid(self, t: int):
         prm, dev, N = self.prm, self.device, self.N
-        inv_dx, gmin, fext = 1.0 / prm.dx, wp.vec3(*prm.grid_min), wp.vec3(*prm.f_ext)
+        inv_dx, gmin = 1.0 / prm.dx, wp.vec3(*prm.grid_min)
         dfc = self._dfc(t)
         bnb, brest, bnc, bK = self._bond_args(t)
         if self.share_grid or self.persistent:       # P2G accumulates: fresh grid per step
@@ -415,9 +422,18 @@ class Trajectory:
             wp.launch(K.k_p2g, dim=N, inputs=p2g_args, device=dev, record_tape=tape is None)
         if tape is not None:
             ADJ.record_p2g(tape, self, t, dfc, bnb, bnc, bK, N)
-        wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
-                  prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
-                  K.WALL_NODES], device=dev)
+        self._st = (dfc, bnb, brest, bnc, bK, tape)
+
+    def _grid(self, t: int):
+        prm = self.prm
+        wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt,
+                  wp.vec3(*prm.f_ext), prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y,
+                  prm.floor_friction, K.WALL_NODES], device=self.device)
+
+    def _post_grid(self, t: int):
+        prm, dev, N = self.prm, self.device, self.N
+        inv_dx, gmin = 1.0 / prm.dx, wp.vec3(*prm.grid_min)
+        dfc, bnb, brest, bnc, bK, tape = self._st
         wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz],
                   device=dev, record_tape=tape is None)
