@@ -333,3 +333,31 @@ def grid_transport_displacement(x, mass, target_grid, grid_min, dx, dims,
 
     return mapped(yb, b) - mapped(xa, a)
 
+
+
+@torch.no_grad()
+def grid_transport_displacement_separable(x, mass, ot: GridSinkhornLoss):
+    """D148b: grid_transport_displacement on `ot`'s grid and blur (the loss grid, one loss cell), its potentials from
+    `ot`'s separable full-grid solve (the loss grid's support exceeds the dense solve's budget at 300k, D137); the
+    images at the particles' own positions, as grid_transport_displacement's (the target's plan minus the self plan)."""
+    nx, ny, nz = ot.dims
+    current = rasterize_mass(x, mass, ot.grid_min, ot.dx, ot.dims)
+    a = current / current.sum()
+    _, g = ot.solve(a, ot.b)
+    _, gs = ot.solve(a, a)
+
+    def mapped(pot, weights):
+        ids = torch.nonzero(weights > 0, as_tuple=False).flatten()
+        nodes = torch.stack((ids // (ny * nz), (ids // nz) % ny, ids % nz), 1)
+        y = ot.grid_min + ot.dx * nodes.to(x.dtype)
+        gy, lb = pot[ids], weights[ids].log()
+        result = torch.empty_like(x)
+        chunk = max(256, (1 << 26) // len(y))
+        yy = (y * y).sum(1)[None, :]
+        for start in range(0, len(x), chunk):
+            q = x[start:start + chunk]
+            cost = (q * q).sum(1)[:, None] - 2. * q @ y.T + yy
+            result[start:start + chunk] = torch.softmax((gy[None, :] - cost) / ot.eps + lb[None, :], 1) @ y
+        return result
+
+    return mapped(g, ot.b) - mapped(gs, a)

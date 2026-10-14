@@ -5717,6 +5717,70 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   halves (3 pitches instead of 6); the early opening (1.3–1.6 s), the bunny's item (2) and the cost do not change by
   it. Prediction: the beads at the opening and in the upper hole fewer, not none. Gate: D148's items unchanged. Cost
   first by the exact speed-ups above. Not recommended on this evidence alone: the band halves, it does not vanish.
+  **After the verdict: the user's decision (relayed 13:40 CDT): "D148b를 시도하되, 다른 접근 방법도 봐봐"; priorities
+  speed first, then the pieces that fall off (the gap split itself liked: "방법 자체는 괜찮은데, 중간에 떨어지는 것들이
+  보이긴 하네"); deadline the re-freeze slot (11-02–06); fallback the deliverable state (D135 + D144's display).**
+  *The exact speed-up (8ec3adc, then the cell-order sums below; `repo_d148e`).* The side-1 deposit's hand adjoint
+  (`k_p2g_side1_adj`: adjoints.k_p2g_adj with each node's term times the share) in place of Warp's generated one, and
+  every split kernel skipping the particles with no gap node in their stencil (`near` flags from the planes). Proven:
+  on the CPU against the code before it the window case's forward bit for bit and the gradients to 7e-7
+  (`d148_speedcheck.py`); `tests/test_gap_split.py` 14 of 14 on CUDA; the suite 385 passed, 2 skipped, exit 0
+  (`tmp/d148/suite_d148e.log`). The 300k bench (`d148_bench.py`, FB's window-20 state, 40 steps): the eval rollout
+  32.9 against 26.4 ms (×1.25; was ×1.48), the tape's forward and adjoint 123.8 against 88.8 ms (×1.39; was ×3.04);
+  the side-1 deposit's adjoint 14.2 ms (was 160). What is left: the split G2P's adjoint in cell order 40.6 against the
+  frozen 25.5 ms (a second warp sum per node); next, the side-1 sums skipped in warps with no lane near a gap (a
+  warp-uniform flag; exact), measured with the 40k runs below.
+  *Papers on particles at a separation surface (an agent's reading, 13:50 CDT; full texts: Homel & Herbold 2017,
+  Moutsanidis et al. 2019, Nairn 2003, Guo & Nairn 2006, Nairn, Hammerquist & Smith 2020, Hu et al. 2018, Wolper et
+  al. 2019 and 2020; abstracts: Fei 2021, Daphalapurkar 2007, Sadeghirad 2011, Liang's XMPM, Kakouris & Triantafyllou
+  2019, Fei & Choo 2020).* What keeps them free of debris at a crack's start: one side per particle, the same at every
+  node (Nairn's one global crack: the line from particle to node crosses it or not; Homel's particle gradient, the same
+  at every node; CPIC's one tag per particle and surface); the side persistent (CPIC: "will persist after being
+  obtained, until all nodes in p's kernel lose affinities"; Nairn's crack particles move with the material); ambiguity
+  read as connected (Moutsanidis's threshold, CPIC's distance-weighted vote); the split only once the material there
+  has failed or thinned (Homel's min(D̄1, D̄2) > D_min: "the material should be allowed to separate only once a
+  'surface' of failure particles has formed"; Nairn's relative volume). No MPM scheme found splits a particle's mass
+  between two velocity fields. Homel names our saddle: the partition "fails when the grid node lies at the maximum of
+  the scalar field ... quite frequently at the border of a fully damaged region". And a defect of D148's own
+  definition the reading exposes: each gap node's plane is its own closest pair's, so neighbouring nodes' planes differ
+  in place and orientation, and a particle near them is side 1 at one node and side 0 at the next. The forensic shows
+  exactly that: the beads' particles were on side 1 at 0.51–0.88 of their nodes (GA's opening bead 0.51–0.65 at
+  0–1.5 s, its upper-hole bead 0.71–0.78), so both fields pulled on them.
+  *The candidates against the two failures (the coin-toss sides within a blur of the cut, mixed between nodes; the
+  opening at 1.3–1.6 s instead of 3.3 s).* (a) Soft sides (the share of side 1 the plan's mass beyond the plane under
+  its blur; `--gap_split soft`, built): a particle with a share near one half moves with the mean of the two faces'
+  velocities, so as they part it stays at mid-gap: a bead by construction (the reading's inference too), and the band
+  of mixed particles is one blur wide, the width of the gap itself; no effect on the opening. (b) Sides by position
+  against the medial planes (CPIC, Nairn): wrong while material must still cross the target's plane (agreement 0.59 at
+  0.17 s, measured), so an earlier and wronger split; needs CPIC's persistence and penalty constant. (c) Variant B (the
+  split only where the node's particle volume is below one cell) with the transport sides: delays the opening (the
+  bulk never splits; its noise splits about half the bulk's gap nodes); leaves the coin toss and the mixed sides. (d)
+  Persistent sides alone: stops the flipping, not the first coin toss, not the mixed sides between nodes, not the
+  opening. (e) One wall per particle and gap region, persistent, gated: the walls of each gap region labelled once a
+  run and consistently across its nodes (each gap node's two pieces joined with its neighbours' through their shared
+  occupied cells, a breadth-first pass over the region; a piece meeting both labels makes its node single-field); a
+  particle's side in a region the wall whose occupied cell holds its transport image, kept from the window before
+  while the image lies in the gap's empty cells (no constant: occupancy is the loss cell's); the field index at every
+  node of the region that particle's one side, the node's normal oriented from wall 0 to wall 1; with B's gate
+  (Homel's "surface of failure"). The best by the reading and by the forensic: it removes the mixed sides between
+  nodes (the beads' mechanism), freezes the saddle's coin toss (the stranded ones), and the gate delays the opening.
+  D148b (finer sides) narrows the coin toss's band but keeps the mixed sides between nodes.
+  **D148c pre-registered (14:00 CDT, before its implementation and any run): candidate (e)**, `--gap_split walls`
+  (hard sides; the gate as B's). Tests before any run: the walls of two slabs labelled 0 / 1 consistently over every
+  gap node; a curved gap (a bent slab pair) with planes of different orientation labelled consistently; a particle
+  whose image lies in the gap keeps its side across windows; the hand adjoints against the generated ones; the
+  single field bit for bit away from gaps. The 40k prototype (the dragon, seed 97, beside the runs below) and its
+  go / no-go: the crevice opening clean, the bulk's displacement at windows 1–9 within 0.1 pitches of the defaults',
+  no blow-up, and the direct count below not above A's at 1–3 s and in the last third; then the 300k gate, items
+  (1)–(5) unchanged.
+  **40k prototype runs, pre-registered (14:00 CDT, before them; `tmp/d148/d148_proto2.sh`, `output/gpu/d148`).** The
+  40k dragon, seed 97, on the speed-up's code: A (`on`), D148b (`fine`), soft (`soft`, candidate (a), information for
+  the comparison); beside the earlier D1, D2 (default) and B. Read: the direct count the coordinator asked for
+  (`d148_cut_apart.py`: per window the particles apart from the body whose stencil holds a gap node, summed over 1–3 s
+  and over the last third, and the unique particles over the run), the crevice's opening time and beads on the side
+  view (close-ups at 1–3 s and the run's last third), the bulk's displacement at windows 1–9, the end, seconds an
+  attempt. Prediction: D148b's count at 1–3 s below A's (a narrower band), not zero; soft's count not below A's (the
+  mid-gap particles); the crevice opening as A's at 40k (3.0 s) in all three.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

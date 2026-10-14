@@ -247,3 +247,23 @@ def test_soft_sides_with_a_vanishing_blur_are_the_hard_ones():
         assert torch.equal(a, b)
     for a, b in zip(hard[4:], soft[4:]):
         torch.testing.assert_close(b, a, rtol=1e-6, atol=1e-7 * float(a.abs().max()))
+
+
+def test_separable_side_points_are_the_dense_ones():
+    """(10) D148b's side points (grid_transport_displacement_separable: the potentials from the loss grid's separable
+    solve) equal grid_transport_displacement's (the dense solve) on a grid small enough for both, to the solves'
+    tolerance."""
+    from physmorph.losses.grid_ot import (GridSinkhornLoss, grid_transport_displacement,
+                                          grid_transport_displacement_separable)
+    from physmorph.losses.volumetric import target_mass_grid
+    dx, n = 1.0, 16
+    tgt = torch.tensor(_slabs(1.5, dx, 0.25), dtype=torch.float32)
+    rng = np.random.default_rng(2)
+    x = torch.tensor(rng.uniform([-4, -3.75, -4], [4, 3.75, 4], (800, 3)), dtype=torch.float32)
+    m = torch.ones(len(x))
+    lg = torch.full((3,), -8.0)
+    tg = target_mass_grid(tgt, torch.ones(len(tgt)), lg, dx, (n,) * 3)
+    dense = grid_transport_displacement(x, m, tg, lg, dx, (n,) * 3, eps=dx ** 2, iters=1600, tol=1e-4)
+    ot = GridSinkhornLoss(tg, lg, dx, (n,) * 3, eps=dx ** 2, iters=1600, tol=1e-4)
+    sep = grid_transport_displacement_separable(x, m, ot)
+    assert float((sep - dense).norm(dim=1).max()) < 0.02 * dx

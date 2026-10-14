@@ -19,7 +19,7 @@ import torch
 
 from ... import gpu
 from ...prof import timed
-from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
+from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement, grid_transport_displacement_separable
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
 from ...render.exterior import make_field, tracked
@@ -85,8 +85,6 @@ class Objective:
             disp = grid_transport_displacement(x0, tgt.m, g_grid, tgt.lgmin, g_dx, g_dims,
                                                eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
         dn = disp.norm(dim=1)
-        if cfg.gap_split != "off":                    # D148: each particle's side point, its debiased transport image
-            win.set_gap_sides((x0 + disp).detach().float().contiguous())
         print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
         cell = float(cfg.cell_shape) if cfg.cell_shape > 0 else float(prm.dx)    # D137: the shape's cell
         gate = (dn <= float(cfg.layer_gate_ot_cells) * cell).float() * (win.lmask > 0.5).float()
@@ -104,6 +102,11 @@ class Objective:
                                            iters=cfg.ot_iters, tol=min(cfg.ot_tol, 1e-3),
                                            mass_total=float(tgt.m.sum()), cuda_blocks=True,
                                            support=tgt.support)
+        if cfg.gap_split != "off":                    # D148: each particle's side point, its debiased transport image:
+            if cfg.gap_split == "fine":               # D148b: the loss grid's plan (blur one loss cell)
+                with timed("gap_sides"):
+                    disp = grid_transport_displacement_separable(x0, tgt.m, tgt.grid_ot)
+            win.set_gap_sides((x0 + disp).detach().float().contiguous())   # else the u gate's (the gate grid's)
         self.horizon = cfg.T * prm.dt
         if tgt.ot_scale is None:
             # one scale for the run: the transport term's gradient norm equals D_vol's at the source

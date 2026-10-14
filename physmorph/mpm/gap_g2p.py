@@ -11,7 +11,7 @@ import warp as wp
 from .adjoints import _weight_and_grad
 from .constitutive import bspline_w, weight
 from .gap_kernels import gap_weight, near_gap
-from .kernels import WARP_LANES, _warp_sum3, base_node, cell_key, gid, valid_pos
+from .kernels import WARP_LANES, _warp_sum, _warp_sum3, base_node, cell_key, gid, valid_pos
 
 
 @wp.func
@@ -192,6 +192,7 @@ def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
     b0 = wp.vec3i(wp.tile_extract(wp.tile(b[0]), 0), wp.tile_extract(wp.tile(b[1]), 0),
                   wp.tile_extract(wp.tile(b[2]), 0))
     same = ok and key == k0
+    anyn = _warp_sum(float(nr))                         # warp-uniform: no lane near a gap -> no side-1 sums
     a_CnT = wp.transpose(a_Cnew)
     a_xp = wp.vec3(0.0, 0.0, 0.0)
     for oi in range(4):
@@ -235,7 +236,9 @@ def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
                             c0 = wp.vec3(0.0, 0.0, 0.0)
                             c1 = wp.vec3(0.0, 0.0, 0.0)
                 sc0 = _warp_sum3(c0)
-                sc1 = _warp_sum3(c1)
+                sc1 = wp.vec3(0.0, 0.0, 0.0)
+                if anyn > 0.0:
+                    sc1 = _warp_sum3(c1)
                 if lane == 0 and k0 >= 0:
                     i0 = b0[0] + oi
                     j0 = b0[1] + oj
@@ -243,6 +246,7 @@ def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
                     if i0 >= 0 and i0 < nx and j0 >= 0 and j0 < ny and k0_ >= 0 and k0_ < nz:
                         g0 = gid(i0, j0, k0_, ny, nz)
                         wp.atomic_add(adj_grid_v, g0, sc0)
-                        wp.atomic_add(adj_grid_v1, g0, sc1)
+                        if anyn > 0.0:
+                            wp.atomic_add(adj_grid_v1, g0, sc1)
     if ok:
         adj_x[p] = adj_x[p] + a_xp
