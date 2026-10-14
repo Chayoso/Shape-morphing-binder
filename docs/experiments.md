@@ -5002,6 +5002,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   only (`scene40k_LB`). Prediction: the bodies part in the air at about 4.6 s and land separately at about 5 s,
   tumbling; the shape criteria as the registered scene's. Which of the two timelines goes to 300k is read on these
   runs' frames.
+  *Three timelines and the rule that picks the 300k scene (the coordinator's decision, 03:00 CDT, scene parameters
+  only; pre-registered before any scene run; the F smoothing is the frozen algorithm's and stays).* (1) The registered
+  scene, unchanged (`scene40k_L`, its twin `scene40k_P`); (2) the long flight (`scene40k_LB`); (3) a stiff material,
+  E × 7 (9.8e5, the value M1 found to morph best, CFL 0.49), with the registered G 0.05 and floor, render arm only
+  (`scene40k_LS`, `scene_run.py --young 9.8e5`). At fixed v_rel / c and G the stiffer scene is the same dimensionless
+  event 2.65 times faster in seconds (c 35.5 wu/s, throw 1.77 wu/s, g 11.4 wu/s²), with the collision still at 1.0 s.
+  Read on each, the same way (`read40k.py`, `timeline`): the contact's duration (the first to the last window with a
+  contact impulse), the restitution (the centres' relative velocity along their line before and after), whether the
+  pair parts before either body first comes within a spacing of the floor, each body's landing time, its tumble
+  (its frame's turn from its landing to the end), the end shape error (1 − silhouette IoU in its own frame, mean over
+  the bodies), the isolated particles (none of its own body within two spacings) over the run, the momentum budgets.
+  The rule, written before reading: the 300k scene is the variant that parts in the air, lands, and tumbles (each
+  frame turning by more than 30° after its landing) within the scene's length, with the lower end shape error; two
+  within 0.002 of each other (the 40k run-to-run spread of the silhouette) count as tied, and then the shorter
+  contact wins. If none qualifies, nothing is picked and the readings go to the coordinator. Predictions: (1) lands
+  still pressed together at about 2.5 s (it does not qualify); (2) parts in the air at about 4.6 s, lands at about
+  5 s and tumbles; (3) a contact of about 1.4 s (3.6 s / 2.65), landing at about 2.1 s, so it parts just before or
+  just after its landing; the stiffer body has the lower end shape error (M1: E × 7 had the lowest thin share on every
+  mesh). So (2) is the likely pick unless (3) parts in the air.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
