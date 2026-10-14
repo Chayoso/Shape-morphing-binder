@@ -4176,6 +4176,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   at most 0.05 pitches beyond the narrowest band cell; the render terms on the corrected field move the late trajectory
   enough for one detached cluster of particles to float in the hind-leg gap for 2.4 s, which no field definition hides.
   The default stays `zb`; `--exterior_field zbs` stays an A/B switch.
+  **The user's decision: a repeat to tell D144 from run spread. Pre-registered 2026-10-13 22:40 CDT server clock, before
+  the runs.** *Runs:* one more render arm a mesh, bunny Z2 and dragon Z2: the same code (b071cc5 with D140's read-only
+  dump of windows 1–9, `repo_d144f`), the same seed 97, `--exterior_field zbs`, one a card (the spread is the atomics',
+  as between PT and PT2 or LT and LF); read by the same readers (`d144_chain.sh`: shell against bulk, end rows,
+  yardstick; `d144_read.py`); the dragon Z2's side view and the bunny Z2's front and side rendered (the corrected field's
+  base display), the detector on every kept frame, every candidate checked by eye. *The repeat test:* (i) the bead: a
+  piece on particles apart from the body in the dragon's gap between the hind leg and the body, or any other visible
+  piece absent from D135's inventory (the crevice's foam and bead excepted, the recorded limitation), on the dragon
+  Z2's side view; (ii) the trajectory: any of the bunny Z2's values at windows 1–9 (median, p90, the face's median)
+  outside the three-run band above. *The rule (the user's):* if neither (i) nor (ii) repeats in Z2, Z1's two misses are
+  read as run spread, and the user's decision is D144 adopted as the default and a re-freeze; if either repeats, it is
+  D144's, and the user's decision is the corrected field for the display only (the simulation and the loss stay
+  Zhu–Bridson's). Reported beside: the hind-leg gap at 12–16 s for Z1 and Z2, the bunny's window-8 values, Z2's end
+  items (3)–(5) and cost against the same bands.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
