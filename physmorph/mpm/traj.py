@@ -11,6 +11,7 @@ import torch
 import warp as wp
 
 from . import adjoints as ADJ
+from . import gap_kernels as GK
 from . import kernels as K
 from .state import MPMParams, MPMState
 from .step import cell_counts
@@ -130,7 +131,7 @@ class Trajectory:
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
                  Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None,
                  bond_history=False, control_steps=None, polar_adjoint=False, spacing=None,
-                 volume_exact=False, J0=None):
+                 volume_exact=False, J0=None, gap=None):
         if not _is_tensor(x0):
             x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
@@ -269,6 +270,9 @@ class Trajectory:
         self.gm = [gm_l[t % n_grid] for t in range(T)]
         self.gmom = [gmom_l[t % n_grid] for t in range(T)]
         self.gvel = [gvel_l[t % n_grid] for t in range(T)]
+        self.gap = gap is not None                  # D148 (gap_split, mpm/gap_kernels.attach); None: the frozen path
+        if self.gap:
+            GK.attach(self, gap, A, Z, n_grid, rg)
         # MATERIAL RE-COUPLING of decoupled particles (kernels.k_p2g / k_update): bonds =
         # (nbr (N,K) int, rest (N,K) float, frag (N,)) frozen for this rollout; the decoupling
         # test is the 3^3-cell count (step.cell_counts, outside the tape).
@@ -418,10 +422,15 @@ class Trajectory:
             wp.launch(K.k_p2g, dim=N, inputs=p2g_args, device=dev, record_tape=tape is None)
         if tape is not None:
             ADJ.record_p2g(tape, self, t, dfc, bnb, bnc, bK, N)
+        if self.gap:                                 # D148: the side-1 part at gap nodes (generated adjoint)
+            GK.p2g_side1(self, t, dfc, bnb, bnc, bK)
         self._st = (dfc, bnb, brest, bnc, bK, tape)
 
     def _grid(self, t: int):
         p = self.prm
+        if self.gap:                                 # D148: the gap nodes' two fields
+            GK.grid_op(self, t)
+            return
         wp.launch(K.k_grid_op, dim=p.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], p.dt, wp.vec3(*p.f_ext),
                   p.grid_min[1], p.dx, p.nx, p.ny, p.nz, p.floor_y, p.floor_friction, K.WALL_NODES], device=self.device)
 
@@ -429,11 +438,14 @@ class Trajectory:
         prm, dev, N = self.prm, self.device, self.N
         inv_dx, gmin = 1.0 / prm.dx, wp.vec3(*prm.grid_min)
         dfc, bnb, brest, bnc, bK, tape = self._st
-        wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
-                  self.Fraw[t + 1], self.gvel[t], gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz],
-                  device=dev, record_tape=tape is None)
-        if tape is not None:
-            ADJ.record_g2p(tape, self, t, dfc, N)
+        if self.gap:                                 # D148: each particle's side's field at the gap nodes
+            GK.g2p(self, t, dfc, tape)
+        else:
+            wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
+                      self.Fraw[t + 1], self.gvel[t], gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz],
+                      device=dev, record_tape=tape is None)
+            if tape is not None:
+                ADJ.record_g2p(tape, self, t, dfc, N)
         if self.carries:
             wp.launch(K.k_volume_update_motion, dim=N, inputs=[self.C[t + 1], self.J[t], self.J[t + 1], prm.dt], device=dev)
         x_next = self.xu[t + 1] if self.layer else self.x[t + 1]

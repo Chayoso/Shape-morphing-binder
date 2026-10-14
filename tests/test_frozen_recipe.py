@@ -20,6 +20,7 @@ def test_the_defaults_are_the_frozen_recipe(monkeypatch):
     assert a.exterior_field == "zb"                                                         # D140 until its gate
     assert not a.ot_warm_trials and not a.cleanup_in_phys                                   # D142, D143 until their gates
     assert not a.relax_driven                                                               # D146 until its gate
+    assert a.gap_split == "off"                                                              # D148 until its gate
 
 
 def test_every_switch_reaches_the_old_path(monkeypatch):
@@ -42,7 +43,7 @@ D135_RUN_ARGS = {
     "drag": None, "exterior_field": "zb", "exterior_radius": 3.0, "f_ext": None, "floor": False, "floor_friction": 0.0, "grad_dump": "",
     "lambda_ema": 1.0, "layer_relief": True, "live_dir": "", "live_port": 0, "loss_follows_n": True,
     "cleanup_in_phys": False, "match_density": True, "min_spacing": 0.9, "ot_iters": 1600, "ot_warm_trials": False,
-    "patience": 5, "poisson": None, "profile": False, "relax_driven": False,
+    "gap_split": "off", "patience": 5, "poisson": None, "profile": False, "relax_driven": False,
     "reject_stop": 3, "render_exterior": True, "render_res_hi": None,
     "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",

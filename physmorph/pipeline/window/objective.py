@@ -56,6 +56,8 @@ class Objective:
         eps = float(tgt.ldx) ** 2                     # blur: one loss cell
         self.xu = cfg.baseline in ("xu", "xu_spray")
         self.spray_only = cfg.baseline == "xu_spray"     # the baseline with the spray cleanup alone (the ejection guard)
+        if self.xu and cfg.gap_split != "off":
+            raise ValueError("gap_split reads the transport image, which the Xu baseline does not compute")
         if self.xu:                                   # the baseline: none of the transport's machinery, no u
             win.set_u_gate(torch.zeros_like(win.lmask))
             self.u_gate_frac, self.horizon = 0.0, cfg.T * prm.dt
@@ -83,6 +85,8 @@ class Objective:
             disp = grid_transport_displacement(x0, tgt.m, g_grid, tgt.lgmin, g_dx, g_dims,
                                                eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
         dn = disp.norm(dim=1)
+        if cfg.gap_split != "off":                    # D148: each particle's side point, its debiased transport image
+            win.set_gap_sides((x0 + disp).detach().float().contiguous())
         print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
         cell = float(cfg.cell_shape) if cfg.cell_shape > 0 else float(prm.dx)    # D137: the shape's cell
         gate = (dn <= float(cfg.layer_gate_ot_cells) * cell).float() * (win.lmask > 0.5).float()

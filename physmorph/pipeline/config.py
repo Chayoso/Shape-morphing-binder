@@ -137,6 +137,10 @@ class PipelineConfig:
     relax_driven: bool = False      # D146 A/B: the layer relaxation acts in the T driven steps only, the steps u acts in,
                                     #   so the released half has no position edit; off = every step of the 2T-step window
                                     #   (the code since the settled transport, 835af64: the frozen path)
+    gap_split: str = "off"          # D148 A/B: the two sides of a target gap on their own grid fields (mpm/gap_kernels.py):
+                                    #   "on" (variant A) at every gap node, "interface" (variant B) where the node's particle
+                                    #   volume is below one cell; "off" = the single field (the frozen path)
+    gap_vp: float = 0.0             # variant B: the volume per particle (the sample's fill volume / N), set by the run script
     coh_k: int = 8                  # material bond neighbours (source kNN)
 
     # ---- outer acceptance ----
@@ -164,6 +168,10 @@ class PipelineConfig:
         self.volume_exact = {False: "off"}.get(self.volume_exact, self.volume_exact)
         if self.volume_exact not in ("off", "carried"):
             raise ValueError("volume_exact must be \"off\" or \"carried\"")
+        if self.gap_split not in ("off", "on", "interface"):
+            raise ValueError("gap_split must be \"off\", \"on\" or \"interface\"")
+        if self.gap_split == "interface" and not self.gap_vp > 0:
+            raise ValueError("gap_split interface reads the node volume: gap_vp must be the volume per particle")
         if self.exterior_field not in ("zb", "aniso", "zbs"):
             raise ValueError("exterior_field must be \"zb\", \"aniso\" or \"zbs\"")
         if self.exterior_field == "aniso" and self.exterior_radius != 3.0:

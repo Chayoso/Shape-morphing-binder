@@ -73,6 +73,10 @@ def parse_args(argv=None):
     ap.add_argument("--relax_driven", action=argparse.BooleanOptionalAction, default=False,
                     help="D146 A/B: the layer relaxation acts in the T driven steps only, the steps u acts in, so the "
                          "released half has no position edit; off (the default) = every step of the window, the frozen path")
+    ap.add_argument("--gap_split", default="off", choices=["off", "on", "interface"],
+                    help="D148 A/B: the two sides of a target gap on their own grid fields (mpm/gap_kernels.py); on = at "
+                         "every gap node (variant A), interface = where the node's particle volume is below one cell "
+                         "(variant B); off (the default) = the single field, the frozen path")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
@@ -227,6 +231,9 @@ def run_config(args, cfg0, prep):
                               render_exterior=args.render_exterior, render_res=res,
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius,
                               exterior_field=args.exterior_field, u_off=args.u_off, relax_driven=args.relax_driven,
+                              gap_split=args.gap_split,
+                              gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
+                                      if args.gap_split == "interface" else 0.0),
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,

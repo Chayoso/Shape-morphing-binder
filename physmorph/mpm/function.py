@@ -54,6 +54,7 @@ class RolloutSpec:
     polar_adjoint: bool = False         # stable rotation VJP; original signed-SVD forward is unchanged
     volume_exact: bool | str = False    # "carried" (D131): the motion's volume J carried in the smoothed F; False / "off": the old path
     J0: np.ndarray | None = None        # the tracked volume at the start (volume_exact; None = 1)
+    gap: tuple | None = None            # D148 (gap_split): (plane_m, plane_n, q, vp) of mpm/gap_kernels; None = the frozen path
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -246,7 +247,7 @@ class PersistentAdjoint:
                                Fg0=spec.Fg0, track_geom=spec.track_geom, bonds=bonds, persistent=True,
                                layer=spec.layer, layer_u=self.u_wp, bond_history=spec.bond_history,
                                control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint, spacing=spec.spacing,
-                               volume_exact=spec.volume_exact, J0=spec.J0)
+                               volume_exact=spec.volume_exact, J0=spec.J0, gap=spec.gap)
         tr = self.traj
         self.geom = bool(spec.track_geom)
         self.sx = torch.zeros(N, 3, device=dev)

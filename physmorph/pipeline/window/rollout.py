@@ -151,6 +151,11 @@ def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit
         e = eval_terms(win, obj, leaf, u)
         E_final = obj.scalar(e, lam_r)
         tr, T, N = win.tr, win.T, win.N
+        if tr.gap:                                    # D148: the commit rollout's split record
+            from ...mpm.gap_kernels import record
+            sm, ss, sn, sp = record(tr)
+            print(f"[gap] commit: split node-steps {sn:.0f}, separating {sp:.0f}; the separating share of the split "
+                  f"nodes' mass {ss / max(sm, 1e-30):.4f}", flush=True)
         inv_any, jmin = None, float("inf")
         for t in range(1, T + 1):
             det_t = torch.linalg.det(wp.to_torch(tr.F[t]).reshape(-1, 3, 3).float())

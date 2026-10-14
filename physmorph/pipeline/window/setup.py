@@ -72,11 +72,15 @@ class Window:
         # trajectory, which is the line search's and the commit's, read the same J0)
         vx = cfg.volume_exact
         J0 = start.J if vx != "off" else None
+        # D148 (gap_split): the target's gap planes; the sides' points are set by the objective at the window start
+        gap = None
+        if cfg.gap_split != "off":
+            gap = (tgt.gap[0], tgt.gap[1], None, cfg.gap_vp if cfg.gap_split == "interface" else 0.0)
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,
                                 bond_history=True, control_steps=cfg.T, polar_adjoint=True, spacing=spacing,
-                                volume_exact=vx, J0=J0, track_geom=False)   # no term reads the geometric F
+                                volume_exact=vx, J0=J0, track_geom=False, gap=gap)   # no term reads the geometric F
         # the persistent no-grad trajectory: allocated once, rolled out as a CUDA graph for
         # every candidate, the warm-start comparison and the commit rollout; the control is
         # copied into dc_buf, which its dFc sequence views
@@ -86,7 +90,7 @@ class Window:
             self.tr = Trajectory(start.x, m, lam0, mu0, prm, T, F0=start.F, Fp=start.Fp, v0=start.v,
                                  C0=start.C, dFc=seq, device=cfg.device, requires_grad=False, vol0=vol0,
                                  persistent=True, bonds=bonds, layer=layer, bond_history=True,
-                                 control_steps=cfg.T, polar_adjoint=True, spacing=spacing, volume_exact=vx, J0=J0)
+                                 control_steps=cfg.T, polar_adjoint=True, spacing=spacing, volume_exact=vx, J0=J0, gap=gap)
             self.tr.capture()
         self._adj = None
         # unit constants: every fixed weight and gradient-magnitude constant is a legacy-unit
@@ -112,6 +116,11 @@ class Window:
         """Per-particle gate of u (1 where u may act), in the spec and the eval trajectory."""
         self.spec.layer = self.spec.layer[:5] + (gate,) + self.spec.layer[6:]
         wp.to_torch(self.tr.layer_ug).copy_(gate)
+
+    def set_gap_sides(self, q: torch.Tensor) -> None:
+        """D148: the particles' side points (the window start's transport images), in the spec and the eval trajectory."""
+        self.spec.gap = self.spec.gap[:2] + (q,) + self.spec.gap[3:]
+        wp.to_torch(self.tr.gap_q).copy_(q)
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
         """Copy a candidate into the eval trajectory's buffers; returns the expanded control."""
