@@ -5260,6 +5260,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   interior noise std 0.026 of the cell; it fires harmlessly at nodes where one side's kernel tail barely reaches;
   approach-only release gives no cohesion (two sides part freely once their post-force velocities separate); one field
   at v_rel/c 0.1 does not stick, it keeps a one-cell air gap and crushes the facing layers (J 0.74).
+  *First readings of the batch (09:13–09:50 CDT) and V1d, pre-registered 09:55 before its runs.* V1 (one bunny thrown
+  onto the gated floor) morphs in flight as the frozen body does at rest (merit 2.9e-4 at 1.83 s, before the landing)
+  and then lands: at G 0.05 about 700–1200 particles end below the floor's plane, the deepest 3 → 4.6 spacings (0.6 wu,
+  two cells) and growing, not isolated ones (a median 30 neighbours within two spacings: the body's bottom), while the
+  body slumps (height 6.0 → 3.8 wu from 2.3 to 8 s); the run left the domain's bottom margin at window 50. The
+  registered scene left it at window 27 the same way after landing. P9 (no morph, no assimilation, no u) stopped its
+  bottom at about one spacing; so the sinking comes with the pipeline's own updates. V1d: V1 at G 0.05 with u off, the
+  minimum spacing off, no assimilation, and all three off (`scripts/probes/d147/v1d.sh`, `scene_run.py --flags`).
+  Read: the deepest particle under the floor's plane and the body's height over time. Prediction: the sinking
+  follows u (a position update along the layer's normal, which on the bottom points into the floor, outside the
+  grid's floor) and the slump follows the assimilation (half the sag made plastic at every commit); with all three off
+  the body rests about a spacing deep as P9.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
