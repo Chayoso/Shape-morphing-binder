@@ -53,7 +53,7 @@ def main():
                      "--render_weight_scale", str(a.render_weight_scale), "--drag", "0", "--out", a.out])
     bodies, srcs, vps, thins, tgts, start = [], [], [], [], [], 0
     cfg = None
-    for b, seed in enumerate((a.seed, a.seed + 1000)):   # body 1: its own samples, none shared with body 0's draws
+    for b, seed in enumerate((a.seed, a.seed + 1000)[:spec.bodies]):   # body 1: its own samples (none of body 0's)
         cfg0, prep = prepared(base, seed)
         cfg_b = run_config(base, cfg0, prep)
         cfg = cfg or cfg_b
@@ -74,6 +74,9 @@ def main():
             dx, dt, prov = prep.prm.dx, prep.prm.dt, provenance(base, prep.prm)
         start += a.n
     x0, v0, R0, prm, info = layout(spec, srcs, vps, cfg.young, cfg.poisson, cfg.mass_ref_n, dx, dt, cfg.T)
+    if spec.frame == "fixed":                   # V0: the objective in the frame the body has at launch (the world's)
+        for bd, R in zip(bodies, R0):
+            bd.fixed = (gpu.tensor(x0[bd.rows].mean(0)), gpu.tensor(R.astype(np.float32)))
     windows = a.windows or info["windows"]
     log(f"[scene] {json.dumps(info)}")
     t0 = time.time()
@@ -96,8 +99,8 @@ def main():
         for b, m in enumerate(met)))
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     np.savez(f"{a.out}.npz", frames=xs, rows=np.array([[bd.start, bd.stop] for bd in bodies]),
-             tgt0=tgts[0], tgt1=tgts[1], src0=srcs[0].astype(np.float32), src1=srcs[1].astype(np.float32),
-             R0=np.stack(R0), floor_y=np.float64(prm.floor_y))
+             **{f"tgt{b}": t for b, t in enumerate(tgts)}, **{f"src{b}": s.astype(np.float32) for b, s in enumerate(srcs)},
+             R0=np.stack(R0[:len(bodies)]), floor_y=np.float64(prm.floor_y))
     Path(f"{a.out}.json").write_text(json.dumps({
         "provenance": {**prov, "scene_args": vars(a)}, "scene": info, "mpm": dataclasses.asdict(prm),
         "config": dataclasses.asdict(cfg), "metrics": met, "guards": res["guards"], "seconds": seconds,

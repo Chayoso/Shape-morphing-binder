@@ -30,6 +30,9 @@ class SceneSpec:
     seconds: float = 8.0         # the scene's length
     yaw: tuple = (0.0, 180.0)    # degrees about the vertical: each target's turn at launch
     floor: bool = True
+    bodies: int = 2              # 1: one body (V0 at rest without forces, V1 thrown onto the floor)
+    frame: str = "body"          # "body": each body's Buckens frame; "fixed": the frame at launch (V0's world frame)
+    drag: float = 0.0            # V0 keeps the frozen drag (0.9) to compare with the frozen runs
 
 
 def yaw_matrix(deg: float) -> np.ndarray:
@@ -54,19 +57,22 @@ def layout(spec: SceneSpec, sources: list, vps: list, young: float, poisson: flo
     b = spec.offset * R
     dc = math.sqrt(max((2.0 * R) ** 2 - b ** 2, 0.0))
     tc = spec.t_contact
-    at_contact = [np.array([-0.5 * dc, 0.5 * b, 0.0]), np.array([0.5 * dc, -0.5 * b, 0.0])]
-    vel = [np.array([vh, vy, 0.0]), np.array([-vh, vy, 0.0])]
+    at_contact = [np.array([-0.5 * dc, 0.5 * b, 0.0]), np.array([0.5 * dc, -0.5 * b, 0.0])][:spec.bodies]
+    vel = [np.array([vh, vy, 0.0]), np.array([-vh, vy, 0.0])][:spec.bodies]
+    if spec.bodies == 1:                                       # one body: its apex at the origin
+        at_contact = [np.zeros(3)]
     start = [p - v * tc - 0.5 * np.array([0.0, -g, 0.0]) * tc ** 2 for p, v in zip(at_contact, vel)]
     R0 = [yaw_matrix(a) for a in spec.yaw]
     x0 = np.concatenate([s @ r.T + c0 for s, r, c0 in zip(sources, R0, start)]).astype(np.float32)
     v0 = np.concatenate([np.tile(v, (len(s), 1)) for s, v in zip(sources, vel)]).astype(np.float32)
     floor_y = float(min(c0[1] - R for c0 in start) - spec.lift) if spec.floor else -1.0e9
     reach = vh * (spec.seconds - tc) + 2.0 * R + 4.0 * dx       # how far a body may travel back out and roll
-    lo = np.array([start[0][0] - reach, (floor_y if spec.floor else min(c0[1] for c0 in start) - reach) - 4.0 * dx,
-                   -(2.0 * R + 6.0 * dx)])
-    hi = np.array([start[1][0] + reach, max(c0[1] for c0 in at_contact) + 2.0 * R + 6.0 * dx, 2.0 * R + 6.0 * dx])
+    bottom = floor_y if spec.floor else min(c0[1] for c0 in start) - reach
+    side = 2.0 * R + 6.0 * dx
+    lo = np.array([min(c0[0] for c0 in start) - reach, bottom - 4.0 * dx, -side])
+    hi = np.array([max(c0[0] for c0 in start) + reach, max(c0[1] for c0 in at_contact) + side, side])
     n = [int(math.ceil((hi[k] - lo[k]) / dx)) for k in range(3)]
-    prm = MPMParams(dx=dx, dt=dt, drag=0.0, f_ext=(0.0, -g, 0.0), grid_min=tuple(float(v) for v in lo),
+    prm = MPMParams(dx=dx, dt=dt, drag=spec.drag, f_ext=(0.0, -g, 0.0), grid_min=tuple(float(v) for v in lo),
                     nx=n[0], ny=n[1], nz=n[2], floor_y=floor_y, floor_friction=spec.mu)
     windows = int(math.ceil(spec.seconds / (2 * T * dt)))
     info = {"R": R, "H": H, "rho": rho, "c": c, "g": g, "v_h": vh, "v_y": vy, "offset_wu": b,

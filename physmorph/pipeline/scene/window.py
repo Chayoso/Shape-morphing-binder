@@ -19,7 +19,7 @@ from ...mpm.function import RolloutSpec
 from ...prof import timed
 from ..window.layer import layer_relax_data, layer_spacing
 from ..window.setup import StartState, positions_in_domain
-from .frame import body_frame
+from .frame import body_frame, deformation_velocity
 
 
 @dataclass
@@ -32,7 +32,8 @@ class Body:
     tgt: object
     vp: float
     mass: float
-    cfg: object = None                  # the body's own run config (its loss grid and berth from its prepare); None = the scene's
+    cfg: object = None                  # the body's own run config (its prepare's loss grid, berth); None: the scene's
+    fixed: tuple | None = None          # V0 only: (c, R) of a frame fixed at launch (the world's), velocities as they are
 
     @property
     def rows(self):
@@ -41,6 +42,17 @@ class Body:
     @property
     def n(self) -> int:
         return self.stop - self.start
+
+    def frame(self, x: torch.Tensor):
+        """(y, c, R) of the body's positions x (its rows): the Buckens frame, or (V0) the frame fixed at launch."""
+        if self.fixed is not None:
+            c, R = self.fixed
+            return (x - c) @ R, c, R
+        return body_frame(x, self.Xq)
+
+    def deformation(self, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor:
+        """The velocity the body's settling terms read: less its rigid velocity, or (V0) as it is."""
+        return v if self.fixed is not None else deformation_velocity(x, v)
 
 
 class BodyWindow:
@@ -78,7 +90,7 @@ class SceneWindow:
         for b, body in enumerate(bodies):
             r = body.rows
             x0 = start.x[r]
-            y0, c0, R0 = (t.detach() for t in body_frame(x0, body.Xq))
+            y0, c0, R0 = (t.detach() for t in body.frame(x0))
             self.frames0.append((c0, R0))
             with timed("layer_data"):
                 sp_b = layer_spacing(x0)

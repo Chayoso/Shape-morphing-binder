@@ -22,8 +22,8 @@ class Bodies:
     gate's node volume is vp J); mu: Coulomb's coefficient between the bodies and on the floor."""
 
     def __init__(self, trajs: list, vps: list, mu: float):
-        if len(trajs) != 2:
-            raise ValueError("the contact is between two bodies")
+        if len(trajs) not in (1, 2):
+            raise ValueError("one body, or a pair in contact")
         if any(tr.prm != trajs[0].prm or tr.T != trajs[0].T for tr in trajs):
             raise ValueError("the bodies share one grid and one step count")
         self.trajs, self.vps, self.mu = trajs, [float(v) for v in vps], float(mu)
@@ -50,11 +50,15 @@ class Bodies:
             J = tr.J[t] if tr.carries else self.ones[b]
             wp.launch(CT.k_node_volume, dim=tr.N, inputs=[tr.x[t], J, self.vps[b], gv[b], gmin, prm.dx, inv_dx,
                                                          prm.nx, prm.ny, prm.nz], device=dev, record_tape=False)
-        a, b = self.trajs
-        wp.launch(CT.k_grid_op_pair, dim=prm.ngrid,
-                  inputs=[a.gm[t], a.gmom[t], gv[0], a.gvel[t], b.gm[t], b.gmom[t], gv[1], b.gvel[t],
-                          prm.dt, wp.vec3(*prm.f_ext), prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz,
-                          prm.floor_y, self.mu, self.impulse], device=dev)
+        a = self.trajs[0]
+        tail = [prm.dt, wp.vec3(*prm.f_ext), prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, self.mu]
+        if len(self.trajs) == 1:
+            wp.launch(CT.k_grid_op_one, dim=prm.ngrid, inputs=[a.gm[t], a.gmom[t], gv[0], a.gvel[t]] + tail, device=dev)
+        else:
+            b = self.trajs[1]
+            wp.launch(CT.k_grid_op_pair, dim=prm.ngrid, inputs=[a.gm[t], a.gmom[t], gv[0], a.gvel[t], b.gm[t],
+                                                                b.gmom[t], gv[1], b.gvel[t]] + tail + [self.impulse],
+                      device=dev)
         for tr in self.trajs:
             tr._post_grid(t)
 

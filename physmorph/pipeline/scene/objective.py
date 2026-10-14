@@ -10,7 +10,6 @@ import torch
 
 from ..window.objective import Objective
 from ..window.rollout import Eval
-from .frame import body_frame, deformation_velocity
 from .window import SceneWindow
 
 
@@ -46,7 +45,7 @@ class SceneObjective:
     def frame(self, b: int, x: torch.Tensor) -> torch.Tensor:
         """Body b's positions in its own frame (x: every body's rows)."""
         body = self.win.bodies[b]
-        return body_frame(x[body.rows], body.Xq)[0]
+        return body.frame(x[body.rows])[0]
 
     def evaluate(self, xT, FT, vT, dfc, V, X, **kw) -> Eval:
         """The window's terms summed over the bodies, as window/rollout._evaluate (records over every particle)."""
@@ -54,8 +53,8 @@ class SceneObjective:
         lv = lk = lr = lpbr = d_sil = lstab = 0.0
         for b, (part, body) in enumerate(zip(self.parts, self.win.bodies)):
             r = body.rows
-            Vb = torch.stack([deformation_velocity(X[t, r], V[t, r]) for t in range(V.shape[0])])
-            out = part.losses(self.frame(b, xT), FT[r], deformation_velocity(xT[r], vT[r]), Vb)
+            Vb = torch.stack([body.deformation(X[t, r], V[t, r]) for t in range(V.shape[0])])
+            out = part.losses(self.frame(b, xT), FT[r], body.deformation(xT[r], vT[r]), Vb)
             lv, lk, lr, lpbr = lv + out[0], lk + out[1], lr + out[2], lpbr + out[3]
             d_sil, lstab = d_sil + out[4], lstab + out[5]
         norm = V.shape[0] * V.shape[1]

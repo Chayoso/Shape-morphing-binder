@@ -138,6 +138,25 @@ def k_grid_op_pair(gm0: wp.array(dtype=float), gmom0: wp.array(dtype=wp.vec3), g
         gvel1[g] = wp.vec3(0.0, 0.0, 0.0)
 
 
+@wp.kernel
+def k_grid_op_one(gm0: wp.array(dtype=float), gmom0: wp.array(dtype=wp.vec3), gvol0: wp.array(dtype=float),
+                  gvel0: wp.array(dtype=wp.vec3), dt: float, f_ext: wp.vec3, gmin_y: float, dx: float, nx: int, ny: int,
+                  nz: int, floor_y: float, mu: float):
+    """k_grid_op_pair for one body: its field's velocity, the walls and the gated floor (no floor: kernels.k_grid_op's
+    arithmetic without its floor)."""
+    g = wp.tid()
+    i = g // (ny * nz)
+    j = (g // nz) % ny
+    k = g % nz
+    m0 = gm0[g]
+    if m0 > 1.0e-12:
+        h = (gmin_y + float(j) * dx - floor_y) / dx
+        on_floor = h < 2.0 and gvol0[g] >= dx * dx * dx * bspline_cdf(h)
+        gvel0[g] = _walls_floor(gmom0[g] / m0 + dt * f_ext, i, j, k, nx, ny, nz, on_floor, mu)
+    else:
+        gvel0[g] = wp.vec3(0.0, 0.0, 0.0)
+
+
 @wp.kernel(enable_backward=False)
 def k_node_volume(x: wp.array(dtype=wp.vec3), J: wp.array(dtype=float), vp: float, gvol: wp.array(dtype=float),
                   gmin: wp.vec3, dx: float, inv_dx: float, nx: int, ny: int, nz: int):

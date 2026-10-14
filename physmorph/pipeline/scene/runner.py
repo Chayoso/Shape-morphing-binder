@@ -19,7 +19,7 @@ from ..run.runner import GUARDS
 from ..run.state import FrameStore, fragment_mask, promote
 from ..window import StartState
 from ..window.setup import domain_bounds
-from .frame import body_frame, rigid_velocity
+from .frame import rigid_velocity
 from .solve import SceneOptimizer, SceneTarget
 
 _STATS = ("g_share", "g_cos", "g_phys_norm", "g_rend_norm", "ls_trials", "accepted", "rejected", "replay_rel",
@@ -105,12 +105,12 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
             impulse = wp_impulse(opt.win)
             per = []
             for b, (bd, part) in enumerate(zip(bodies, opt.obj.body_terms(x))):
-                _, _, Rb = body_frame(x[bd.rows], bd.Xq)
+                _, _, Rb = bd.frame(x[bd.rows])
                 ang = float(torch.rad2deg(torch.arccos(((torch.trace(Rb) - 1) / 2).clamp(-1, 1))))
                 per.append({**part, **momentum(x[bd.rows], v[bd.rows], C[bd.rows], bd.mass, prm.dx),
                             "R": Rb.reshape(-1).tolist(), "R_angle": ang})
             rec = {"animation": a, "t": (a + 1) * 2 * cfg.T * prm.dt, "frame_end": len(frames), "bodies": per,
-                   "contact_impulse": impulse, **cross_gap(x, bodies), **counts,
+                   "contact_impulse": impulse, **(cross_gap(x, bodies) if len(bodies) == 2 else {}), **counts,
                    "lambda": res.hist[-1]["lambda"] if res.hist else opt.lam_r, "loss": stats.get("commit_E_final"),
                    "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj,
                    **{k: stats.get(k) for k in _STATS}}
@@ -118,7 +118,7 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
         hist.append(rec)
         P = [sum(bp["P"][k] for bp in per) for k in range(3)]
         log(f"[scene] window {a + 1}/{windows} t={rec['t']:.2f}s  merit={rec['loss']:.5g}  lam={rec['lambda']:.3g}  "
-            f"g_share={rec.get('g_share') or 0:.2f}  gap={rec['gap_sp']:.2f}sp near={rec['near']}  "
+            f"g_share={rec.get('g_share') or 0:.2f}  gap={rec.get('gap_sp', float('nan')):.2f}sp near={rec.get('near')}  "
             f"impulse=({impulse[0]:+.3g},{impulse[1]:+.3g},{impulse[2]:+.3g})  P=({P[0]:+.4g},{P[1]:+.4g},{P[2]:+.4g})  "
             + "  ".join(f"b{b}: com=({bp['com'][0]:+.2f},{bp['com'][1]:+.2f}) |w|={sum(w * w for w in bp['omega']) ** 0.5:.3f}"
                         f" R={bp['R_angle']:.1f}deg sil={bp['d_sil']:.4g}" for b, bp in enumerate(per))
