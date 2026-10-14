@@ -210,3 +210,46 @@ def test_scene_runs_end_to_end():
                      device=P0.device)
     assert float((P - P0).norm()) <= 1e-4 * (cfg.mass_ref_n / n) * n * 0.5      # rounding of a body's momentum
     assert all(v == 0 for v in res["guards"].values())
+
+
+def test_one_body_in_a_fixed_frame_is_the_frozen_objective():
+    """One body whose frame is fixed at the world's (V0's world arm): the scene's rollout and objective give the frozen
+    window's state and terms (the same trajectory and kernels; the grid operation k_grid_op_one is k_grid_op's arithmetic
+    without a floor)."""
+    from physmorph import gpu
+    from physmorph.pipeline import PipelineConfig
+    from physmorph.pipeline.scene.objective import SceneObjective
+    from physmorph.pipeline.scene.window import Body, SceneWindow
+    from physmorph.pipeline.target import build_target, calibrate_units
+    from physmorph.pipeline.window.objective import Objective
+    from physmorph.pipeline.window.rollout import eval_terms
+    from physmorph.pipeline.window.setup import StartState, Window
+
+    rng = np.random.default_rng(11)
+    n = 300
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=3, iters=2, animations=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                         render_res=24, dt_res=32, render_exterior=True, min_spacing=0.9, volume_exact="carried")
+    src = rng.uniform(-1.5, 1.5, (n, 3)).astype(np.float32)
+    src -= src.mean(0)
+    tgt = (rng.uniform(-1.5, 1.5, (n, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    tgt -= tgt.mean(0)
+    tp = build_target(tgt, prm, cfg)
+    x = gpu.tensor(src)
+    calibrate_units(tp, x, cfg)
+    vol0 = compute_rest_volumes(x, 1.0, prm, "cuda")
+    coh = gpu.knn(x, cfg.coh_k + 1)[1][:, 1:]
+    bonds = (coh, (x[coh] - x[:, None]).norm(dim=2), torch.zeros(n, device="cuda"))
+    start = StartState(x=x, Fp=torch.eye(3, device="cuda").repeat(n, 1, 1))
+    leaf = 1e-3 * torch.randn(cfg.T, n, 3, 3, generator=torch.Generator().manual_seed(2)).cuda()
+    u = torch.zeros(n, device="cuda")
+    win = Window(start, prm, cfg, tp, vol0, bonds)
+    e1 = eval_terms(win, Objective(win), leaf, u)
+    body = Body(start=0, stop=n, Xq=x, tgt=tp, vp=27.0 / n, mass=cfg.mass_ref_n / n,
+                fixed=(torch.zeros(3, device="cuda"), torch.eye(3, device="cuda")))
+    swin = SceneWindow(start, prm, cfg, [body], vol0, [bonds], mu=0.5)
+    e2 = eval_terms(swin, SceneObjective(swin), leaf, u)
+    assert float((e1.xT - e2.xT).abs().max()) < 1e-5
+    for k in ("lv", "lr", "lstab"):
+        a, b = float(getattr(e1, k)), float(getattr(e2, k))
+        assert abs(a - b) <= 1e-4 * max(abs(a), 1e-12), (k, a, b)
