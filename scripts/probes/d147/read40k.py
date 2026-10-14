@@ -53,19 +53,19 @@ def ballistic(fr, rows, dt, g, upto):
 
 def v1(runs):
     print("== V1: one bunny thrown onto the floor")
-    for gtag in ("005", "010"):
-        f = runs / f"v1_bunny_g{gtag}.json"
+    for gtag in ("v1_bunny_g005", "v1_bunny_g010", "v1e_g005", "v1e_g010", "v1_af"):
+        f = runs / f"{gtag}.json"
         if not f.exists():
             continue
         j = load(f)
-        z = np.load(runs / f"v1_bunny_g{gtag}.npz", mmap_mode="r")
+        z = np.load(runs / f"{gtag}.npz", mmap_mode="r")
         fr, floor_y = z["frames"], float(z["floor_y"])
         dt, g = j["mpm"]["dt"], -j["mpm"]["f_ext"][1]
         sp = (j["scene"]["R"] ** 3 * 4.18879 / fr.shape[1]) ** (1 / 3)
         low = np.array([float(fr[k, :, 1].min()) for k in range(len(fr))]) - floor_y
         touch = int(np.argmax(low < sp)) if (low < sp).any() else len(fr)
         last = [r for r in j["history"] if "bodies" in r][-1]["bodies"][0]
-        print(f"  G {int(gtag) / 100:.2f}: {j['metrics'][0]}  first floor contact frame {touch} "
+        print(f"  {gtag} (G {j['scene']['spec']['G']}): {j['metrics'][0]}  first floor contact frame {touch} "
               f"({touch * dt:.2f} s)  end: lowest {low[-1] / sp:.2f} spacings above the floor, |v_com| "
               f"{np.linalg.norm(last['v_com']):.4f}, |w| {np.linalg.norm(last['omega']):.4f}; CoM off its parabola "
               f"before the floor {ballistic(fr, [(0, fr.shape[1])], dt, g, max(2, touch - 1))[0]:.2e} wu")
