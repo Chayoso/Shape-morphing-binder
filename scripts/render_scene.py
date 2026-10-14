@@ -1,7 +1,8 @@
-"""render_scene.py SCENE_NPZ OUT_DIR [+field=zb|zbs] [+camera=static|contact|follow] [+az=0] [+el=12] [+dist=1]
-[+smooth=0.75] [+stride=1] [+frames=a-b] [+floor=1] -- the two-body scene's frames (D147) in the studio look (3840 x
-2160): each body's base display (the exterior's discs of its own particles, so that two bodies in contact are not
-merged into one surface; the normals averaged twice over the reach as the deliverable's base display), both drawn by
+"""render_scene.py SCENE_NPZ OUT_DIR [+field=zb|zbs] [+camera=static|contact|follow] [+res=2160] [+az=0] [+el=12]
+[+dist=1] [+smooth=0.75] [+stride=1] [+frames=a-b] [+floor=1] -- the two-body scene's frames (D147) in the studio look
+(3840 x 2160 by default): each body's base display (the exterior's discs of its own particles, so that two bodies in
+contact are not merged into one surface; the normals averaged twice over the reach as the deliverable's base display),
+both drawn by
 one camera (framing: static by default, one shot for the whole run with the floor they land on; contact, a still
 close-up about the first contact; follow, the pair's box smoothed over +smooth seconds; +dist a zoom factor) on the
 studio backdrop, and the floor as a plane in the backdrop's grey with a soft contact shadow (each body's discs dropped
@@ -186,12 +187,14 @@ def main():
     if "frames" in opts:
         f0, f1 = (int(v) for v in opts["frames"].split("-"))
         keep = [k for k in keep if f0 <= k <= f1]
-    views = framing(frames, keep, raw, floor_y, SMOOTH, DIST, 3840 / 2160, mode=opts.get("camera", "static"), rows=rows,
+    HGT = int(opts.get("res", 2160))                           # the picture's height (16:9); 2160 the deliverable's 4K
+    WID = int(round(HGT * 16 / 9))
+    views = framing(frames, keep, raw, floor_y, SMOOTH, DIST, WID / HGT, mode=opts.get("camera", "static"), rows=rows,
                     az=AZ, el=EL,
                     pitch=a)
     log = open(out / "rows.txt", "w")
     for k, (center, radius) in zip(keep, views):
-        cam = StudioRaster(center, radius, 3840, 2160, AZ, EL)
+        cam = StudioRaster(center, radius, WID, HGT, AZ, EL)
         cam.camera = center + 3.6 * radius * center.new_tensor((math.cos(math.radians(EL)) * math.sin(math.radians(AZ)),
                                                                math.sin(math.radians(EL)),
                                                                math.cos(math.radians(EL)) * math.cos(math.radians(AZ))))
@@ -207,7 +210,7 @@ def main():
         sig = torch.full((len(q),), h_lat, device=dev)
         cov = (rot * torch.stack((sig ** 2, sig ** 2, (sig / 4) ** 2), 1)[:, None]) @ rot.transpose(1, 2)
         with torch.no_grad():
-            img = cam(q, n, cov, torch.full((len(q),), .92, device=dev), normal_kernel=normal_filter_size(2160, False))
+            img = cam(q, n, cov, torch.full((len(q),), .92, device=dev), normal_kernel=normal_filter_size(HGT, False))
         Image.fromarray((img.clamp(0, 1) * 255).round().byte().cpu().numpy()).save(out / "frames" / f"{raw(k):04d}.jpg",
                                                                                      quality=93)
         log.write(json.dumps({"frame": raw(k), "discs": [len(p) for p, _ in discs]}) + "\n")
