@@ -50,8 +50,8 @@ def base_discs(x, a, field, h_lat):
 
 def floor_background(cam, floor_y, discs, extent_xz, shade=0.55, res=768):
     """The studio backdrop with the floor y = floor_y: the floor in the backdrop's lower grey, darkened by a soft
-    contact shadow (the discs dropped onto it, weight exp(-height / H), blurred by a Gaussian of H; H the bodies'
-    median disc spacing x 6)."""
+    contact shadow (the discs dropped onto it, weight exp(-height / H), blurred by a Gaussian of H; H a 32nd of the
+    scene's horizontal extent)."""
     bg = cam.background.clone()
     o = cam.camera
     d = -cam.to_camera                                         # the pixel rays (unit, world)
