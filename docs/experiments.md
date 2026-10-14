@@ -4655,6 +4655,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   against the must-have runs; its bunny run (started 15:29) was stopped at about 6 %; BUO seeds 2 and 3 (about 9.5
   card-hours) come first, on cards idle for 10 minutes after 19:00 only; INSD is reconsidered (bunny and dragon only) when
   cards are free.
+  **Volume over time, one routine for every method (the coordinator: ours measured as the baselines are, not "by
+  construction"; read 2026-10-14 ~16:40 CDT; `tmp/d145/vol145.py`, `output/gpu/d145_vol/vol.jsonl`).** Every method's
+  frames as the shared 300k volume sample (ours: the particles; Buonomo et al., ARAP: their frame meshes sampled by the
+  pipeline's sampler; Xu et al., OT: their particles); volume = occupancy on a voxel grid of 1.5 pitches, one closing,
+  holes filled; against the same routine on the independent sample; at normalised time τ = raw / raw_end and over every
+  kept frame. The routine's own bias, read at τ = 0 where ours is the source sphere of exactly the target's fill volume:
+  0.986 (bunny), 0.964 (dragon) — voxel occupancy depends on the shape by 1–4 %. Ours (render arm L97, 300k): bunny 0.986
+  at τ 0, 1.005–1.007 from τ 0.25 to the end, the largest 1.028 at τ 0.06; dragon 0.964 at τ 0, 1.014–1.027 from τ 0.25,
+  1.015 at the end, the largest 1.075 at τ 0.10 (the early transient, while the surface is rough and spread); the twin P97
+  as L97 (bunny 0.986–1.031). Baselines, the same routine, min–max over the frames: Buonomo et al. bunny 0.971–1.028,
+  dragon 0.896–0.985, teapot 1.116–1.119 (the static union of both shapes), bob 0.878–1.119, armadilo 0.893–1.019, homer
+  0.916–1.051; ARAP bunny 0.987–1.016, armadilo 0.914–1.000, homer 0.860–1.000; Xu et al. bunny 0.990–1.070, dragon
+  1.013–1.294, teapot 0.977–1.034, bob 0.719–1.346, armadilo 0.891–1.067, homer 0.723–1.055; OT displacement bunny
+  0.986–1.088, dragon 0.964–1.277 (torn material inflates the occupancy). Ours for teapot, bob, armadilo and homer comes
+  with B1's 300k runs of those meshes (queued; no kept frames of ours exist for them today). For the paper: mass exact by
+  construction, and the measured volume of ours within 0.986–1.075 of the target on this routine (end 1.005 / 1.015),
+  beside the baselines' 0.72–1.35; the routine's 1–4 % shape bias stated.
   **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
   `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
   every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /
