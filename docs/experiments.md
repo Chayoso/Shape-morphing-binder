@@ -6278,7 +6278,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   split mass, so WL's gain (no foam at 3–6 s, which the split's nodes in that region bought) would most likely be lost.
   By the coordinator's rule (16:14 CDT) no further side-label definition: D148 stops at WL, and the choice between WL
   and the deliverable fallback goes to the user with videos, after the D146b + WL gate.
-  **The D146b + WL gate (pre-registered with RW at 16:16 CDT; the rest launched 16:40 CDT).** RW (dragon arm, running
+  **The D146b + WL gate (pre-registered with RW at 16:16 CDT; the rest launched 16:37 CDT).** RW (dragon arm, running
   since 16:14 on GPU 0), then on the second D148 card: RWT (dragon twin, `--render_weight_scale 0`, side render), RWB
   (bunny arm, side and front), RWBT (bunny twin, no render); all `repo_d148rf`, `--gap_split walls --relax_driven
   --u_adam_carry`, seed 97. Read by `d148_gate_read2.py` against D146b's own runs (CDL, CDL2, CDP; CBL, CBL2, CBP), item
