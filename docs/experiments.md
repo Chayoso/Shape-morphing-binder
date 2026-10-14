@@ -5272,6 +5272,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   follows u (a position update along the layer's normal, which on the bottom points into the floor, outside the
   grid's floor) and the slump follows the assimilation (half the sag made plastic at every commit); with all three off
   the body rests about a spacing deep as P9.
+  **The 40k batch's results (09:11–10:01 CDT; `output/gpu/d147/runs/read40k.txt`).** V0, against its letter: two of six
+  items outside the two-seed spread. Bunny: silhouette IoU fixed 0.9728 / 0.9740, Buckens 0.9733 / 0.9735 (differences
+  0.0005, 0.0006 within the spread 0.0013); chamfer within; thin uncovered fixed 5.9 / 5.2 %, Buckens 3.9 / 4.7 % (the
+  Buckens arm better by 2.0 points at seed 97, outside the spread 0.8). Dragon: silhouette fixed 0.9752 / 0.9758,
+  Buckens 0.9738 / 0.9748 (the Buckens arm lower by 0.0013 and 0.0010, outside the spread 0.0009); chamfer and thin
+  within. The frame turned 0.10° (bunny) and 0.8° (dragon) by the end (predicted at most 2°). Reading: the frame is not
+  shown to be a no-op within two seeds; it is better on the bunny's thin parts and about 0.001 lower on the dragon's
+  silhouette at both seeds. V1, not reached: in flight the thrown bunny morphs as at rest (its merit 2.9e-4 at 1.83 s);
+  after landing (2.5 s at G 0.05, 2.3 s at 0.1) its silhouette IoU ends at 0.929 and 0.919 (V0's 0.973), the body
+  slumps (height 6.0 → 3.8 wu), rolls (0.25–0.30 rad/s at the end, not at rest) and its bottom sinks under the floor's
+  plane (to 4.6 and 3.9 spacings); the centre of mass stays on its parabola to 7e-5 wu before the floor. V1d, the
+  sinking: u off −4.1 spacings at the end, the minimum spacing off −4.2, no assimilation −4.6 (the run left the domain
+  at 6.5 s), all three off −1.9 to −2.3 and steady: the position updates below the grid (u and the minimum spacing
+  together; neither alone) push the landed bottom through the floor, which constrains velocities on the grid and no
+  position; the prediction (u alone) refuted; the slump follows the assimilation (without it the height oscillates
+  4–6 wu instead of falling). The three timelines (the rule picks none): the registered scene, in contact from 0.5 to
+  4.3 s, lands pressed together at 2.4–2.9 s, leaves the domain's floor margin at 4.5 s; the long flight stays in contact
+  from 0.5 s to the end (restitution 0.005: the pair never parts), lands together at 4.5–5.3 s and tumbles (38°, 54°),
+  end shape error 0.044; the stiff material in contact 0.7–5.3 s, restitution 0.37, lands together at 2.0–2.2 s,
+  tumbles (69°, 89°), leaves the domain at 5.5 s, end shape error 0.054; the twin leaves the domain at 7 s. The bounce
+  the prototype showed (restitution 0.75, no morph, no assimilation) is gone in the scene: at every commit half the
+  elastic stretch, the impact's compression included, becomes the rest shape (the volume too, D135), so the collision
+  is close to perfectly plastic. Next, pre-registered 10:10 CDT before its runs: scene_na, the three timelines with
+  `--assim 0` (M1: the frozen recipe still morphs without it, all four meshes reached), `scripts/probes/d147/
+  scene_na.sh`. Prediction: the pair bounces apart (restitution 0.5–0.75), parts in the air in the long flight, the
+  bottoms still sink after landing (u and the spacing stay). The floor's sinking needs a definition (the floor as a
+  constraint on positions as well), for the coordinator.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
