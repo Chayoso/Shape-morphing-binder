@@ -5827,7 +5827,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   view (close-ups at 1–3 s and the run's last third), the bulk's displacement at windows 1–9, the end, seconds an
   attempt. Prediction: D148b's count at 1–3 s below A's (a narrower band), not zero; soft's count not below A's (the
   mid-gap particles); the crevice opening as A's at 40k (3.0 s) in all three.
-  **D148c amendment (14:35 CDT, with its implementation and before any of its runs).** The global wall labels do not
+  **D148c amendment (14:00 CDT, with its implementation and before any of its runs).** The global wall labels do not
   fit the target: joined over a region, the two flanks of a V and the rim round a hole are one wall (they are one
   surface globally and two sides only at the kernel's scale), so on the dragon 258 of its gap nodes (681 of 921 without
   the ring below) would have both sides on one wall and stay single-field, the holes among them. D148c's side is
