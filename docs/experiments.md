@@ -4373,6 +4373,123 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   word to the coordinator. (7) Disk, across the whole server (D146 included): never two dragon archives at once; before
   a dragon run, `du` and D146's status files (`output/gpu/d146*`) are checked; the total under 50 GB with at least 10 GB
   of headroom when a dragon run starts; space held by the other agent only through the coordinator.
+- **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
+  change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
+  흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
+  7 to 15 s with spikes every 0.15–0.17 s, the bunny's about 3× lower; `tmp/d146/` (readers `d146_*.py`), `output/gpu/d146/`;
+  local `output/results_2026-10-14/d146_late_wobble/`).** Data: the deliverable's own runs, FB (dragon,
+  `frozen_b/dragon300k_FB`, frames12, the JSON, D144's read-only dump at windows 1–30, 50, …, 110) and SB (bunny,
+  `d139/bunny300k_SB`, frames12, JSON), and its 4K side frames (`final/render/*_side_zbs/frames`). Three re-runs of the
+  dragon at the frozen defaults (deliverable-2026-10-13's code, `repo_deliv`, seed 97) on a read-only hook copy
+  (`repo_d146f`, `tmp/d146/d146_dump.py`: per committed window and per simulated step the outer layer's (the window's
+  `lmask`) and the bulk's path, the layer's normal and tangential parts, the grid's advection `dt v` against the position
+  updates below the grid; snapshots at steps 0 / 10 / 20 / 30 / 40 from window 20; dFc's rms and cap share, u and its
+  gate, the elastic stretch before the commit's assimilation; frames12 written in place of the 18 GB archive): FA (render
+  arm, 100 windows delivered, silhouette IoU 0.9871, FB 0.9869), FT (`--render_weight_scale 0`), and FA2 (`--animations 72`,
+  hook v2 `repo_d146g`: the term gradients stored scaled, the layer's normal path per particle by kind, u's own part
+  removed). The 12-step intervals of frames12 fall in a window (40 steps: 20 driven, 20 released) at a phase that
+  cycles over three windows, so every window has one interval inside its driven half (D), one inside its released half
+  (R) and one or two across the switch or the commit; every reading below is split that way. Spacing = the window's
+  layer spacing (0.065 wu at 300k).
+  **(1) What the eye sees is the driven half.** The side video's grey change per frame (960 px, `d146_video.py`), FB,
+  7–11 / 11–15 / 15–17.5 s: D 0.184 / 0.177 / 0.151, R 0.101 / 0.096 / 0.088, across 0.097–0.107 / 0.096–0.104 /
+  0.083–0.091 (0–255): the interval inside the driven half changes the picture 1.8–1.9× more than any other, once a
+  window, the 1/6-s pulse. Bunny SB, 7–11 s: D 0.056 against 0.031–0.039 (1.6×). A motion-highlighted clip (each
+  pixel's change since the previous frame ×12 in red, 7–17.5 s, full and half speed) and the heat map of 7–15 s:
+  the whole silhouette rim, the crevices (neck–foreleg, hind leg–body, the loop's gap), the dorsal spikes behind the
+  head, the whiskers and the mouth, the tail and toe tips.
+  **(2) It is the outer layer moving along its normal.** Per step (frames12, FB, 1e-3 spacings), 7–11 s: layer D 4.09,
+  R 2.23; bulk D 0.58, R 0.51; 11–15 s: layer 3.36 / 1.87, bulk 0.37 / 0.33. The normal part is 93 % of the layer's
+  mean square (bunny 97 %); the layer's mean normal motion is inward in the driven half (−0.43) and outward in the
+  released half (+0.41). Per particle over 7–15 s the layer's rms per frame is 0.033 spacings (median; bulk 0.0049) and
+  its most-moving tenth carries 47.5 % of its mean square: the crevices, spikes, tips and the rim
+  (`dragon_where_particles_side.png`). FA reproduces FB (layer D 3.87, R 2.15).
+  **(3) Not the display.** On FB's kept frames 199–210 (`d146_disc.py`, the deliverable's exterior: zbs field, the fixed
+  lattice of 0.92 a_c, discs matched by lattice cell): the discs move along their normal 1.25 × the particles' normal
+  move under them (Gaussian mean of the 8 nearest, σ = a), correlation 0.95; with the particles' tangential motion
+  alone the discs move 0.0027 pitches rms (5 % of 0.050), with the normal part alone 0.0502 (99.7 %). The driven-half
+  frames' discs move 0.069–0.079 pitches, the others' 0.030–0.054. Physical motion, not refit shimmer: no renderer fix.
+  **(4) Not the render.** FT (the twin) against FA, per window (medians; the layer's path in the driven / released half,
+  spacings): 7–11 s 0.104 / 0.049 against 0.090 / 0.048, 11–15 s 0.092 / 0.044 against 0.080 / 0.042; per step in
+  the driven half 4.65 against 3.87; the reversal and the flip share the same (below). The render weight's step share is
+  1/3 in every window (g_share 0.333) and changes nothing here.
+  **(5) What moves the layer: u against the relaxation, in different halves.** FA, per window (medians 7–11 / 11–15 s,
+  spacings): the layer's path in the driven half 0.090 / 0.080, of which the grid's advection 0.015 / 0.011 and the
+  position updates below the grid 0.088 / 0.079 (all along the normal); in the released half 0.048 / 0.042, the grid
+  0.014 / 0.010 and below the grid 0.044 / 0.040 — there u is zero, so this is the layer relaxation (the minimum spacing
+  adds nothing, D116). The bulk 0.010 / 0.006 a half. u: mean |u| 0.118 / 0.107; the layer keeps 0.71–0.72 of u's
+  commanded displacement at the end of the driven half and 0.41 at the window's end. FA2, per particle, windows 42–70:
+  the below-grid updates with u's own part removed answer u with slope −0.28 (correlation −0.66) in the driven half and
+  −0.29 (−0.83) in the released half; the grid's normal motion does not answer it (slope −0.003 / +0.001). So the
+  relaxation takes back 28 % of u in the half u acts and another 29 % in the half where nothing answers it. A third of
+  u's square is rough on the layer graph; the layer keeps 63 % of that part at the driven end and 25 % at the window end
+  (smooth part 58 %). In-window excursion (the mean |normal displacement at the driven end − at the window end| over
+  the layer): 0.042 spacings a window (FA and FT), against a net 0.063 / 0.075.
+  **(6) Window to window it reverses.** The run's record (all particles) turns from +0.48 (3–7 s) to −0.31 (7–15 s) and
+  −0.50 (after 15 s); the layer's, FA / FT: −0.56 / −0.58 (7–11 s), −0.63 / −0.63 (11–15 s); 82–85 % of the layer's
+  particles flip the sign of their net normal move from one window to the next, while u's own commands keep their
+  direction (cosine +0.21 / +0.13, twin +0.09 / +0.04) and the bulk drifts on (+0.62 / +0.26). Bunny SB: −0.40 from 7 s.
+  **(7) Not the optimiser's step size, the cap or the assimilation.** dFc at the cap on 0–0.04 % of the layer; the
+  elastic stretch the commit's assimilation halves is 0.1–0.2 % (mean largest |log s|), so its kick is negligible. u
+  follows the summed end-state gradient of the window before only loosely (correlation +0.16: transport +0.23, render
+  +0.11, near band +0.10, proximity and cleanup +0.07; on the most-moving tenth the render +0.18); |u| grows with that
+  gradient (0.083 to 0.232 spacings from its lowest to highest tenth), so it is not a pure sign step.
+  **(8) The stop rule.** FB's committed windows from 6 s gain a median 2.7 % of the merit each (7–15 s 3.0 %, after
+  15 s 1.1 %); the replay noise is 1e-7 – 2e-6 relative. Of the layer's path at 7–15 s, 0 % lies in windows whose gain
+  is below the gate's tolerance max(1e-4, 10 × replay) and 1.4 % in windows below 0.3 %. The merit keeps falling
+  (2.25e-4 at 7 s, 5.5e-5 at 15 s; the transport energy 2.9e-4 → 8.0e-5). The stop rule cannot and should not end this;
+  the bunny is closer (15 % of its 7–15 s path in windows below the gate's tolerance, 32 % below 0.3 %).
+  **Root cause.** u holds the outer layer where the objective wants it (D116: the transport and proximity want it a
+  fraction of a spacing off the mesh relief the relaxation keeps), and acts only in the T driven steps; the
+  relaxation acts at 1/T a step in all 2T steps, so in the released half it pulls back what u pushed, with nothing to
+  answer it, and the next window's u pushes again. For a rough offset r held against the relaxation (decay q = 1 − 1/T
+  a step), r_end = r_start needs u = r (1 − q^2T) / (q^T (1 − q^T)) = 3.8 r and the layer goes out by 1.8 r and back
+  every window; measured, the relaxation takes back 57 % of u inside the window (28 % driven, 29 % released) and the
+  in-window excursion is 0.042 spacings, two thirds of the net move, which the display draws 1.25:1. The tug of war
+  itself is D116's; D117 (the rest term reading the edits) and D119 (no relaxation where the layer has arrived)
+  attacked its two ends and were refuted (D119: the relief at 5.4 pitches and the roughness lost). What D146 adds is
+  its timing. **Since when:** window/setup.py documents the relaxation as "fraction 1/T per driven step" (written in
+  e20965e, 2026-09-29); the code has run it in every step of the 2T-step window since the settled transport (835af64,
+  2026-09-29), which added the released half and stopped dFc and u there, but not the relaxation. Entries since then
+  read it as acting in all 2T steps (R5: "its strength over a window, 2T steps of 1/T"; D14: "every step … 1/20 of the
+  way"); the adopted ones that touch it (D98's rigid modes, D105's relief reference) define what it relaxes toward, not
+  when, and none argued for the released half.
+  **Pre-registered (2026-10-14 01:36 CDT server clock, before any D146 change run; the coordinator approved it as
+  inside the framework).** *The change:* the layer relaxation acts in the driven steps only, the steps u acts in
+  (`config.relax_driven` / `--relax_driven`, an A/B switch, off = the frozen path); the released half then has no
+  position edit at all (no control, no relaxation; the minimum spacing stays, it is part of every position update).
+  Its fraction 1/T a step, its reference (D105), its rigid-mode correction (D98) and its graph unchanged; no constant
+  added. In the hold model above u falls to r and the in-window excursion to 0. *Implementation:* the window passes
+  the relaxation's step count to the trajectory (the layer tuple's eighth entry, T when on, all 2T when off); a released
+  step relaxes with fraction 0, so the projection is the identity there; tests: the released steps leave the layer where
+  the grid puts it (projection identity), the driven steps relax as before, the switch off is bit-identical to the
+  frozen path, the u and dFc adjoints against central differences with the switch on; the suite on hyde06, exit status
+  checked. *Runs:* 300k, seed 97, the switch on, render arm and twin, bunny and dragon (DL, DP, BL, BP), and two bunny
+  baselines at the frozen defaults with the same hooks (BL0, BP0; the dragon's are FA and FT), on a hook copy
+  (`repo_d146h`: the change, D140's read-only dump of windows 1–9, the D146 hook v2); one run a card under the card
+  locks; frames12 written by the run; the render arms drawn side and front with `scripts/render_deliverable.py`
+  (`+fit=0 +field=zbs`), the dragon twin's side for the late reading. *Gate (render arms; every item read on the twins
+  too and reported):* (1) the late wobble, from 7 s to the end of the shorter run, at most 15 s: (a) the side view's
+  grey change per frame at most 0.6 × the deliverable's (FB, SB, the same renderer and reader); (b) the ratio of the
+  driven-half intervals' change to the others' at most 1.25 (FB 1.85, SB 1.6); (c) the layer's in-window excursion at
+  most half the baseline's (FA 0.042 spacings; BL0); (d) the layer's window-to-window reversal cosine above −0.3 (median;
+  FA −0.56 to −0.63). (2) The trajectory at 0–1.5 s: D144's item (2), the shell against the bulk at windows 1–9 (median
+  and p90, the bunny's face median), within the three-run bands widened by their own width (bunny SB, BAT, C1; dragon
+  FB, DAT, C1; the bands as listed in D144), and the side by side at 0–1.5 s against D135's. (3) The end: silhouette
+  IoU, chamfer and thin uncovered within D138's band widened by its width (bunny ≥ 0.9871, ≤ 0.0552, ≤ 5.2 %; dragon ≥
+  0.9853, ≤ 0.0546, ≤ 5.5 %); the relief (D119's reading: `exterior_offset_probe.py` discs of the last kept frame,
+  `ag2_bands.py` family B at 5.4 pitches, kept share) at least the lowest D135 run's − 0.03 and the roughness (the e3
+  angle rms) at most 1.15 × the highest D135 run's (FB, FA, FT, SB, BL0, BP0, the same arm). (4) At rest: the last
+  kinetic record within D140's limits (bunny 1.53e-5, dragon 3.3e-5). (5) The render lead: each render arm ahead of its
+  twin on the yardstick silhouette and the display front's 1 − IoU at the last kept frame (`t3end_`, `e3end_`). (6) No
+  new visible piece: the detector on every kept frame of the render arms' side and front views, every candidate checked
+  against D135's inventory (the crevice's foam and bead the recorded limitation). (7) Cost, reported: seconds an attempt
+  against the baselines under the same hooks (FA 11.5 s), windows, GPU memory. *Prediction:* (1) holds: the released
+  half's layer path falls from 0.042–0.048 to the grid's 0.010–0.014 spacings and u's hold to about a third, (a) ×0.4–
+  0.6, (b) 1.0–1.2, (c) ×0.2–0.4, (d) −0.1 to −0.3; (2) holds, the released-half relaxation being 1–3 % of the layer's
+  path in windows 1–6 and 2–5 % in 7–9 (FA); (3)–(5) hold, the risk being the relief (the relaxation still acts every
+  window, as D119 did not, but at 0.36 instead of 0.13 of a rough residual left a window); the runs may end earlier or
+  later. If it passes, the default is not changed: the result goes to the coordinator for the user's decision.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
