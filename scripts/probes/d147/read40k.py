@@ -106,5 +106,5 @@ if __name__ == "__main__":
     runs = Path(sys.argv[1])
     v0(runs)
     v1(runs)
-    for tag in ("scene40k_L", "scene40k_P"):
+    for tag in ("scene40k_L", "scene40k_P", "scene40k_LB"):
         scene(runs, tag)
