@@ -1,5 +1,5 @@
 """render_gradient_viz.py VIZ_NPZ DENSE_NPZ[,DENSE_NPZ...] OUT_DIR [+viz=A,B,C,D,U] [+views=35,90] [+res=1080]
-[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+c_avg=1] [+mesh=bunny]
+[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+c_avg=1] [+d_avg=1] [+mesh=bunny]
 -- the render gradient's videos (RGV): four questions about the render loss and the stress control dF_c, one panel
 each, drawn on the deforming body in the deliverable's studio look (scripts/render_deliverable.py's base display,
 +fit=0: the exterior's discs of each kept frame's particles, their twice-averaged normals, the same camera, lights,
@@ -24,6 +24,7 @@ backdrop and disc footprint), and the u channel. Also reached as render_delivera
      shortened by the foreshortening, each fading in and out with its change (15-25 %) and its foreshortening, at
      most one per 1.15 lengths in a fixed order of the particles): the principal axis of
      sym(Delta dF_c) along the surface, white double-headed = stretch added, dark converging = compression added;
+     +d_avg=K: Delta dF_c and |dF_c(lambda = 0)| as running means over K windows (colour and arrows);
   U  g Delta u = g (u(render on) - u(lambda = 0)) in pitches, blue inward, red outward, one linear scale for the run;
      the plain body (hatched) where u does not act (outside the outer layer or its gate closed).
 g = dL/d dF_c of the window's first gradient summed over its 20 driven steps (the render's after PCGrad and times
@@ -242,6 +243,7 @@ def main(argv=None):
     GCELL = float(opts.get("glyph_cell", 5.0))                               # pitches
     ARROW = float(opts.get("arrow_px", 46.0))                                # px at 1080 lines
     C_AVG = int(opts.get("c_avg", 1))                                       # C: running mean over this many windows
+    D_AVG = int(opts.get("d_avg", 1))                                       # D: running mean over this many windows
     INTERP = opts.get("interp", "1") == "1"
     GB = "B" if "B" in kinds else "B2"                                     # the grid's B slot: B, else B2
     GRID = opts.get("grid", "1") == "1" and all(k in kinds for k in ("A", GB, "C", "D"))
@@ -293,6 +295,10 @@ def main(argv=None):
         if C_AVG > 1:                                          # C: the running mean of the cosine over C_AVG windows
             lo_, hi_ = max(0, w - C_AVG // 2), min(n_win, w + C_AVG // 2 + 1)
             V["cos"] = torch.as_tensor(np.asarray(A["cos"][lo_:hi_], np.float32).mean(0), device=dev)
+        if D_AVG > 1:                                          # D: running means of Delta dF_c and |dF_c(lambda = 0)|
+            lo_, hi_ = max(0, w - D_AVG // 2), min(n_win, w + D_AVG // 2 + 1)
+            V["ddfc"] = torch.as_tensor(np.asarray(A["ddfc"][lo_:hi_], np.float32).mean(0), device=dev)
+            V["dfc0"] = torch.as_tensor(np.asarray(A["dfc0"][lo_:hi_], np.float32).mean(0), device=dev)
         return V
 
     def values(k):
@@ -561,8 +567,8 @@ def main(argv=None):
                         title = "What did the render do to dFᴄ?"
                         colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_D,
                                    [(0, "0 %"), (.25, "25 %"), (.5, "50 %"), (.75, "75 %"), (1, "≥ 100 %")],
-                                   "how much the render changed this particle's control\n(% of the control without the render)",
-                                   f_s)
+                                   "how much the render changed this particle's control\n(% of the control without the render"
+                                   + (f"; averaged over {D_AVG} windows, {D_AVG / 6:.2f} s)" if D_AVG > 1 else ")"), f_s)
                         hatch_legend(dr, cam, bx, int(Hd - 228 * sz), sz, Hd,
                                      "control negligible here (under 1 % of the largest)", f_s)
                         ax, ay = bx, int(Hd - 318 * sz)
