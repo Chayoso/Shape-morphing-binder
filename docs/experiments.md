@@ -4920,6 +4920,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     in the neck hole.
   Whether (2) and (6) are this change's or one run's draw is what D144's repeat rule answers (one more render arm a
   mesh on the same copy); whether the longer dragon run is wanted is the user's. Neither switch's default changes.
+  **D146b repeat, pre-registered 2026-10-14 12:18 CDT server clock (the coordinator's decision, before the runs).**
+  *Runs:* one more render arm a mesh, dragon CDL2 and bunny CBL2. They use the same pre-leak copy (`repo_d146c`: cc2293a
+  with D140's read-only dump and the D146 hook), the same seed 97 and the same chain (`d146_gate2.sh`: the readings,
+  side and front renders, the detector). They start after 19:00 CDT with ABL under the card caps, or earlier only when a
+  card frees while D148 holds its share.
+  *The attribution rule:* a miss counts against the change only if it repeats in the second run:
+  - the bunny's window-8 p90 outside [13.88, 14.15];
+  - on the dragon side view, a piece on particles apart from the body in the gap between hind leg and body, or in the
+    neck–body hole, or any other visible piece absent from D135's inventory (the crevice's foam and bead are the
+    recorded limitation).
+  A miss that does not repeat is read as run spread. (1)(b)'s ratio is read on both runs and reported against 1.25 and
+  against D135's and D146a's.
+  *Beside, for the adoption package (the user's decision on the run's length):* CDL's merit and display measures at the
+  committed window of the deliverable's length (17.5 s, window 105–106) against its end, and how much of the extra
+  10 s is visible change (the side video's two frames' difference against the late per-frame wobble, the particles'
+  net move).
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
