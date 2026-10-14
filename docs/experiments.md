@@ -4891,6 +4891,34 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   as in the design; predictions: the first gated contact at about 1.0 s within two spacings, a bounce with restitution
   0.3–0.8, no stuck particles, both bodies spinning from the friction, landing at about 2.5 s; each body within 0.01
   of the gallery bunny's silhouette IoU by 8 s; the render arm ahead of its twin on the silhouette in the bodies' frames.
+  **M-b result (the contact prototype, run 02:21–02:26 CDT on GPU 2, `output/gpu/d147/P*.log|json`; read 02:27).**
+  The gate's node volume over the cell at interior nodes reads 0.917 in median (q01 0.866, q99 0.970, std 0.024),
+  not one: the prototype took the mesh's 110³ volume / N as each particle's, 8 % below the sample's own (one jittered
+  particle per voxel of the sampler's coarser fill, D132's fill volume). So the gate fired only after the two surfaces
+  overlapped by about a spacing. Corrected in the definition, not by a constant: the per-particle volume is the
+  sample's own fill volume / N (after the density match the source's fill is the target's), with which the interior
+  reads one by construction; the spread (std 0.024) is the gate's noise. P1 (the gate, head-on, v_rel / c = 0.1):
+  the bodies bounce, restitution 0.74, in contact for 865 steps (3.6 s: a soft bounce, the compression 1.7 s, the
+  largest compression J 0.956); the first gated node with the nearest particles 0.09 spacings apart (the overlap
+  above); during the contact 0.05–0.15 spacings; after it no particle of either body within 1.5 spacings of the other
+  (5.4 spacings apart at 5 s): a clean separation. The pair's linear momentum stays at its start to 4e-6 of a body's;
+  the angular momentum about the origin moves by 0.6 units, the float rounding of terms of 1e5 (the same in the runs
+  without any contact). P2 (Bardenhagen's rule without the gate): in contact from the first step at a surface gap of
+  0.77 wu (5.8 spacings, 2.6 cells); the bodies never come closer than 2.1 spacings (0.28 wu) and bounce off the
+  kernels' overlap, restitution 0.80, the facing layers compressed to J 0.81: confirmed as predicted. P3 (one field,
+  the frozen grid): refuted, they do not stick at this speed: restitution 0.81, never closer than 2.4 spacings (0.31
+  wu, one cell); the shared nodes average the two bodies' velocities over the kernels' reach, a cushion one cell thick
+  that crushes the facing layers (J 0.74) and lets them go. The case for the fields is then the visible air gap of a
+  cell (7 % of a radius) and the crushed surfaces at this speed; sticking in a slow, sustained or sliding contact (a
+  landing, two bodies resting against each other, an oblique touch) is not measured here. P4, P5 (offset half a
+  radius, μ 0 and 0.5): restitution 0.69 and 0.68, the first gated node at 0.25 spacings, clean separations, the
+  angular momentum about the origin kept to 8e-5 of its scale through the frictional contact. P6 (v_rel / c = 0.2):
+  restitution 0.64, 720 steps in contact, a clean separation. P8, P9 (the floor drops): not read (below). P7 (the
+  prototype's own tape through the contact, Warp's generated adjoints on array slices): the tape gave exactly zero
+  against central differences of 1.6e-5: the probe's tape does not reach its control (cause not found before the
+  server access stopped); the pipeline's two-body adjoint (each body's own arrays and hand adjoints, BodiesAdjoint) is
+  tested by tests/test_scene_bodies.py, not run yet. At 02:28 CDT hyde06 started rejecting the local key (hyde01
+  still accepts it): the readings of P8, P9 and the scene tests wait for the access.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
