@@ -5493,6 +5493,52 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the dragon when the shape is not formed in it. The memory probe (2 × 20k, 6 windows, the garbage collector off, on
   the 300k code): free device memory 42 639 MiB after the first window, then 40 687, 40 687, 40 681, 40 679,
   40 679 MiB: flat (no window's trajectories kept).
+  **S3, the reading's fix and the pick (read 13:31–14:00 CDT; `runs/read_s3.txt`, `read_s3b.txt`, `read_s4.txt`;
+  code 804a06b, 3794b0a).** The timeline took the pair's parting as the last window with a contact impulse, so a pair
+  that parted in the air and later rolled into each other on the floor read as never parting (and its restitution was
+  read at the run's end); the registered text reads "parts before either body first comes within a spacing of the
+  floor". Fixed in the reading only: the pair parts at the first window after the first contact with no impulse and
+  the bodies more than a spacing apart (the floor's own test); the registered duration (first to last impulse) still
+  breaks ties; found while reading S3, all 20 40k scene runs re-read with it (the coordinator: accepted, 14:10). By the
+  rule on S3's set: LB_v2 (S2's run) parts at 3.0 s and lands (4.30 /
+  5.39 s) but body 0 tumbles 21° (fails); o75 parts at 3.0 s, tumbles 31° / 16° (fails); o100 parts at 3.17 s, lands
+  4.17 / 6.25 s, tumbles 52° / 39°, end shape error 0.041: **the pick is `scene_long_o100`**. Its last second's
+  silhouette terms: body 0 0.025 → 0.0086 (still forming: it lands last), body 1 0.0048–0.0039. The restitution along
+  each line of centres (onset, parting): LB_v2 0.85, o75 0.87, o100 1.09 (speed ratio 0.99; the line turns 15° during
+  the contact, and the controls keep the momentum but do work: an actuated body's e may pass 1). Prediction (both
+  offsets over 30°): wrong for o75. **The scene is not reproducible run to run**: the same code, seed and input
+  repeated (LB_v2 four times, o75 and o100 twice) parts in the air in 8 of 8 (2.8–3.3 s; contact from 0.5 s, its first
+  episode 2.2–2.7 s), lands at 4.2–4.35 / 5.3–6.25 s in all, but tumbles as a draw: body 0 21 / 37 / 24 / 28° (LB_v2),
+  31 / 21° (o75), 52 / 23° (o100), body 1 76 / 73 / 82 / 39°, 16 / 75°, 39 / 31°; the bar is passed by 1 of 4, 0 of 2,
+  1 of 2; the end shape error spreads 0.032–0.048 within LB_v2 (the rule's 0.002 tie band is far below it); in 6 of 8
+  the bodies roll back into each other on the floor (a second contact at 6–9 s). The 40k runs' float atomics,
+  amplified by the contact and the roll; o100 spins body 0 most on average (38° against 28° and 26°), the predicted
+  direction. **The angular momentum's split** (its record failed in every S3 run: below_grid_record took the pair's
+  80k start positions against a body's 40k; now the pair's point by L_c = L_cb + (c_b − c) × P; LB_v2M, LB_v2N,
+  o75_v2b): over the contact's windows the pair's grid share minus gravity's torque is (0.2, −0.1, −2.0) momentum
+  units against each body's ±181 000 about the pair's centroid (LB_v2M; LB_v2N (34, −19, −45) of ±305 000): the
+  contact, the stress and the control keep it. Below the grid per body over the contact: u ≤ 89, the minimum spacing ≤
+  16, the relaxation ≤ 18; over the run u ≤ 383, spacing ≤ 76, relaxation ≤ 101 against spins of about 20 000 (≤ 2 %,
+  u the largest, D102's ranking). The −17 900 above was misread: the records' L is each body's spin about its own
+  centre and the reading summed the spins; the friction turns the pair's orbital angular momentum into spin (LB_v2M:
+  body 0 +14 100, body 1 −34 500 over the contact), the total about the pair's centroid kept. The rigid-mode projection
+  on a pressed, spinning body: u is free of each body's position modes (Σ du = 0, Σ r × du = 0), but a position update
+  that leaves v changes L by Σ du × (ω × r) = ω Σ (du · r) − Σ r (du · ω), which those columns do not remove (nor do
+  the spacing's push and the relaxation): measured ≤ 2 % of the spin. Proposal only (not implemented): three more
+  columns per body in the scene's projection, g (n_p × v_p) at the window's start velocities (for a body without spin
+  they are combinations of the translation columns). **The renderer's test** (LB_v2 at 4K, every 12th frame, 201
+  frames in 32 s): the floor's shading and the contact shadow work (the shadow under the pair in the air at 1.5 s);
+  the camera, fixed at 0.62 of the whole run's box as the single-body deliverable's, cut the bodies and their landing
+  out of the frame. Now the camera follows the pair (`render_scene.framing`: the box around both bodies, down to the
+  floor once the gap below them is under the box's height, smoothed over 0.75 s; 3794b0a); the single-body renders
+  untouched. The scene tests 18 passed on 804a06b (the split's record checked in the end-to-end test). Chain 10
+  (`repo_d147l`): from 19:00 the 300k scene (2 × 150k) on o100, seed 97 with render, then its render-off twin and seed
+  99 once the first is past its second window, the 4K render and the readings (`runs/read_300k.txt`); proposed to the
+  coordinator: the rule applied per 300k run, the delivered seed the one that passes. The coordinator's decision
+  (14:10 CDT): o100 at 19:00 as planned, the rule applied to each 300k run and the passing seed delivered; if none
+  passes the tumble bar, the run with the larger tumble, recorded with the bar passed by chance at 40k (1 of 2 for
+  o100); the projection's proposal kept written only (≤ 2 % of the spin, listed as measured in the paper's budget
+  table); the restitution above 1 explained in the paper as here (the controls do work while keeping the momentum).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
