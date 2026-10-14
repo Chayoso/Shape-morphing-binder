@@ -4671,7 +4671,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   0.986–1.088, dragon 0.964–1.277 (torn material inflates the occupancy). Ours for teapot, bob, armadilo and homer comes
   with B1's 300k runs of those meshes (queued; no kept frames of ours exist for them today). For the paper: mass exact by
   construction, and the measured volume of ours within 0.986–1.075 of the target on this routine (end 1.005 / 1.015),
-  beside the baselines' 0.72–1.35; the routine's 1–4 % shape bias stated.
+  beside the baselines' 0.72–1.35; the routine's 1–4 % shape bias stated. Ours' physical volume (Σ J V0 from the carried
+  J over the target's fill volume, which match_density makes the body's N V0: the mean of J) is read on two replicate
+  render-arm runs on the full-archive copy (`bunny300k_JV97`, `dragon300k_JV97`, `d145_jv`, the archive's J samples every
+  T frames, `tmp/d145/jv145.py` before the archive is cut; the dragon after 19:00); not comparable across methods (the
+  baselines carry no physical volume). The paper's wording (the coordinator): "exact mass by construction; physical
+  volume within X % (Σ J V0); on the common occupancy measure ours is comparable to the baselines, with an early transient
+  while the surface is spread (dragon peak 1.075 at τ 0.06–0.10)"; no claim of better volume preservation on the
+  occupancy measure: on the dragon Buonomo et al.'s range is narrower early and ours ends nearer 1 (1.015 against 0.897).
   **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
   `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
   every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /

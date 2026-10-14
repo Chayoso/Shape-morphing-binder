@@ -109,6 +109,7 @@ while true; do
       echo $rc > $D/rc_$name
       echo "$name sim $rc wall $(( $(date +%s) - t0 )) peak_mib $(sort -k2 -n $D/$name.mem | tail -1 | cut -d' ' -f2) $(date '+%m-%d %H:%M')" >> $S
       A=$D/${name}_render_full_dt_iso_nn.npz
+      [ $rc = 0 ] && [ "$ev" = jv ] && [ -e $A ] && $PY $T/d145/jv145.py $A $D/jv_$name.json > $D/jv_$name.log 2>&1   # the carried J before the archive goes
       [ $rc = 0 ] && [ -e $A ] && $PY $T/frames12.py $A $D/$name > $D/$name.frames12.log 2>&1
       rm -f $A
     )
@@ -122,7 +123,7 @@ while true; do
         CUDA_VISIBLE_DEVICES=$g $PY $T/gallery_ind.py $D/ind.log "$name=$F,$IND40" > /dev/null 2>&1 < /dev/null )
       rm -rf $L/gpu$g.lock; trap - EXIT
       setsid nohup bash $T/d145/read300_cpu.sh $dir $name $mesh $keep > /dev/null 2>&1 < /dev/null &
-    elif [ "$ev" = rec ]; then
+    elif [ "$ev" = rec ] || [ "$ev" = jv ]; then
       rm -rf $L/gpu$g.lock; trap - EXIT
       if [ "$keep" = 0 ]; then sz=$(du -m $F | cut -f1); rm -f $F
         echo "$(date '+%Y-%m-%d %H:%M') $dir: removed $F ($sz MB; D145 run $name, records only)" >> $G/cleanup.log; fi
