@@ -4987,6 +4987,43 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   committed window of the deliverable's length (17.5 s, window 105–106) against its end, and how much of the extra
   10 s is visible change (the side video's two frames' difference against the late per-frame wobble, the particles'
   net move).
+  **Repeat result (CDL2 12:49–14:23, CBL2 14:40–15:07 CDT; read 13:30–15:15).** By the rule, the bunny's window-8 p90
+  miss repeats and is D146b's; the dragon's new pieces do not repeat and are run spread.
+  - Bunny window-8 p90: CBL2 14.24 against the widened band's 14.15 (CBL 14.17); the miss repeats and counts against
+    the change. For scale: the D135 code's own runs read 14.00–14.03 (D144's three) and 14.12 (BL0, our fourth, the
+    same code and seed), D146a's BL 14.12, the twin CBP 13.90. So the change shifts the 90th percentile of the bunny
+    shell's lead over its bulk at 1.33 s by about +0.1 pitch (about 1 %), where u starts to act (window 4 on).
+  - Dragon side, by region (`d146_regions.py` on the detector's tracks; class i = frames with particles apart from the
+    body under the piece):
+    - hind-leg gap: CDL 37 class-i frames at 12.65–22.3 s, CDL2 none (8 tracks, 65 px at most); FB 3, DL 0;
+    - neck hole: CDL 4, CDL2 0 (FB 0, DP 12);
+    - CDL2 adds a mouth piece at 2.75–3.4 s (10 class-i frames, 1475 px at most) that CDL does not have (D146a's DL: 2
+      frames there, FB one frame at 7.45 s): spread by the same rule;
+    - the crevice (the recorded limitation): class-i frames FB 14, DL 35, DP 66, CDL 49, CDL2 60.
+    The fronts of both and both bunny views: shading creases only.
+  - CDL2 reproduces CDL otherwise:
+    - (a) ×0.41, (b) 1.58, (c) ×0.15, (d) −0.05, (8) +0.19;
+    - the end 0.9871 / 0.0545 / thin 2.90 %, at rest 1.1e-5, 0–1.5 s within;
+    - the run delivers 29.0 s (174 windows, 30.6 min).
+  - CBL2: (a) ×0.41, (b) 1.56, (c) ×0.08, (d) −0.05, (8) +0.44; the end 0.9885 / 0.0551 / 4.11 %, at rest 1.7e-6.
+  - (b) misses 1.25 in all four D146b runs (1.55–1.58; the deliverable's 1.62–1.81).
+  - Reading: D146b's attributable costs are the bunny's +0.1-pitch early shift at one cell and the unmet ratio; its
+    effect, the late wobble at 0.4 of the deliverable's with the reversal gone, repeats.
+  **The run length, for the adoption package (CDL; `tmp/d146/d146_runlen.py`, `runlen_gpu.sh`).** At the deliverable's
+  length (window 105, 17.5 s) against the end (window 165, 27.5 s):
+  - the merit 6.30e-5 → 4.15e-5 (×0.66): the transport ×0.65, the silhouette term ×0.73, the shading ×0.86, the released
+    motion ×0.52, the end's kinetic energy ×0.57. The deliverable FB ended at 4.52e-5; CDL's merit passes it only at
+    window 148 (24.7 s), CDL2's at window 131 (21.8 s);
+  - the yardstick against the independent sample (exterior) silhouette 5.65e-4 → 5.31e-4 (−6 %), shading 4.94e-4 →
+    4.55e-4 (−8 %); FB's end 5.62e-4 / 4.66e-4, so CDL at 17.5 s stands where the deliverable ends;
+  - the display: roughness 7.07° → 7.09° (FB 7.48°), the sets apart from the body 6 → 3, their discs 76 → 13.
+  How much of the extra 10 s is visible change:
+  - the side frames at 17.5 s and 27.5 s differ by 0.24 grey levels on average (960 px; 0.27 % of the pixels by more than
+    8 levels), about six frames' worth of the remaining wobble (0.040 a frame);
+  - the 200 frames in between change by 8.0 in sum, so the net change is about 3 % of what the eye sees moving there;
+  - the particles move by a median 0.12 spacings (the outer layer 0.16, its 99th percentile 0.77).
+  The extra 10 s mostly shows the reduced wobble over a shape that improves the measures by 6–8 %. Cost: 29.7–30.6 min
+  a dragon run against the frozen code's 18–22 min.
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
