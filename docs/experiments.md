@@ -4484,6 +4484,49 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   apply the same output-only change to repo_d145g, its proof covering it); check the harness dry run, B6 and the B4
   readings; resume B5's five other pairs (`baselines/buonomo/scripts/run_pair2.sh MESH ADADIV BUO`, one after another).
   (A slip of mine at 01:47: one local command began with a stray `python -` with empty input; nothing ran.)
+  **Protocol text for the paper (draft, 2026-10-14; the numbers are filled in from the readings).** *Setup.* Every morph
+  starts from a sphere sampled with N particles (stratified volume sampling, one jittered particle per voxel of the
+  sampler's fill) and targets a second sample of the mesh at the same N, the two samples matched in fill volume so that
+  a volume-conserving body can fill the target exactly; N = 300,000 for the main results and 40,000 for the 19-mesh
+  gallery. *Evaluation against an independent sample.* A method is never scored against the sample it was optimised
+  toward: every metric compares the result with a further stratified sample of the same mesh in the same frame, drawn
+  with a seed no run uses for its target or its render pictures (seed 99; runs use seeds 97, 99 and 101, whose own
+  targets are drawn with 98, 100 and 102). *Metrics.* Silhouette IoU over 24 views at 128 px and the symmetric chamfer
+  distance against the independent sample; the yardstick: the render terms' own silhouette and shading residuals of the
+  exterior surface against the independent sample's, from 18 views; the display: 1 − IoU and the image difference of
+  the base display (the surface discs of Zhu and Bridson's field, radius 3 pitches) against the independent sample's,
+  front, a thin-feature crop and back, at 4K; thin coverage: the share of the target's thin outer points with no particle
+  within 1.5 spacings (reported against the run's own sample); at rest: the kinetic energy of the last committed window;
+  momentum: the centre of mass's largest and final displacement and the net-over-gross angular move over every kept
+  frame; floating material: particles outside the largest connected set at 1.5 pitches in windows 3–10, and pieces
+  visible against the background in the 4K renders, every candidate checked by eye; time: wall clock on one RTX 6000
+  Ada, nothing else on the card. *Seeds and reading.* Three seeds per arm; an arm differs from another on a measure only
+  when the two three-run ranges do not overlap; the 40k gallery is read per mesh (the render arm against its twin at each
+  seed, the meshes where all three agree, a paired Wilcoxon test over the meshes' three-seed means, and the gain as a
+  share of the twin's gap to the sampling floor, the IoU between two independent samples of the mesh). *The render
+  terms' influence.* Every result carries the render weight's share of the step per window and the render arm against
+  its λ = 0 twin, the same code and seed with the render weight set to zero. *Baselines.* (i) Our prior F-control method
+  (Xu et al., TVCG 2025) as published, reimplemented in our simulator and verified against the paper's own scale (N =
+  11,160: −97.9 % against the paper's −98.3 % loss reduction, D118): its loss (the log mass residual on the grid with
+  the minimum-mass term), its schedule (control every 10 of its time steps, 3 passes × 4 iterations, Adam with a
+  bisection line search) and its morph lengths (bunny 420, dragon 950 steps; the four meshes it did not run take the
+  longest published length, 950), the step size chosen by its own loss over 1e-3 … 3e-2 (1e-2), the same particle count
+  and samples. (ii) Volume Preserving Neural Shape Morphing (Buonomo, Digne and Chaine, SGP 2025), the authors' code and
+  default settings (one SDF network per shape, 2000 morph epochs, marching cubes at 256³), sphere to the outer surface of
+  each mesh in our frame (the teapot's two inner cavity shells are left out: our sampler fills them); its frames are
+  sampled by our stratified sampler at the same N and read by the same metrics and drawn by the same display; its native
+  meshes' watertightness, components, genus and volume are reported. The released code of Sang et al. (ICLR 2025) and
+  4Deform (CVPR 2025) needs point correspondences, which a sphere-to-target morph does not have, and 4Deform carries no
+  licence; the correspondence-free re-implementation of the former shipped with Buonomo et al.'s code is reported
+  instead. (iii) Optimal-transport displacement interpolation on the same particles (the entropic plan at a blur of one
+  sampling pitch, its barycentric map, linear interpolation in time): transport alone, without physics. Intermediate
+  frames are compared at matched transport progress p = 1 − S(x_t, I) / S(x_0, I) = 0.25, 0.5 and 0.75, S the debiased
+  Sinkhorn divergence to the independent sample I on one grid per mesh. *Display.* Images are drawn from the simulated
+  particle states (every 12th simulated frame) with the surface discs of the exterior field; the images use Solenthaler
+  et al.'s correction of that field, which differs only in concave gaps (0.4–5.2 % of the discs move, by a median 1e-4
+  pitches) and removes blobs it draws in empty space between near surfaces; every metric is computed on the uncorrected
+  field or on the particles. The display-only detail layer (D115) appears only in the supplement, side by side with the
+  base display, applied to no baseline.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
