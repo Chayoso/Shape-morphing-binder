@@ -6019,6 +6019,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   only D148's nodes are. Prediction: A's opening bead (1.5–2.25 s, mixed sides between nodes) gone where the walls'
   nodes cover it; the opening later than A's 1.3–1.6 s by B's gate (possibly D135's 3.3 s); D135's foam at 3.3–4.2 s
   gone where covered; a bead, if any is left, in the uncovered quarter.
+  **D148c 300k gate, the dragon pair read (15:30 CDT; `gate_read_wl_dragon.log`, the sheets `z_wl_open/crev/loop/
+  upper.jpg` and `sheet300k_wl_*.jpg`, the detector's tracks `tracks_W*_side.txt`).** WG (render arm) and WT (twin):
+  560 gap nodes in the run (9 with three or more pieces). (1) At 3–6 s the crevice clean and open from 3.0 s in both
+  (FB: foam 3.15–4.8 s, detached particles 5.1–5.4 s), but for one small bead in WG at 3.20–3.35 s (4 frames, one
+  particle in its middle). Elsewhere A's pieces stay, fewer: the crevice opens at about 1.5 s (A 1.3 s, D135 3.3 s)
+  with blobs (frames with particles apart in the detector's tracks: WG 3 at 1.95–2.05 s, WT 12 at 1.75–2.35 s; GA 16,
+  GT 13); the loop opens with a bead (WG 3.40–3.50 s, 3; WT 2.85–3.00 s, 3; GA 1, GT 5); the upper bridge breaks with a
+  bead (WG 11.65 s, 2; WT 10.35–11.2 s, 11; GA 10.25–10.65 s, 6; GT 10.6–13.85 s, 53), and that rupture is D135's too
+  (FB breaks the same bridge at about 13.0 s with a detached blob), earlier. Over the bead sites WG 12 frames against
+  GA's 23, WT 26 against GT's 71. Coverage (`d148_bead_cover.py`, the particles in the bead's middle on the render,
+  every half second): A's opening and loop beads' particles all near a walls node (GA 2/2, 1/1; GT 1/1, 3/3), its
+  upper-bridge beads not at the bead's time (GA 0/2, GT 0/1); WL's remaining beads at the opening (WG 2/2, WT 1/1,
+  1/1), the 3.25 s crevice bead (1/1) and WT's loop bead (1/1) inside the walls' coverage, only the upper-bridge beads
+  (WG 0/2, WT 0/1) outside. So the opening and loop beads stay where each particle has one side at every node:
+  the mixed sides between nodes are not their (only) cause. (2) Both within D135's band at windows 1–9. (3) WG silhouette
+  0.9874, chamfer 0.0545, thin 4.04 %, at rest (kin 8.8e-6), roughness 7.12° (GA 7.63°); WT 0.9881, 0.0546, 4.45 %,
+  kin 1.1e-5; the render lead held (yardstick silhouette 5.67e-4 against 1.21e-3, display front 0.0091 against
+  0.0125). (4) WG apart 14 at windows 3–6 (≤ 16) but 2281 at 3–10 against D135's 2136 (+7 %): out; WT 5 (≤ 6) and
+  2264 (≤ 2823). (5) WG 11.69 s an attempt (≤ 12.06; GA 13.84 was out), 22.2 min; WT 12.02 s, 21.4 min. The direct
+  count at 300k (1–3 s / last third / unique): FB 21 561 / 8 441 / 11 892, GA 18 731 / 9 109 / 10 209, GT 21 010 /
+  9 837 / 11 168, GA99 17 878 / 8 540 / 9 301, WG 19 513 / 8 142 / 10 797, WT 21 284 / 10 097 / 11 711: at 300k the
+  surface's flakes (200–300 a window at rest in every run, FB's too) dominate it, the beads (1–3 particles) do not
+  show in it. The predictions: the opening bead gone where covered, falsified; the opening delayed by B's gate,
+  falsified (about 1.5 s); D135's foam gone, confirmed; the beads left only in the uncovered part, falsified. By the
+  letter WL fails items (1) and (4) on the dragon; (2), (3), (5) pass. The bunny (WB, WBT) and WG99 to follow.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
