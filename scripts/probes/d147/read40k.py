@@ -199,7 +199,11 @@ def l_split(runs, tag):
         return
     m = 40000.0 / (int(j["provenance"]["scene_args"]["n"]))
     terms = ("L_grid", "L_gravity", "L_u", "L_space", "L_relax")
-    for name, sel in (("contact windows", [r for r in h if np.linalg.norm(r["contact_impulse"]) > 0]), ("all", h)):
+    hit = [bool(np.linalg.norm(r["contact_impulse"]) > 0) for r in h]
+    k0 = hit.index(True) if any(hit) else len(h)
+    k1 = next((k for k in range(k0, len(h)) if not hit[k]), len(h))
+    # the first contact's windows (in the air: a later touch on the floor adds the floor's external torque), and all
+    for name, sel in (("first contact's windows", h[k0:k1]), ("all", h)):
         if not sel:
             continue
         print(f"== L split {tag}, {name} ({len(sel)} windows), momentum units")
