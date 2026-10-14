@@ -7,6 +7,8 @@ at rest (D148's limits), the render lead (yardstick silhouette and display front
 apart from the body at windows 3-6 and 3-10 not above the larger of the D146b runs of the same mesh and arm
 (d120_apart.py: output/gpu/d148/apart_base146_*.log); (5) seconds an attempt not above 1.25 x the mean of the same
 D146b runs. Item (1) (the side views) is read on the renders and the detector's tracks by eye."""
+import contextlib
+import io
 import json
 import re
 import sys
@@ -14,7 +16,10 @@ import sys
 import numpy as np
 
 sys.path.insert(0, "/data/relcfd/chayo/physmorph_v2/tmp/d148")
-from d148_gate_read import REST, apart, endeval, jrows, run_json  # noqa: E402
+_argv, sys.argv = sys.argv, sys.argv[:1]               # d148_gate_read reads its own arguments at import
+with contextlib.redirect_stdout(io.StringIO()):
+    from d148_gate_read import BANDS, REST, apart, endeval, jrows, run_json  # noqa: E402
+sys.argv = _argv
 
 G = "/data/relcfd/chayo/physmorph_v2/output/gpu"
 D, B = G + "/d148", G + "/d146g"
@@ -111,3 +116,43 @@ for mesh, tags in ARMS.items():
         vals = [(int(m.group(1)), int(m.group(2)), float(m.group(3))) for m in vals if m]
         print(f"  split record {tag}: {len(vals)} commits; " + "; ".join(f"{a}/{b} {c:.3f}" for a, b, c in vals[:8]))
 print("== automatic items failing: " + (", ".join(fails) if fails else "none"))
+# Post-hoc secondary reading (the coordinator's ruling 18:05 CDT; not the pre-registered rule): the pre-registered two-run
+# bands are degenerate (CDL = CDL2 in silhouette and chamfer, zero width at some windows), so beside the reading by the
+# letter: (2) the D146b runs' range widened by D135's three-run width at that window (D144's bands, d148_gate_read.BANDS);
+# (3) the D146b runs' range widened by D135's five-run widths (batches 4-7: silhouette 0.0012 dragon / 0.0005 bunny,
+# chamfer 0.0001, thin 0.9 / 0.3 points). Twins: no twin band exists for (2) (CDP and CBP have no shear log), no pass/fail.
+W135 = {"dragon": (0.0012, 0.0001, 0.009), "bunny": (0.0005, 0.0001, 0.003)}
+print("== POST-HOC secondary reading (the pre-registered two-run band is degenerate: CDL = CDL2), not the gate's rule")
+for mesh, tags in ARMS.items():
+    arms_b, twins_b = BASE[mesh]
+    sh = {t: {r["window"]: r for r in jrows(f"{B}/shear_{mesh}300k_{t}.log")} for t in arms_b}
+    for tag in tags:
+        rows = [r for r in jrows(f"{D}/shear_{mesh}300k_{tag}.log") if 1 <= r.get("window", 0) <= 9]
+        if tag.endswith("T"):
+            print(f"  {mesh} {tag} (2): no twin band exists (CDP / CBP have no shear log); med "
+                  + " ".join(f"{r['rel_med']:.2f}" for r in rows))
+            continue
+        out = []
+        for r in rows:
+            for k in KEYS[mesh]:
+                vals = [sh[t][r["window"]][k] for t in arms_b if r["window"] in sh[t]]
+                if len(vals) < 2 or k not in BANDS[mesh]:
+                    continue
+                lo135, hi135 = BANDS[mesh][k][r["window"] - 1]
+                w = hi135 - lo135
+                if not min(vals) - w <= r[k] <= max(vals) + w:
+                    out.append(f"w{r['window']} {k} {r[k]} outside [{min(vals) - w:.2f}, {max(vals) + w:.2f}]")
+        print(f"  {mesh} {tag} (2) post-hoc: outside {out if out else 'none'}")
+    base = {t: run_json(f"{B}/{mesh}300k_{t}.json") for t in arms_b + twins_b}
+    ws, wc, wt = W135[mesh]
+    for tag in tags:
+        j = run_json(f"{D}/{mesh}300k_{tag}.json")
+        if j is None:
+            continue
+        ref = twins_b if tag.endswith("T") else arms_b
+        ls_ = min(base[t]["sil"] for t in ref) - ws
+        lc = max(base[t]["chamfer"] for t in ref) + wc
+        lt = max(base[t]["thin"] for t in ref) + wt
+        ok = j["sil"] >= ls_ and j["chamfer"] <= lc + 1e-9 and j["thin"] <= lt
+        print(f"  {mesh} {tag} (3) post-hoc: silIoU {j['sil']:.4f} (>= {ls_:.4f}) chamfer {j['chamfer']:.4f} (<= {lc:.4f}) "
+              f"thin {100 * j['thin']:.2f} % (<= {100 * lt:.2f}) {'ok' if ok else 'OUT'}")

@@ -6431,6 +6431,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (bunny arm, side and front), RWBT (bunny twin, no render); all `repo_d148rf`, `--gap_split walls --relax_driven
   --u_adam_carry`, seed 97. Read by `d148_gate_read2.py` against D146b's own runs (CDL, CDL2, CDP; CBL, CBL2, CBP), item
   (1) on the side views (1–3 s, 3–6 s, 9–14 s) against CDL's and the detector's tracks. RWX (the dump run) after RW.
+  **The D146b + WL dragon pair read (17:58 CDT; `gate_read_rw_dragon.log`, `z_rw_*.jpg`, the detector's tracks).**
+  (1) At 3–6 s CDL (D146b alone) foams at the crevice 3.15–4.8 s with many detached beads (worse than D135's FB); RW
+  and RWT clean and open throughout: WL's gain holds on D146b. The loop: CDL opens at 4.1 s with a large detached blob
+  to 5 s; RW at 3.2 s with a strand and a bead 3.3–4.1 s, clean from 4.4 s; RWT a small bead at 3.5 s. The opening: CDL
+  closed to 2.5 s; RW opens at about 1.5 s with a blob in the hole 1.8–3.0 s (larger and longer than WG's on D135),
+  RWT blobs 1.8–2.1 s. The upper bridge: CDL whole to 14 s, RW and RWT thinning it with a small blob at 14.2 s. Frames
+  with particles apart at the bead sites (the detector's tracks shorter than 5 s, each once; the loop rim's static
+  shading excluded by eye): CDL 51 (crevice 41, loop 10), CDL2 49 (36, 13), RW 25 (opening 20, loop 3, upper 2,
+  crevice 0); the twins CDP 84 (60, 24), RWT 11 (opening 2, loop 6, crevice 3). By the letter (1) fails (the opening's
+  blob is new). (2) By the letter: RW outside the two-run band at w1 p90 (1.97 against [1.96, 1.96]), w4 med (7.54
+  against [7.58, 7.61]), w5 med (8.44 against [8.46, 8.52]), w5 p90 (15.69 against [15.54, 15.66]), w6 med (8.83
+  against [8.87, 8.87]): fails. Post-hoc, the pre-registered two-run band is degenerate (CDL = CDL2): against the D146b
+  runs' range widened by D135's three-run width at each window, RW is inside at every window. The twins: no twin band
+  exists (CDP has no shear log), so no pass/fail; RWT's shell (1.45 3.46 5.27 6.76 7.76 8.47 8.86 9.24 9.55) matches
+  WT's and GT's within 0.05. The pre-registration was ill-posed for the twins (an arm's band); the next gate
+  pre-registers a twin reference. (3) By the letter: RW silhouette 0.9869 against ≥ 0.9871 (CDL = CDL2 = 0.9871, width
+  0), chamfer 0.0545 (≤ 0.0545), thin 3.63 % against ≤ 3.59 %: fails; RWT 0.9877 against ≥ 0.9879 (CDP alone), thin
+  3.60 % against ≤ 3.43 %: fails. Post-hoc, the D146b runs widened by D135's five-run widths (batches 4–7: silhouette
+  0.0012, chamfer 0.0001, thin 0.9 points): RW ≥ 0.9859, ≤ 0.0546, ≤ 4.15 %: inside; RWT ≥ 0.9867, ≤ 0.0547, ≤ 3.99 %:
+  inside. Both at rest (kin 7.6e-6, 8.8e-6); the render lead held (yardstick silhouette 5.18e-4 against 1.23e-3,
+  display front 0.0091 against 0.0124); roughness RW 6.75°, RWT 7.31°. (4) RW 9 at windows 3–6 (≤ 15), 2604 at 3–10
+  (≤ 3150): passes; RWT 5 against CDP's 2: fails, 2862 (≤ 3042). (5) RW 10.80 s an attempt (≤ 12.36; CDL 9.95: +9 %),
+  35.1 min (CDL 29.7, CDL2 30.6); RWT 10.83 s (≤ 12.42), 32.8 min: pass. The user's material (`output/gpu/d148/videos`,
+  local `output/results_2026-10-14/d148_gap_split/d146b_wl/`): CDL | RW side by side, the crevice close-up, and the
+  three sites at a quarter speed with the time stamped.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
