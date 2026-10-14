@@ -51,7 +51,7 @@ def cross_gap(x, bodies) -> dict:
 
 
 def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, windows: int, mu: float, log=print,
-              F_stride: int | None = None) -> dict:
+              F_stride: int | None = None, assim_free: bool = True) -> dict:
     """bodies: scene/window.Body per body (rows, the frame's reference, its built and calibrated TargetPack, the sample's
     volume per particle, the dynamics mass); x0, v0: the launch state in body order (CUDA tensors)."""
     gpu.require_cuda()
@@ -94,7 +94,10 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
             guards[k] += counts[k]
         if cfg.assim > 0:
             with timed("assim"):
-                Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
+                # the controls' deformation without the loads (scene/window.free_end_F), or (assim_free False) the
+                # loaded end as the frozen rule reads it: the impact's compression, the weight's sag made rest shape
+                F_assim = opt.win.free_end_F() if assim_free else F
+                Fp = assimilate_elastic(F_assim, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
                                         isochoric=not cfg.assim_volume)
         with timed("frames"):
             frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F,

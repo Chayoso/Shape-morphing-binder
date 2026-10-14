@@ -34,6 +34,7 @@ class SceneSpec:
     bodies: int = 2              # 1: one body (V0 at rest without forces, V1 thrown onto the floor)
     frame: str = "body"          # "body": each body's Buckens frame; "fixed": the frame at launch (V0's world frame)
     drag: float = 0.0            # V0 keeps the frozen drag (0.9) to compare with the frozen runs
+    assim_free: bool = True      # the assimilation reads the controls' deformation without the loads (window.free_end_F)
 
 
 def yaw_matrix(deg: float) -> np.ndarray:

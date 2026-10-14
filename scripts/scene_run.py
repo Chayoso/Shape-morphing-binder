@@ -88,7 +88,8 @@ def main():
     windows = a.windows or info["windows"]
     log(f"[scene] {json.dumps(info)}")
     t0 = time.time()
-    res = run_scene(bodies, gpu.tensor(x0), gpu.tensor(v0), prm, cfg, windows, spec.mu, log=log, F_stride=cfg.T)
+    res = run_scene(bodies, gpu.tensor(x0), gpu.tensor(v0), prm, cfg, windows, spec.mu, log=log, F_stride=cfg.T,
+                    assim_free=spec.assim_free)
     seconds = time.time() - t0
     frames = res["frames"]
     n_frames = len(frames.x)

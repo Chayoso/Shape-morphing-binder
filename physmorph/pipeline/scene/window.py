@@ -7,6 +7,7 @@ it, in the body's own frame (its start positions y0 = R0^T (x0 - c0), its layer 
 """
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass
 
 import torch
@@ -161,3 +162,20 @@ class SceneWindow:
     def positions_in_domain(self) -> bool:
         x = torch.stack([self.tr.cat("x", t) for t in range(self.T + 1)])
         return positions_in_domain(x, self.prm)
+
+    def free_end_F(self) -> torch.Tensor:
+        """Each body's end F under the window's committed controls (the ones last loaded: the commit's) without the
+        loads: alone, no gravity, no floor (D147, the coordinator's go on assimilating the control's share). The
+        scene's plastic assimilation reads it in place of the loaded end F, so the elastic strain a collision, the
+        body's weight or the floor make stays elastic and only the controls' deformation becomes rest shape. For a body
+        without loads it is the same rollout, so the frozen rule (to the atomics' rounding)."""
+        prm = dataclasses.replace(self.prm, f_ext=(0.0, 0.0, 0.0), floor_y=-1.0e9)
+        out = []
+        for body, spec in zip(self.bodies, self.specs):
+            r = body.rows
+            seq = [wp.from_torch(self.dc_buf[t, r], dtype=wp.mat33) for t in range(self.T)]
+            uw = wp.from_torch(self.u_buf[r], dtype=wp.float32)
+            tr = body_trajectory(dataclasses.replace(spec, prm=prm), seq, uw, requires_grad=False, persistent=False)
+            Bodies([tr], [body.vp], self.mu).rollout()
+            out.append(wp.to_torch(tr.F[self.T]).reshape(-1, 3, 3).clone())
+        return torch.cat(out)
