@@ -290,13 +290,13 @@ def test_floor_keeps_positions_above_its_plane():
     assert float(x[:, 1].min()) >= floor_c - 1e-6
     assert int((x[:, 1] - floor_c).abs().lt(1e-6).sum()) > 0
     v1, vf1 = wp.to_torch(tr.v[1]), wp.to_torch(free.v[1])            # the first step: the same grid, same velocities
-    assert torch.equal(v1, vf1)
+    assert torch.allclose(v1, vf1, atol=1e-5)                      # (the atomics' order aside)
 
 
 def test_floor_adjoint_matches_finite_differences():
     """BodiesAdjoint over the floor (the projection on the tape, its branch taken): dL/d eps against differences."""
     T = 8
-    spec, prm, floor_c, u, vp = _floor_body(T, u_val=0.0, floor_gap=0.01)
+    spec, prm, floor_c, u, vp = _floor_body(T, u_val=0.0, floor_gap=-0.02)   # the bottom starts under: projected
     spec.layer = None
     adj = BodiesAdjoint([spec], [vp], 0.5)
     N = int(spec.x0.shape[0])
