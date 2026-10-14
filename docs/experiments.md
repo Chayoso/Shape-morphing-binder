@@ -4813,6 +4813,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   deploys cc2293a, runs the new tests and up to three suite runs, builds the hook copy and starts the D146b arms.
   The arms run one card at a time within the two-card cap and one dragon at a time, in this order: CDL, CBL, CBP, CDP,
   then ABL and ADL.
+  **D146a verdict (runs 01:41–03:19 CDT, read 09:05–09:30 after access returned; `tmp/d146/d146_gate_read.py`,
+  `output/gpu/d146g`; the detector's contact sheets `d146g/sheets/`): FAILED at items (1)(a), (b) and (d); (1)(c) and
+  (2)–(7) pass. The released half is calm, but the window-rate pulse remains.**
+  (1) From 7 s to the shorter run's end, at most 15 s:
+  - (a) the side view's grey change: dragon DL 0.0875 against FB's 0.1239, ×0.71; bunny BL 0.0280 against SB's 0.0408,
+    ×0.69; the limit is 0.6. The twin DP reads 0.1038 (×0.83 against FB).
+  - (b) the driven / other ratio rises: DL 2.22 (FB 1.81), BL 2.08 (SB 1.62), DP 2.29; the limit is 1.25.
+  - (c) the in-window excursion passes: DL 0.0061 against FA's 0.0420 (×0.15), DP ×0.17, BL 0.0024 against BL0's
+    0.0318 (×0.08), BP ×0.09.
+  - (d) the layer's reversal stays: DL −0.53 (FA −0.58), DP −0.55 (FT −0.61), BL −0.60 (BL0 −0.66), BP −0.57 (BP0
+    −0.64); the limit is above −0.3. 80–90 % of the layer still flips each window.
+  - Per window (7–15 s medians), DL against FA: the layer's path in the driven / released half 0.064 / 0.012 against
+    0.085 / 0.045 spacings; its released below-grid part 0.003 against 0.042; |u| 0.104 against 0.112.
+  (2) 0–1.5 s: the shell against the bulk at windows 1–9 lies within D144's three-run bands, widened by their width, on
+  all four runs and both bunny baselines (median, p90 and the bunny's face).
+  (3) The end:
+  - DL: silhouette IoU 0.9875, chamfer 0.0545, thin 3.93 %.
+  - BL: 0.9890, 0.0551, 4.23 %. Both within.
+  - Relief at 5.4 pitches (family B, kept): DL 0.57 (FB, FA 0.59; the limit is 0.56), BL 0.60 (SB 0.60, BL0 0.59).
+  - Roughness (the e3 angle rms): DL 7.65° (FB 7.48, FA 7.32; the limit is 8.6), BL 4.62° (SB 4.23, BL0 4.30; the
+    limit is 4.95).
+  - Twins: DP 0.9886 / 0.0547 / 3.66 %, relief 0.58 (FT 0.61); BP 0.9877 / 0.0553 / 4.06 %, relief 0.63 (BP0 0.63).
+  (4) At rest: the last kinetic record is DL 4.0e-6 and BL 1.65e-6, within (DP 1.0e-5, BP 5.5e-6).
+  (5) The render lead: yardstick silhouette DL 5.08e-4 against DP 1.46e-3, BL 7.67e-4 against BP 1.74e-3; display front
+  1 − IoU 0.0088 against 0.0148 and 0.0099 against 0.0165. Ahead.
+  (6) Visible pieces: the detector on every kept frame of DL side and front, DP side, BL side and front, beside D135's own
+  side views (FB, SB) on the same field. On the dragon side: the crevice's foam (3.55–4.2 s) and bead (4.70 s, one frame;
+  D135 5.05–5.45 s), the loop's bead (6.10–6.15 s; D135 5.9–6.65 s), the neck–body hole (12.55–13.55 s; D135
+  12.95–14.45 s), shading creases. The bunny and both fronts show shading creases only. Nothing outside D135's
+  inventory.
+  (7) Cost: 10.27 s an attempt on DL against FA's 10.54 under the same hooks, 7.38 on BL against BL0's 7.21. DL runs 109
+  windows (FB 105, FA 93).
+  Reading: relaxing in the driven steps only does what it was built to do. The released half stops editing the layer
+  (×0.1 there), the in-window excursion goes (×0.08–0.17), the trajectory at 0–1.5 s, the end, the relief, the rest and
+  the render lead hold. The pulse stays: its other part, u's per-window reversal (D146b), now carries all of it, so the
+  remaining change concentrates in the driven half and the ratio rises. The default stays off; the switch remains as D146b's base.
+  *Operations note:* on the D146b launch (09:10) the first queue let all six arms wait for cards at once, so the
+  standalone dragon arm ADL took the first free card (09:21). A queue file edited while it ran restarted ADL a second
+  time. The waiting duplicates were stopped by PID before any held a card, and an ordered queue (`d146_queue3.sh`:
+  CDL, CBL, CBP, CDP, ABL, each started only after the one before has its card) replaces it. The suite before the arms
+  (`repo_d146b2` = cc2293a): 362 passed, 2 skipped, exit 0 on a free card.
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
