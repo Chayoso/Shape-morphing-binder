@@ -4809,7 +4809,11 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   typical value now (the layer's median, a 5-window running median, interpolated in time), 1/10 to 10 ×, with the same
   inset (B's one-run scale reads uniform: its within-frame spread is one decade of four); `AB2CD` 2 × 2. Renders: hyde06
   (side 8 min) and hyde01 GPU 1 (front 19 min, ~2.4× slower), 1080p; local `v2/` (panels, 2 × 2 at 3840 × 2160 and
-  half size, B2, `held/` raw, `alt/` D averaged), hyde06 `output/gpu/rgv/videos_v2/`. Palettes checked with the dataviz validator (each ramp --ordinal PASS; C's red / blue poles CVD
+  half size, B2, `held/` raw, `alt/` alternatives), hyde06 `output/gpu/rgv/videos_v2/`. **Design fixed** (the user, ~18:00
+  CDT: "B2가 좋은 듯. 일단 이거 고정"): A · B2 · C (5-window mean) · D (5-window mean, `+d_avg=5`, labelled like C) and U;
+  the 2 × 2 is A · B2 · C · D; B (the one-run scale) and the unaveraged D are kept as alternatives (`alt/`), the raw
+  held set as a supplement (`held/`). Next (no further asking): the bunny 4K (panels at 3840 × 2160, the 2 × 2 from them
+  at 3840 × 2160 with `+gridfull=0`), then the dragon (its own RG97 data run after 19:00) at 1080p, then 4K. Palettes checked with the dataviz validator (each ramp --ordinal PASS; C's red / blue poles CVD
   ΔE 25.9; B violet against A orange, a yellow–brown B failed at ΔE 7.7). Rendering influence (the standing block): λ is
   set every window so that |λ ∇L_render| = ½ |∇L_phys| over all controls (1/3 of the first gradient's norm); per
   particle the render's share is 10–25 % on the layer (ears, face, feet, tail up to 30–46 %, p90); the counterfactual

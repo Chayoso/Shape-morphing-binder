@@ -1,5 +1,5 @@
 """render_gradient_viz.py VIZ_NPZ DENSE_NPZ[,DENSE_NPZ...] OUT_DIR [+viz=A,B,C,D,U] [+views=35,90] [+res=1080]
-[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+c_avg=1] [+d_avg=1] [+mesh=bunny]
+[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+c_avg=1] [+d_avg=1] [+gridfull=1] [+mesh=bunny]
 -- the render gradient's videos (RGV): four questions about the render loss and the stress control dF_c, one panel
 each, drawn on the deforming body in the deliverable's studio look (scripts/render_deliverable.py's base display,
 +fit=0: the exterior's discs of each kept frame's particles, their twice-averaged normals, the same camera, lights,
@@ -30,7 +30,7 @@ backdrop and disc footprint), and the u channel. Also reached as render_delivera
 g = dL/d dF_c of the window's first gradient summed over its 20 driven steps (the render's after PCGrad and times
 lambda where named so). +grid=1 (with A-D) also writes the four panels as one 2 x 2 frame (B2 in B's place when B is
 not asked; 2W x 2H, each panel at its
-own resolution) and its half-size copy.
+own resolution; +gridfull=0 skips it, for 4K panels) and its half-size copy.
 
 VIZ_NPZ: scripts/probes/paper/rgv_values.py (the measurement copy repo_rgv's records per committed window). Time:
 +interp=1 (default) interpolates every particle's value linearly between window centres (a window is 20 driven + 20
@@ -248,6 +248,7 @@ def main(argv=None):
     GB = "B" if "B" in kinds else "B2"                                     # the grid's B slot: B, else B2
     GRID = opts.get("grid", "1") == "1" and all(k in kinds for k in ("A", GB, "C", "D"))
     GNAME = "grid" if GB == "B" else "gridB2"
+    GRID_FULL = opts.get("gridfull", "1") == "1"                            # 0: only the half-size 2 x 2 (4K panels)
     MESH = opts.get("mesh", Path(args[1]).name.split("300k")[0].split("_")[0])
     z = np.load(args[1], allow_pickle=False)
     out = Path(args[3])
@@ -344,7 +345,7 @@ def main(argv=None):
             proj[(az, r)] = (world_to_view_torch(campos, center), campos, math.tan(math.radians(15)), W, H)
     single = len(kinds) * len(views) * len(ress) == 1
     dirs = {}
-    for kd in kinds + ([GNAME, GNAME + "half"] if GRID else []):
+    for kd in kinds + (([GNAME] if GRID_FULL else []) + [GNAME + "half"] if GRID else []):
         for az in views:
             for r in ress:
                 d = out / "frames" if single else out / f"{kd}_{int(az)}_{r}"
@@ -610,7 +611,8 @@ def main(argv=None):
                         g.paste(panels[kd], (ox, oy))
                     ImageDraw.Draw(g).line([(Wd, 0), (Wd, 2 * Hd)], fill=(40, 45, 52), width=max(2, int(3 * sz)))
                     ImageDraw.Draw(g).line([(0, Hd), (2 * Wd, Hd)], fill=(40, 45, 52), width=max(2, int(3 * sz)))
-                    g.save(dirs[(GNAME, az, r)] / f"{k:04d}.jpg", quality=93)
+                    if GRID_FULL:
+                        g.save(dirs[(GNAME, az, r)] / f"{k:04d}.jpg", quality=93)
                     g.resize((Wd, Hd), Image.LANCZOS).save(dirs[(GNAME + "half", az, r)] / f"{k:04d}.jpg", quality=93)
         if i % 20 == 0 or k == keep[-1]:
             print(json.dumps(dict(frame=k, raw=int(raws[k]), window=wn + 1, discs=len(p),
