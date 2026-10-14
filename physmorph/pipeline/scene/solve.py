@@ -81,7 +81,7 @@ class SceneOptimizer(WindowOptimizer):
         res = super().commit(hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
         if res.commit is not None:
             with torch.no_grad():
-                res.stats["L_split"] = momentum_split(self.win, self.u.detach())
+                res.stats["L_split"] = _split_record(self.win, self.u.detach())
             return res
         from .rollout import commit_rollout             # the uncontrolled continuation: time advances
         with torch.no_grad():
@@ -93,7 +93,7 @@ class SceneOptimizer(WindowOptimizer):
         res.commit = c if c.valid else None
         if res.commit is not None:
             with torch.no_grad():
-                res.stats["L_split"] = momentum_split(self.win, self.u.detach())
+                res.stats["L_split"] = _split_record(self.win, self.u.detach())
         return res
 
 
@@ -122,3 +122,12 @@ def momentum_split(win, u: torch.Tensor) -> list:
             rec[name] = {**{k: b[k] for k in keys}, "L_gravity": grav.tolist()}
         out.append(rec)
     return out
+
+
+def _split_record(win, u):
+    """momentum_split, which a record's failure must not cost the run (as pipeline_run's measurements)."""
+    try:
+        return momentum_split(win, u)
+    except Exception as e:                              # noqa: BLE001
+        print(f"[scene] momentum_split failed: {e!r}", flush=True)
+        return None
