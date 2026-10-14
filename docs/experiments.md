@@ -4632,6 +4632,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   frame readings of B1's bunny and dragon runs (30–50 min of card time each) are split into job items queued after the
   must simulations (`read300_full.sh`; the runs keep their kept frames until then; the same readings as registered).
   hyde01 throttles concurrent ssh connections: one batched poll every 10 min, one retry after two minutes at most.
+  **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
+  `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
+  every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /
+  −33 % (dragon), its exterior shading −17 % / −17 %; the display's 1 − IoU front −16 % / −19 %, back −15 % / −18 %, the
+  thin-feature crop +3 % / +3 %; but the yardstick's particle-cloud silhouette +25 % / +29 % (the cloud read ahead), the
+  own-sample silhouette IoU 0.9891 / 0.9891 (bunny), 0.9870 / 0.9887 (dragon), thin uncovered 4.8 / 4.1 % and 4.7 / 4.2 %
+  (the cloud read ahead); both at rest (2.6e-6 / 4.6e-6, 1.1e-5 / 7.3e-6); early apart particles 1068 / 1680 and 2199 /
+  2123; windows 77 / 69, 108 / 119. Reading so far: each arm is ahead on the representation it optimises — the exterior
+  read on the display surface and the exterior yardstick (15–33 %), the cloud read on the particle measures (the 40k
+  gallery's silhouette IoU is one, hence that ablation's sign) and on thin coverage; the verdict waits for seeds 99 / 101.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
