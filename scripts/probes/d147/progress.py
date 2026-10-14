@@ -14,6 +14,8 @@ import physmorph  # noqa: E402,F401  (before torch)
 from scipy.spatial import cKDTree  # noqa: E402
 
 from physmorph import gpu, metrics  # noqa: E402
+if not __import__("torch").cuda.is_available():      # a read on the CPU when every card is held (slower, the same numbers)
+    gpu.DEVICE = "cpu"
 from physmorph.pipeline.scene.frame import body_frame  # noqa: E402
 from physmorph.pipeline.scene.schedule import ramp  # noqa: E402
 
