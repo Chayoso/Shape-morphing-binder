@@ -27,7 +27,7 @@ class GapPlanes:
     y: (M, 3) the target sample; dx, gmin (3,), dims (nx, ny, nz): the MPM grid (nodes at gmin + i dx); cell: the
     occupancy cell (the loss cell). keep_boxes keeps each gap node's component labels (for readers)."""
 
-    def __init__(self, y, dx: float, gmin, dims, cell: float, keep_boxes: bool = False):
+    def __init__(self, y, dx: float, gmin, dims, cell: float, keep_boxes: bool = False, margin: int = 0):
         from scipy import ndimage
         from scipy.spatial import cKDTree
         y = np.asarray(y, np.float64)
@@ -72,7 +72,18 @@ class GapPlanes:
                 n_inside += 1                                        # inside the target: not a gap of it
                 continue
             sub = occ[a0[0]:a1[0], a0[1]:a1[1], a0[2]:a1[2]]
-            lab, nl = ndimage.label(sub, structure=st)
+            if margin > 0:                                           # D148c: pieces joined through the box's ring
+                m0, m1 = np.maximum(a0 - margin, 0), np.minimum(a1 + margin, nc)
+                big, _ = ndimage.label(occ[m0[0]:m1[0], m0[1]:m1[1], m0[2]:m1[2]], structure=st)
+                o = a0 - m0
+                inner = big[o[0]:o[0] + sub.shape[0], o[1]:o[1] + sub.shape[1], o[2]:o[2] + sub.shape[2]]
+                keys, lab = np.unique(inner, return_inverse=True)
+                lab = lab.reshape(inner.shape).astype(np.int32)
+                if keys[0] != 0:
+                    lab = lab + 1
+                nl = int(lab.max())
+            else:
+                lab, nl = ndimage.label(sub, structure=st)
             if nl < 2:
                 continue
             kk = np.stack(np.nonzero(sub), -1)

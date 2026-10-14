@@ -1,7 +1,7 @@
 """The G2P of a split step (D148, `--gap_split`): kernels.k_g2p with each gap node's velocity taken from the particle's
 side, hard (sig = 0: side 1's field where the share s is 1, side 0's otherwise) or soft (sig > 0, D148c: s v1 +
 (1 - s) v0), and its hand adjoints, per particle and in the trajectory's cell order (adjoints.k_g2p_adj and
-k_g2p_adj_warp with the same selection or weights). The shares are gap_kernels.gap_weight's; the particles without a
+k_g2p_adj_warp with the same selection or weights). The shares are gap_kernels.side_share's; the particles without a
 gap node in their stencil (near = 0) read the total field only, as k_g2p.
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ import warp as wp
 
 from .adjoints import _weight_and_grad
 from .constitutive import bspline_w, weight
-from .gap_kernels import gap_weight, near_gap
+from .gap_kernels import near_gap, side_share
 from .kernels import WARP_LANES, _warp_sum, _warp_sum3, base_node, cell_key, gid, valid_pos
 
 
@@ -30,7 +30,8 @@ def k_g2p_gap(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
               dFc: wp.array(dtype=wp.mat33), F_new: wp.array(dtype=wp.mat33),
               grid_v: wp.array(dtype=wp.vec3), grid_v1: wp.array(dtype=wp.vec3),
               q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-              near: wp.array(dtype=int), sig: float,
+              near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
+              boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
               gmin: wp.vec3, dx: float, inv_dx: float, dt: float,
               nx: int, ny: int, nz: int):
     """kernels.k_g2p, each gap node's velocity by the particle's share of side 1."""
@@ -57,7 +58,7 @@ def k_g2p_gap(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     g = gid(i, j, k, ny, nz)
                     vg = grid_v[g]
                     if nr != 0:
-                        s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
                         if s > 0.0:
                             vg = blend(s, sig, vg, grid_v1[g])
                     vnew = vnew + w * vg
@@ -71,7 +72,8 @@ def k_g2p_gap(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
 def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
                   grid_v: wp.array(dtype=wp.vec3), grid_v1: wp.array(dtype=wp.vec3),
                   q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-                  near: wp.array(dtype=int), sig: float,
+                  near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
+              boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
                   gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
                   adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33), adj_Fnew: wp.array(dtype=wp.mat33),
                   adj_x: wp.array(dtype=wp.vec3), adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33),
@@ -98,7 +100,7 @@ def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: 
                     g = gid(i, j, k, ny, nz)
                     vg = grid_v[g]
                     if nr != 0:
-                        s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
                         if s > 0.0:
                             vg = blend(s, sig, vg, grid_v1[g])
                     Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
@@ -125,7 +127,7 @@ def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: 
                     g = gid(i, j, k, ny, nz)
                     s = float(0.0)
                     if nr != 0:
-                        s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
                     vg = grid_v[g]
                     if s > 0.0:
                         vg = blend(s, sig, vg, grid_v1[g])
@@ -149,7 +151,8 @@ def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
                        x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
                        grid_v: wp.array(dtype=wp.vec3), grid_v1: wp.array(dtype=wp.vec3), Cn: wp.array(dtype=wp.mat33),
                        q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-                       near: wp.array(dtype=int), sig: float,
+                       near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
+              boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
                        gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
                        adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
                        adj_Fnew: wp.array(dtype=wp.mat33), adj_x: wp.array(dtype=wp.vec3),
@@ -210,7 +213,7 @@ def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
                         g = gid(i, j, k, ny, nz)
                         s = float(0.0)
                         if nr != 0:
-                            s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                            s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
                         vg = grid_v[g]
                         if s > 0.0:
                             vg = blend(s, sig, vg, grid_v1[g])

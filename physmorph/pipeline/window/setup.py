@@ -75,10 +75,13 @@ class Window:
         # D148 (gap_split): the target's gap planes; the sides' points are set by the objective at the window start
         gap = None
         if cfg.gap_split != "off":
-            # D148c (soft): the share of side 1 = Phi(signed distance / sig), sig^2 = eps / 2 of the side point's plan
-            # (the gate grid's, eps = its cell squared)
+            # soft (candidate (a)): the share of side 1 = Phi(signed distance / sig), sig^2 = eps / 2 of the side point's
+            # plan (the gate grid's, eps = its cell squared); walls (D148c): one wall per particle, B's gate
             sig = float(tgt.gate[1]) / 2.0 ** 0.5 if cfg.gap_split == "soft" else 0.0
-            gap = (tgt.gap[0], tgt.gap[1], None, cfg.gap_vp if cfg.gap_split == "interface" else 0.0, sig)
+            vp = cfg.gap_vp if cfg.gap_split in ("interface", "walls") else 0.0
+            wl = tgt.gap_walls
+            walls = None if wl is None else (wl["box0"], wl["boxd"], wl["boxi"], wl["labels"], wl["nc"], None)
+            gap = (tgt.gap[0], tgt.gap[1], None, vp, sig, walls)
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,
@@ -120,10 +123,15 @@ class Window:
         self.spec.layer = self.spec.layer[:5] + (gate,) + self.spec.layer[6:]
         wp.to_torch(self.tr.layer_ug).copy_(gate)
 
-    def set_gap_sides(self, q: torch.Tensor) -> None:
-        """D148: the particles' side points (the window start's transport images), in the spec and the eval trajectory."""
-        self.spec.gap = self.spec.gap[:2] + (q,) + self.spec.gap[3:]
+    def set_gap_sides(self, q: torch.Tensor, rep: torch.Tensor | None = None) -> None:
+        """D148: the particles' side points (the window start's transport images), and with D148c's walls their
+        representative cells, in the spec and the eval trajectory."""
+        g = self.spec.gap
+        walls = g[5] if rep is None or g[5] is None else g[5][:5] + (rep,)
+        self.spec.gap = g[:2] + (q,) + g[3:5] + (walls,)
         wp.to_torch(self.tr.gap_q).copy_(q)
+        if rep is not None:
+            wp.to_torch(self.tr.gap_rep).copy_(rep.int())
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
         """Copy a candidate into the eval trajectory's buffers; returns the expanded control."""

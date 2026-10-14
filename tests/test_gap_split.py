@@ -267,3 +267,102 @@ def test_separable_side_points_are_the_dense_ones():
     ot = GridSinkhornLoss(tg, lg, dx, (n,) * 3, eps=dx ** 2, iters=1600, tol=1e-4)
     sep = grid_transport_displacement_separable(x, m, ot)
     assert float((sep - dense).norm(dim=1).max()) < 0.02 * dx
+
+
+def _pieces_of(pts, inner_fn):
+    """For every gap node (margin 1), whether its two pieces are one inner and one outer wall (by inner_fn on the
+    pieces' cell centres): (nodes, nodes whose pieces are not one of each)."""
+    dx, n = 1.0, 16
+    gp = GapPlanes(pts, dx, np.full(3, -8.0), (n,) * 3, 0.5, keep_boxes=True, margin=1)
+    bad = 0
+    for g, (a0, lab, ca, cb) in gp.boxes.items():
+        kinds = []
+        for c in (ca, cb):
+            cc = gp.lo + (np.stack(np.nonzero(lab == c), -1) + a0 + 0.5) * gp.cell
+            f = inner_fn(cc)
+            kinds.append(1 if f.all() else (0 if not f.any() else -1))
+        bad += int(sorted(kinds) != [0, 1])
+    return len(gp.boxes), bad
+
+
+def test_pieces_of_two_slabs_are_the_two_slabs():
+    """(11) D148c: every gap node's two pieces are the two slabs, one each."""
+    nodes, bad = _pieces_of(_slabs(1.5, 1.0, 0.2), lambda c: c[:, 1] < 0)
+    assert nodes > 0 and bad == 0
+
+
+def test_pieces_of_a_curved_gap_are_the_rod_and_the_shell():
+    """(12) D148c: a gap bent round a cylinder (an inner rod, an outer shell 1.5 cells off) whose nodes' planes face
+    every way: every gap node's two pieces are the rod and the shell (the one-cell ring keeps a clipped curved wall
+    one piece: without it, nodes outside the shell saw its clipped rim as two pieces)."""
+    rng = np.random.default_rng(4)
+    p = rng.uniform(-6, 6, (200000, 3))
+    r = np.hypot(p[:, 0], p[:, 1])
+    pts = p[((r < 2.0) | ((r > 3.5) & (r < 5.5))) & (np.abs(p[:, 2]) < 4)]
+    nodes, bad = _pieces_of(pts, lambda c: np.hypot(c[:, 0], c[:, 1]) < 2.75)
+    assert nodes > 0 and bad == 0
+
+
+def test_representative_cells_persist_in_the_gap():
+    """(13) D148c: an image in an occupied cell takes that cell; in an empty cell the cell from before is kept; with
+    none before, the nearest occupied cell."""
+    from physmorph.mpm.gap_walls import rep_cells
+    nc = (4, 1, 1)
+    occ = torch.tensor([True, False, False, True])
+    nearest = torch.tensor([0, 0, 3, 3])
+    q = torch.tensor([[0.5, 0.5, 0.5], [1.5, 0.5, 0.5], [2.5, 0.5, 0.5], [3.5, 0.5, 0.5]])
+    prev = torch.tensor([-1, 3, -1, 0])
+    rep = rep_cells(q, prev, np.zeros(3), 1.0, nc, occ, nearest)
+    assert rep.tolist() == [0, 3, 3, 3]
+
+
+def _walls_spec(spec, rep_of, normal=(0, 1.0, 0), q_shift=(0, 0, 0)):
+    """Gap planes everywhere, every node's box one occupancy row of two cells: cell 0 piece 1 (side 0), cell 1 piece 2
+    (side 1); the particles' representative cells by rep_of."""
+    ng = spec.prm.nx * spec.prm.ny * spec.prm.nz
+    pm, pn = _planes(spec.prm, (0, 0, 0), normal)
+    box0 = np.zeros((ng, 3), np.int32)
+    boxd = np.tile(np.asarray([2, 1, 1], np.int32), (ng, 1))
+    boxi = np.tile(np.asarray([0, 1, 2], np.int32), (ng, 1))
+    labels = np.asarray([1, 2], np.int32)
+    rep = rep_of(np.asarray(spec.x0)).astype(np.int32)
+    q = (np.asarray(spec.x0) + np.asarray(q_shift)).astype(np.float32)
+    return dataclasses.replace(spec, track_geom=False, gap=(pm, pn, q, 0.0, 0.0, (box0, boxd, boxi, labels, (2, 1, 1), rep)))
+
+
+def test_walls_hand_adjoints_are_the_generated_ones(monkeypatch):
+    """(14) D148c's sides by the pieces through the deposit's and the G2P's hand adjoints against the generated ones."""
+    import physmorph.mpm.traj as TR
+    spec, dc, u = _window_case("cpu")
+    spec = _walls_spec(spec, lambda x: (x[:, 1] < 0))           # the pieces against the plane: side 1 below
+    monkeypatch.setattr(TR, "HAND_ADJOINTS", False)
+    gen = _tape_outputs(spec, dc, u)
+    monkeypatch.setattr(TR, "HAND_ADJOINTS", True)
+    hand = _tape_outputs(spec, dc, u)
+    for a, b in zip(gen[:4], hand[:4]):
+        assert torch.equal(a, b)
+    for a, b in zip(gen[4:], hand[4:]):
+        torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * float(a.abs().max()))
+
+
+def test_walls_with_one_wall_only_are_the_single_field():
+    """(15) D148c with every particle in side 0's piece: the single field, bit for bit (the forward)."""
+    spec, dc, u = _window_case("cpu")
+    frozen = _tape_outputs(dataclasses.replace(spec, track_geom=False), dc, u)
+    walls = _tape_outputs(_walls_spec(spec, lambda x: np.zeros(len(x))), dc, u)
+    for a, b in zip(frozen[:4], walls[:4]):
+        assert torch.equal(a, b)
+
+
+def test_pieces_decide_where_they_hold_the_cell():
+    """(16) D148c: where the representative cell lies in the node's box, the pieces decide: with the side points moved
+    far to side 0 of every plane (normal -y) and the pieces putting the particles below y = 0 on side 1, the forward
+    equals the plane test with the side points in place."""
+    spec, dc, u = _window_case("cpu")
+    by_pieces = _tape_outputs(_walls_spec(spec, lambda x: (x[:, 1] < 0), normal=(0, -1.0, 0), q_shift=(0, 10.0, 0)),
+                              dc, u)
+    pm, pn = _planes(spec.prm, (0, 0, 0), (0, -1.0, 0))
+    by_plane = _tape_outputs(dataclasses.replace(spec, track_geom=False,
+                                                 gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0)), dc, u)
+    for a, b in zip(by_plane[:4], by_pieces[:4]):
+        assert torch.equal(a, b)

@@ -8,6 +8,8 @@ whose base node it is; the particles without one skip the split's kernels (an ex
 """
 from __future__ import annotations
 
+import numpy as np
+import torch
 import warp as wp
 
 from . import gap_g2p as GG
@@ -39,6 +41,23 @@ def attach(tr, gap, A, Z, n_grid: int, rg: bool):
     tr.gap_q = A(q, wp.vec3) if q is not None else Z(wp.vec3)
     tr.gap_vp = float(vp)
     tr.gap_sig = float(gap[4]) if len(gap) > 4 else 0.0
+    pieces = gap[5] if len(gap) > 5 else None         # D148c: (box0, boxd, boxi, labels, nc, rep) of gap_walls.py
+
+    def ints(a, vec):
+        t = torch.as_tensor(np.asarray(a) if isinstance(a, np.ndarray) else a, device=str(dev)).int()
+        return wp.clone(wp.from_torch(t.reshape(-1, 3).contiguous() if vec else t.reshape(-1).contiguous(),
+                                      dtype=wp.vec3i if vec else wp.int32))
+    tr.gap_rep = wp.full(tr.N, -1, dtype=wp.int32, device=dev)
+    if pieces is None:
+        tr.gap_box0 = tr.gap_boxd = wp.zeros(prm.ngrid, dtype=wp.vec3i, device=dev)
+        tr.gap_boxi = wp.full(prm.ngrid, wp.vec3i(-1, -1, -1), dtype=wp.vec3i, device=dev)
+        tr.gap_boxlab, tr.gap_ncell = wp.zeros(1, dtype=wp.int32, device=dev), wp.vec3i(1, 1, 1)
+    else:
+        box0, boxd, boxi, labels, nc, rep = pieces
+        tr.gap_box0, tr.gap_boxd, tr.gap_boxi = ints(box0, True), ints(boxd, True), ints(boxi, True)
+        tr.gap_boxlab, tr.gap_ncell = ints(labels, False), wp.vec3i(*[int(v) for v in nc])
+        if rep is not None:
+            wp.to_torch(tr.gap_rep).copy_(torch.as_tensor(rep, device=str(dev)).int())
     g1 = [wp.zeros(prm.ngrid, dtype=wp.float32, device=dev, requires_grad=rg) for _ in range(n_grid)]
     p1 = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=dev, requires_grad=rg) for _ in range(n_grid)]
     v1 = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=dev, requires_grad=rg) for _ in range(n_grid)]
@@ -66,7 +85,8 @@ def p2g_side1(tr, t: int, dfc, bnb, bnc, bK: int, tape=None):
         tr.gm1[t].zero_()
         tr.gmom1[t].zero_()
     x, v, C, F, P, gm1, gp1 = tr.x[t], tr.v[t], tr.C[t], tr.F[t], tr.P[t], tr.gm1[t], tr.gmom1[t]
-    head = [x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK, tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig]
+    head = [x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK, tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig,
+            tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab, tr.gap_ncell, tr.gap_rep]
     wp.launch(GKK.k_p2g_side1, dim=tr.N, inputs=head + [gm1, gp1, gmin, dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny,
                                                         prm.nz], device=dev, record_tape=tape is None)
     if tape is None:
@@ -107,7 +127,8 @@ def g2p(tr, t: int, dfc, tape):
     prm, dev, N = tr.prm, tr.device, tr.N
     gmin, dx, inv_dx = _geo(tr)
     x, F, gv, gv1, v1, C1, Fn = tr.x[t], tr.F[t], tr.gvel[t], tr.gvel1[t], tr.v[t + 1], tr.C[t + 1], tr.Fraw[t + 1]
-    sides = [tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig]
+    sides = [tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig, tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab,
+             tr.gap_ncell, tr.gap_rep]
     wp.launch(GG.k_g2p_gap, dim=N, inputs=[x, v1, C1, F, dfc, Fn, gv, gv1] + sides + [gmin, dx, inv_dx, prm.dt, prm.nx,
                                                                                     prm.ny, prm.nz],
               device=dev, record_tape=tape is None)

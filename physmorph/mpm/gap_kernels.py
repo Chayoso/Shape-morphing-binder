@@ -46,6 +46,31 @@ def near_gap(b: wp.vec3i, near: wp.array(dtype=int), nx: int, ny: int, nz: int) 
     return 1
 
 
+@wp.func
+def side_share(p: int, g: int, qp: wp.vec3, plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
+               sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
+               boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i,
+               rep: wp.array(dtype=int)) -> float:
+    """The particle's share of side 1 at node g: by the node's pieces (D148c, gap_walls.py) where the node has a box
+    and the particle's representative cell lies in one of its two pieces, else gap_weight's (the plane and the point)."""
+    bi = boxi[g]
+    if bi[0] >= 0:
+        rp = rep[p]
+        if rp >= 0:
+            a0 = box0[g]
+            d = boxd[g]
+            li = rp // (ncell[1] * ncell[2]) - a0[0]
+            lj = (rp // ncell[2]) % ncell[1] - a0[1]
+            lk = rp % ncell[2] - a0[2]
+            if li >= 0 and li < d[0] and lj >= 0 and lj < d[1] and lk >= 0 and lk < d[2]:
+                lb = boxlab[bi[0] + (li * d[1] + lj) * d[2] + lk]
+                if lb == bi[2]:
+                    return 1.0
+                if lb == bi[1]:
+                    return 0.0
+    return gap_weight(qp, plane_m[g], plane_n[g], sig)
+
+
 @wp.kernel
 def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
@@ -53,7 +78,8 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 m: wp.array(dtype=float), vol: wp.array(dtype=float),
                 nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
                 q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-                near: wp.array(dtype=int), sig: float,
+                near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
+                boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
                 grid_m1: wp.array(dtype=float), grid_v1: wp.array(dtype=wp.vec3),
                 gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
                 nx: int, ny: int, nz: int):
@@ -81,7 +107,7 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 k = b[2] + ok
                 if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
                     g = gid(i, j, k, ny, nz)
-                    s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                    s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
                     if s > 0.0:
                         xg = gmin + wp.vec3(float(i), float(j), float(k)) * dx
                         dgp = xg - xp
@@ -97,7 +123,8 @@ def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     m: wp.array(dtype=float), vol: wp.array(dtype=float),
                     nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
                     q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-                    near: wp.array(dtype=int), sig: float,
+                    near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
+                    boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
                     gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, nx: int, ny: int, nz: int,
                     adj_gm1: wp.array(dtype=float), adj_gv1: wp.array(dtype=wp.vec3),
                     adj_x: wp.array(dtype=wp.vec3), adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
@@ -139,7 +166,7 @@ def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 k = b[2] + ok
                 if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
                     g = gid(i, j, k, ny, nz)
-                    s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                    s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
                     if s > 0.0:
                         dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
                         w, dw = _weight_and_grad(dgp, inv_dx)

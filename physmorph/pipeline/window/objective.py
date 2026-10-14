@@ -106,7 +106,16 @@ class Objective:
             if cfg.gap_split == "fine":               # D148b: the loss grid's plan (blur one loss cell)
                 with timed("gap_sides"):
                     disp = grid_transport_displacement_separable(x0, tgt.m, tgt.grid_ot)
-            win.set_gap_sides((x0 + disp).detach().float().contiguous())   # else the u gate's (the gate grid's)
+            q = (x0 + disp).detach().float().contiguous()   # else the u gate's (the gate grid's)
+            rep = None
+            if tgt.gap_walls is not None:             # D148c: the representative cells, persistent in the gap
+                from ...mpm.gap_walls import rep_cells
+                wl = tgt.gap_walls
+                prev = tgt.gap_rep if tgt.gap_rep is not None else torch.full((len(q),), -1, dtype=torch.long,
+                                                                               device=q.device)
+                rep = rep_cells(q, prev, wl["lo"], wl["cell"], wl["nc"], wl["occ"], wl["nearest"])
+                tgt.gap_rep = rep
+            win.set_gap_sides(q, rep)
         self.horizon = cfg.T * prm.dt
         if tgt.ot_scale is None:
             # one scale for the run: the transport term's gradient norm equals D_vol's at the source

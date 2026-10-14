@@ -75,6 +75,8 @@ class TargetPack:
     xu: tuple | None = None             # cfg.baseline "xu": (the target mass on the simulation grid, its origin, dx, dims)
     draws: list | None = None           # further samples of the target whose pictures the render's targets average
     gap: tuple | None = None            # D148 (gap_split): (plane_m, plane_n) per MPM node of mpm/gap_split.GapPlanes (torch)
+    gap_walls: dict | None = None       # D148c (gap_split walls): gap_walls.BoxPieces' arrays (torch)
+    gap_rep: object = None              # D148c: each particle's representative cell from the window before (state)
 
 
 def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
@@ -187,19 +189,31 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
         xu_dims = (prm.nx, prm.ny, prm.nz)
         xu = (rasterize_mass_cubic(tgt_t, m_t * cfg.xu_mass, xu_gmin, prm.dx, xu_dims).detach(), xu_gmin,
               float(prm.dx), xu_dims)
-    gap = None
+    gap = gap_walls = None
     if cfg.gap_split != "off":                # D148: the target's gaps at the kernel's scale, once a run
         from ..mpm.gap_split import GapPlanes
+        walls = cfg.gap_split == "walls"
         gp = GapPlanes(target_x if isinstance(target_x, np.ndarray) else tgt_t.cpu().numpy(), prm.dx, prm.grid_min,
-                       (prm.nx, prm.ny, prm.nz), ldx)
-        gap = (torch.as_tensor(gp.m, device=gpu.DEVICE), torch.as_tensor(gp.n, device=gpu.DEVICE))
+                       (prm.nx, prm.ny, prm.nz), ldx, keep_boxes=walls, margin=int(walls))
+        pn = gp.n.copy()
         print(f"[gap] {gp.n_gap} gap nodes ({gp.n_three} with three or more pieces) on the {prm.nx}^3 grid, the "
               f"loss cell {ldx:.4f} wu", flush=True)
+        if walls:                             # D148c: each node's pieces, the particles' sides by them
+            from ..mpm.gap_walls import BoxPieces
+            bp = BoxPieces(gp)
+            dev = gpu.DEVICE
+            gap_walls = dict(box0=torch.as_tensor(bp.box0, device=dev), boxd=torch.as_tensor(bp.boxd, device=dev),
+                             boxi=torch.as_tensor(bp.boxi, device=dev), labels=torch.as_tensor(bp.labels, device=dev),
+                             occ=torch.as_tensor(bp.occ, device=dev), nearest=torch.as_tensor(bp.nearest, device=dev),
+                             lo=bp.lo, cell=bp.cell, nc=bp.nc)
+            print(f"[gap] pieces: {bp.n_nodes} gap nodes with their boxes' pieces (joined through the one-cell ring)",
+                  flush=True)
+        gap = (torch.as_tensor(gp.m, device=gpu.DEVICE), torch.as_tensor(pn, device=gpu.DEVICE))
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m, views=views, sils=sils,
                       extent=extent, shade=shade, pgmin=lgmin, pdx=pdx, pdims=pdims, pblur=pblur,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, pts=tgt_t, knn=knn,
                       nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate, ext=ext,
-                      xu=xu, draws=draws, gap=gap)
+                      xu=xu, draws=draws, gap=gap, gap_walls=gap_walls)
 
 
 def calibrate_units(tgt: TargetPack, source_x: torch.Tensor, cfg: PipelineConfig) -> None:

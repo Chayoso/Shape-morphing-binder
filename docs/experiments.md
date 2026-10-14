@@ -5827,6 +5827,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   view (close-ups at 1–3 s and the run's last third), the bulk's displacement at windows 1–9, the end, seconds an
   attempt. Prediction: D148b's count at 1–3 s below A's (a narrower band), not zero; soft's count not below A's (the
   mid-gap particles); the crevice opening as A's at 40k (3.0 s) in all three.
+  **D148c amendment (14:35 CDT, with its implementation and before any of its runs).** The global wall labels do not
+  fit the target: joined over a region, the two flanks of a V and the rim round a hole are one wall (they are one
+  surface globally and two sides only at the kernel's scale), so on the dragon 258 of its gap nodes (681 of 921 without
+  the ring below) would have both sides on one wall and stay single-field, the holes among them. D148c's side is
+  therefore each node's own: the piece of the node's kernel box that holds the particle's representative cell (the
+  occupied cell of its window-start image; while that image lies in an empty cell, the cell from before; initially the
+  nearest occupied cell); the plane test only where that cell lies outside the box or in a third piece. Neighbouring
+  boxes overlap and their pieces agree on the cells they share, so a particle near the cut has one physical side at
+  every node that holds its cell, where the planes gave it mixed sides. And a defect of the gap nodes themselves found
+  in the writing: a curved wall clipped by the box's faces showed as two or more one-cell pieces (a test's cylinder
+  shell gave gap nodes outside it). The pieces are now joined through the box's one-cell ring (the 26-neighbourhood of
+  the occupancy, no new length): on the dragon 540 gap nodes (921 before), 8 with three or more pieces (90). The gate
+  as B's. `physmorph/mpm/gap_walls.py` (BoxPieces, rep_cells), `GapPlanes(margin=1)`, the kernels' `side_share`;
+  `--gap_split walls`. Tests on the CPU (hyde06): 16 passed (the two slabs' and a cylinder gap's every node's pieces one
+  of each wall; the representative cells kept in the gap; the pieces' hand adjoints against the generated ones; one
+  piece only = the single field bit for bit; the pieces decide where they hold the cell), the CUDA ones with the 40k
+  run. A, D148b and soft keep the gap nodes as run (no ring).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
