@@ -5549,6 +5549,36 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   tests 18 passed and the suite 397 passed, 2 skipped (pytest exit 0, `T15_suite.log`); settled-base fast-forwarded
   to it (5be7d37, then d5de218 with the reading's and chain 13's scripts). Chain 13: the 40k render-off twins of o100
   (seed 97 twice) for the render's effect at 40k against the two render-on runs (`runs/read_s5.txt`).
+  **The redesign, pre-registered before its runs (the user on the 40k o100 video, relayed 14:35 CDT: "지금 예제는 거의
+  morph가 다 되고 나서 부딪히는 거라 조금 아쉽네": the bodies meet as finished bunnies; launched 4–5× farther apart and
+  morphing slower, so that they collide mid-morph; scene path only; c6d2fb1, chain 14 on `repo_d147n`; chain 10 (300k on
+  o100) stopped).** (1) The separation: at o100's launch the spheres' surfaces are 1.24 wu apart (centres 6.10 wu, R
+  2.43); read as that gap, 4.5× is 5.60 wu, i.e. t_contact 4.3 s at the same v_rel / c 0.1 (the clean bounce measured;
+  the closing speed 1.39 wu/s), G 0.02, offset 1.0 R: apex 6.80 wu above the launch, lift 4.0 (the lower body lands
+  about 1.5 s after the morph ends), 16 s (96 windows; the later body lands at about 11 s and has 5 s to roll),
+  the domain from the extents as before (`specs/scene_throw.json`). Read as the centres' distance, 4–5× would need
+  t_contact about 15 s at v_rel / c 0.1 (a 30 s scene) or v_rel / c about 0.3 at 5 s (an untested impact): not taken.
+  (2) The slower morph, option (a) of the coordinator's three: each body's target at time t is the displacement
+  interpolation of its transport from the source to the target, Z_s = X + s D(X) (McCann's interpolation; D the
+  pipeline's own transport map at the source, the u gate's operator: the debiased barycentric map on the MPM cell's
+  grid, blur one cell), s = 3u² − 2u³ of u = t / t_m (the target's speed zero at the launch and at the end), each
+  window's target taken at its end time; the frozen objective on that target, no new term or weight; the packs on
+  the way carry the final target's units (unit_ratio, its transport scale computed once at the source on the final
+  target), their relaxation without the mesh's relief; from s = 1 the run's own target (`scene/schedule.py`,
+  `SceneSpec.morph_time`, default 0 = unchanged). Why (a): it slows what is seen (the target itself moves at the
+  ramp's pace) without capping what the controls can do against the impact (b, a lower control cap, would weaken the
+  shape's hold in the collision and still pull toward the final shape, only slower), and its intermediate shapes are
+  the transport's own geodesic. t_m = 7.6 s: the first contact predicted at about 4.1 s (the half-formed shapes reach
+  about 0.3 s ahead of the spheres' 4.3 s), s = 0.55 there (0.50–0.62 for a contact at 3.8–4.4 s), the morph done
+  1.5 s before the first landing. (3) The rule, written before reading: the morph's progress at the first contact
+  (the silhouette IoU with the final target in each body's Buckens frame against its launch and end values, at the
+  first kept frame where the bodies come within one sample spacing, mean over the bodies; `progress.py`) in [0.35,
+  0.65]; the pair parts in the air, both land, the end shape error ≤ 0.05, in both runs (seed 97 and its same-input
+  repeat, `throw40k_a`, `_b`); the tumble read by the same bar and reported (a draw at 40k). Pass → the 300k (2 ×
+  150k) on this spec at 19:00 or as soon as ready, then its twin and seed 99; fail → no 300k, the readings to the
+  coordinator. Predictions: progress 0.45–0.6 (the body follows its target within a window, the silhouette a little
+  ahead of s on the near-sphere side); the contact softer on the half-formed shapes, parting at e ≈ 0.85; landing at
+  about 9.2 / 11.2 s; the end shape error as o100's (0.03–0.04); the renders with the camera that follows the pair.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
