@@ -63,7 +63,10 @@ def main():
         X = np.asarray(prep.src, np.float64)
         X = X - X.mean(0)
         calibrate_units(tgt, gpu.tensor(X.astype(np.float32)), cfg_b)
-        vp = prep.v_src / a.n
+        # the gate's volume per particle: the sample's own (one jittered particle per voxel of the sampler's fill; after
+        # the density match the source's fill is the target's), not the mesh's 110^3 volume / N, which read 0.917 of the
+        # cell at interior nodes in the prototype (M-b) and let the gate fire only after an overlap of a spacing
+        vp = (prep.density["target_fill"] if prep.density else prep.v_src) / a.n
         bodies.append(Body(start=start, stop=start + a.n, Xq=gpu.tensor(X.astype(np.float32)), tgt=tgt, vp=vp,
                            mass=cfg_b.mass_ref_n / a.n, cfg=cfg_b))
         srcs.append(X)
