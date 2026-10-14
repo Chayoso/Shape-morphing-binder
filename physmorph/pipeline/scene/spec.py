@@ -5,7 +5,8 @@ The numbers are dimensionless groups of the scene, stated once (not tuned): the 
 (v_rel / c = 0.1, a rubber ball's regime), the body's self-weight strain G = rho g H / E (F1's definition, H the
 source's height; 0.05), the collision time (1 s, the bodies half-formed), the vertical offset of the centres at contact
 (half a radius: friction spins the bodies), the launch height above the floor, Coulomb's coefficient (0.5, rubber on
-rubber), the length (8 s) and each target's turn about the vertical at launch (the two bunnies face each other).
+rubber), the length (8 s), each target's turn about the vertical at launch (the two bunnies face each other) and the
+morph time (the user's redesign: the bodies meet mid-morph; scene/schedule.py).
 """
 from __future__ import annotations
 
@@ -35,6 +36,8 @@ class SceneSpec:
     frame: str = "body"          # "body": each body's Buckens frame; "fixed": the frame at launch (V0's world frame)
     drag: float = 0.0            # V0 keeps the frozen drag (0.9) to compare with the frozen runs
     assim_free: bool = True      # the assimilation reads the controls' deformation without the loads (window.free_end_F)
+    morph_time: float = 0.0      # s: each body's target on its way from the source over this time (scene/schedule.py,
+                                 # the bodies meet mid-morph); 0: the target from the start
 
 
 def yaw_matrix(deg: float) -> np.ndarray:
