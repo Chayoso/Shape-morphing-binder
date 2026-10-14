@@ -325,3 +325,59 @@ def test_floor_projection_adjoint_is_the_branch_taken():
     h = 1e-3
     fd = (run(x + h * d)[0] - run(x - h * d)[0]) / (2 * h)
     assert abs(fd - float((g * d).sum())) <= 1e-3 * max(1.0, abs(fd))
+
+
+def test_scene_windows_are_freed_without_the_garbage_collector(monkeypatch):
+    """A window's scene window, its pair's trajectories and its tape (BodiesAdjoint) are freed by reference counting:
+    with the garbage collector off they are all gone once run_scene returns (D148: a reference cycle through the tape
+    kept a 300k window's ~7 GB alive until gc.collect, out of memory after a few windows)."""
+    import gc
+    import weakref
+    from physmorph import gpu
+    from physmorph.pipeline import PipelineConfig
+    from physmorph.pipeline.scene import runner as RN
+    from physmorph.pipeline.scene import window as WN
+    from physmorph.pipeline.scene.window import Body
+    from physmorph.pipeline.target import build_target, calibrate_units
+
+    refs = []
+    adjoint = WN.SceneWindow.adjoint
+
+    def tracked_adjoint(self):
+        a = adjoint(self)
+        if not any(r() is a for r in refs):
+            refs.append(weakref.ref(a))
+        return a
+
+    class Tracked(RN.SceneOptimizer):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            refs.extend([weakref.ref(self.win), weakref.ref(self.win.tr)] + [weakref.ref(t) for t in self.win.tr.trajs])
+
+    monkeypatch.setattr(WN.SceneWindow, "adjoint", tracked_adjoint)
+    monkeypatch.setattr(RN, "SceneOptimizer", Tracked)
+    rng = np.random.default_rng(9)
+    n = 300
+    canon = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=3, iters=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5), render_res=24, dt_res=32)
+    bodies, xs, vs = [], [], []
+    for b in range(2):
+        src = rng.uniform(-1.5, 1.5, (n, 3)).astype(np.float32)
+        src -= src.mean(0)
+        tgt = (rng.uniform(-1.5, 1.5, (n, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+        tgt -= tgt.mean(0)
+        tp = build_target(tgt, canon, cfg)
+        calibrate_units(tp, gpu.tensor(src), cfg)
+        bodies.append(Body(start=b * n, stop=(b + 1) * n, Xq=gpu.tensor(src), tgt=tp, vp=27.0 / n, mass=cfg.mass_ref_n / n))
+        xs.append(src + np.array([(-1) ** (b + 1) * 2.0, 0.0, 0.0], np.float32))
+        vs.append(np.tile([(-1) ** b * 0.5, 0.0, 0.0], (n, 1)).astype(np.float32))
+    world = MPMParams(dx=1.0, drag=0.0, grid_min=(-16.0, -10.0, -10.0), nx=32, ny=20, nz=20)
+    gc.collect()
+    gc.disable()
+    try:
+        RN.run_scene(bodies, gpu.tensor(np.concatenate(xs)), gpu.tensor(np.concatenate(vs)), world, cfg, windows=3,
+                     mu=0.5, log=lambda *_: None)
+        alive = [r() for r in refs if r() is not None]
+    finally:
+        gc.enable()
+    assert refs and not alive, [type(o).__name__ for o in alive]

@@ -8,6 +8,7 @@ it, in the body's own frame (its start positions y0 = R0^T (x0 - c0), its layer 
 from __future__ import annotations
 
 import dataclasses
+import weakref
 from dataclasses import dataclass
 
 import torch
@@ -62,7 +63,9 @@ class BodyWindow:
 
     def __init__(self, scene: "SceneWindow", b: int, y0: torch.Tensor, lmask: torch.Tensor):
         body = scene.bodies[b]
-        self.scene, self.b = scene, b
+        # a weak reference: the scene holds its views, and a strong one back would make a cycle that only the garbage
+        # collector frees, keeping a window's trajectories (gigabytes at 300k) alive across windows (D148's finding)
+        self._scene, self.b = weakref.ref(scene), b
         self.cfg, self.prm, self.tgt = body.cfg or scene.cfg, scene.prm, body.tgt
         self.x0, self.lmask, self.N = y0, lmask, body.n
         self.wu = 1.0 / body.tgt.unit_ratio
@@ -71,7 +74,7 @@ class BodyWindow:
         self.loss_floor_eff = 1.0 / body.tgt.unit_ratio
 
     def set_u_gate(self, gate: torch.Tensor) -> None:
-        self.scene.set_u_gate(self.b, gate)
+        self._scene().set_u_gate(self.b, gate)
 
 
 class SceneWindow:

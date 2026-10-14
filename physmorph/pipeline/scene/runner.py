@@ -115,7 +115,7 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
             rec = {"animation": a, "t": (a + 1) * 2 * cfg.T * prm.dt, "frame_end": len(frames), "bodies": per,
                    "contact_impulse": impulse, **(cross_gap(x, bodies) if len(bodies) == 2 else {}), **counts,
                    "lambda": res.hist[-1]["lambda"] if res.hist else opt.lam_r, "loss": stats.get("commit_E_final"),
-                   "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj,
+                   "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj, **device_memory(),
                    **{k: stats.get(k) for k in _STATS}}
         res.commit = commit = None
         hist.append(rec)
@@ -132,3 +132,18 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
 def wp_impulse(win) -> list:
     import warp as wp
     return wp.to_torch(win.tr.impulse).double().reshape(-1).tolist()
+
+
+def device_memory() -> dict:
+    """A record: the device's free memory and Warp's memory pool in use (MiB), to see that a window's trajectories are
+    released (D148's leak: a reference cycle through the tape kept them until the garbage collector ran)."""
+    import warp as wp
+    free, _ = torch.cuda.mem_get_info()
+    out = {"gpu_free_mib": free / 2 ** 20, "torch_alloc_mib": torch.cuda.memory_allocated() / 2 ** 20}
+    used = getattr(wp, "get_mempool_used_mem_current", None)
+    if used is not None:
+        try:
+            out["warp_pool_used_mib"] = used("cuda") / 2 ** 20
+        except Exception:                                   # noqa: BLE001  (a record only)
+            pass
+    return out

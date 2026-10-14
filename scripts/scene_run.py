@@ -48,7 +48,11 @@ def main():
     ap.add_argument("--save_stride", type=int, default=1, help="archive every k-th simulated frame and the last")
     ap.add_argument("--young", type=float, default=None, help="the material's Young modulus (default: the frozen one)")
     ap.add_argument("--flags", default="", help="further scripts/pipeline_run.py flags (diagnostics), e.g. \"--u_off\"")
+    ap.add_argument("--gc_off", action="store_true", help="diagnostic: no garbage collection (a cycle would leak)")
     a = ap.parse_args()
+    if a.gc_off:
+        import gc
+        gc.disable()
     gpu.require_cuda()
     spec = SceneSpec(**json.loads(Path(a.scene).read_text())) if a.scene else SceneSpec()
     log = lambda s: print(s, flush=True)                                          # noqa: E731
