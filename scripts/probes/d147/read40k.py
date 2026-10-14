@@ -20,7 +20,7 @@ def v0(runs):
     for mesh in ("bunny", "dragon"):
         tab = {}
         for arm in ("fixed", "body"):
-            for s in (97, 99):
+            for s in (97, 99, 101):
                 f = runs / f"v0_{mesh}_{arm}_s{s}.json"
                 if not f.exists():
                     continue
@@ -31,11 +31,12 @@ def v0(runs):
                       + f"  R_end={h[-1]['bodies'][0]['R_angle']:.2f}deg  windows={len(h)}  {j['seconds'] / 60:.1f} min")
         for k in keys:
             try:
-                d = [abs(tab["fixed", s][k] - tab["body", s][k]) for s in (97, 99)]
-                spread = max(abs(tab[a, 97][k] - tab[a, 99][k]) for a in ("fixed", "body"))
-                print(f"  {mesh} {k}: |fixed - body| = {d[0]:.4f} (s97), {d[1]:.4f} (s99); seed spread {spread:.4f}"
+                seeds = [s for s in (97, 99, 101) if ("fixed", s) in tab and ("body", s) in tab]
+                d = [abs(tab["fixed", s][k] - tab["body", s][k]) for s in seeds]
+                spread = max(max(tab[a, s][k] for s in seeds) - min(tab[a, s][k] for s in seeds) for a in ("fixed", "body"))
+                print(f"  {mesh} {k}: |fixed - body| = " + ", ".join(f"{v:.4f} (s{s})" for v, s in zip(d, seeds)) + f"; seed range {spread:.4f}"
                       f" -> {'within' if max(d) <= spread else 'OUTSIDE'}")
-            except KeyError:
+            except (KeyError, ValueError):
                 pass
 
 
