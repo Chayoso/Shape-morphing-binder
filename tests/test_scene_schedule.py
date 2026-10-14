@@ -54,17 +54,20 @@ def test_each_window_targets_the_displacement_interpolation_with_the_final_units
     sch = MorphSchedule(bodies, [canon, canon], 2.0)
     for b, bd in enumerate(bodies):
         X, D, Y = bd.Xq.cpu().numpy(), sch.D[b].cpu().numpy(), final[b].pts.cpu().numpy()
-        assert D.shape == X.shape and np.isfinite(D).all()
-        assert metrics.chamfer(X + D, Y) < 0.7 * metrics.chamfer(X, Y)      # the map carries the source to the target
+        assert D.shape == Y.shape and np.isfinite(D).all()
+        assert metrics.chamfer(Y + D, X) < 0.7 * metrics.chamfer(Y, X)      # the map carries the target to the source
         assert final[b].ot_scale is not None and final[b].ot_scale > 0
     s = sch.apply(bodies, 1.0)
     assert abs(s - 0.5) < 1e-12
     for b, bd in enumerate(bodies):
         assert bd.tgt is not final[b]
-        assert torch.allclose(bd.tgt.pts, bd.Xq + 0.5 * sch.D[b])
+        assert torch.allclose(bd.tgt.pts, final[b].pts + 0.5 * sch.D[b])
         assert (bd.tgt.unit_ratio, bd.tgt.unit_grad_ratio, bd.tgt.ot_scale) == \
             (final[b].unit_ratio, final[b].unit_grad_ratio, final[b].ot_scale)
         assert bd.tgt.relief is None
+    sch.apply(bodies, 1.999)                                # the end of the ramp is the run's own sample: no switch
+    assert all(float((bd.tgt.pts - f.pts).abs().max()) < 1e-4 * (1.0 + float(sch.D[b].abs().max()))
+               for b, (bd, f) in enumerate(zip(bodies, final)))
     assert sch.apply(bodies, 2.5) == 1.0
     assert all(bd.tgt is f for bd, f in zip(bodies, final))
 

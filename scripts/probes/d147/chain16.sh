@@ -28,21 +28,23 @@ claim_and_run() {                      # one D147 card before 19:00 (the coordin
 R=$O/runs; SP=scripts/probes/d147/specs; B=scene300k_$SPEC
 run() { echo "\$PY scripts/scene_run.py --n 150000 --seed $1 --scene $SP/$SPEC.json --flags=\"--assim 0\" --save_stride 12 $3 --out $R/$2 > $R/$2.log 2>&1; echo $2 exit \$?"; }
 log "chain16 start, repo $REPO"
-claim_and_run T17_scene_tests '$PY -m pytest tests/test_scene_schedule.py tests/test_scene_bodies.py tests/test_scene_assim.py tests/test_scene_frame.py -q -p no:cacheprovider'
-claim_and_run RENDER_static40k "NAME=throw40k_a_static bash $S/render_scene_job.sh $R throw40k_a +stride=1"
-claim_and_run P300 "$(run 97 ${B}_s97)" &
-until grep -q "window 2/" $R/${B}_s97.log 2>/dev/null || grep -q "^P300_end " $O/jobs.log; do sleep 30; done
+if [ -z "$SKIP40K" ]; then                # chain 17 runs the tests and the 40k render itself, then this
+  claim_and_run T17_scene_tests '$PY -m pytest tests/test_scene_schedule.py tests/test_scene_bodies.py tests/test_scene_assim.py tests/test_scene_frame.py -q -p no:cacheprovider'
+  claim_and_run RENDER_static40k "NAME=throw40k_a_static bash $S/render_scene_job.sh $R throw40k_a +stride=1"
+fi
+claim_and_run Q300 "$(run 97 ${B}_s97)" &
+until grep -q "window 2/" $R/${B}_s97.log 2>/dev/null || grep -q "^Q300_end " $O/jobs.log; do sleep 30; done
 log "s97: $(grep -m1 'window 2/' $R/${B}_s97.log | cut -c1-160)"
-claim_and_run P300_twin "$(run 97 ${B}_s97_off '--render_weight_scale 0')" &
+claim_and_run Q300_twin "$(run 97 ${B}_s97_off '--render_weight_scale 0')" &
 sleep 120
-claim_and_run P300_s99 "$(run 99 ${B}_s99)" &
+claim_and_run Q300_s99 "$(run 99 ${B}_s99)" &
 wait
 export PHYSMORPH_RUN_REPO=$REPO PHYSMORPH_OUT=$O
 T="${B}_s97,${B}_s97_off,${B}_s99"
 ( source $REPO/scripts/ops/hyde06_env.sh >/dev/null 2>&1; export CUDA_VISIBLE_DEVICES=""
   nice $PY $S/read40k.py $R $T > $R/read_300k_$SPEC.txt 2>&1
   nice $PY $S/cut.py $R $T > $R/cut_300k_$SPEC.txt 2>&1 )
-claim_and_run PROG300 "\$PY $S/progress.py $R $T > $R/progress_300k_$SPEC.txt 2>&1"
+claim_and_run PROG300 "\$PY $S/progress.py $R $T 0.15 > $R/progress_300k_$SPEC.txt 2>&1; \$PY $S/judge.py $R/read_300k_$SPEC.txt $R/progress_300k_$SPEC.txt $T > $R/judge_300k_$SPEC.txt 2>&1"
 log "readings: read_300k_$SPEC.txt, progress_300k_$SPEC.txt, cut_300k_$SPEC.txt"
 if grep "\"tag\": \"${B}_s97\"" $R/progress_300k_$SPEC.txt | grep -q '"in_band": true' \
    && grep "\"tag\": \"${B}_s97\"" $R/read_300k_$SPEC.txt | grep -q '"parted_in_air": true'; then

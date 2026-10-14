@@ -98,6 +98,32 @@ def _view(b, margin, dist, aspect):
     return torch.tensor(0.5 * (lo + hi), dtype=torch.float32, device=dev), float(r)
 
 
+def _still(b, margin, dist, aspect, az, el):
+    """A still camera aimed at the centre of the box b (lo, hi), its distance (StudioRaster: 3.6 r from the centre,
+    a 30 degree vertical field) grown until every corner of the box projects inside the frame with the margin: the
+    composition centred on the box and the whole box in view, perspective included."""
+    lo, hi = b[:3], b[3:]
+    c = 0.5 * (lo + hi)
+    a, e = math.radians(az), math.radians(el)
+    out = np.array([math.cos(e) * math.sin(a), math.sin(e), math.cos(e) * math.cos(a)])
+    fwd = -out
+    right = np.cross(fwd, [0.0, 1.0, 0.0])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, fwd)
+    ty = math.tan(math.radians(15.0))
+    tx = ty * aspect
+    corners = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
+    r = dist * max(0.5 * (hi[1] - lo[1]), 0.5 * max(hi[0] - lo[0], hi[2] - lo[2]) / aspect)
+    for _ in range(200):
+        q = corners - (c + 3.6 * r * out)
+        depth = q @ fwd
+        if (depth > 0).all() and (np.abs(q @ right / depth) <= tx / margin).all() \
+                and (np.abs(q @ up / depth) <= ty / margin).all():
+            break
+        r *= 1.03
+    return torch.tensor(c, dtype=torch.float32, device=dev), float(r)
+
+
 def first_contact(frames, rows, pitch):
     """The first frame where a particle of one body lies within a pitch of the other (None: never)."""
     from scipy.spatial import cKDTree
@@ -111,7 +137,8 @@ def first_contact(frames, rows, pitch):
     return None
 
 
-def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect, mode="static", rows=None, pitch=None):
+def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect, mode="static", rows=None, pitch=None, az=0.0,
+            el=12.0):
     """Each kept frame's (centre, radius) for StudioRaster, whose visible half-height at the centre is about the radius
     (distance 3.6 r, 30 degree field). static (the deliverable's main shot): one camera for the whole run, framing
     both bodies over every frame and the floor they land on, a modest margin, the horizon fixed. contact: one camera
@@ -120,7 +147,7 @@ def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect, mode="static"
     smoothed over the kept frames by a Gaussian in simulated steps (a camera that zooms with the pair)."""
     if mode == "static":
         b = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, True) for k in range(len(frames))])
-        v = _view(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.1, dist, aspect)
+        v = _still(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.08, dist, aspect, az, el)
         return [v] * len(keep)
     if mode == "contact":
         kc = first_contact(frames, rows, pitch)
@@ -128,7 +155,7 @@ def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect, mode="static"
             raise ValueError("the bodies never touch: no contact shot")
         near = [k for k in range(len(frames)) if abs(raw(k) - raw(kc)) <= 0.5 * 240]
         b = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, False) for k in near])
-        v = _view(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.25, dist, aspect)
+        v = _still(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.15, dist, aspect, az, el)
         return [v] * len(keep)
     box = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, False) for k in keep])
     t = np.asarray([raw(k) for k in keep], np.float64)
@@ -160,6 +187,7 @@ def main():
         f0, f1 = (int(v) for v in opts["frames"].split("-"))
         keep = [k for k in keep if f0 <= k <= f1]
     views = framing(frames, keep, raw, floor_y, SMOOTH, DIST, 3840 / 2160, mode=opts.get("camera", "static"), rows=rows,
+                    az=AZ, el=EL,
                     pitch=a)
     log = open(out / "rows.txt", "w")
     for k, (center, radius) in zip(keep, views):
