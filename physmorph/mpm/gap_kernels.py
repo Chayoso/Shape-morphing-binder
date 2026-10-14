@@ -18,7 +18,9 @@ import warp as wp
 
 from .adjoints import _weight_and_grad
 from .constitutive import bspline_w, weight
-from .kernels import base_node, bond_velocity, gid, valid_pos
+from .kernels import WARP_LANES, _warp_sum3, base_node, bond_velocity, cell_key, gid, valid_pos
+
+WARP_ADJOINT = True      # the split G2P's adjoint in cell order on CUDA (tests switch it to compare with the plain one)
 
 
 @wp.func
@@ -264,8 +266,100 @@ def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: 
     adj_x[p] = adj_x[p] + a_xp
 
 
+@wp.kernel(enable_backward=False)
+def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
+                       x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
+                       grid_v: wp.array(dtype=wp.vec3), grid_v1: wp.array(dtype=wp.vec3), Cn: wp.array(dtype=wp.mat33),
+                       q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
+                       gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
+                       adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
+                       adj_Fnew: wp.array(dtype=wp.mat33), adj_x: wp.array(dtype=wp.vec3),
+                       adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33), has_adj_dFc: int,
+                       adj_grid_v: wp.array(dtype=wp.vec3), adj_grid_v1: wp.array(dtype=wp.vec3)):
+    """k_g2p_adj_gap in the trajectory's cell order (adjoints.k_g2p_adj_warp's form): the lanes on lane 0's stencil sum
+    their grid adjoint per field before one atomic per node and field; the new affine field read from the forward."""
+    blk, lane = wp.tid()
+    qi = blk * WARP_LANES + lane
+    p = int(0)
+    ok = False
+    if qi < n:
+        p = order[qi]
+        ok = valid_pos(x[p])
+    C0 = 3.0 * inv_dx * inv_dx
+    b = wp.vec3i(0, 0, 0)
+    key = int(-1)
+    xp = wp.vec3(0.0, 0.0, 0.0)
+    qp = wp.vec3(0.0, 0.0, 0.0)
+    a_vnew = wp.vec3(0.0, 0.0, 0.0)
+    a_Cnew = wp.mat33(0.0)
+    if ok:
+        xp = x[p]
+        qp = q[p]
+        b = base_node(xp, gmin, inv_dx)
+        key = cell_key(b, ny, nz)
+        Cnew = Cn[p]
+        a_vnew = adj_v[p]
+        B = F[p] + dFc[p]
+        A = wp.identity(n=3, dtype=float) + dt * Cnew
+        a_Fn = adj_Fnew[p]
+        a_B = wp.transpose(A) @ a_Fn
+        adj_F[p] = adj_F[p] + a_B
+        if has_adj_dFc != 0:
+            adj_dFc[p] = adj_dFc[p] + a_B
+        a_Cnew = adj_C[p] + dt * (a_Fn @ wp.transpose(B))
+    k0 = wp.tile_extract(wp.tile(key), 0)
+    b0 = wp.vec3i(wp.tile_extract(wp.tile(b[0]), 0), wp.tile_extract(wp.tile(b[1]), 0),
+                  wp.tile_extract(wp.tile(b[2]), 0))
+    same = ok and key == k0
+    a_CnT = wp.transpose(a_Cnew)
+    a_xp = wp.vec3(0.0, 0.0, 0.0)
+    for oi in range(4):
+        for oj in range(4):
+            for ok_ in range(4):
+                c0 = wp.vec3(0.0, 0.0, 0.0)
+                c1 = wp.vec3(0.0, 0.0, 0.0)
+                if ok:
+                    i = b[0] + oi
+                    j = b[1] + oj
+                    k = b[2] + ok_
+                    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                        dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
+                        w, dw = _weight_and_grad(dgp, inv_dx)
+                        g = gid(i, j, k, ny, nz)
+                        s1 = gap_side(qp, plane_m[g], plane_n[g]) == 1
+                        vg = grid_v[g]
+                        if s1:
+                            vg = grid_v1[g]
+                        Ad = a_Cnew @ dgp
+                        c = w * a_vnew + (C0 * w) * Ad
+                        a_w = wp.dot(a_vnew, vg) + C0 * wp.dot(vg, Ad)
+                        a_xp = a_xp - ((C0 * w) * (a_CnT @ vg) + a_w * dw)
+                        if same:
+                            if s1:
+                                c1 = c
+                            else:
+                                c0 = c
+                        elif s1:
+                            wp.atomic_add(adj_grid_v1, g, c)
+                        else:
+                            wp.atomic_add(adj_grid_v, g, c)
+                sc0 = _warp_sum3(c0)
+                sc1 = _warp_sum3(c1)
+                if lane == 0 and k0 >= 0:
+                    i0 = b0[0] + oi
+                    j0 = b0[1] + oj
+                    k0_ = b0[2] + ok_
+                    if i0 >= 0 and i0 < nx and j0 >= 0 and j0 < ny and k0_ >= 0 and k0_ < nz:
+                        g0 = gid(i0, j0, k0_, ny, nz)
+                        wp.atomic_add(adj_grid_v, g0, sc0)
+                        wp.atomic_add(adj_grid_v1, g0, sc1)
+    if ok:
+        adj_x[p] = adj_x[p] + a_xp
+
+
 def record_g2p_gap(tape, tr, t: int, dfc, N: int):
-    """Record k_g2p_gap's adjoint for step t of Trajectory `tr` on `tape` (the forward was launched unrecorded)."""
+    """Record k_g2p_gap's adjoint for step t of Trajectory `tr` on `tape` (the forward was launched unrecorded): in
+    the cell order on CUDA (k_g2p_adj_gap_warp), else per particle (k_g2p_adj_gap)."""
     from .adjoints import _dummy_mat
     prm, dev = tr.prm, tr.device
     gmin, inv_dx = wp.vec3(*prm.grid_min), 1.0 / prm.dx
@@ -273,10 +367,15 @@ def record_g2p_gap(tape, tr, t: int, dfc, N: int):
     a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
 
     def backward():
-        wp.launch(k_g2p_adj_gap, dim=N, inputs=[x, F, dfc, gv, gv1, tr.gap_q, tr.gap_m, tr.gap_n,
-                                                gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
-                                                v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc,
-                                                int(dfc.grad is not None), gv.grad, gv1.grad], device=dev)
+        tail = [gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz, v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc,
+                int(dfc.grad is not None), gv.grad, gv1.grad]
+        if tr.order is not None and WARP_ADJOINT:
+            wp.launch_tiled(k_g2p_adj_gap_warp, dim=[tr.order_blocks],
+                            inputs=[tr.order, N, x, F, dfc, gv, gv1, C1, tr.gap_q, tr.gap_m, tr.gap_n] + tail,
+                            block_dim=WARP_LANES, device=dev)
+        else:
+            wp.launch(k_g2p_adj_gap, dim=N, inputs=[x, F, dfc, gv, gv1, tr.gap_q, tr.gap_m, tr.gap_n] + tail,
+                      device=dev)
 
     tape.record_func(backward=backward, arrays=[a for a in (x, F, gv, gv1, v1, C1, Fn, dfc) if a.grad is not None])
 

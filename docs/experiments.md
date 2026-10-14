@@ -5488,6 +5488,38 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   visibly parting the bulk before 1.5 s on the side
   by side, B runs at 40k and is read the same way; if B passes, B goes to the 300k gate in A's place (the gate items
   unchanged); if neither passes, the entry stops and is reported.
+  **Implementation, tests, suite (10:00–10:42 CDT; af8a6b0, 1826b0d; `repo_d148`, hook copy `repo_d148f`).** As
+  designed (`physmorph/mpm/gap_split.py`, `gap_kernels.py`; `traj.py` 510 lines with the three calls). Tests
+  `tests/test_gap_split.py`, 9 of 9 on CUDA (`tmp/d148/gaptests_cuda.log`): the planes of a narrow gap (in the gap,
+  across it, none for one slab); no split away from gaps bit for bit (no gap node; gap nodes with one side only); the
+  split G2P's hand adjoint equal to Warp's generated one; two slabs of one body pulled apart part at their full relative
+  speed with a clean gap and momentum kept, the single field holds them; B's limits (below one cell everywhere = A, at
+  or above everywhere = the single field, bit for bit); the sides from a real transport on a synthetic gap (each half to
+  its own slab, no particle alone on its side at any node); the tape through the split against central differences
+  within 5 %. The full suite on `repo_d148`: 380 passed, 2 skipped, exit 0 (`tmp/d148/suite_d148.log`).
+  **40k prototype (runs 10:13–10:45 CDT, GPU 0; `output/gpu/d148/dragon40k_{A,D1,D2}`, `proto_read.log`; local
+  `output/results_2026-10-14/d148_gap_split/sheet40k_*.jpg`).** The 40k dragon, seed 97: A (`--gap_split on`; 271 gap
+  nodes on the 42³ grid, 11 with three or more pieces) and the frozen default twice (D1, D2). The crevice (close-up at
+  2.7–4.2 s): D1 opens at 3.0 s with a bead at the hole's foot, D2 at 3.3–3.5 s with a round bead inside the hole, A at
+  3.0 s as a clean hole, clean to 4.2 s. The 0–1.5 s side by side: the three alike, no parting of the bulk. The bulk's
+  own displacement at windows 1–9 within 0.03 pitches of the defaults'. The shell against its bulk: the two defaults
+  agree to 0.00–0.04 pitches; A at w2 median 2.51 against [2.50, 2.50], w6 7.30 against [7.32, 7.32], the p90 at w2 and
+  w3 on the band's edge (3.77 against 3.74–3.77, 6.33 against 6.27–6.33), every other value within. The split record:
+  the separating share of the split nodes' mass 0.09–0.28 at windows 1–4, 0.77–0.88 at windows 7–9, 0.2–0.6 after.
+  Particles apart from the body (max over windows 3–6 / 3–10 / 10–20): A 13 / 76 / 113, D1 9 / 129 / 107, D2 9 / 113 /
+  127. The end: silhouette IoU 0.9746 (0.9750, 0.9754), chamfer 0.1114 (0.1115, 0.1117), thin 6.7 % (6.1, 7.0), last
+  kinetic record 2.1e-4 (1.7e-4, 1.4e-4), 38 windows (44, 49); 3.03 s an attempt against 2.24 (+35 %).
+  **Amendment of the 40k rule (the coordinator's ruling, 10:50 CDT, recorded before B's 40k run is read).** The 40k
+  shell band of (c) above is degenerate: two same-seed 40k default runs agree to 0.00–0.04 pitches, so the band cannot
+  tell a real shift from any change at all; it was never a usable test. The 40k prototype counts only as: the visible
+  bulk check (the 0–1.5 s side by side, no parting), the bulk's displacement within 0.1 pitches of the defaults', the
+  crevice opening clean, no blow-up. A passes all four, so A goes to the 300k gate as the arm; item (2) at 300k against
+  D144's three-run bands (widths 0.75–1.9 pitches at the windows A moved at 40k) is the pre-registered test and stays
+  as it is. B's 40k run (queued at 10:46 by the rule as it stood) finishes as information only. Cost: reported at
+  300k as it is; a failure on cost alone is recorded apart from quality (a speed-up task). One exact speed-up before
+  the gate's runs: the split G2P's adjoint in the trajectory's cell order (`k_g2p_adj_gap_warp`, the frozen
+  `k_g2p_adj_warp`'s form with a sum per field), tested against the per-particle form to rounding on CUDA; if that
+  test fails, the gate runs on the per-particle form.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

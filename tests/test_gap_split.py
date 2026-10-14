@@ -206,3 +206,23 @@ def test_split_tape_matches_finite_differences():
     h = 0.1
     fd = (loss(h) - loss(-h)) / (2 * h)
     assert abs(an - fd) <= 0.05 * abs(fd) + 1e-6, (an, fd)
+
+
+def test_split_g2p_adjoint_in_cell_order_is_the_plain_one(monkeypatch):
+    """(8) The split G2P's adjoint in the trajectory's cell order (CUDA, lanes summing per field) gives the per-particle
+    adjoint's gradients to float rounding (the order of the grid's sums only)."""
+    if not torch.cuda.is_available():
+        pytest.skip("no CUDA")
+    import physmorph.mpm.gap_kernels as GK
+    spec, dc, u = _window_case("cuda")
+    pm, pn = _planes(spec.prm, (0, 0, 0), (0, 1.0, 0))
+    spec = dataclasses.replace(spec, track_geom=False, gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0))
+    monkeypatch.setattr(GK, "WARP_ADJOINT", False)
+    plain = _tape_outputs(spec, dc, u)
+    monkeypatch.setattr(GK, "WARP_ADJOINT", True)
+    warp = _tape_outputs(spec, dc, u)
+    for a, b in zip(plain[:4], warp[:4]):
+        torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-6 * max(1.0, float(a.abs().max())))
+    for a, b in zip(plain[4:], warp[4:]):
+        torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * float(a.abs().max()))
+        assert float(a.abs().max()) > 0
