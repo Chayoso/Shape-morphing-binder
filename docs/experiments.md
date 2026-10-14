@@ -4191,6 +4191,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   D144's, and the user's decision is the corrected field for the display only (the simulation and the loss stay
   Zhu–Bridson's). Reported beside: the hind-leg gap at 12–16 s for Z1 and Z2, the bunny's window-8 values, Z2's end
   items (3)–(5) and cost against the same bands.
+  **Repeat result (runs 22:37–23:13 CDT on GPUs 0–1, read 23:00–23:30; local `output/results_2026-10-13/d144_gate/`):
+  (ii) repeats, (i) does not; by the rule the bunny's miss is D144's and the user's decision is the corrected field for
+  the display only.** (ii) The bunny Z2's window 8 p90 13.90 against the band's 13.97–14.06 (Z1 13.92; the three
+  baseline runs 14.00–14.03); every other bunny value within. (i) The dragon Z2's hind-leg gap at 12–16 s as D135's: a rim
+  blob at 12.0–12.8 s that rejoins, no floating bead after (`dragon_side_hindleg_gap_12-16s_Z1_vs_Z2.jpg`, D135 / Z1 /
+  Z2); on the whole side view (detector, every candidate checked) nothing absent from D135's inventory: the crevice's
+  foam and bead, a bead in the loop at 5.25–6.5 s (D135's loop bead, 5.9–6.65 s), the hind-leg rim blob at 12.9–13.0 s,
+  shading creases; the mouth clean (0 pieces). Beside: the dragon Z2's window 9 median 9.31 against 9.32–9.65 (0.01
+  outside; Z1 9.33); Z2's end within the bands (bunny silhouette IoU 0.9882, chamfer 0.0551, thin 4.46 %; dragon 0.9870,
+  0.0545, 4.37 %), at rest (8.96e-6 / 7.89e-6), the render lead (yardstick −37 % / −49 %, display front −24 % / −25 %),
+  6.52 / 9.24 s an attempt. Reading: the bunny's p90 at window 8 sits 0.08–0.1 pitches under the three baseline runs in
+  both D144 arms, a small systematic shift of the early motion's outer tail; the hind-leg bead was Z1's draw. The default
+  stays `zb`; the corrected field goes to the display (`+field=zbs`), the simulation and the loss stay Zhu–Bridson's.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
