@@ -5114,6 +5114,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   5 s and tumbles; (3) a contact of about 1.4 s (3.6 s / 2.65), landing at about 2.1 s, so it parts just before or
   just after its landing; the stiffer body has the lower end shape error (M1: E × 7 had the lowest thin share on every
   mesh). So (2) is the likely pick unless (3) parts in the air.
+  **Tests, suite and the prototype's re-runs (09:06–09:12 CDT, hyde06's access back at 09:05; `repo_d147r`,
+  `output/gpu/d147/`).** The old waiter had run the scene tests at 02:26 on the code before the fixes: one failure,
+  the bounce test's 2 s window too short (0.42 wu between the bodies against 0.5; now 3 s). The chain: the scene tests
+  13 passed after one fix (the scene's target lacked the loss unit the line search's noise floor reads; 12 of 13 had
+  passed: the frame's invariance and polar backward with the sphere's case, each body's momentum and angular
+  momentum unchanged by random controls, the pair's kept through a frictional contact, the gate at one on a flat
+  interface and below 0.95 at a cell's gap, the bounce, the two-body adjoint against differences through a contact,
+  one body in a fixed frame giving the frozen window's state and terms). The full suite: 371 passed, 2 skipped, exit
+  0 (the earlier 358 and the 13): the single-body path bit for bit (test_frozen_recipe, test_runtime_exact). The code
+  went to settled-base as 545f968 (wip/d147 rebased; settled-base had only docs and probes since its base).
+  P8, P9 (read 09:06): dropped 1 wu onto the floor at G 0.05, the frozen grid floor lets the lowest particles sink to
+  1.6 spacings (0.21 wu, 0.7 cell) under the floor's plane and holds them there; the gated floor stops them at 0.8–1.2
+  spacings under it, within a spacing of touching. The prediction for P8 (resting 1–2 cells above) refuted: the
+  frozen floor zeroes the nodes under the plane, and particles keep gathering the free nodes above it. Both bodies
+  squash (the centre falls a second after the bottom stops) and rebound. P1b (the gate with the sample's fill volume):
+  the interior node volume over the cell 0.998 in median (q01 0.942, q99 1.056, std 0.026); the first gated node at
+  2.35 spacings (a node deep in one body where the other's tail barely reaches: there the deficit Φ(−a) − Φ(−a − δ) of
+  the sum below one can be smaller than the noise, so the gate's noise fires it; I had argued in the design that the
+  deficit stays above the noise, which is wrong for those nodes), with no effect on the motion (the bodies keep
+  0.6500 wu/s until 0.19 spacings apart: such a node's change of the heavy side is m₁/(m₀ + m₁) of nothing); the
+  contact itself at 0.04–0.20 spacings, restitution 0.75, 915 steps, a clean separation. P7b (taped from the first
+  gated contact, h = 0.01): the tape 7.47e-5 against differences 6.84e-5, 9 % apart: above the 5 % hoped, below what a
+  sign or a missing path would give; the contact's branches (gate and approach) switch at some nodes over a control
+  of 1e-2 per entry. The pipeline's own adjoint test (smaller controls) is within 5 %.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
