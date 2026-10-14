@@ -66,12 +66,13 @@ def test_without_loads_the_free_rollout_is_the_loaded_one():
 
 def test_an_impacts_compression_is_not_assimilated():
     """Two balls collide (no control, no gravity) over a window: the frozen rule makes the facing layers' compression
-    rest shape (det Fp below 0.995), the controls' deformation without the loads leaves Fp the identity."""
+    rest shape (its det deficit about half the compression's, eta = 0.5), the controls' deformation without the loads
+    leaves Fp the identity (a twentieth of that at most)."""
     cfg = PipelineConfig(T=20, young=1.0e4, min_spacing=0.9, volume_exact="carried")
     prm = MPMParams(dx=1.0, dt=1.0 / 240.0, drag=0.0, grid_min=(-16.0, -10.0, -10.0), nx=32, ny=20, nz=20)
-    xs = [_ball((-3.1, 0.0, 0.0)), _ball((3.1, 0.0, 0.0), seed=1)]
-    vs = [np.tile([1.85, 0.0, 0.0], (len(xs[0]), 1)).astype(np.float32),
-          np.tile([-1.85, 0.0, 0.0], (len(xs[1]), 1)).astype(np.float32)]
+    xs = [_ball((-3.0, 0.0, 0.0)), _ball((3.0, 0.0, 0.0), seed=1)]                       # touching at the start
+    vs = [np.tile([3.7, 0.0, 0.0], (len(xs[0]), 1)).astype(np.float32),
+          np.tile([-3.7, 0.0, 0.0], (len(xs[1]), 1)).astype(np.float32)]               # v_rel / c = 0.2
     win = _window(xs, vs, prm, cfg)
     win.load(torch.zeros(cfg.T, win.N, 3, 3, device="cuda"), None)
     F_loaded = _loaded_end_F(win)
@@ -79,6 +80,8 @@ def test_an_impacts_compression_is_not_assimilated():
     Fp0 = torch.eye(3, device="cuda").repeat(win.N, 1, 1)
     frozen = assimilate_elastic(F_loaded, Fp0, eta=0.5, isochoric=False)
     free = assimilate_elastic(win.free_end_F(), Fp0, eta=0.5, isochoric=False)
-    assert float(torch.linalg.det(frozen).min()) < 0.995
-    assert float(torch.linalg.det(free).min()) > 0.999
-    assert float((free - Fp0).abs().max()) < 5e-3
+    deficit = 1.0 - float(torch.linalg.det(F_loaded).min())          # the compression the loaded window made
+    assert deficit > 0.01
+    assert 1.0 - float(torch.linalg.det(frozen).min()) > 0.3 * deficit
+    assert 1.0 - float(torch.linalg.det(free).min()) < 0.05 * deficit
+    assert float((free - Fp0).abs().max()) < 0.05 * deficit + 1e-4
