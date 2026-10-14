@@ -5699,6 +5699,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Chain 10 reads first (the timeline, the progress, the cut) and renders s97 (the whole run at 4K for the record, and
   the cut as the deliverable) only if s97 passes the progress and parting rule; a seed that fails is reported before
   any deliverable is rendered.
+  **The late snap, measured, and the continuous target, pre-registered before its runs (15:45–16:10 CDT).** The
+  user on throw40k_a: the bunny "snaps into shape at the end"; and on the camera that zooms with the pair (now a
+  still camera by default, `render_scene.framing`: one shot aimed at the centre of the whole run's box with the
+  floor, its distance grown until every corner of the box is in the frame with a margin; `camera=contact` a still
+  close-up about the first contact; `follow` kept; `throw40k_a_static.mp4`). The measurement (`progress.py` every
+  0.15 s, `runs/progress_throw40k_fine.txt`): the silhouette progress rises steadily at 0.019–0.020 per 0.15 s, levels
+  at 0.80–0.86 at 7.0–7.5 s (s 0.98–1: the target X + D(X) is the transport's one-cell blur of the bunny, its ears and
+  face missing) and jumps after the switch to the run's own target at 7.6 s: +0.084 / +0.080 at 7.65 s (a), +0.096 /
+  +0.086 at 7.8 s (b), 4.0–4.8x the steady rate, the last 15–20 % of the visible morph in half a second. The landing
+  is the other jump (kept physics): body 1 squashed to progress 0.04 at 9.75 s and back at up to 0.22 per 0.15 s
+  (11x). The 300k s97 on that definition (started 15:52; 35 s a window, 2 x 150k) stopped at window 6 (the
+  coordinator). The fix, the same interpolation read from the target's side: Z_s = Y + (1 − s) D_Y(Y), Y the run's
+  own target sample, D_Y the same operator from the target to the source; at s = 1 the run's sample point for point
+  (no switch of the points; the relief and the further draws still join at s = 1), the blur moved to the sphere at
+  the start (`scene/schedule.py`). The rule (`judge.py`), both runs (seed 97 and its same-input repeat,
+  `throwY40k_a`, `_b`): the progress at the first contact in [0.35, 0.65]; parted in the air; both land; end error ≤
+  0.05; and no rise of a body's progress between neighbouring 0.15 s points up to a second past the ramp larger than
+  3x its steady rate (the median rise over 1 s to the ramp's end); the landing's recovery reported, not judged; the
+  tumble reported. Pass → the 300k (chain 16 from chain 17: s97, then its twin and s99, one card before 19:00, the
+  readings, the gated static renders with the cut and the close-up); fail → no 300k, the readings to the coordinator.
+  Predictions: the plateau gone, the progress within about 0.05 of a smooth curve to the end, the largest early rise
+  under 2x steady; the progress at the contact 0.45–0.55 (the sphere-side blur slows nothing); the end error as before.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
