@@ -1,12 +1,13 @@
-"""render_scene.py SCENE_NPZ OUT_DIR [+field=zb|zbs] [+az=0] [+el=12] [+dist=1] [+smooth=0.75] [+stride=1]
-[+frames=a-b] [+floor=1] -- the two-body scene's frames (D147) in the studio look (3840 x 2160): each body's base
-display (the exterior's discs of its own particles, so that two bodies in contact are not merged into one surface; the
-normals averaged twice over the reach as the deliverable's base display), both drawn by one camera that follows the
-pair (framing: the box around both, smoothed over +smooth seconds, +dist a zoom factor) on the studio backdrop, and the
-floor as a plane in the backdrop's grey with a soft contact shadow (each body's discs dropped onto the floor, weighted
-by their height above it and blurred). Frames in OUT_DIR/frames/NNNN.jpg (every simulated frame by default; join at
-240 / stride fps for real time). Called by scripts/render_deliverable.py with +scene=1; the single-body renders are
-untouched."""
+"""render_scene.py SCENE_NPZ OUT_DIR [+field=zb|zbs] [+camera=static|contact|follow] [+az=0] [+el=12] [+dist=1]
+[+smooth=0.75] [+stride=1] [+frames=a-b] [+floor=1] -- the two-body scene's frames (D147) in the studio look (3840 x
+2160): each body's base display (the exterior's discs of its own particles, so that two bodies in contact are not
+merged into one surface; the normals averaged twice over the reach as the deliverable's base display), both drawn by
+one camera (framing: static by default, one shot for the whole run with the floor they land on; contact, a still
+close-up about the first contact; follow, the pair's box smoothed over +smooth seconds; +dist a zoom factor) on the
+studio backdrop, and the floor as a plane in the backdrop's grey with a soft contact shadow (each body's discs dropped
+onto the floor, weighted by their height above it and blurred). Frames in OUT_DIR/frames/NNNN.jpg (every simulated
+frame by default; join at 240 / stride fps for real time). Called by scripts/render_deliverable.py with +scene=1; the
+single-body renders are untouched."""
 import json
 import math
 import sys
@@ -84,28 +85,55 @@ def floor_background(cam, floor_y, discs, extent_xz, shade=0.55, res=768):
     return torch.where(hit[..., None], col, bg)
 
 
-def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect):
-    """The camera follows the pair: each kept frame's box around both bodies (down to the floor once the gap below
-    them is under the box's height, so that the landing and its shadow stay in view), its corners smoothed over the
-    kept frames by a Gaussian in simulated steps, framed with a margin; returns each frame's (centre, radius) for
-    StudioRaster, whose visible half-height at the centre is about the radius (distance 3.6 r, 30 degree field)."""
-    box = []
-    for k in keep:
-        x = np.asarray(frames[k], np.float32)
-        lo, hi = x.min(0), x.max(0)
-        if floor_y > -1e8 and lo[1] - floor_y < hi[1] - lo[1]:
-            lo[1] = floor_y
-        box.append(np.concatenate([lo, hi]))
-    box = np.asarray(box, np.float64)
+def _box(x, floor_y, to_floor):
+    lo, hi = x.min(0), x.max(0)
+    if floor_y > -1e8 and (to_floor or lo[1] - floor_y < hi[1] - lo[1]):
+        lo[1] = floor_y
+    return np.concatenate([lo, hi]).astype(np.float64)
+
+
+def _view(b, margin, dist, aspect):
+    lo, hi = b[:3], b[3:]
+    r = margin * dist * max(0.5 * (hi[1] - lo[1]), 0.5 * max(hi[0] - lo[0], hi[2] - lo[2]) / aspect)
+    return torch.tensor(0.5 * (lo + hi), dtype=torch.float32, device=dev), float(r)
+
+
+def first_contact(frames, rows, pitch):
+    """The first frame where a particle of one body lies within a pitch of the other (None: never)."""
+    from scipy.spatial import cKDTree
+    (s0, e0), (s1, e1) = rows[:2]
+    for k in range(len(frames)):
+        a, b = np.asarray(frames[k, s0:e0]), np.asarray(frames[k, s1:e1])
+        if (np.maximum(a.min(0) - b.max(0), b.min(0) - a.max(0)) > pitch).any():
+            continue
+        if np.isfinite(cKDTree(b).query(a, distance_upper_bound=pitch)[0]).any():
+            return k
+    return None
+
+
+def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect, mode="static", rows=None, pitch=None):
+    """Each kept frame's (centre, radius) for StudioRaster, whose visible half-height at the centre is about the radius
+    (distance 3.6 r, 30 degree field). static (the deliverable's main shot): one camera for the whole run, framing
+    both bodies over every frame and the floor they land on, a modest margin, the horizon fixed. contact: one camera
+    framing the bodies over +-0.5 s about their first contact (a close-up, also still). follow: the box around both
+    bodies at each kept frame (down to the floor once the gap below them is under the box's height), its corners
+    smoothed over the kept frames by a Gaussian in simulated steps (a camera that zooms with the pair)."""
+    if mode == "static":
+        b = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, True) for k in range(len(frames))])
+        v = _view(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.1, dist, aspect)
+        return [v] * len(keep)
+    if mode == "contact":
+        kc = first_contact(frames, rows, pitch)
+        if kc is None:
+            raise ValueError("the bodies never touch: no contact shot")
+        near = [k for k in range(len(frames)) if abs(raw(k) - raw(kc)) <= 0.5 * 240]
+        b = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, False) for k in near])
+        v = _view(np.concatenate([b[:, :3].min(0), b[:, 3:].max(0)]), 1.25, dist, aspect)
+        return [v] * len(keep)
+    box = np.stack([_box(np.asarray(frames[k], np.float32), floor_y, False) for k in keep])
     t = np.asarray([raw(k) for k in keep], np.float64)
     w = np.exp(-0.5 * ((t[:, None] - t[None]) / max(sigma_steps, 1e-9)) ** 2)
-    box = (w @ box) / w.sum(1, keepdims=True)
-    out = []
-    for b in box:
-        lo, hi = b[:3], b[3:]
-        r = 1.25 * dist * max(0.5 * (hi[1] - lo[1]), 0.5 * max(hi[0] - lo[0], hi[2] - lo[2]) / aspect)
-        out.append((torch.tensor(0.5 * (lo + hi), dtype=torch.float32, device=dev), float(r)))
-    return out
+    return [_view(b, 1.25, dist, aspect) for b in (w @ box) / w.sum(1, keepdims=True)]
 
 
 def main():
@@ -131,7 +159,8 @@ def main():
     if "frames" in opts:
         f0, f1 = (int(v) for v in opts["frames"].split("-"))
         keep = [k for k in keep if f0 <= k <= f1]
-    views = framing(frames, keep, raw, floor_y, SMOOTH, DIST, 3840 / 2160)
+    views = framing(frames, keep, raw, floor_y, SMOOTH, DIST, 3840 / 2160, mode=opts.get("camera", "static"), rows=rows,
+                    pitch=a)
     log = open(out / "rows.txt", "w")
     for k, (center, radius) in zip(keep, views):
         cam = StudioRaster(center, radius, 3840, 2160, AZ, EL)

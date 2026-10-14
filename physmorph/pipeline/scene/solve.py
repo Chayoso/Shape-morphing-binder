@@ -42,6 +42,7 @@ class SceneTarget:
 
     def __init__(self, bodies: list, mu: float):
         self.bodies, self.mu, self.settled_step = bodies, float(mu), None
+        self.u_adam = None                              # D146b (u_adam_carry): u's Adam state across committed windows
 
     @property
     def unit_ratio(self) -> float:

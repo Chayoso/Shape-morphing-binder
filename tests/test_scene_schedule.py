@@ -86,3 +86,27 @@ def test_scene_runs_with_the_schedule():
     dt = 2 * cfg.T * world.dt
     assert [h["morph_s"] for h in hist] == [ramp(dt, 0.1), ramp(2 * dt, 0.1)]
     assert all(v == 0 for v in res["guards"].values())
+
+
+def test_scene_carries_us_adam_state_when_asked():
+    """D146b (--u_adam_carry, the re-frozen recipe): u's Adam moments live on the window optimiser's target, which in the
+    scene is SceneTarget; two windows run with the switch on (skipped where the switch does not exist yet)."""
+    import dataclasses
+    from physmorph import gpu
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import PipelineConfig
+    from physmorph.pipeline.scene.runner import run_scene
+    from physmorph.pipeline.scene.solve import SceneTarget
+
+    assert SceneTarget([], 0.5).u_adam is None
+    if not hasattr(PipelineConfig(), "u_adam_carry"):
+        pytest.skip("u_adam_carry is not in this recipe")
+    bodies, canon, cfg, xs, vs = _bodies()
+    cfg = dataclasses.replace(cfg, u_adam_carry=True)
+    for bd in bodies:
+        bd.cfg = cfg
+    world = MPMParams(dx=1.0, drag=0.0, grid_min=(-16.0, -10.0, -10.0), nx=32, ny=20, nz=20)
+    x0, v0 = gpu.tensor(np.concatenate(xs)), gpu.tensor(np.concatenate(vs))
+    res = run_scene(bodies, x0, v0, world, cfg, windows=2, mu=0.5, log=lambda *_: None)
+    assert len(res["history"]) == 2 and all("bodies" in h for h in res["history"])
+    assert all(v == 0 for v in res["guards"].values())
