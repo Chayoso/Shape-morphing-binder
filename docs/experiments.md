@@ -5299,6 +5299,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   scene_na.sh`. Prediction: the pair bounces apart (restitution 0.5–0.75), parts in the air in the long flight, the
   bottoms still sink after landing (u and the spacing stay). The floor's sinking needs a definition (the floor as a
   constraint on positions as well), for the coordinator.
+  **The coordinator's decisions (10:15 CDT, scene path only) and what follows, pre-registered before the runs.**
+  (1) If scene_na bounces apart, the scene runs with the assimilation off (`--assim 0`, M1-backed): a material choice
+  of the showcase, an elastic body, stated as such; read with the same rule; scene_na also reports whether each bunny
+  holds its shape to the end with the controls alone or relaxes toward the sphere after landing (the end shape error
+  over the last second). Proposal for the user and the paper's future work, not implemented: assimilate only the
+  control's share of the deformation, Fp ← stretch(Fe_ctrl Fe_zero⁻¹)^η Fp with Fe_zero the elastic deformation of the
+  window's uncontrolled continuation (the zero control's rollout from the same start), so that the elastic strain an
+  external load makes (a collision, gravity, the floor) stays elastic and the rest shape follows only the morph; for a
+  body without loads the uncontrolled continuation rests and it reduces to the frozen rule; one more rollout a window.
+  (2) The floor constrains positions as well (approved): the step's last position update writes a buffer and
+  `contact.k_floor_position` projects every centre to at least half a sample pitch above the floor's plane (where the
+  sample's surface touches it), on the tape, its branch taken (`bodies.FloorTrajectory`; `traj.Trajectory` gains the two
+  hooks `_x_out` / `_after_positions`, code motion otherwise, the layer projection's hand adjoint reads `_x_out`).
+  Tests: u pushes the bottom 0.5 wu through the floor without it and onto the plane with it, the first step's
+  velocities equal (positions only), the adjoint through the projection against differences; the suite for the
+  single-body path. (3) V0's third seed (101), both meshes and frames, the criterion re-read with three seeds (the
+  spread: each arm's range over the seeds). (4) The domain from the scene's extents: a horizontal reach of the throw's
+  horizontal speed times the time after the contact plus the bodies' largest radius (as source or target, any
+  orientation) around the launch and contact centres, the same in z; from the floor to the apex plus that radius; five
+  cells beyond. V1e (`chain2.sh`): V1 at G 0.05 and 0.1 with the floor's position constraint and `--assim 0`.
+  Prediction: no particle under the floor's centre plane; the body bounces on landing (elastic) and comes to rest
+  rolling slower; the end silhouette within 0.01 of V0's (0.973), since the slump (the assimilation's) and the sinking
+  (the position updates') are both gone.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
