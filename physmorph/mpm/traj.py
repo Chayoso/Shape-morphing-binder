@@ -319,6 +319,12 @@ class Trajectory:
             self.layer_nbr = to_wp_int(lnbr, device)
             self.layer_w = A(lw.reshape(-1), wp.float32)
             self.layer_frac = float(lfrac)
+            # optional: the number of steps the relaxation acts in, from the first (D146: the driven steps, as u's);
+            # None = every step of the rollout (the code as it was)
+            lsteps = layer[7] if len(layer) > 7 else None
+            self.relax_steps = T if lsteps is None else int(lsteps)
+            if not 0 <= self.relax_steps <= T:
+                raise ValueError("the relaxation's steps must lie between 0 and T")
             # the six rigid modes of the layer's normal displacements, n and r x n (r about the starting centre of
             # mass), and the inverse of their Gram matrix in 3x3 blocks: the relaxation loses its part along them
             # (k_layer_project, D98)
@@ -436,7 +442,8 @@ class Trajectory:
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             self.lb[t + 1].zero_()
             wp.launch(K.k_layer_relax, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm, self.layer_rn,
-                      self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac, self.layer_ref,
+                      self.layer_nbr, self.layer_w, self.layer_K,
+                      self.layer_frac if t < self.relax_steps else 0.0, self.layer_ref,
                       self.ls[t + 1], self.lb[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,

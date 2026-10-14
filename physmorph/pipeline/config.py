@@ -134,6 +134,9 @@ class PipelineConfig:
     layer_k: int = 24               # same-side layer neighbours
     layer_h_sp: float = 2.0         # neighbour weight width, in spacings
     layer_gate_ot_cells: float = 1.0  # u acts within this many MPM cells of its transport image
+    relax_driven: bool = False      # D146 A/B: the layer relaxation acts in the T driven steps only, the steps u acts in,
+                                    #   so the released half has no position edit; off = every step of the 2T-step window
+                                    #   (the code since the settled transport, 835af64: the frozen path)
     coh_k: int = 8                  # material bond neighbours (source kNN)
 
     # ---- outer acceptance ----

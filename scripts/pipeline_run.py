@@ -70,6 +70,9 @@ def parse_args():
                     help="D140 / D144 A/B: the exterior's field; zb (the default) = Zhu and Bridson's, the code as it was; "
                          "aniso = the anisotropic density field (D140, not adopted); zbs = Zhu and Bridson's with "
                          "Solenthaler et al.'s correction (D144)")
+    ap.add_argument("--relax_driven", action=argparse.BooleanOptionalAction, default=False,
+                    help="D146 A/B: the layer relaxation acts in the T driven steps only, the steps u acts in, so the "
+                         "released half has no position edit; off (the default) = every step of the window, the frozen path")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
@@ -210,7 +213,7 @@ def main():
                               lambda_ema=args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res,
                               min_spacing=args.min_spacing, exterior_radius=args.exterior_radius,
-                              exterior_field=args.exterior_field, u_off=args.u_off,
+                              exterior_field=args.exterior_field, u_off=args.u_off, relax_driven=args.relax_driven,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,

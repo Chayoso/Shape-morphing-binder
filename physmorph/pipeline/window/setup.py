@@ -47,8 +47,9 @@ class Window:
         # the dynamics mass of the discretisation: the body's mass does not depend on N, so a
         # unit control moves the 300k body as it moves the 40k one (loss-side masses are unit)
         m = float(cfg.mass_ref_n) / N if cfg.mass_ref_n > 0 and N != cfg.mass_ref_n else 1.0
-        # the outer layer: relaxed toward its neighbours' plane over one window (fraction
-        # 1/T per driven step) and carrying the u control
+        # the outer layer: relaxed toward its neighbours' plane (fraction 1/T a step) and carrying the u control. The
+        # relaxation acts in every step of the 2T-step window (the code since the settled transport, 835af64, the frozen
+        # path), or with relax_driven (D146) in the T driven steps only, as u does and as this comment once stated
         with timed("layer_data"):
             self.sp0 = layer_spacing(start.x)
             self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k, h_sp=cfg.layer_h_sp)
@@ -56,7 +57,9 @@ class Window:
         with timed("layer_relief"):
             ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw)
         relax = 0.0 if cfg.baseline.startswith("xu") else 1.0 / float(cfg.T)   # the baseline has no relaxation
-        layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, ref)          # the u gate is set by the objective
+        # D146 (relax_driven): the relaxation's steps are the driven ones, as u's; off, all 2T steps (the frozen path)
+        layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, ref,          # the u gate is set by the objective
+                 cfg.T if cfg.relax_driven else None)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
         # rest volume gives, among each particle's 16 nearest at the window's start
         spacing = None
