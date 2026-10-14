@@ -4204,6 +4204,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   6.52 / 9.24 s an attempt. Reading: the bunny's p90 at window 8 sits 0.08–0.1 pitches under the three baseline runs in
   both D144 arms, a small systematic shift of the early motion's outer tail; the hind-leg bead was Z1's draw. The default
   stays `zb`; the corrected field goes to the display (`+field=zbs`), the simulation and the loss stay Zhu–Bridson's.
+  **Outcome (the coordinator, 2026-10-13, under the user's rule): display-only adoption.** For the paper: the
+  simulation, the loss (the render terms' target pictures and discs) and every metric read Zhu and Bridson's field; the
+  images are drawn on the same field with Solenthaler et al.'s correction (t_low 1, t_high 3.5), which differs from it
+  only in concave gaps (0.4–5.2 % of the surface discs move, by a median 0.0001 pitches; the display check above) and
+  removes the blobs Zhu and Bridson's draws in empty space between near surfaces (the dragon's mouth). The deliverable
+  renderer moved into the repository: `scripts/render_deliverable.py` (it was `tmp/frozen/cdm_frozen.py` and
+  `tmp/d144/cdm_d144b.py` on hyde06; the same code with the repository's root on the path). Its output is byte-identical
+  to what was used, on FB's kept frame 300, side view: with `+field=zbs` against `cdm_d144b.py` (twice), and with
+  `+field=zb` against the 09b deliverable's frame (`output/gpu/frozen/render/fb_dragon300k_side_base/frames/0300.jpg`,
+  rendered by `cdm_frozen.py` on the tag's code) (`output/gpu/d144/idcheck`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

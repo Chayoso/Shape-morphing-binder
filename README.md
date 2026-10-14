@@ -116,10 +116,12 @@ seven digits, and finite differences agree with autograd within 3 % for every lo
 run. `scripts/probes/settled/gradcheck.py` repeats the check per channel (physics, render, cleanup) and control leaf
 (`dFc`, `u`); the `u` channel is strongly nonlinear, so its check needs steps that change the loss by 1e-5 of itself.
 
-**Rendering.** `scripts/render_splat_photoreal.py` renders the 4K deliverable: each particle is a disc-shaped
-Gaussian whose normal comes from the smoothed density gradient and whose radius is the target spacing scaled by the
-local 8th-neighbour distance (1–4×), shaded per pixel as a uniform ceramic material. `scripts/render_splat_gpu.py`
-renders a quick two-view video with the same splats.
+**Rendering.** `scripts/render_deliverable.py` renders the 4K deliverable videos (studio look, 3840 × 2160, 20 fps):
+the surface discs of the particles' exterior field (the base display; `+fit=1 +steps=15 +carry=h +decay=1` adds D115's
+display-only detail layer). The simulation, the loss and the metrics read Zhu and Bridson's field; the images use
+`+field=zbs`, the same field with Solenthaler et al.'s correction (D144), which differs only in concave gaps and removes
+the blobs it draws in empty space between near surfaces (the dragon's mouth). The older splat renderers
+(`scripts/render_splat_photoreal.py`, `scripts/render_splat_gpu.py`) draw each particle as a Gaussian disc.
 
 ## Run (on the GPU server)
 
@@ -142,9 +144,11 @@ $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --out $O
 # its physics-only twin (the render term off, everything else the same)
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --render_weight_scale 0 --out $OUT/bunny_phys
 
-# the 4K video
-PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt_iso_nn.npz $OUT/bunny_4k.mp4 \
-    --width 3840 --height 2160 --stride 12 --fps 20 --azimuth 35 --elevation 18 --frames-dir $OUT/bunny_4k_frames
+# the 4K video: FRAMES12 = every 12th simulated frame of the archive and the last (an npz with frames, raws = their
+# indices, tgt), DENSE = four dense samples of the target; the base display on the corrected field, front (azimuth 35)
+$PY scripts/render_deliverable.py FRAMES12.npz DENSE1.npz,DENSE2.npz,DENSE3.npz,DENSE4.npz $OUT/bunny_front \
+    +fit=0 +field=zbs +az=35
+ffmpeg -framerate 20 -i $OUT/bunny_front/frames/%04d.jpg -c:v libx264 -crf 18 -pix_fmt yuv420p $OUT/bunny_front.mp4
 ```
 
 `--render_weight_scale 0` is the render-off twin. `--reject_stop` and `--patience` set how long a converged run keeps
