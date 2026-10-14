@@ -153,7 +153,11 @@ def timeline(runs, tag):
             d = cKDTree(x).query(x, 2)[0][:, 1]
             cnt.append(int((d > 2 * sp).sum()))
         iso.append((float(raws[k] * dt), cnt))
-    out = {"tag": tag, "contact_s": (t_off - t_on) if contact else 0.0, "t_contact": t_on, "t_part": t_off,
+    win_s = 2 * j["config"]["T"] * dt
+    last = [r for r in h if r["t"] > h[-1]["t"] - 1.0 - 1e-9]     # the last second: does each body hold its shape?
+    hold = [[round(r["bodies"][b]["d_sil"], 5) for r in last] for b in range(len(rows))]
+    out_hold = {"last_second_dsil": hold, "window_s": win_s}
+    out = {"tag": tag, **out_hold, "contact_s": (t_off - t_on) if contact else 0.0, "t_contact": t_on, "t_part": t_off,
            "restitution": float(-vrel_post / vrel_pre) if vrel_pre else None, "landing_s": land,
            "parted_in_air": parted_in_air, "tumble_deg": tumble,
            "tumbles": all(t is not None and t > 30.0 for t in tumble), "end_rigid_speed": rest,
