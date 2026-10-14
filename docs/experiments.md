@@ -5926,6 +5926,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   renders: `300k_s97_1080p/s97_1080p_{cut,contact,full}.mp4` (hyde01 GPU 1, 110 / 43 / 113 s). Nothing launched
   after; to the coordinator: accept s97 (its one particle not clean by the letter), a landing-softness attribution
   (the drop height: geometry, the user's), or repeats per arm.
+  **The coordinator's decision (18:00 CDT): s97 is the interim showcase**, its one particle at 3.18 spacings in one
+  frame NOT clean by the letter; no landing-softness attribution (the drop height is the user's geometry, the bounce
+  kept) and no further repeats now. The attribution table stands as found: u holds the bodies together, the render is
+  not the cause, D146b does not change the small excursions, and run a's 13–24-particle droplet is a draw (absent in
+  the four repeats of its input). The close-up's framing fixed (`camera=contact` fits the bodies over its own rendered
+  span with the corner rule, margin 1.12, centred: the first close-up sat bottom-left and lost the lower bunny); the
+  fixed close-up at 1080p and the cut and close-up at 4K (the fallback deliverable) on hyde01 GPU 1
+  (`300k_s97_1080p/s97_1080p_contactfit.mp4`, `300k_s97_4k/`). The hyde06 card released. The scene's 300k twin, s99
+  and the final showcase run once, on the re-frozen recipe (D146b and whatever D148 / D149 adopt; D149's symmetric
+  spacing push also covers scene/window.py); wip/d147 is kept merged with refreeze-prep (16910d6).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
