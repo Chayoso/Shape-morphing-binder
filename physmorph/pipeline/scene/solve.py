@@ -44,6 +44,11 @@ class SceneTarget:
         self.bodies, self.mu, self.settled_step = bodies, float(mu), None
 
     @property
+    def unit_ratio(self) -> float:
+        """The line search's noise floor reads the loss unit: the bodies' targets are alike, body 0's."""
+        return self.bodies[0].tgt.unit_ratio
+
+    @property
     def grid_ot(self):
         ots = [b.tgt.grid_ot for b in self.bodies]
         return None if any(o is None for o in ots) else _FanOut(ots)
