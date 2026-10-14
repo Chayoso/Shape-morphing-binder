@@ -4373,6 +4373,67 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   word to the coordinator. (7) Disk, across the whole server (D146 included): never two dragon archives at once; before
   a dragon run, `du` and D146's status files (`output/gpu/d146*`) are checked; the total under 50 GB with at least 10 GB
   of headroom when a dragon run starts; space held by the other agent only through the coordinator.
+  **Amendment 2 (recorded 2026-10-14 01:50 CDT, before any run it adds; the user's added items and standing instruction,
+  relayed by the coordinator: every experiment run to SIGGRAPH level autonomously, routine decisions mine, only changes
+  to the frozen algorithm go to the user and only after the experiments).** (a) B1–B3 start now on the deliverable tag
+  (`repo_d145` = 592e97a); if D146 later changes the frozen algorithm, that is the user's decision after the
+  experiments and the redo goes into the 11-02 – 11-06 slot. Every block that runs our code (B1–B3, B7–B10) depends on
+  that; B4–B6 do not. (b) The user's items: "material property 차이도 봐야 하고, 그리고 Xu et al.과의 비교도 해야 하고, 외력이
+  주어질 때 diff sim, 그리고 render gradient의 영역, loss가 얼마나 줄어드는지, renderer on/off도 비교해야 하고". Xu et al. is
+  B4 (must); renderer on / off is B1 (must); the render gradient's region is B7's reach and λ = 0 counterfactual,
+  promoted to must; and three new blocks:
+  - B8 [must] materials, 300k, bunny and dragon, the existing flags around the frozen material (E 1.4e5, ν 0.2): soft
+    `--young 1.4e4` (E × 0.1), stiff `--young 9.8e5` (E × 7, the stiffest the fixed step carries, CFL 0.48, M1),
+    near-incompressible `--poisson 0.45`; render arm and twin at seed 97 (12 runs, the figure and each material's
+    render lead), and the soft / stiff contrast's render arm at seeds 99 and 101 (8 runs; the default's three seeds are
+    B1's). Read: the arrival curve p(t) (the harness's progress), the kinetic record and its peak, J's range and det F's
+    minimum per window, windows, the end (yardstick, display, silhouette IoU, chamfer, thin), at rest, λ and g_share.
+    Prediction (M1 at 40k): every material reaches the target (silhouette IoU within 0.005 of the default's band);
+    softer = lower det F minimum, more thin uncovered, a lower kinetic peak and a slower arrival; stiffer = fewer thin
+    uncovered, a kinetic peak several × the default's; ν 0.45 more windows; λ of the first window in proportion to E
+    (calibrated on the physics gradient), the render share 0.33 at calibration at every material; the render lead in
+    every material.
+  - B9 [must the first item] external forces with the existing definitions (the target, cameras and settling terms
+    fixed in the world, F1): (i) the floor with a weak gravity, `--floor --f_ext 0 -0.65 0` (G = ρgH/E = 0.02; the floor
+    holds the centre of mass where the floor-standing target has it, 0.21 wu below the source's), 300k bunny and dragon,
+    render arm and twin at seed 97 and the render arm at 99 and 101 (8 runs); (ii) the same with floor friction 0.5,
+    render arm, seed 97 (2 runs, should); (iii) the gravity the world-fixed target allows, 40k, the floor with G 0.02 and
+    0.05 (`--f_ext 0 -1.6 0`) on bunny, dragon, armadilo and bob, render arm, seed 97 (8 runs, should; F1 has G 0.1 and
+    0.5 failing and the sideways push failing); (iv) no ambient damping, `--drag 0`, 300k bunny and dragon, render arm,
+    seed 97 (2 runs, should). Read: the centre of mass and its velocity per window (the record), the end against the
+    floor-standing target, at rest, the render share and lead. Prediction: (i) reaches at 300k as at 40k (F1: 0.9768
+    against the base 0.9751), the centre of mass descends 0.21 wu and stays; (iii) G 0.05 fails on at least two of four
+    (the centre of mass falls faster than the morph proceeds); (ii) changes nothing (F1); (iv) reaches (M1). A
+    gravity strong enough to move the centre of mass faster than the morph, a push or a throw needs an objective
+    invariant to the body's rigid motion: a definition change, not made here (D147, the user's decision); a slot in
+    the schedule (10-28 – 11-06) and in the figure list is kept for D147's scene.
+  - B10 [must] how far the loss falls: per window, from the run records of B1 (no new run), render arm against twin
+    with the three-seed band: the selection merit (total) and its physics part, the transport energy, the released
+    motion (`stab`) and the end drift (`stab_end`), the silhouette (`d_sil`) and the shading (`d_pbr`) terms, and the
+    local terms (proximity, near band, cleanup) as the physics part less transport and settling; over windows and over
+    simulated time. Should: the split of proximity and cleanup from four diagnostic runs with `--telemetry` (bunny and
+    dragon, L and P, seed 97; read-only records, not used in any other table).
+  - B7's reach [must, bunny; dragon should]: D121's hooks (the per-window gradient dump on dFc and u, the λ = 0
+    counterfactual of one window from the same start, discarded before the normal window) ported to a measurement copy
+    of the deliverable code (`repo_d145g`, not committed to the pipeline), tested on hyde06 (its normal windows match an
+    unhooked run's first windows within the replay noise), then bunny 300k render arm seed 97 with dumps at windows 1,
+    2, 3, 5, 10, 20, 40 and every 5th after and the counterfactual at 1, 5, 10, 20, 40; read as D121.
+  (c) Routine decisions (mine): runs go through one queue (`tmp/d145/main.queue`, priority order) served by lock-aware
+  workers (`tmp/d145/pool.sh`): a card is free when it has no `gpu_locks/gpuN.lock` and < 2000 MiB in use; claimed by
+  mkdir with agent / run / pid / start inside, released by a trap; D145 holds at most three cards so one stays for D146
+  / D147, and a worker waits 90 s after each item before claiming again. Disk: a 300k item starts only when du(output)
+  plus the estimated end-of-run archives of every 300k run on the server (dragon 18 GB, other meshes 12, Xu 4) plus its
+  own stays ≤ 48 GB, and a dragon only when no other 300k dragon runs on the server; 40k items fill the cards meanwhile.
+  Readings per 300k run (`tmp/d145/read300.sh`): the end frame kept (`_end1.npz`), the yardstick and the display at the
+  end, apart particles over the first 35 %, momentum on every kept frame, the arrangement, the tail pulse (bunny,
+  dragon), `d118_rows.py`; B1's bunny and dragon also every kept frame. Kept frames after the readings (renders and the
+  harness): seed 97's L and P of bunny and dragon, seed 97's L of the four other meshes, seed 97 of every method (Xu,
+  Buonomo et al., OT), B2's bunny U97 / C97 and dragon V097 / C97, B8's seed-97 render arms; the rest removed (logged);
+  kept frames are staged to the local machine when the server passes 30 GB. The intermediate-frame measures of T5 are
+  read on seed 97 of every method; the end on every seed. Names: `d145_b1` … `d145_b4` (arms L, P, U, R, V0, X, C, VJ, VD,
+  VA, E, M; XU), `d145_b5` (BUO, INSD). B4's first four runs went through a first worker without the card locks (GPUs
+  0–1, before the lock protocol existed); their remaining readings are added by `read300.sh`. The B5 setup (environment,
+  inputs in the pipeline's frame, the six pairs, the conversion) runs as a separate agent under the same card rules.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
