@@ -5432,6 +5432,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   momentum budgets. Predictions: the pairs bounce apart (restitution 0.5–0.75 as P1), the long flight parts in the
   air, lands and tumbles; after landing each body holds its shape (the last second's silhouette terms within three
   times the in-flight ones); V1's end silhouette within 0.01 of V0's 0.973.
+  **State at 12:12 CDT (a local restart; chain 7 runs detached on hyde06).** On the 300k code (`wip/d147` 63c7364 =
+  settled-base c38951c with D148's leak fix + D147; deployed `repo_d147i`): the scene tests passed (12:00, with the new
+  impact test, which now reads the compression the loaded window made, and the test that every window's scene window,
+  trajectories and tape are freed with the collector off; the first impact test's fixed bar had missed a window too
+  short to compress much) and the suite passed (12:05). Also found and fixed: the scene's per-body views held their scene
+  strongly (scene → views → scene, a cycle like D148's through the tape), now weakly. Chain 7 goes on: V1e (12:05–),
+  S2, A1 (the pick), the readings (`runs/read_na.txt`, `read_v2.txt`, `read_af.txt`), V0c (seed 101), the 2×20k
+  memory probe with the collector off (`runs/mem20k.json`, gpu_free_mib per window); `output/gpu/d147/chain7.log`.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
