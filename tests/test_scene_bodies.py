@@ -293,26 +293,35 @@ def test_floor_keeps_positions_above_its_plane():
     assert torch.allclose(v1, vf1, atol=1e-5)                      # (the atomics' order aside)
 
 
-def test_floor_adjoint_matches_finite_differences():
-    """BodiesAdjoint over the floor (the projection on the tape, its branch taken): dL/d eps against differences."""
-    T = 8
-    spec, prm, floor_c, u, vp = _floor_body(T, u_val=0.0, floor_gap=-0.02)   # the bottom starts under: projected
-    spec.layer = None
-    adj = BodiesAdjoint([spec], [vp], 0.5)
-    N = int(spec.x0.shape[0])
-    D = torch.randn(T, N, 3, 3, generator=torch.Generator().manual_seed(7)).cuda() * 0.01
-    W = torch.randn(N, 3, generator=torch.Generator().manual_seed(8)).cuda()
+def test_floor_projection_adjoint_is_the_branch_taken():
+    """contact.k_floor_position on a tape: the gradient passes unchanged except the vertical one of each projected
+    centre, which is zero; against central differences with every centre at least 1e-3 off the plane (no branch
+    switches under the step)."""
+    from physmorph.mpm import contact as C
+    rng = np.random.default_rng(4)
+    n = 400
+    x = rng.uniform(-1.0, 1.0, (n, 3)).astype(np.float32)
+    x[:, 1] = np.where(np.abs(x[:, 1]) < 1e-3, 2e-3, x[:, 1])
+    W = rng.standard_normal((n, 3)).astype(np.float32)
+    floor_c = 0.0
 
-    def loss(eps, grad=False):
-        dfc = (eps * D).requires_grad_(grad)
-        xT, FT, vT, V, X = adj.apply(dfc, None)
-        L = (xT * W).sum() + 0.1 * (V[-2] * W).sum()
-        if grad:
-            (g,) = torch.autograd.grad(L, dfc)
-            return float(L.detach()), float((g * D).sum())
-        return float(L)
+    def run(xx, grad=False):
+        xi = wp.array(xx, dtype=wp.vec3, device="cuda", requires_grad=grad)
+        xo = wp.zeros(n, dtype=wp.vec3, device="cuda", requires_grad=grad)
+        if not grad:
+            wp.launch(C.k_floor_position, dim=n, inputs=[xi, floor_c, xo], device="cuda")
+            return float((wp.to_torch(xo).double() * torch.tensor(W, device="cuda").double()).sum()), None
+        tape = wp.Tape()
+        with tape:
+            wp.launch(C.k_floor_position, dim=n, inputs=[xi, floor_c, xo], device="cuda")
+        tape.backward(grads={xo: wp.array(W, dtype=wp.vec3, device="cuda")})
+        return None, wp.to_torch(xi.grad).cpu().numpy()
 
-    _, an = loss(0.0, grad=True)
-    h = 0.1
-    fd = (loss(h) - loss(-h)) / (2 * h)
-    assert abs(an - fd) <= 0.05 * abs(fd) + 1e-6, (an, fd)
+    _, g = run(x, grad=True)
+    expect = W.copy()
+    expect[x[:, 1] < floor_c, 1] = 0.0
+    assert np.allclose(g, expect, atol=1e-6)
+    d = rng.standard_normal((n, 3)).astype(np.float32)
+    h = 1e-4
+    fd = (run(x + h * d)[0] - run(x - h * d)[0]) / (2 * h)
+    assert abs(fd - float((g * d).sum())) <= 1e-3 * max(1.0, abs(fd))
