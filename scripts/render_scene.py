@@ -1,10 +1,12 @@
-"""render_scene.py SCENE_NPZ OUT_DIR [+field=zb|zbs] [+az=0] [+el=12] [+dist=1] [+stride=1] [+frames=a-b] [+floor=1]
--- the two-body scene's frames (D147) in the studio look (3840 x 2160): each body's base display (the exterior's discs of
-its own particles, so that two bodies in contact are not merged into one surface; the normals averaged twice over the
-reach as the deliverable's base display), both drawn by one camera on the studio backdrop, and the floor as a plane in
-the backdrop's grey with a soft contact shadow (each body's discs dropped onto the floor, weighted by their height
-above it and blurred). Frames in OUT_DIR/frames/NNNN.jpg (every simulated frame by default; join at 240 / stride fps
-for real time). Called by scripts/render_deliverable.py with +scene=1; the single-body renders are untouched."""
+"""render_scene.py SCENE_NPZ OUT_DIR [+field=zb|zbs] [+az=0] [+el=12] [+dist=1] [+smooth=0.75] [+stride=1]
+[+frames=a-b] [+floor=1] -- the two-body scene's frames (D147) in the studio look (3840 x 2160): each body's base
+display (the exterior's discs of its own particles, so that two bodies in contact are not merged into one surface; the
+normals averaged twice over the reach as the deliverable's base display), both drawn by one camera that follows the
+pair (framing: the box around both, smoothed over +smooth seconds, +dist a zoom factor) on the studio backdrop, and the
+floor as a plane in the backdrop's grey with a soft contact shadow (each body's discs dropped onto the floor, weighted
+by their height above it and blurred). Frames in OUT_DIR/frames/NNNN.jpg (every simulated frame by default; join at
+240 / stride fps for real time). Called by scripts/render_deliverable.py with +scene=1; the single-body renders are
+untouched."""
 import json
 import math
 import sys
@@ -82,6 +84,30 @@ def floor_background(cam, floor_y, discs, extent_xz, shade=0.55, res=768):
     return torch.where(hit[..., None], col, bg)
 
 
+def framing(frames, keep, raw, floor_y, sigma_steps, dist, aspect):
+    """The camera follows the pair: each kept frame's box around both bodies (down to the floor once the gap below
+    them is under the box's height, so that the landing and its shadow stay in view), its corners smoothed over the
+    kept frames by a Gaussian in simulated steps, framed with a margin; returns each frame's (centre, radius) for
+    StudioRaster, whose visible half-height at the centre is about the radius (distance 3.6 r, 30 degree field)."""
+    box = []
+    for k in keep:
+        x = np.asarray(frames[k], np.float32)
+        lo, hi = x.min(0), x.max(0)
+        if floor_y > -1e8 and lo[1] - floor_y < hi[1] - lo[1]:
+            lo[1] = floor_y
+        box.append(np.concatenate([lo, hi]))
+    box = np.asarray(box, np.float64)
+    t = np.asarray([raw(k) for k in keep], np.float64)
+    w = np.exp(-0.5 * ((t[:, None] - t[None]) / max(sigma_steps, 1e-9)) ** 2)
+    box = (w @ box) / w.sum(1, keepdims=True)
+    out = []
+    for b in box:
+        lo, hi = b[:3], b[3:]
+        r = 1.25 * dist * max(0.5 * (hi[1] - lo[1]), 0.5 * max(hi[0] - lo[0], hi[2] - lo[2]) / aspect)
+        out.append((torch.tensor(0.5 * (lo + hi), dtype=torch.float32, device=dev), float(r)))
+    return out
+
+
 def main():
     opts, argv = options(sys.argv)
     z = np.load(argv[1])
@@ -91,6 +117,7 @@ def main():
     AZ, EL, DIST = float(opts.get("az", 0.)), float(opts.get("el", 12.)), float(opts.get("dist", 1.))
     STRIDE = int(opts.get("stride", 1))
     FLOOR = opts.get("floor", "1") == "1"
+    SMOOTH = float(opts.get("smooth", 0.75)) * 240.0           # seconds, in simulated steps (dt 1/240)
     frames, rows = z["frames"], z["rows"]
     floor_y = float(z["floor_y"]) if "floor_y" in z.files else -1e9
     tgts = [torch.as_tensor(np.asarray(z[f"tgt{b}"], np.float32), device=dev) for b in range(len(rows))]
@@ -98,20 +125,16 @@ def main():
     h_lat = 0.92 * a
     allx = torch.as_tensor(np.asarray(frames[::max(1, len(frames) // 50)], np.float32), device=dev).reshape(-1, 3)
     lo, hi = allx.min(0).values, allx.max(0).values
-    center = 0.5 * (lo + hi)
-    radius = 0.5 * float((hi - lo)[[0, 1]].max()) * 0.62 * DIST
-    cam = StudioRaster(center, radius, 3840, 2160, AZ, EL)
-    cam.camera = center + 3.6 * radius * center.new_tensor((math.cos(math.radians(EL)) * math.sin(math.radians(AZ)),
-                                                             math.sin(math.radians(EL)),
-                                                             math.cos(math.radians(EL)) * math.cos(math.radians(AZ))))
     extent_xz = float((hi - lo)[[0, 2]].max())
     raw = (lambda k: int(z["raws"][k])) if "raws" in z.files else (lambda k: k)   # noqa: E731  (the simulated step)
     keep = list(range(0, len(frames), STRIDE))
     if "frames" in opts:
         f0, f1 = (int(v) for v in opts["frames"].split("-"))
         keep = [k for k in keep if f0 <= k <= f1]
+    views = framing(frames, keep, raw, floor_y, SMOOTH, DIST, 3840 / 2160)
     log = open(out / "rows.txt", "w")
-    for k in keep:
+    for k, (center, radius) in zip(keep, views):
+        cam = StudioRaster(center, radius, 3840, 2160, AZ, EL)
         x = torch.as_tensor(np.asarray(frames[k], np.float32), device=dev)
         discs = [base_discs(x[s:e].contiguous(), a, field, h_lat) for s, e in rows]
         q = torch.cat([p for p, _ in discs])
