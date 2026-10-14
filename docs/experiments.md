@@ -5450,6 +5450,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   strongly (scene → views → scene, a cycle like D148's through the tape), now weakly. Chain 7 goes on: V1e (12:05–),
   S2, A1 (the pick), the readings (`runs/read_na.txt`, `read_v2.txt`, `read_af.txt`), V0c (seed 101), the 2×20k
   memory probe with the collector off (`runs/mem20k.json`, gpu_free_mib per window); `output/gpu/d147/chain7.log`.
+  **A1, S2 and the pick (read 12:55–13:05 CDT; `runs/read_af.txt`, `read_v2.txt`, `read_na.txt`).** By the rule no
+  timeline qualifies. A1 (the load-free assimilation): the pair never parts: the long flight in contact 0.5–10 s
+  (restitution −0.08), the registered one 0.5–7.2 s (0.26), the stiff one 0.7–6.8 s (0.44); the window records show
+  the controls holding the compression during the contact (the settling terms charge the body's own deformation
+  velocity of the rebound) and the load-free rollout of such a control is a compression, which the assimilation then
+  makes rest shape; so the definition keeps the loads' strain out but the controls' response to the load comes in. S2
+  (no assimilation, the floor's position constraint): the long flight parts in the air (contact 0.67–2.8 s, parted
+  with four spacings at 3.2 s, restitution 0.885 along the centres' line, each body away at 0.51 wu/s), lands (4.3 /
+  5.4 s), and holds its shapes (last second's silhouette terms b0 0.007–0.011, b1 0.0012–0.0043; end shape error
+  0.041, the lowest of the nine runs); body 1 tumbles 76°, body 0 21° (below the 30° bar): it fails only there. With
+  the floor's constraint the bodies without assimilation do hold their shapes after landing (scene_na's degradation
+  was the old floor's sinking). Momentum, LB_v2: the centres on their parabolas to 4e-6 wu before the contact; the
+  pair's linear momentum against P0 + M g t within 6 units at 4.2 s (2e-4 of a body's 26 800); the pair's angular
+  momentum about the origin changes during the contact from 0 to −17 900 (about half the orbital one) and stays to ±1
+  in the free flight after: not the contact's (the prototype kept it to 8e-5 with friction), presumably the updates
+  below the grid while the bodies press and spin (D99, D102), to be split. V1e (no assimilation, the floor's
+  constraint): no sinking (the bottom half a pitch above the floor), silhouette IoU 0.925 / 0.919, still rolling at
+  0.6–1.2 wu/s at the end.
+  **The coordinator's decision (13:10 CDT) and S3, pre-registered before its runs.** Two variants of LB_v2 under the
+  same rule, the vertical offset at contact 0.75 R and 1.0 R (more friction spin; `specs/scene_long_o75.json`,
+  `o100`; `--assim 0`, the floor's constraint), and LB_v2 again with the angular momentum's split recorded at every
+  commit (`scene/solve.momentum_split`: per body, below_grid_record about its own start centre of mass and about the
+  pair's start centroid: the grid's steps (stress with the control, contact, gravity, floor), u, the minimum spacing,
+  the rest below the grid (the relaxation, the bonds, the floor's position constraint); gravity's torque apart).
+  The 300k scene (19:00): the passing variant (both: the lower end shape error); neither: LB_v2 as it stands, with
+  body 0's 21° recorded as below the bar and the pick stated as made after the rule found none. Prediction: the larger
+  offsets spin both bodies more (both over 30°) and part in the air; the end shape error rises a little (an oblique
+  contact tears at the shapes more). The split: the pair's grid share minus gravity about 0 (the contact and the
+  stress keep it), the change carried by u and the minimum spacing (D102's ranking), the relaxation small.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
