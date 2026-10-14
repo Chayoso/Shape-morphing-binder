@@ -5272,6 +5272,109 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   follows u (a position update along the layer's normal, which on the bottom points into the floor, outside the
   grid's floor) and the slump follows the assimilation (half the sag made plastic at every commit); with all three off
   the body rests about a spacing deep as P9.
+- **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
+  server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
+  the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
+  relayed 10:30: everything including the gate's verdict today; the frozen single-body path stays bit for bit behind
+  the switch, default off; `physmorph/mpm/gap_split.py`, `scripts/probes/d148/`, `output/gpu/d148/`).**
+  *The cause (D137).* The shape's cell is about 6 pitches at 300k and the cubic kernel reaches 2 cells each way; every
+  particle in a gap of the target narrower than about two cells (crevice 2.6–4.5 cells, neck and loop about 1.7) shares
+  grid nodes with both rims, so one velocity field cannot carry the jump a split needs; the membrane stretches (J to
+  1.3) and tears into beads. D137's proposal 2: the two sides on two fields, split by the transport's side labels.
+  *Papers (an agent's reading of the full texts, 10:25 CDT; Wretborn et al. 2017 behind a paywall, read through Hu et al.
+  2018).* Homel & Herbold 2017 (DFG): per particle–node pair, sgn(∇D_p · ∇D*_g) with ∇D*_g the gradient of the
+  node's particle of largest damage gradient (the node's own gradient "fails when the grid node lies at the maximum of
+  the scalar field"); field indices need not be consistent between nodes, only the normal at each node; the normal is
+  the symmetrised mass gradient ½(n₁ − n₂); contact only when approaching, Coulomb; constants r_p, r_g, D_min (0.25),
+  μ; a one-cell gap between contacting sides. Nairn 2003 / Guo & Nairn: per pair, the line from particle to node
+  crossing an explicit crack (open ends need no rule); one geometric normal for both fields (exact momentum); the
+  contact by the node volume, which "might be less than one even when the cracks are in contact" near free edges.
+  Hu et al. 2018 (CPIC): node and particle colours from the sign of the distance to a known cutter, compatibility per
+  pair, a geometric normal. Bardenhagen et al. 2000 / 2001: free separation, the approach test against v_cm, momentum
+  exact only with equal and opposite normals. Moutsanidis et al. 2019: DFG with a threshold "to prevent spurious
+  discontinuity detection". Nairn, Hammerquist & Smith 2020: a field's own gradient as the normal "not recommended"
+  (momentum); for three or more materials at a node, each against all the others. No differentiable multi-field MPM
+  was found.
+  *Measured before the design (read-only, CPU; `scripts/probes/d148/d148_labels.py`, `d148_labels2.py` on FB's
+  per-window dump `frozen_b/dump_dragon300k_FB`, windows 1–30 and every 10th, and its kept frames; `output/gpu/d148/
+  labels_FB.{log,json}`, `labels2_FB.{log,json}`).* Gap nodes (definition below) on the dragon: 921 (90 of them with
+  three or more pieces), in two large regions and six small ones; on the bunny 205 (13). For every particle in a gap
+  node's reach and three candidate side rules, the side at that node against the side of the same plane its position
+  at the run's end lies on (kernel-weighted): the debiased transport image x + (T_tgt − T_self) agrees 0.94 at 0.17 s,
+  0.89–0.92 at 1–1.5 s, 0.94 at 2 s, 0.97 at 3 s, 0.98–0.99 at 3.7–5 s; the raw image T_tgt the same to 0.005; the
+  particle's own position (CPIC's colour of a fixed medial plane) 0.59 at 0.17 s, 0.72 at 0.8 s, 0.89 at 1.5 s,
+  0.95–0.98 later. The plane test agrees with the box's pieces (where the image's cell lies in one of them) 0.97. The
+  sides flip 0.3–1.9 % of the pairs from one window to the next. Isolation, the debris mode (a particle alone on its
+  side): at its heaviest split node, the only one of its side in that node's stencil: 0 or 1 particle a window
+  (windows 1–30); every one of its links (1.5 pitches) on the other side: 2–30 particles a window. The reach: at window
+  1 the split nodes (both sides present) are 337 and their stencils hold 220k of the 300k particles (the sphere covers
+  both large regions); 616 nodes and 135k particles at 1.5 s, 750 nodes and 122k particles at 3–4 s.
+  *Definition (the agent's decisions with the papers above; the coordinator reviews).*
+  (1) *Gap nodes, from the target only, once a run.* The target's occupied cells at the loss cell (the cells holding at
+  least one point of the target sample; at 300k 27 points a cell, no empty interior cell); a node outside the target
+  (its own cell empty) whose kernel box |x − x_g|∞ < 2 dx holds two or more 26-connected pieces of them is a gap node.
+  Its two sides are the two pieces with the largest kernel-weighted target mass in the box; its plane is the
+  perpendicular bisector of their closest pair of target points (point m_g, unit normal n_g from side 0 to side 1: the
+  medial plane where the gap is narrowest in the box). Everywhere else the single field exactly. No constant: the box
+  is the kernel's reach, the cell the loss cell, the weights the kernel's. A node inside the target is never split:
+  there the other rim is at least 1.7 cells away and its weight at most (0.3)³/6 per axis (0.005). A third piece at a
+  node goes with the side of the plane it lies on (90 of 921 nodes; Nairn et al. 2020's lumping).
+  (2) *Sides, per particle–node pair (the literature's form; no consistency between nodes needed, Homel & Herbold).* A
+  particle's side at a gap node is the side of the node's plane its debiased transport image q_p = x_p + d_p lies on,
+  d_p the label-free transport displacement the window start already computes for the u gate
+  (`grid_transport_displacement` on the gate's grid, the shape's cell, blur one cell), frozen for the window like the
+  u gate. Not chosen: the particle's position (CPIC's colour; it cuts material that must cross the medial plane:
+  agreement 0.59 at 0.17 s); a damage-gradient partition (on a gap the medial surface is the ridge of the distance
+  field, ∇D = 0 at its nodes: DFG's documented failure; and its r_p, r_g, D_min); one global label per particle
+  (needs a 2-colouring of the walls across gaps); the box's pieces themselves for the image (0.97 the same; a table
+  per node and cell in the kernels).
+  (3) *The two fields at a split node: free separation, no slip while pressed.* With n = n_g: approaching,
+  (v₀ − v₁)·n > 0, both fields take v_cm = (m₀v₀ + m₁v₁)/(m₀ + m₁), which is the single field's velocity at that node;
+  separating, each keeps its own (Bardenhagen 2000's free separation). So a split node transmits compression and the
+  shear that comes with it exactly as the single field does, and no tension: a no-tension interface on the gap's medial
+  plane. No friction coefficient (μ would be an interface constant the body does not have; frictionless would make
+  every medial plane a slip plane in a body that is still one material); the limit μ → ∞ of D147's rule. No volume
+  gate: inside one body the gate reads the node volume's noise (std 0.026 of the cell, D147 P1b) as contact or not in
+  the bulk, and Nairn 2003 notes the volume test fails at free edges, which a gap is; its purpose in D147, letting two
+  bodies come within a cell before they interact, does not arise for two sides that only part. One geometric normal
+  for both fields (Nairn 2003, CPIC): momentum exact at the node; the mass-gradient normal needs field identities
+  consistent between nodes, which a per-pair partition does not have. Domain walls and floor as `k_grid_op` on each.
+  (4) *Code (D147's second form, a field per particle and node, with the frozen transfers kept).* The frozen cell-ordered
+  P2G deposits every particle into the total field as now; one extra per-particle kernel deposits each particle's
+  side-1 part at split nodes into a second array (it returns at once for a particle with no gap node in its stencil);
+  side 0 is the total minus side 1. The grid operation runs `k_grid_op`'s arithmetic at every node without a gap and the
+  rule (3) at gap nodes with both sides; G2P gathers each particle's velocity and affine field from its side's field at
+  gap nodes and from the total elsewhere (`k_g2p`'s arithmetic). Adjoint: the planes and the images are constants of
+  the window (as the u gate and the bonds); the extra deposit and the grid operation by Warp's generated adjoints
+  (the approach test replayed as D147's branches), G2P by a hand adjoint (`k_g2p_adj` with the side selection);
+  tested against central differences. `--gap_split` (default off): off, no array, kernel or launch changes (the
+  suite's bit-for-bit tests). The 40k path: the loss cell is the MPM cell there, so the 1.7-cell gaps may not resolve
+  at 40k (the crevice does).
+  *Expected effects and risks.* The crevice, the loop and the neck–body hole open when the transport pulls their sides
+  apart instead of when the membrane tears: the crevice's foam (3.25–4.4 s) and its bead (5.05–5.35 s), the loop's
+  bead and the neck rim's bead go; the neck–body hole opens early (D135 about 13 s; predicted 3–6 s, as G2's 3 s); the
+  crevice by about 2.5 s. Debris from wrong sides: none expected (no particle alone on its side in any window). The
+  risk is the 0–1.5 s band (item 2): the split acts from window 1 at 337 nodes reaching 220k particles inside the
+  sphere, so wherever the transport pulls the two sides apart there, the sphere parts along the medial plane from the
+  start (D139: the user rejected features formed early). Cost: one extra deposit over the particles near gaps and the
+  per-particle G2P adjoint in place of the warp-summed one (+10 to +30 % an attempt, measured on the 40k prototype).
+  *Gate (pre-registered now, before any implementation or run; the coordinator's compressed plan of 10:30).* The
+  40k prototype first (go / no-go only): dragon 40k render arm, seed 97, `--gap_split`, beside the frozen default at the
+  same seed; go if the crevice opens without beads on its side view (studio look, `+field=zbs`), the particles apart
+  from the body (`d120_apart.py`) not above the default's, and the run ends normally. Then 300k, seed 97: dragon render
+  arm and twin, bunny render arm and twin, a second dragon render arm seed if a card is free; the D140 lean dump of
+  windows 1–9; every run read the same way as D146 (item numbers the user's): (1) the dragon side view at 3–6 s (render
+  arms and twin): no crevice foam and no detached bead (`d140_image.py` on every kept frame, every candidate checked on
+  its contact sheet), and nothing absent from D135's inventory on the side views (the neck–body hole opening earlier is
+  reported, not a failure); (2) the 0–1.5 s trajectory: the shell against the bulk at windows 1–9 (median, p90, the
+  bunny's face) within D144's three-run bands widened by their width, and the side by side at 0–1.5 s against D135's;
+  (3) the end within D138's band widened (bunny silhouette IoU ≥ 0.9871, chamfer ≤ 0.0552, thin ≤ 5.2 %; dragon
+  ≥ 0.9853, ≤ 0.0546, ≤ 5.5 %), the relief and roughness as D146's limits, at rest (last kinetic record ≤ 1.53e-5 bunny,
+  ≤ 3.3e-5 dragon), the render lead (each arm ahead of its twin on the yardstick silhouette and the display front);
+  (4) particles apart from the body in windows 3–6 and 3–10 not above the larger of D135's two runs of the same mesh
+  and arm; (5) cost: seconds an attempt reported against batch 5's W3 (6.72 s bunny, 9.65 s dragon), pass at most 1.25
+  ×. If item (2) fails, the entry stops there and is reported (no iteration on anything). After today: teapot, bob,
+  armadilo, homer render arms; the 40k gallery at three seeds.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
