@@ -9,6 +9,7 @@
 #   CPU part (read300_cpu.sh, started detached so that the card's lock can be released): apart particles over the first
 #     35 % of the kept frames (d120_apart.py), the tail pulse (d116_pulse.py) for bunny and dragon, then the kept frames
 #     removed unless KEEP = 1 (default 1).
+source /data/relcfd/chayo/physmorph_v2/tmp/d145/env_d145.sh
 B=/data/relcfd/chayo/physmorph_v2; T=$B/tmp; G=$B/output/gpu
 gpu=$1; dir=$2; name=$3; mesh=$4; mode=$5; keep=${6:-1}
 D=$G/$dir; S=$D/status.txt; F=$D/${name}_frames12.npz; IND=$G/d90/${mesh}_ind300k.npz

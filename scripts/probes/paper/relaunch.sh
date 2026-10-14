@@ -1,5 +1,6 @@
 #!/bin/bash
 # relaunch.sh N -- wait until no D145 pool worker runs (ps, read-only), clear STOP, start N workers on pool.sh
+source /data/relcfd/chayo/physmorph_v2/tmp/d145/env_d145.sh
 B=/data/relcfd/chayo/physmorph_v2; T=$B/tmp/d145; G=$B/output/gpu
 while [ "$(ps -eo args | grep -c '[b]ash pool.sh')" != 0 ]; do sleep 30; done
 rm -f $T/STOP

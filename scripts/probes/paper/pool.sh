@@ -10,12 +10,13 @@
 # pipeline_run on the server (ps, read-only; dragon 18 GB, other meshes 12, Xu 4) + its own <= 48 GB, and a dragon only
 # when no other dragon 300k run is on the server (and our dragon lock is free). 40k items backfill while 300k items wait.
 # STOP: touch tmp/d145/STOP ends every worker after its current item.
+source /data/relcfd/chayo/physmorph_v2/tmp/d145/env_d145.sh
 B=/data/relcfd/chayo/physmorph_v2; T=$B/tmp; G=$B/output/gpu; L=$B/gpu_locks; mkdir -p $L
 Q=$1; wid=$2; LOG=$G/d145_pool.log
 est() {  # MESH N REPO ARGS... -> estimated end-of-run disk GB (a run copy writing the kept frames only: 2)
   local mesh=$1 n=$2 repo=$3; shift 3
   [ "$n" -lt 300000 ] && { echo 1; return; }
-  case " $repo " in *repo_d145s*|*repo_d146h*|*repo_d145g*) echo 2; return;; esac
+  case " $repo " in *repo_d145s*|*repo_d146h*) echo 2; return;; esac
   case " $* " in *" --baseline xu"*) echo 4; return;; esac
   [ "$mesh" = dragon ] && echo 18 || echo 12
 }

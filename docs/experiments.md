@@ -4527,6 +4527,56 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pitches) and removes blobs it draws in empty space between near surfaces; every metric is computed on the uncorrected
   field or on the particles. The display-only detail layer (D115) appears only in the supplement, side by side with the
   base display, applied to no baseline.
+  **The access gap (02:28–09:05 CDT) and what ran in it (read 2026-10-14 09:05–09:40).** The pool kept working: B4's 18
+  Xu runs (done 05:19), B7's 300k reach run (repo_d145g, 03:40–03:52), B3's 190 gallery runs (114 V / W and 76 ablation
+  runs, done 08:15) and B9's eight 40k gravity runs; no run failed and no log shows a full disk. What did not run: (a)
+  the job items (the kept-frames proof, B6, the harness dry run) imported the old `repo_settled` checkout, because
+  `hyde06_env.sh` defaults `REPO` to it when `PHYSMORPH_RUN_REPO` is not exported, which the job scripts did not do;
+  fixed (they export it; the harness's display step unsets it again so that the readers keep their historical
+  environment, repo_r77's probes as in every earlier reading) and re-queued at 09:08; (b) every 300k item of our code
+  (B1, B2, B8, B9 at 300k): the disk guard held them, the output being 37–40 GB (D146's folders 17 GB) and a full archive
+  estimated at 12 / 18 GB; they start once the kept-frames copy is proven (below). The workers, alive throughout, were
+  waiting, not stalled. The root filesystem's filling (the coordinator: / 100 %, ~/.cache/pip 16 GB removed) did not
+  come through D145's Python, which always runs after `hyde06_env.sh` (Warp, CUDA, torch, CuPy and matplotlib caches and
+  TMPDIR on /data); the shell side now also sources `tmp/d145/env_d145.sh` (TMPDIR, XDG / pip / torch / matplotlib /
+  CuPy caches on /data). **Disk:** the estimate counted repo_d145g at 2 GB though it writes the full archive, so B7's run
+  started on an output of about 39–42 GB (the files still present that are older than 03:50 sum to 39.3 GB, plus the
+  Xu frames removed later) and wrote its archive (about 12 GB) at 03:50: the output most likely passed 50 GB, to about
+  51–54 GB, for about two minutes (03:50–03:52, until the archive was cut and removed); not measured directly (the pool
+  did not log du). Fixed: repo_d145g counts as a full archive again.
+  **First readings (2026-10-14 09:15–09:40; D145's reading conventions; numbers are min–max over seeds 97 / 99 / 101).**
+  *B4, Xu et al. (α 1e-2, own-sample metrics from the run's JSON; `d145_b4/tab_b4.jsonl`).* Silhouette IoU / chamfer /
+  thin uncovered / last kinetic record: bunny 0.958–0.969 / 0.0589–0.0591 / 34–36 % / 0.37–0.39; dragon 0.969–0.971 /
+  0.0652–0.0656 / 36–37 % / 0.12–0.14; teapot 0.9745–0.9756 / 0.059 / 35–39 % / 0.17–0.20; bob 0.937–0.942 / 0.102 /
+  46–50 % / 0.82–0.95; armadilo 0.9735–0.9747 / 0.058 / 31–32 % / 0.0028; homer 0.948–0.966 / 0.121–0.123 / 37–38 % /
+  0.57–0.61; 2.3 (bunny) to 6.8 (dragon) min a run. Against the independent sample, yardstick exterior silhouette
+  bunny 0.0090–0.0099, display front 1 − IoU 0.039–0.042; on five of the 18 runs (dragon XU97 and XU101's display, homer's
+  three) the yardstick or the display ran out of memory in the probe itself (36–46 GB in one process, alone on the card:
+  the exterior search on Xu's scattered particles); those runs get silhouette IoU and chamfer against the independent
+  sample instead (`gallery_ind`'s metric, read for every method alike). As predicted, Xu et al.'s end is behind ours
+  (D138 / D144: 0.987–0.988, 0.055, 3.5–4.5 %, at rest below 1e-5) and does not come to rest.
+  *B3, the 40k gallery, render arm V against twin W, independent sample (`gal145.py`, `d145_b3/gal_V_W.json`).* V ahead
+  of W at the three-seed mean on 19 of 19 meshes, all three seeds agreeing on 17 (beast +0.0004 / −0.0009 / +0.0006,
+  homer +0.0013 / −0.0001 / +0.0011); paired Wilcoxon over the meshes' means p = 3.8e-6; the gain is a median 24 % of
+  the twin's gap to the sampling floor (beast 2 %, ogre 42 %); differences +0.0005 (bob) to +0.0030 (A). Prediction
+  (≥ 17 of 19, beast behind) met but for beast's sign: its three-seed mean is +0.0000 (D136: −0.00071 on the old code).
+  *B3 ablations at 40k (seed 97 against V's three-seed range, independent silhouette IoU; apart particles in windows
+  3–10).* `--u_off`: below V's range on 10, inside 1, above 8; median −0.0023 (dragon −0.0083, C −0.0073, beast −0.0065,
+  heart +0.0063); fewer apart particles early. `--no-layer_relief`: below on 17, inside 2, median −0.0031. The volume
+  body off (`--volume_exact off --no-match_density --no-assim_volume`): below on 12, inside 7, median −0.0007, and the
+  early apart particles 4–180 × the default's (beast 3723 against 20, C 3651 against 56, armadilo 2117 against 53).
+  `--no-render_exterior` (the render terms on the particle cloud): ABOVE V's range on 13, inside 4, below 2, median
+  +0.0008: on this particle-silhouette measure at 40k the cloud-read render is ahead of the exterior-read one; the
+  exterior's case (D62: read on the cloud, the render leaves the exterior's silhouette where the twin has it) rests on
+  the display and the yardstick, which B2's 300k arm reads; reported as found.
+  *B9 (iii), gravity at 40k with the floor (render arm, seed 97; the independent sample lifted onto the floor).* G
+  0.02: bunny 0.9734, dragon 0.9755 (both above the default's V range), bob 0.9763 (below its 0.9797–0.9802), armadilo
+  0.5937 (not reached: last kinetic record 0.40); G 0.05: bunny 0.8785 (stopped after 5 windows), armadilo 0.3722 (3), bob
+  0.9317 (10), dragon 0.9754 (reached, 61 windows). The prediction (G 0.05 fails on at least two of four) holds; the
+  armadilo failing at G 0.02 was not predicted.
+  *B5 (interim, the bunny pair):* Buonomo et al.'s t = 1 sample against the independent sample, silhouette IoU 0.9601,
+  chamfer 0.0596 (the sampling floor 0.9893 / 0.0567); the remaining five pairs are running. *B6 (bunny):* the OT
+  displacement's end lies a median 0.57 sampling pitches from the nearest target point (p99 1.2, max 22).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
