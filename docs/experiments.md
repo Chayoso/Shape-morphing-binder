@@ -4865,6 +4865,61 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   time. The waiting duplicates were stopped by PID before any held a card, and an ordered queue (`d146_queue3.sh`:
   CDL, CBL, CBP, CDP, ABL, each started only after the one before has its card) replaces it. The suite before the arms
   (`repo_d146b2` = cc2293a): 362 passed, 2 skipped, exit 0 on a free card.
+  **D146b verdict, the main arm `--relax_driven --u_adam_carry` (runs 09:56–11:59 CDT; ADL, u_adam_carry alone, 09:21;
+  read 10:30–12:15 by `tmp/d146/d146_gate_read2.py`, `d146_alt.py`, the relief bands and the detector's sheets;
+  `output/gpu/d146g`): FAILED by the letter at (1)(b), (2) on the bunny and (6) on the dragon; the rest pass. The late
+  wobble falls to about 0.4 of the deliverable's in the picture, and the window-rate reversal is gone.**
+  (1) From 7 s to at most 15 s, render arm CDL (dragon) / CBL (bunny):
+  - (a) the side view's grey change ×0.41 / ×0.40 (CDL 0.0505 against FB's 0.1239; CBL 0.0164 against SB's 0.0408):
+    passes.
+  - (b) the driven / other ratio 1.58 / 1.55: fails the 1.25, though below the deliverable's 1.81 / 1.62 and D146a's
+    2.22 / 2.08 (the coordinator's addition, met).
+  - (c) the in-window excursion ×0.15 / ×0.08: passes.
+  - (d) the layer's reversal −0.08 / −0.14 (D135 −0.58 / −0.66): passes; the share of the layer flipping falls from
+    83 % / 91 % to 57 % / 73 %.
+  - (8) u's reversal slope +0.15 / +0.64 (D135 and D146a −0.53): passes; u_k correlates +0.83 / +0.91 with u_{k−1}.
+  - Per window the layer travels 0.041 / 0.017 spacings against 0.130 / 0.081 (×0.32 / ×0.21); |u| 0.040 / 0.025
+    against 0.112 / 0.076. What is left still sits in the driven half (the layer's driven / released steps 1.8 : 1;
+    the bulk's motion, unchanged by either switch, is now a larger share of it). The twins CDP / CBP read the same
+    (×0.44, ratio 1.57; reversal −0.09 / −0.08; slope +0.21 / +0.39). ADL (u_adam_carry alone): reversal −0.10, slope
+    +0.16, path ×0.55, the excursion ×0.63 (the released half's pull-back is D146a's to remove): the two changes are
+    complementary.
+  (2) 0–1.5 s:
+  - CDL within D144's bands everywhere.
+  - CBL out at one cell: window 8's p90 14.17 against [13.88, 14.15] (0.02 pitches; the same cell D144 missed from
+    below). u acts on the bunny from window 4, the risk named in the pre-registration.
+  - The twin CBP is within. The dragon twin CDP reads window 9's median 8.95 against [8.99, 9.98] (reported; its dump
+    read 7 of the 9 windows).
+  (3) The end:
+  - CDL 0.9871 / 0.0545 / thin 3.25 %; CBL 0.9883 / 0.0551 / 4.25 %. Within (the thin share is the lowest of any
+    dragon run here).
+  - Relief at 5.4 pitches: 0.56 (at the limit 0.56) / 0.58 (limit 0.56).
+  - Roughness: 7.09° / 4.31°.
+  (4) At rest: 7.9e-6 / 2.4e-6. Within.
+  (5) The render lead: yardstick silhouette 5.31e-4 against CDP's 1.19e-3, 7.53e-4 against CBP's 1.29e-3; display
+  front 0.0087 against 0.0130, 0.0091 against 0.0122. Ahead.
+  (6) Visible pieces:
+  - Bunny side and front, dragon front: shading creases only.
+  - Dragon side, outside D135's inventory: a bead on particles apart from the body in the gap between hind leg and
+    body from 19.75 to 22.3 s (30 frames, class i in 29). D144's Z1 drew the same kind at 12.8–15.2 s and Z2 did not
+    repeat it.
+  - Dragon side, also outside the inventory: a bead in the neck–body hole at 15.55–16.0 s.
+  - The crevice's foam is busier (4.05–4.9 s) and the loop's bead lasts longer (6.05–7.40 s; D135 5.9–6.65 s). Fails
+    by the letter.
+  (7) Cost:
+  - 9.95 / 7.21 s an attempt (FA 10.54, BL0 7.21).
+  - The dragon run goes on: 165 windows, 29.7 min, delivering 27.5 s against the deliverable's 17.5 s (the merit keeps
+    falling 1–3 % a window without the dither; its best 4.15e-5 against FB's 4.52e-5). The bunny delivers 11.8 s (SB
+    11.0).
+  Reading: D146b removes what it was built for, u's per-window reversal, and with D146a the late layer motion falls to
+  about a third and the picture's late change to 0.4 of the deliverable's, with the end, the relief, the rest and the
+  render lead held. The letter fails on three counts:
+  - the residual still pulses with the driven half (1.55–1.58 against 1.25);
+  - the bunny's 0–1.5 s p90 at window 8 is 0.02 pitches out;
+  - the dragon, which now runs 10 s longer, draws one class-i bead in the hind-leg gap in that longer tail and a bead
+    in the neck hole.
+  Whether (2) and (6) are this change's or one run's draw is what D144's repeat rule answers (one more render arm a
+  mesh on the same copy); whether the longer dragon run is wanted is the user's. Neither switch's default changes.
 - **D147, the showcase scene: two thrown spheres collide, bounce apart, and each becomes its own bunny that lands and
   tumbles (design; opened 2026-10-14 01:00 CDT server clock; the coordinator's brief, the user's choice of two
   separate bodies over one merged bunny, and the user's clarification relayed at 01:20: "각각 따로 해야 할 거 같아. 두
