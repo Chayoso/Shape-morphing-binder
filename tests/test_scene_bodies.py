@@ -107,7 +107,7 @@ def test_contact_keeps_the_pairs_momentum():
 def test_bodies_bounce_apart():
     """Head-on at v_rel / c = 0.1: the centres' relative velocity reverses, and once apart no particle of one body is
     left within a sample spacing of the other."""
-    T = 480
+    T = 720                                                         # contact lasts about 11 wave crossings (M-b)
     pair, prm = _collide(T)
     pair.rollout()
     x = [wp.to_torch(tr.x[T]) for tr in pair.trajs]
@@ -148,8 +148,8 @@ def test_volume_gate_is_one_at_a_flat_interface():
 def test_two_body_adjoint_matches_finite_differences():
     """The pair's tape (BodiesAdjoint) through a contact: dL/d eps along a random control direction against central
     differences of the no-grad rollout."""
-    T, prm = 10, _prm()
-    xs = [_ball((-3.05, 0.0, 0.0), r=2.0), _ball((3.05, 0.0, 0.0), r=2.0, seed=1)]
+    T, prm = 12, _prm()                                              # in contact from the first steps: the window
+    xs = [_ball((-2.0, 0.0, 0.0), r=2.0), _ball((2.0, 0.0, 0.0), r=2.0, seed=1)]   # must see the pair touch (M-b P7)
     vs = [np.tile([1.5, 0.0, 0.0], (len(xs[0]), 1)).astype(np.float32),
           np.tile([-1.5, 0.0, 0.0], (len(xs[1]), 1)).astype(np.float32)]
     specs = _specs(xs, vs, prm, T)
