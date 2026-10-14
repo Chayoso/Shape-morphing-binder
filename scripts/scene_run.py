@@ -45,6 +45,7 @@ def main():
     ap.add_argument("--out", default="output/scene")
     ap.add_argument("--render_weight_scale", type=float, default=1.0, help="0: the render-off twin")
     ap.add_argument("--windows", type=int, default=0, help="0: the scene's length")
+    ap.add_argument("--save_stride", type=int, default=1, help="archive every k-th simulated frame and the last")
     a = ap.parse_args()
     gpu.require_cuda()
     spec = SceneSpec(**json.loads(Path(a.scene).read_text())) if a.scene else SceneSpec()
@@ -86,22 +87,30 @@ def main():
     res = run_scene(bodies, gpu.tensor(x0), gpu.tensor(v0), prm, cfg, windows, spec.mu, log=log, F_stride=cfg.T)
     seconds = time.time() - t0
     frames = res["frames"]
-    xs = np.stack(frames.x)
-    met = []
-    for bd, tgt, ts in zip(bodies, tgts, thins):
-        with torch.no_grad():
-            y = body_frame(gpu.tensor(xs[-1][bd.rows]), bd.Xq)[0].cpu().numpy()
+    n_frames = len(frames.x)
+    raws = sorted(set(range(0, n_frames, a.save_stride)) | {n_frames - 1})
+    xs = np.stack([frames.x[i] for i in raws])
+
+    def shape(y, tgt, ts):
         e = metrics.target_extent(tgt)
         m = {"chamfer": metrics.chamfer(y, tgt), "sil_iou": metrics.sil_iou(y, tgt, extent=e),
              "hole_frac": metrics.hole_frac(y, e)}
         m.update(thin_metrics(y, ts))
-        met.append({k: m[k] for k in ("chamfer", "sil_iou", "hole_frac", "thin_uncovered", "thin_uncovered_world")
-                    if k in m})
-    log(f"[scene] done: {len(frames)} frames, {seconds / 60:.1f} min; " + "  ".join(
+        return {k: m[k] for k in ("chamfer", "sil_iou", "hole_frac", "thin_uncovered", "thin_uncovered_world") if k in m}
+
+    met = []                                    # each body's end in its objective's frame, and in its Buckens frame
+    for bd, tgt, ts in zip(bodies, tgts, thins):
+        with torch.no_grad():
+            xb = gpu.tensor(xs[-1][bd.rows])
+            m = shape(bd.frame(xb)[0].cpu().numpy(), tgt, ts)
+            if bd.fixed is not None:
+                m["buckens"] = shape(body_frame(xb, bd.Xq)[0].cpu().numpy(), tgt, ts)
+        met.append(m)
+    log(f"[scene] done: {n_frames} frames, {seconds / 60:.1f} min; " + "  ".join(
         f"b{b}: silIoU={m['sil_iou']:.4f} chamfer={m['chamfer']:.4f} thin={m.get('thin_uncovered', float('nan')) * 100:.1f}%"
         for b, m in enumerate(met)))
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
-    np.savez(f"{a.out}.npz", frames=xs, rows=np.array([[bd.start, bd.stop] for bd in bodies]),
+    np.savez(f"{a.out}.npz", frames=xs, raws=np.array(raws), rows=np.array([[bd.start, bd.stop] for bd in bodies]),
              **{f"tgt{b}": t for b, t in enumerate(tgts)}, **{f"src{b}": s.astype(np.float32) for b, s in enumerate(srcs)},
              R0=np.stack(R0[:len(bodies)]), floor_y=np.float64(prm.floor_y))
     Path(f"{a.out}.json").write_text(json.dumps({

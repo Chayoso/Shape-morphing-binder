@@ -559,7 +559,7 @@ def main():
     ap.add_argument("--gradcheck", action="store_true")
     ap.add_argument("--grad_steps", type=int, default=40)
     ap.add_argument("--grad_eps", type=float, default=0.0)
-    ap.add_argument("--grad_h", type=float, default=1e-3)
+    ap.add_argument("--grad_h", type=float, default=1e-2)
     a = ap.parse_args()
     wp.init()
     if a.gradcheck:
