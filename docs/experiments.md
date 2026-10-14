@@ -4627,6 +4627,11 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `max_cards` 1 at 13:00, the flag `no_dragon` at 15:00, both lifted at 19:00, each step logged in `d145_pool.log`), the
   pool's start check reading `no_dragon`, and B5's driver counting every "agent D145" lock. Also: B11 runs as a
   separate agent on the CPU (no card).
+  The coordinator set the cap to one card from about 09:55 (not 13:00; `tmp/d145/ops_note_coordinator.txt`); the
+  scheduler's 13:00 step is a no-op and only its 19:00 step raises the cap. So that the one card simulates, the every-
+  frame readings of B1's bunny and dragon runs (30–50 min of card time each) are split into job items queued after the
+  must simulations (`read300_full.sh`; the runs keep their kept frames until then; the same readings as registered).
+  hyde01 throttles concurrent ssh connections: one batched poll every 10 min, one retry after two minutes at most.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
