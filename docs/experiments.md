@@ -6257,6 +6257,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   test covers. The dump as a separate run after it on the same lane (RWX: the same arguments with `--term_dump` and
   D146's hook from window 6 to 22, no render), for the loop beads that strand with consistent sides (dF_c, u and each
   term's pull at their stranding window), at the bead sites RW's and WG's renders show.
+  **D148e built and its CPU check read (16:36 CDT; `repo_d148x`, tests 23 passed on the CPU; `tmp/d148/wlf5_*`): it
+  fails (c) and (d); D148 stops at WL.** `gap_walls.CarryTables` (per pair of overlapping gap nodes, the side each
+  piece continues as by the overlap's occupied cells), `carried_side` in the kernels, `k_gap_uncertain` (the node's
+  volume past B's gate, off the tape); tests (20) the slabs' tables continue each slab as itself, (21) the kernel's
+  sides = the numpy reference (both outcomes and the uncertain one occur), (22) every wall uncertain = the single field
+  bit for bit, and with every cell in the box = walls, (23) the hand adjoints = the generated ones. (a) The plane
+  decides nothing (0.0000 at every window, WG, FB, WB). (b) No flip among the beads' particles at any window (walls:
+  153–160 a window at WG's opening beads); the loop beads keep 2 pairs whose chosen wall also meets the other node's
+  other piece while meeting its chosen one (a wall split in two inside that box), no flip. (c) The end wall the chosen
+  one: WT 213353 at all (8–11 of 8–11), the crevice bead 84804 at 8 of 8 from 2.35 s, the loop beads and the bunny's at
+  all; but WG's opening beads at 0 of 16 nodes at every window and WT 40512 at 0 of 8: their carried wall is,
+  consistently, the one they did not end on in WL's run. (d) The 513 particles of D135's crevice foam (FB's particles
+  apart near a gap node in the crevice's box at 3.15–4.8 s): no flip (walls: 134 of them flip at 1.0 s, 16 at 4.8 s on
+  FB's state; 133 → 1–4 on WG's), the end wall the chosen one at 3 964 of 4 834 nodes at 1.0 s rising to 7 067 of
+  7 115 at 4.83 s on FB's state (82–99 %; walls 85–99 %), 4 097 of 4 305 → 5 824 of 5 825 on WG's (95 % → 99.98 %):
+  not at every node. And the fallback: a node is whole where any particle in its support has an uncertain wall, so of
+  the nodes that would split 216 of 217 are whole at 0.5 s, 323 of 338 at 1.0 s, about 300 of 460 at 2–3.5 s (WG:
+  0.87–1.00 of their mass; FB 0.86–1.00; the bunny 0.99–1.00): D148e is the single field at nearly all of the gap's
+  split mass, so WL's gain (no foam at 3–6 s, which the split's nodes in that region bought) would most likely be lost.
+  By the coordinator's rule (16:14 CDT) no further side-label definition: D148 stops at WL, and the choice between WL
+  and the deliverable fallback goes to the user with videos, after the D146b + WL gate.
+  **The D146b + WL gate (pre-registered with RW at 16:16 CDT; the rest launched 16:40 CDT).** RW (dragon arm, running
+  since 16:14 on GPU 0), then on the second D148 card: RWT (dragon twin, `--render_weight_scale 0`, side render), RWB
+  (bunny arm, side and front), RWBT (bunny twin, no render); all `repo_d148rf`, `--gap_split walls --relax_driven
+  --u_adam_carry`, seed 97. Read by `d148_gate_read2.py` against D146b's own runs (CDL, CDL2, CDP; CBL, CBL2, CBP), item
+  (1) on the side views (1–3 s, 3–6 s, 9–14 s) against CDL's and the detector's tracks. RWX (the dump run) after RW.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
