@@ -5339,6 +5339,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the impact becomes rest shape; off, the landed body has no rest shape near the bunny and the controls alone do not
   hold one: the written proposal (the control's share assimilated, the loads' strain left elastic) is the definition
   that would give both.
+  **The scene's assimilation reads the controls' deformation without the loads (the coordinator's go 11:00 CDT;
+  implemented 11:00–11:20 on `wip/d147`, pre-registered here before any of its runs).** The formula of the go,
+  Fp ← stretch(Fe_ctrl Fe_zero⁻¹)^η Fp with Fe_zero the window's uncontrolled continuation, has a defect found before
+  writing it: the continuation carries the elastic half of the earlier windows' control deformation that the frozen
+  rule leaves (it assimilates η = 0.5 a commit, so the rest decays 0.5, 0.25, …); in Fe_zero that leftover would never
+  be assimilated, and the morph would stay half elastic. The definition implemented instead keeps the go's intent:
+  each body's committed controls are rolled out again alone, without gravity and without the floor (the same start,
+  the same controls, the same window, `SceneWindow.free_end_F`), and the frozen rule is applied to that rollout's end
+  F. The leftover of earlier controls is in it (assimilated as before); the strain the loads make (the other body's
+  push, the weight, the floor) is not, so it stays elastic and the bounce and the stance survive; a load's elastic
+  strain present at the window's start relaxes in the free rollout and is not assimilated either. For a body without
+  loads the free rollout is the loaded one, so the rule is the frozen one to the atomics' rounding (tested). It acts
+  between windows on the promoted state, outside every tape, as the frozen rule: no adjoint passes through it (the
+  go's third test has no object; the controls' gradient within the window is unchanged). Cost: one more rollout of
+  each body a window. `SceneSpec.assim_free` (on in the scene). Tests (`tests/test_scene_assim.py`): without loads the
+  free end F equals the loaded one (1e-5) and so do the two Fp; two balls colliding for a window with no control:
+  the frozen rule's Fp has det below 0.995 at the contact, the new one's above 0.999. A1 (chain 4, after chain 3's S2):
+  V1 at G 0.05 and the three 40k timelines with it, the floor's position constraint and the extents' domain, read by
+  the selection rule; reported: the pick, each body's silhouette term over the last second, the restitution, the
+  momentum budgets. Predictions: the pairs bounce apart (restitution 0.5–0.75 as P1), the long flight parts in the
+  air, lands and tumbles; after landing each body holds its shape (the last second's silhouette terms within three
+  times the in-flight ones); V1's end silhouette within 0.01 of V0's 0.973.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
