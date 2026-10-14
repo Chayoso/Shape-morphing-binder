@@ -4632,6 +4632,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   frame readings of B1's bunny and dragon runs (30–50 min of card time each) are split into job items queued after the
   must simulations (`read300_full.sh`; the runs keep their kept frames until then; the same readings as registered).
   hyde01 throttles concurrent ssh connections: one batched poll every 10 min, one retry after two minutes at most.
+  From 19:00 (the coordinator, ~16:00 CDT): the final algorithm (D146b + D148d) is on the critical path; D148 up to two
+  cards, D147 one, D145 the rest and at least one. `sched_d148.sh` (its 19:00 step would have restored three) was stopped
+  and replaced by `sched_1900.sh` (19:00: 300k dragons allowed again, `max_cards` stays 1); pool v5 takes a card beyond
+  `max_cards` only after 19:00 and only when that card has been free and unlocked for at least 10 minutes (first-free
+  times in `tmp/d145/free_since/`; a card no one claims for 10 minutes is one D148 / D147 have nothing queued for); B5's
+  driver keeps its "no other D145 lock" rule and may use the same idle cards. Dragon G97 (the render-gradient proof) and
+  then dragon P97 start first; both depend on the algorithm and are the paper's first version, to be redone after the
+  re-freeze.
   **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
   `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
   every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /

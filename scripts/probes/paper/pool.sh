@@ -43,16 +43,30 @@ startable() {  # MESH N REPO ARGS... -> 0 if the disk and dragon rules allow it 
   # (the one-dragon-at-a-time rule was lifted with the 200 GB limit)
   return 0
 }
-claim_card() {  # -> card id, or nothing
-  local maxc=$(cat $T/d145/max_cards 2>/dev/null || echo 3)
+claim_card() {  # -> card id, or nothing. Up to max_cards D145 locks (B5 included); beyond that only a card that has been
+  # free and unlocked for >= 10 min (the coordinator, 2026-10-14: after 19:00 D148 2 cards, D147 1, D145 the rest, at least 1;
+  # a card nobody claims for 10 min is one D148 / D147 have nothing queued for). First-free times in tmp/d145/free_since/.
+  local maxc=$(cat $T/d145/max_cards 2>/dev/null || echo 1)
   local mine=$(grep -l "^agent D145" $L/gpu*.lock/info 2>/dev/null | wc -l)
-  [ $mine -lt $maxc ] || return 1
+  local F=$T/d145/free_since now=$(date +%s); mkdir -p $F
+  for g in 0 1 2 3; do
+    if [ -e $L/gpu$g.lock ] || [ "$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -i $g)" -ge 2000 ]; then rm -f $F/gpu$g
+    else [ -e $F/gpu$g ] || echo $now > $F/gpu$g; fi
+  done
   for g in 0 1 2 3; do
     [ -e $L/gpu$g.lock ] && continue
     [ "$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -i $g)" -lt 2000 ] || continue
+    if [ $mine -ge $maxc ]; then
+      [ -e $T/d145/no_dragon ] && continue                        # no idle-card bonus inside the D148 gate window
+      [ $(( now - $(cat $F/gpu$g 2>/dev/null || echo $now) )) -ge 600 ] || continue
+    fi
     if mkdir $L/gpu$g.lock 2>/dev/null; then
-      printf "agent D145\nrun pending\npid $$\nstart $(date '+%Y-%m-%d %H:%M:%S %Z')\n" > $L/gpu$g.lock/info
-      echo $g; return 0
+      printf "agent D145
+run pending
+pid $$
+start $(date '+%Y-%m-%d %H:%M:%S %Z')
+" > $L/gpu$g.lock/info
+      rm -f $F/gpu$g; echo $g; return 0
     fi
   done
   return 1
