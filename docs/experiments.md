@@ -4640,6 +4640,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   driver keeps its "no other D145 lock" rule and may use the same idle cards. Dragon G97 (the render-gradient proof) and
   then dragon P97 start first; both depend on the algorithm and are the paper's first version, to be redone after the
   re-freeze.
+  **B5, Buonomo et al.'s six pairs done (seed 1, the authors' defaults; read 2026-10-14 by the B5 agent's end check:
+  t = 1 against the independent sample, silhouette IoU / chamfer, the sampling floor in brackets).** bunny 0.9601 /
+  0.0596 (0.9893), dragon 0.9016 / 0.0694 (0.9895), teapot 0.9163 / 0.0819 (0.9909; the morph failed: the network learned
+  a static field whose zero set holds both the sphere and the teapot at every t, |f(x,0) − f(x,1)| 0.0006 against the
+  SDFs' own difference 0.047; the losses met by ∂f/∂t = 0; kept as found), bob 0.9620 / 0.0974 (0.9919; frames of genus
+  31–44 and up to 181 components over t), armadilo 0.9353 / 0.0628 (0.9883), homer 0.9440 / 0.0717 (0.9916). Volume over t
+  against the target: bunny 0.989–1.025, dragon 0.958–1.060 (the end 8.5 % below the mesh), bob 0.894–1.043, armadilo
+  0.951–1.041, homer 0.926–1.099; most of the end's loss is the morph's boundary fit (each target's SDF alone reaches IoU
+  0.977–0.985). Morph training 44–46 min a pair (200k points, 7–8 GB), SDFs on the CPU 20–39 min each. *The
+  correspondence-free ICLR 2025 re-implementation (INSD) is deferred (my decision, 16:10 CDT):* it runs at about 2.25 steps
+  a second against Buonomo et al.'s 30, about 10 h a pair (60 card-hours for six), and would hold D145's only card
+  against the must-have runs; its bunny run (started 15:29) was stopped at about 6 %; BUO seeds 2 and 3 (about 9.5
+  card-hours) come first, on cards idle for 10 minutes after 19:00 only; INSD is reconsidered (bunny and dragon only) when
+  cards are free.
   **B2's exterior against cloud at 300k, seed 97 (PRELIMINARY, one run per arm; read 10:52 bunny, 12:55 dragon CDT;
   `d145_b2/tab_x.jsonl`).** Exterior-read render (L97, the default) against cloud-read (X97, `--no-render_exterior`),
   every measure against the independent sample, L relative to X: the yardstick's exterior silhouette −27 % (bunny) /
