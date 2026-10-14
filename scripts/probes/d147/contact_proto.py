@@ -355,8 +355,26 @@ def cross_gap(x, sl, sp):
     return float(d01.min()), float(d01.min()) / sp, int((d01 < 1.5 * sp).sum()), int((d10 < 1.5 * sp).sum())
 
 
+def interior_volume_noise(sc):
+    """The gate's node volume over the cell at nodes whose whole stencil lies inside body 0 (|x_i - c| < R - 2.5 dx):
+    its spread is the gate's noise (a node reading > 1 next to the other body's tail fires early)."""
+    nx, ny, nz = sc.nxyz
+    g = wp.zeros(sc.ngrid, dtype=float, device=sc.dev)
+    wp.launch(k_p2g_volume, dim=sc.a.n, inputs=[sc._s(sc.x, 0), sc._s(sc.J, 0), sc.vp, g, sc.gmin, 1.0 / sc.dx,
+                                                nx, ny, nz, sc.dx], device=sc.dev)
+    v = wp.to_torch(g).reshape(nx, ny, nz).double() / sc.dx ** 3
+    ii = torch.stack(torch.meshgrid(*[torch.arange(n, device=v.device) for n in (nx, ny, nz)], indexing="ij"), -1)
+    xg = torch.tensor(sc.lo, device=v.device, dtype=torch.float64) + ii.double() * sc.dx
+    inside = (xg - torch.tensor(sc.c_body[0], device=v.device)).norm(dim=-1) < sc.R - 2.5 * sc.dx
+    q = torch.quantile(v[inside], torch.tensor([0.001, 0.01, 0.5, 0.99, 0.999], device=v.device, dtype=torch.float64))
+    out = {"n": int(inside.sum()), "q": [round(float(t), 4) for t in q], "std": float(v[inside].std())}
+    print(f"[proto] interior node volume / dx^3: {out}", flush=True)
+    return out
+
+
 def run(a):
     sc = Scene(a)
+    noise = interior_volume_noise(sc)
     sp = sc.vp ** (1.0 / 3.0)
     rec, first_contact = [], None
     t0 = time.time()
@@ -400,7 +418,7 @@ def run(a):
     t_all = np.array([r["t"] for r in rec])
     M = 2 * 40000.0
     P_pred = P_all[0][None, :] + np.outer(t_all - t_all[0], [0.0, -a.g * M, 0.0])
-    summ = {"args": vars(a), "R": sc.R, "dx": sc.dx, "spacing": sp, "c": sc.c_sound, "wall_s": wall,
+    summ = {"args": vars(a), "R": sc.R, "dx": sc.dx, "spacing": sp, "c": sc.c_sound, "wall_s": wall, "vol_noise": noise,
             "first_contact": first_contact, "end": post,
             "restitution": -vrel_post / vrel_pre if vrel_pre != 0 else None,
             "P_drift_max_rel": float(np.abs(P_all - P_pred).max() / max(np.abs(P_all[0]).max(), 1e-30)) if not a.floor else None,
