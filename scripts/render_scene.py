@@ -135,6 +135,9 @@ def main():
     log = open(out / "rows.txt", "w")
     for k, (center, radius) in zip(keep, views):
         cam = StudioRaster(center, radius, 3840, 2160, AZ, EL)
+        cam.camera = center + 3.6 * radius * center.new_tensor((math.cos(math.radians(EL)) * math.sin(math.radians(AZ)),
+                                                               math.sin(math.radians(EL)),
+                                                               math.cos(math.radians(EL)) * math.cos(math.radians(AZ))))
         x = torch.as_tensor(np.asarray(frames[k], np.float32), device=dev)
         discs = [base_discs(x[s:e].contiguous(), a, field, h_lat) for s, e in rows]
         q = torch.cat([p for p, _ in discs])
