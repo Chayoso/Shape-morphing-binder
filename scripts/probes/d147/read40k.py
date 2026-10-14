@@ -102,9 +102,87 @@ def scene(runs, tag):
     print(f"  centres off their parabolas before the first contact window: {ballistic(fr, rows, dt, g, max(2, touch))}")
 
 
+def timeline(runs, tag):
+    """The selection rule's readings for one scene variant (pre-registered in docs/experiments.md, D147): the contact's
+    duration, the restitution, whether the pair parts before either body touches the floor, the landing, the tumble
+    (each body's frame turning by more than 30 degrees after its landing), the end shape error (1 - silhouette IoU,
+    mean over the bodies, each in its frame), the isolated particles (no particle of its own body within two sample
+    spacings) per window, and the pair's momentum budget before the floor."""
+    f = runs / f"{tag}.json"
+    if not f.exists():
+        return None
+    j = load(f)
+    h = j["history"]
+    z = np.load(runs / f"{tag}.npz", mmap_mode="r")
+    fr, rows, raws = z["frames"], z["rows"], (z["raws"] if "raws" in z.files else np.arange(len(z["frames"])))
+    dt, g, floor_y = j["mpm"]["dt"], -j["mpm"]["f_ext"][1], float(z["floor_y"])
+    R = j["scene"]["R"]
+    sp = (4.18879 * R ** 3 / (rows[0][1] - rows[0][0])) ** (1 / 3)
+    contact = [r for r in h if np.linalg.norm(r["contact_impulse"]) > 0]
+    t_on = contact[0]["t"] - 2 * j["config"]["T"] * dt if contact else None
+    t_off = contact[-1]["t"] if contact else None
+    land = []
+    for s, e in rows:
+        low = np.array([float(fr[k, s:e, 1].min()) for k in range(len(fr))]) - floor_y
+        hit = np.nonzero(low < sp)[0]
+        land.append(float(raws[hit[0]] * dt) if len(hit) else None)
+    first_land = min([t for t in land if t is not None], default=None)
+    parted_in_air = bool(contact) and first_land is not None and t_off <= first_land
+    pre = next((r for r in h if not np.linalg.norm(r["contact_impulse"]) > 0), h[0])
+    post = next((r for r in h if t_off is not None and r["t"] > t_off + 1e-9), h[-1])
+    c0, c1 = (np.array(b["com"]) for b in post["bodies"])
+    n = (c1 - c0) / max(np.linalg.norm(c1 - c0), 1e-12)
+    vrel_pre = np.dot(np.array(pre["bodies"][1]["v_com"]) - np.array(pre["bodies"][0]["v_com"]), n)
+    vrel_post = np.dot(np.array(post["bodies"][1]["v_com"]) - np.array(post["bodies"][0]["v_com"]), n)
+    tumble = []
+    for b, tl in enumerate(land):
+        if tl is None:
+            tumble.append(None)
+            continue
+        Rl = np.array(next(r for r in h if r["t"] >= tl)["bodies"][b]["R"]).reshape(3, 3)
+        Re = np.array(h[-1]["bodies"][b]["R"]).reshape(3, 3)
+        tumble.append(float(np.degrees(np.arccos(np.clip((np.trace(Rl.T @ Re) - 1) / 2, -1, 1)))))
+    err = float(np.mean([1.0 - m["sil_iou"] for m in j["metrics"]]))
+    rest = [np.linalg.norm(b["v_com"]) for b in h[-1]["bodies"]]
+    iso = []
+    for k in range(0, len(fr), max(1, len(fr) // 12)):
+        cnt = []
+        for s, e in rows:
+            x = np.asarray(fr[k, s:e], np.float64)
+            from scipy.spatial import cKDTree
+            d = cKDTree(x).query(x, 2)[0][:, 1]
+            cnt.append(int((d > 2 * sp).sum()))
+        iso.append((float(raws[k] * dt), cnt))
+    out = {"tag": tag, "contact_s": (t_off - t_on) if contact else 0.0, "t_contact": t_on, "t_part": t_off,
+           "restitution": float(-vrel_post / vrel_pre) if vrel_pre else None, "landing_s": land,
+           "parted_in_air": parted_in_air, "tumble_deg": tumble,
+           "tumbles": all(t is not None and t > 30.0 for t in tumble), "end_rigid_speed": rest,
+           "end_shape_error": err, "isolated": iso}
+    print(json.dumps(out))
+    return out
+
+
+def select(runs):
+    """The 300k scene's variant by the rule written before reading (D147): among those that part in the air, land and
+    tumble within the scene's length, the lower end shape error; within 0.002 (the 40k run-to-run silhouette spread),
+    the shorter contact."""
+    cand = [o for o in (timeline(runs, t) for t in ("scene40k_L", "scene40k_LB", "scene40k_LS")) if o]
+    ok = [o for o in cand if o["parted_in_air"] and all(t is not None for t in o["landing_s"]) and o["tumbles"]]
+    if not ok:
+        print("== select: no variant parts in the air, lands and tumbles: report, no choice")
+        return None
+    best = min(o["end_shape_error"] for o in ok)
+    tie = [o for o in ok if o["end_shape_error"] <= best + 0.002]
+    pick = min(tie, key=lambda o: o["contact_s"])
+    print(f"== select: {pick['tag']} (of {[o['tag'] for o in ok]} that part in the air, land and tumble; "
+          f"end shape error {pick['end_shape_error']:.4f}, contact {pick['contact_s']:.2f} s)")
+    return pick["tag"]
+
+
 if __name__ == "__main__":
     runs = Path(sys.argv[1])
     v0(runs)
     v1(runs)
-    for tag in ("scene40k_L", "scene40k_P", "scene40k_LB"):
+    for tag in ("scene40k_L", "scene40k_P", "scene40k_LB", "scene40k_LS"):
         scene(runs, tag)
+    select(runs)

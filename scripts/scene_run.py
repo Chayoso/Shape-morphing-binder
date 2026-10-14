@@ -46,12 +46,14 @@ def main():
     ap.add_argument("--render_weight_scale", type=float, default=1.0, help="0: the render-off twin")
     ap.add_argument("--windows", type=int, default=0, help="0: the scene's length")
     ap.add_argument("--save_stride", type=int, default=1, help="archive every k-th simulated frame and the last")
+    ap.add_argument("--young", type=float, default=None, help="the material's Young modulus (default: the frozen one)")
     a = ap.parse_args()
     gpu.require_cuda()
     spec = SceneSpec(**json.loads(Path(a.scene).read_text())) if a.scene else SceneSpec()
     log = lambda s: print(s, flush=True)                                          # noqa: E731
     base = run_args(["--n", str(a.n), "--src", a.src, "--tgt", a.tgt, "--seed", str(a.seed),
-                     "--render_weight_scale", str(a.render_weight_scale), "--drag", "0", "--out", a.out])
+                     "--render_weight_scale", str(a.render_weight_scale), "--drag", "0", "--out", a.out]
+                    + ([] if a.young is None else ["--young", str(a.young)]))
     bodies, srcs, vps, thins, tgts, start = [], [], [], [], [], 0
     cfg = None
     for b, seed in enumerate((a.seed, a.seed + 1000)[:spec.bodies]):   # body 1: its own samples (none of body 0's)
