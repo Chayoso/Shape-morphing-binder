@@ -5375,6 +5375,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   and arm; (5) cost: seconds an attempt reported against batch 5's W3 (6.72 s bunny, 9.65 s dragon), pass at most 1.25
   ×. If item (2) fails, the entry stops there and is reported (no iteration on anything). After today: teapot, bob,
   armadilo, homer render arms; the 40k gallery at three seeds.
+  **The coordinator's GO (11:20 CDT) with one addition, pre-registered here before any implementation or run.**
+  (a) The 40k prototype's go / no-go also reads the early rise: the 40k dragon twice, the frozen default and
+  `--gap_split` (variant A, the definition above), seed 97, render arms, with D140's lean dump of windows 1–9; the shell
+  against the bulk at windows 1–9 (`d139_shear.py`, median and p90) and the 0–1.5 s side by side (studio look,
+  `+field=zbs`); and per window, from the commit rollout, the split nodes (both sides present), the ones in the
+  separating branch, and the share of the split nodes' mass that is separating (summed over the window's steps; a
+  record the grid kernel writes, off the tape). (b) *Variant B* (`--gap_split interface`): A, but a gap node splits
+  only where the node is not inside the material: its total particle volume ΣV = Σ_p w_gp v_p J_p (D147's node volume,
+  v_p the sample's fill volume / N, J the carried volume) below one cell, ΣV < dx³, read at every step from the step's
+  positions (off the tape; on a tape one buffer a step, as D147's gate, since the generated adjoint replays the
+  branch). The same quantity as Nairn's gate, read here as "a membrane or a free edge, not the bulk". Its noise, as
+  measured: inside a body the node volume over the cell reads 0.998 in median, q01 0.942, q99 1.056, std 0.026 at
+  300k (D147 P1b, 183 particles a cell); at 40k (23 a cell) about √8 times wider. So about half of the bulk's gap
+  nodes still read below one at any step: B does not remove the bulk's split nodes, it halves them, at nodes fixed for
+  many steps (the volume moves slowly), and every bulk particle keeps unsplit nodes in its stencil that couple it
+  across the plane; a membrane (1.3–1.8 pitches thick, 0.2–0.3 cells, D140) or a gap that has begun to open reads
+  well below one and always splits; a gap node at the body's free surface reads below one and splits (both sides
+  present there is the opening gap itself); a node with ΣV ≥ dx³ that a side reaches with a thin tail stays single
+  (the tail moves with the bulk there, as in the frozen path). (c) *The rule.* If the 40k prototype shows A's windows
+  1–9 shell numbers (median or p90 at any window) outside the 40k default's spread (the two 40k default runs' range
+  widened by its width: two default runs at seed 97 on the same code, whose difference is the atomics' spread), or A
+  visibly parting the bulk before 1.5 s on the side
+  by side, B runs at 40k and is read the same way; if B passes, B goes to the 300k gate in A's place (the gate items
+  unchanged); if neither passes, the entry stops and is reported.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
