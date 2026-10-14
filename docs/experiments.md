@@ -4621,6 +4621,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Prediction: the end reaches the target mesh (it is its end frame), silhouette IoU near the sampling floor; the
   intermediate frames stay one closed surface with the volume varying by several percent and self-intersections where
   thin parts (ears, fingers) swing; dragon, teapot and bob not reachable.
+  **Operations, 2026-10-14 09:30 CDT (the coordinator: D148 to finish today).** D145 as a whole (the pool and B5) holds
+  at most one card from 13:00 to 19:00, and starts no 300k dragon from 15:00 to 19:00 (D148's 300k gate); 40k items
+  and CPU readings continue; from 19:00 the cap is three again. Implemented by `tmp/d145/sched_d148.sh` (detached:
+  `max_cards` 1 at 13:00, the flag `no_dragon` at 15:00, both lifted at 19:00, each step logged in `d145_pool.log`), the
+  pool's start check reading `no_dragon`, and B5's driver counting every "agent D145" lock. Also: B11 runs as a
+  separate agent on the CPU (no card).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from

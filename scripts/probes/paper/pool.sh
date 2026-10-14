@@ -34,12 +34,13 @@ full_dragons() {  # 300k dragon runs on the server that write the full archive
 startable() {  # MESH N REPO ARGS... -> 0 if the disk and dragon rules allow it now
   local mesh=$1 n=$2 repo=$3; shift 3
   [ "$mesh" = job ] && return 0
+  [ -e $T/d145/no_dragon ] && [ "$mesh" = dragon ] && [ "$n" -ge 300000 ] && return 1   # D148 window (coordinator)
   [ "$n" -lt 300000 ] && return 0
   local used=$USED_GB
   local mine=$(est $mesh $n $repo "$@")
   local tot=$(( used + RUN_EST + mine ))
-  [ $tot -le 48 ] || return 1
-  if [ "$mesh" = dragon ] && [ $mine -gt 2 ]; then [ "$(full_dragons)" = 0 ] || return 1; fi
+  [ $tot -le 490 ] || return 1          # the user's limit 500 GB (2026-10-14 ~09:15), headroom kept
+  # (the one-dragon-at-a-time rule was lifted with the 200 GB limit)
   return 0
 }
 claim_card() {  # -> card id, or nothing
@@ -65,7 +66,7 @@ while true; do
     D=$G/$dir; mkdir -p $D
     [ -e $D/$name.claim ] && continue
     startable $mesh $n $repo $args || continue
-    dl=0; if [ "$mesh" = dragon ] && [ "$n" -ge 300000 ] && [ "$(est $mesh $n $repo $args)" -gt 2 ]; then mkdir $G/d145_dragon.lock 2>/dev/null || continue; dl=1; fi
+    dl=0
     if mkdir $D/$name.claim 2>/dev/null; then picked="$name $mesh $n $repo $dir $ev $keep $args"; break; fi
     [ "$dl" = 1 ] && rmdir $G/d145_dragon.lock
   done < $Q
