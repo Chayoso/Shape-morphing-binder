@@ -5479,6 +5479,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   offsets spin both bodies more (both over 30°) and part in the air; the end shape error rises a little (an oblique
   contact tears at the shapes more). The split: the pair's grid share minus gravity about 0 (the contact and the
   stress keep it), the change carried by u and the minimum spacing (D102's ranking), the relaxation small.
+  **V0 with the third seed and the memory probe (read 13:07–13:18 CDT).** Three seeds (97, 99, 101), each arm read in
+  its own objective's frame: bunny silhouette IoU fixed 0.9728 / 0.9740 / 0.9733, Buckens 0.9733 / 0.9735 / 0.9735
+  (differences 0.0005, 0.0006, 0.0002 within the range 0.0013); chamfer within; thin uncovered fixed 5.9 / 5.2 / 4.6 %,
+  Buckens 3.9 / 4.7 / 4.7 % (the Buckens arm better on average; seed 97's 2.0 points outside the range 1.3, the other
+  two within). Dragon silhouette fixed 0.9752 / 0.9758 / 0.9752, Buckens 0.9738 / 0.9748 / 0.9741: the Buckens arm
+  lower by 0.0013 / 0.0010 / 0.0010 at every seed, outside the range 0.0009; chamfer and thin within (thin 6.0 / 7.1 /
+  8.7 % against 5.9 / 6.3 / 8.4 %). The frame turns 0.10° (bunny) and 0.75–0.82° (dragon). Against the letter V0
+  fails on these two items; read: the Buckens frame is a near no-op that costs the dragon's silhouette about 0.001 at
+  every seed (about the seeds' range) and is no worse, at one seed better, on the bunny's thin parts. Measured in its
+  own Buckens frame the fixed arm's dragon reads 0.9664 / 0.9700 / 0.9694 (bunny 0.9729 / 0.9737 / 0.9732): each arm is
+  best read in the frame it optimised in, and a 0.8° turn of the material frame costs 0.005–0.009 of silhouette IoU on
+  the dragon when the shape is not formed in it. The memory probe (2 × 20k, 6 windows, the garbage collector off, on
+  the 300k code): free device memory 42 639 MiB after the first window, then 40 687, 40 687, 40 681, 40 679,
+  40 679 MiB: flat (no window's trajectories kept).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
