@@ -6044,6 +6044,120 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   show in it. The predictions: the opening bead gone where covered, falsified; the opening delayed by B's gate,
   falsified (about 1.5 s); D135's foam gone, confirmed; the beads left only in the uncovered part, falsified. By the
   letter WL fails items (1) and (4) on the dragon; (2), (3), (5) pass. The bunny (WB, WBT) and WG99 to follow.
+- **D149, the minimum spacing's push made momentum-exact (`--spacing_symmetric`; pre-registered 2026-10-14 17:40 CDT
+  server clock, before any D149 run; the coordinator approved it as a definition correction inside the framework,
+  under the user's autonomy rule; branch `wip/d149` from refreeze-prep 2b0cafc; `tmp/d149/`, `output/gpu/d149/`).**
+  D145 found that about four fifths of the bunny's centre-of-mass drift is the minimum spacing's push (D70), in both
+  arms. The user requires the render arm to beat its twin on every measure at 300k, momentum included, and the paper
+  claims the physics is preserved: a position projection that breaks Newton's third law is a defect.
+  *Measured first (CPU, read-only, `tmp/d149/d149_measure.py`, `d149_cum.py`, `d149_rot.py`; the D146b base runs CBL,
+  CBL2, CBP and D145's B1 bunny runs; P = 0.708 × the median 8th-neighbour distance of the target sample, D145's pitch,
+  0.0489 wu bunny, 0.0482 wu dragon).* From the code (`kernels.k_update`, `window/setup.py`, `mpm/traj.py`,
+  `adjoints.k_update_adj`):
+  - (a) The lists are asymmetric. Each particle lists its 16 nearest at the window's start (kNN 17, self dropped).
+    7.0–8.5 % of the directed edges are one-sided: the mutual share is 0.915–0.930 at every window start read.
+  - (b) It is a Jacobi update: it reads x[t] and writes x[t+1] (no in-place race). There is no per-particle
+    normalisation: each listed pair adds (r − L) d / L, scaled by a fixed 0.5 / T. A pair listed both ways therefore
+    moves its two particles by bitwise-opposite amounts: d is antisymmetric, and L and r = ½(r_p + r_q) are symmetric.
+  - (c) The masses are equal. The dynamics mass is one float, 40000 / N, for every particle, so the equal split is
+    already the mass-weighted split.
+  - (d) The push is in the tape with a hand adjoint (`k_update_adj`); the lists and r are constants of the tape.
+  - (e) It acts in every step of the window, driven and released (2T steps), at the rate 1/T.
+  - (f) The lists are refreshed at each window's start only. They are then frozen for every line-search candidate,
+    the adjoint, the commit replay and the record.
+
+  Read on CBL's kept window starts, with the lists rebuilt as setup.py does (cKDTree in place of the device tree) and
+  r = 0.9 × the source's (V/N)^(1/3):
+  - At a window's start every overlapping pair (L < r) is mutual. Window 1 has 677 540 overlapping directed edges,
+    2.26 a particle, none one-sided.
+  - Inside the window, pairs that only one side lists move into overlap: 16 by step 12 of window 1, 117 by steps
+    24–36. That is 0.02 % of the overlaps, but each moves one particle only.
+  - One step's net, from the mutual edges, is 1e-19 P (zero in float64). From the one-sided edges it is 7e-8 to 8e-7
+    P, against the record's per-step mean of 6.1e-7 P in window 1.
+  - The overlaps fall to 0.12 a particle by window 10 and to almost none late. So 99 % of the push's net drift is in
+    place by window 4–6 in all nine bunny 300k runs (window 1 alone: 2.7e-5 P).
+  - It is systematic, not a random walk: the push's net over its path is 0.67–0.75.
+
+  Net over the committed windows (the record's vectors summed, in P):
+
+  | run | push | grid | relaxation | body | push share of body |
+  |---|---|---|---|---|---|
+  | CBL | 1.12e-4 | 3.4e-5 | 5e-7 | 1.30e-4 | +0.84 |
+  | CBL2 | 1.10e-4 | 3.5e-5 | 3e-7 | 1.32e-4 | +0.81 |
+  | CBP | 1.06e-4 | 4.3e-5 | 5e-7 | 1.33e-4 | +0.76 |
+
+  On this base the render arm's record total is not behind its twin's. The push's net rotation is 6–8e-5°, against
+  the body's 8.0–8.3e-3°: the grid carries the rotation. The dragon (CDL, CDL2, CDP) differs: push 4.2–4.8e-5 P,
+  reached by window 9–27, but grid 1.37–1.54e-4 P over 155–176 windows. There the grid's floor is three quarters of
+  the drift.
+  So the centroid breaks through (a) alone, exposed by (f): pairs that only one side lists at the start come into
+  overlap during the window. (b), (c), (d) and (e) do not break it.
+  *The change (`config.spacing_symmetric`, `--spacing_symmetric`, default off = the frozen path bit for bit).* The
+  neighbour relation becomes the symmetric closure of the window start's 16 nearest: q is in p's row iff q is among
+  p's 16 nearest or p is among q's. Rows are padded with p's own index to the widest row; the kernel and its adjoint
+  already skip a pair at L = 0, so the kernel is unchanged. Each unordered pair then sits in both rows, and its two
+  terms are computed from the same x[t] and are bitwise opposite. With equal masses, Σ m Δx = 0 and Σ m x × Δx = 0
+  (central and opposite) in every step in exact arithmetic; what remains is the rounding of each particle's own sum.
+  The reach (the 16 nearest at the window's start, r = 0.9 pitch, the pair's mean) and the strength (each particle
+  moves half the overlap over one window, every step at 1/T) are unchanged. Only the about 0.02 % of overlapping
+  pairs that were one-sided now act on both particles. No constant, weight or schedule. The adjoint is
+  `k_update_adj` on the same list, exact as before. The closure's degree is 17.1–17.4 on average, p99 21–22, max
+  26–28, so the push loop runs to about 28 instead of 16. If the 40k check measures the push kernel's own time as a
+  visible share of a window, the rows are sorted with the padding last and the loop stops at the first pad (a kernel
+  change that the default lists, which never hold p, cannot reach), under the same tests. The record's spacing part
+  reads the same lists, so it measures the change directly.
+  *Tests (`tests/test_spacing_symmetric.py`, on hyde06).*
+  - (1) The closure is symmetric, contains every original edge, holds no self edge but the padding, and its width is
+    the largest degree.
+  - (2) On a random cloud whose lists are taken before a compression, one step's Σ m Δx and Σ m x × Δx of the push:
+    - with the closure, at the float32 floor relative to Σ m |Δx| (≤ 1e-6);
+    - with the 16-nearest lists, far from it (the test must tell them apart).
+  - (3) The adjoint against central finite differences in float64 of a scalar of x[T] through a Trajectory with the
+    closure, against x0 and dFc.
+  - (4) With the switch off, the lists and the rollout are those of the frozen path bit for bit; also
+    `tests/test_frozen_recipe.py` and the whole suite (exit status 0).
+  *Runs (the D146b base: refreeze-prep + the switch + `--relax_driven --u_adam_carry`, seed 97; `repo_d149` on hyde06,
+  one run a card through the lock directory).*
+  - 40k bunny check: the render arm off ×2 (the replay spread) and on ×2, the twin off and on ×1. Also a timing of the
+    push kernel alone at 40k and 300k (16-nearest against closure lists, the kernel's own time per step).
+  - Then 300k bunny: render arm SL and twin SP (`--render_weight_scale 0`), each with the end evaluation (t3end /
+    e3end), the apart particles (`d120_apart.py`) and momentum on every kept frame (`momentum_probe.py`). The same
+    readings are taken on CBL, CBL2 and CBP where they do not exist yet.
+  - The dragon 300k pair (DL / DP against CDL, CDL2 / CDP) if cards allow.
+
+  *Gate (pre-registered):*
+  - (i) The push's net translation over the run, from the record's summed `spacing_vcom`, is ≤ 1e-6 P in both arms:
+    at least 100× below the base's 1.06–1.12e-4, and at least 10× is the claim. Its net rotation (`spacing_vrot`) is
+    reported against the base's 6–8e-5°. It need not vanish: the record takes r about the window's starting centre
+    of mass, so the in-window motion leaves a second-order part.
+  - (ii) The total centre-of-mass displacement: the record's body net, and the momentum probe's largest
+    displacement over the kept frames (read from its full-precision rows). The render arm is not behind its twin
+    beyond the spread. The spread is the grid part's range over the nine bunny runs read here, 3.1–4.9e-5 P, so
+    SL ≤ SP + 1.8e-5 P. The angular net / gross and the net rotation are reported beside.
+  - (iii) The end and the run: silhouette IoU, chamfer, thin uncovered, at rest (the last kinetic record) and apart
+    particles (windows 3–10, max).
+    - Pass: within D146's end limits, the same as D146b's item (3). Bunny: IoU ≥ 0.9871, chamfer ≤ 0.0552,
+      thin ≤ 5.2 %, kin ≤ 1.53e-5. Dragon: 0.9853, 0.0546, 5.5 %, 3.3e-5.
+    - Also read against the base's replay band: SL against CBL / CBL2, widened by their width; SP against CBP widened
+      by the same width. The apart count is read against the same band. By D146's attribution rule a miss of this
+      band counts against the change only if it repeats in a second run.
+    - The render lead holds: SL's yardstick exterior silhouette and display front 1 − IoU are below SP's.
+  - (iv) The cost: seconds an attempt ≤ 1.05 × the base's (bunny CBL / CBL2 7.13–7.21 s, so ≤ 7.57 s; dragon
+    9.83–9.95 s, so ≤ 10.45 s). The push kernel's own time is reported per step and as a share of a window.
+  - 40k check: (i) holds and the push's net is ≥ 10× below the off arms'; the on arms' silhouette IoU, chamfer, thin,
+    kin and windows fall within the off arms' two-run range widened by its width.
+
+  *Prediction.* Bunny:
+  - The push's net falls to 1e-10 to 1e-9 P (float32 rounding of the per-particle sums).
+  - The body's net falls to the grid's floor plus the relaxation, about 3–5e-5 P, in both arms. That is −60 to −75 %
+    against the base.
+  - The run is otherwise the base run inside its replay spread, since 0.02 % of the pairs change.
+  - The angular measures barely move, because the grid carries them.
+  - The cost rises by under 1 % (the push loop is a small part of k_update, and k_update a small part of a step).
+
+  Dragon: the push's net is removed too, but the body's net falls only about 25 % (the grid's 1.4–1.5e-4 P stays).
+  The dragon's centre of mass will still drift at the float32 floor of P2G/G2P, a separate part, reported as found.
+  Adoption into the re-freeze is decided after the gate, not here.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
