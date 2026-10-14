@@ -4720,6 +4720,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   vanish), and the render arm's excess (1.5–4e-5 pitches) is in that push too, not in dFc (whose only part is the grid's
   floor, equal in both) and not in u. Recorded as found; a change of the minimum spacing's definition would be the
   user's decision after the experiments.
+  **B2, bunny 300k, exterior against cloud over three seeds (read 18:00 CDT; `d145_b2/tab_xband.jsonl`).** L (exterior,
+  the default) relative to X (`--no-render_exterior`), against the independent sample: apart, the exterior ahead —
+  yardstick exterior silhouette −24 % (7.6–8.0e-4 against 9.9e-4–1.26e-3), shading −14 %, display front −16 %, back
+  −16 %, front image difference −9 %; apart, the cloud ahead — thin uncovered 4.6–4.8 % against 4.1–4.5 %; overlapping —
+  the crop (−5 %), own-sample silhouette IoU (0.9877–0.9891 against 0.9891–0.9897), chamfer, the yardstick's particle
+  silhouette (5.0–7.8e-4 against 4.6–5.1e-4), at rest, the centre of mass, rotation, windows, minutes. λ at the first
+  window 0.34–0.37 against 0.49–0.51. The seed-97 reading stands on three seeds: each read is ahead on what it optimises;
+  the exterior read on the display surface and the exterior yardstick, the cloud read on thin coverage; the dragon's
+  seeds follow after 19:00.
   **B7, the render gradient's proof, bunny (read 2026-10-14 14:50–15:20 CDT; the user: "랜더 Gradient가 어디서 어떻게
   영향을 미치는지도 proof 해야 할 거 같아", top priority by the coordinator; the dragon reach run promoted to must and
   queued for 19:00).** Data: the hooked run G97 (repo_d145g, bunny 300k seed 97; dumps at windows 1, 2, 3, 5, 10, 20, 40,
