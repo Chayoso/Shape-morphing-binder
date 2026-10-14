@@ -219,7 +219,7 @@ def test_a_window_with_the_closure_has_an_exact_adjoint(dev):
     # the push acts in this window: without the spacing the same controls end elsewhere
     free, *_ = _window(dev, None)
     off = warp_mpm_ext(_expand(dc.detach()), free, u_t=u.detach())
-    assert float((off[0] - got[0]).abs().max()) > 1e-4
+    assert float((off[0] - got[0].detach()).abs().max()) > 1e-4
     for i, gi in enumerate(g):
         assert torch.isfinite(gi).all() and float(gi.abs().max()) > 0
         d = -gi / gi.norm()
