@@ -141,6 +141,9 @@ class PipelineConfig:
                                     #   "on" (variant A) at every gap node, "interface" (variant B) where the node's particle
                                     #   volume is below one cell; "off" = the single field (the frozen path)
     gap_vp: float = 0.0             # variant B: the volume per particle (the sample's fill volume / N), set by the run script
+    u_adam_carry: bool = False      # D146b A/B: u's Adam moments carry from one committed window to the next (u itself still
+                                    #   starts at zero), each coordinate's bias correction counting its own age; reset on an
+                                    #   outer reject; dFc's stay per window; off = fresh moments every window (the frozen path)
     coh_k: int = 8                  # material bond neighbours (source kNN)
 
     # ---- outer acceptance ----

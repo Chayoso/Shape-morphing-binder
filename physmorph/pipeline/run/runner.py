@@ -201,6 +201,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             balancer.lam = rollback["lam"]
             dfc_prev = Fp_pre = None
             tgt.settled_step = None
+            tgt.u_adam = None                       # D146b: u's carried moments go with the rejected lineage
             frames.truncate(rollback["frames"])
             guards = rollback["guards"]
             rec.update({"null_commit": 1, "outer_rejected": 1, "brake_reject": int(brake_reject)})

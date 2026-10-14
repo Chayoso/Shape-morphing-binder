@@ -77,6 +77,10 @@ def parse_args(argv=None):
                     help="D148 A/B: the two sides of a target gap on their own grid fields (mpm/gap_kernels.py); on = at "
                          "every gap node (variant A), interface = where the node's particle volume is below one cell "
                          "(variant B); off (the default) = the single field, the frozen path")
+    ap.add_argument("--u_adam_carry", action=argparse.BooleanOptionalAction, default=False,
+                    help="D146b A/B: u's Adam moments carry from one committed window to the next (u still starts at zero; "
+                         "each coordinate's bias correction counts its own age; reset on an outer reject); off (the "
+                         "default) = fresh moments every window, the frozen path")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
@@ -234,6 +238,7 @@ def run_config(args, cfg0, prep):
                               gap_split=args.gap_split,
                               gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
                                       if args.gap_split == "interface" else 0.0),
+                              u_adam_carry=args.u_adam_carry,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,
