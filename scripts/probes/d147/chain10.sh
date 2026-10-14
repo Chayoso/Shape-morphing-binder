@@ -1,7 +1,7 @@
 #!/bin/bash
 # D147 chain 10: the 300k scene (2 x 150k) from 19:00 on the leak-fixed code: the picked variant (seed 97, render on),
 # its render-off twin and seed 99, side by side as cards come free (D148 first, job.sh), then the 4K render of the
-# seed-97 run and the readings (timeline, angular momentum's split).
+# seed-97 run (every kept frame: the archive keeps every 12th) and the readings (timeline, split, progress).
 #   bash scripts/probes/d147/chain10.sh REPO SPEC        (SPEC: a file name in specs/ without .json, e.g. scene_long)
 REPO=$1; SPEC=$2
 O=/data/relcfd/chayo/physmorph_v2/output/gpu/d147
@@ -33,8 +33,8 @@ claim_and_run P300_twin "$(run 97 ${B}_s97_off '--render_weight_scale 0')" &
 sleep 90
 claim_and_run P300_s99 "$(run 99 ${B}_s99)" &
 wait
-claim_and_run RENDER300 "bash $S/render_scene_job.sh $R ${B}_s97"
+claim_and_run RENDER300 "\$PY $S/progress.py $R ${B}_s97,${B}_s97_off,${B}_s99 > $R/progress_300k_$SPEC.txt 2>&1; bash $S/render_scene_job.sh $R ${B}_s97 +stride=1"
 export PHYSMORPH_RUN_REPO=$REPO PHYSMORPH_OUT=$O
 ( source $REPO/scripts/ops/hyde06_env.sh >/dev/null 2>&1; export CUDA_VISIBLE_DEVICES=""
-  nice $PY $S/read40k.py $R ${B}_s97,${B}_s97_off,${B}_s99 > $R/read_300k.txt 2>&1 )
-log "chain10 end (read_300k.txt)"
+  nice $PY $S/read40k.py $R ${B}_s97,${B}_s97_off,${B}_s99 > $R/read_300k_$SPEC.txt 2>&1 )
+log "chain10 end (read_300k_$SPEC.txt, progress_300k_$SPEC.txt)"
