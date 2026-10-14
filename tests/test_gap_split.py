@@ -1,15 +1,17 @@
-"""D148: the two sides of a target gap on their own grid fields (`--gap_split`; mpm/gap_split.py, mpm/gap_kernels.py).
+"""D148: the two sides of a target gap on their own grid fields (`--gap_split`; mpm/gap_split.py, gap_kernels.py, gap_g2p.py, gap_step.py).
 
 (1) The target's gap nodes: two slabs a narrow gap apart give gap nodes in the gap, outside the target, with the plane
     across it; one slab gives none.
 (2) No split away from gaps: with no gap node, or gap nodes every particle is on one side of, the split step is the
     single field's, bit for bit on the CPU (the forward) and to rounding (the gradients).
-(3) The hand adjoint of the split G2P equals Warp's generated one (sides mixed).
+(3) The hand adjoints of the side-1 deposit and the split G2P equal Warp's generated ones (sides mixed; hard and soft).
 (4) Two slabs of one body pulled apart separate cleanly with the split and stay coupled on the single field; the
     momentum is kept.
 (5) The sides from the transport on a synthetic gap: a block filling a target's gap sends each half to its own slab.
 (6) The tape through a split matches central differences.
 (7) Variant B: below one cell everywhere it is A, at or above one cell everywhere it is the single field.
+(8) The split G2P's adjoint in cell order equals the per-particle one (hard and soft).
+(9) Soft sides (D148c) at a vanishing blur are the hard ones.
 """
 from __future__ import annotations
 
@@ -75,11 +77,14 @@ def test_no_split_away_from_gaps_is_the_single_field(case):
         torch.testing.assert_close(b, a, rtol=1e-6, atol=1e-7 * float(a.abs().max()))
 
 
-def test_split_g2p_hand_adjoint_is_the_generated_one(monkeypatch):
+@pytest.mark.parametrize("sig", [0.0, 0.1])
+def test_split_hand_adjoints_are_the_generated_ones(monkeypatch, sig):
+    """The side-1 deposit's and the split G2P's hand adjoints (hard sides; soft sides at sig 0.1, D148c) against
+    Warp's generated ones: the forward bit for bit, the gradients to rounding."""
     import physmorph.mpm.traj as TR
     spec, dc, u = _window_case("cpu")
     pm, pn = _planes(spec.prm, (0, 0, 0), (0, 1.0, 0))               # sides by the sign of y: mixed in every stencil
-    spec = dataclasses.replace(spec, track_geom=False, gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0))
+    spec = dataclasses.replace(spec, track_geom=False, gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0, sig))
     monkeypatch.setattr(TR, "HAND_ADJOINTS", False)
     gen = _tape_outputs(spec, dc, u)
     monkeypatch.setattr(TR, "HAND_ADJOINTS", True)
@@ -91,7 +96,7 @@ def test_split_g2p_hand_adjoint_is_the_generated_one(monkeypatch):
         assert float(a.abs().max()) > 0
 
 
-def _two_slab_body(dev, T, split: bool, vp=0.0, speed=1.0):
+def _two_slab_body(dev, T, split: bool, vp=0.0, speed=1.0, sig=0.0):
     """One body: two slabs touching at y = 0 (a block), the upper half moving up, the lower down."""
     dx, h = 0.5, 0.125
     prm = MPMParams(dx=dx, dt=1.0 / 240.0, drag=0.0, smoothing=0.955, grid_min=(-4.0,) * 3, nx=16, ny=16, nz=16)
@@ -106,7 +111,7 @@ def _two_slab_body(dev, T, split: bool, vp=0.0, speed=1.0):
     gap = None
     if split:
         pm, pn = _planes(prm, (0, 0, 0), (0, 1.0, 0))
-        gap = (pm, pn, x + v0, vp)                                    # the side point: where each half is going
+        gap = (pm, pn, x + v0, vp, sig)                               # the side point: where each half is going
     return RolloutSpec(x0=x, m=1.0, lam=4.0e4, mu=2.0e4, prm=prm, T=T, v0=v0, device=dev, vol0=vol0,
                        polar_adjoint=True, track_geom=False, volume_exact="carried", gap=gap), up
 
@@ -183,11 +188,12 @@ def test_sides_from_the_transport_on_a_synthetic_gap():
         assert c.min() == 0 or c.min() > 1
 
 
-def test_split_tape_matches_finite_differences():
+@pytest.mark.parametrize("sig", [0.0, 0.2])
+def test_split_tape_matches_finite_differences(sig):
     if not torch.cuda.is_available():
         pytest.skip("no CUDA")
     T = 16
-    spec, _ = _two_slab_body("cuda", T, True, speed=0.3)
+    spec, _ = _two_slab_body("cuda", T, True, speed=0.3, sig=sig)
     adj = PersistentAdjoint(spec)
     N = spec.x0.shape[0]
     D = torch.randn(T, N, 3, 3, generator=torch.Generator().manual_seed(5)).cuda() * 0.01
@@ -208,15 +214,16 @@ def test_split_tape_matches_finite_differences():
     assert abs(an - fd) <= 0.05 * abs(fd) + 1e-6, (an, fd)
 
 
-def test_split_g2p_adjoint_in_cell_order_is_the_plain_one(monkeypatch):
+@pytest.mark.parametrize("sig", [0.0, 0.1])
+def test_split_g2p_adjoint_in_cell_order_is_the_plain_one(monkeypatch, sig):
     """(8) The split G2P's adjoint in the trajectory's cell order (CUDA, lanes summing per field) gives the per-particle
     adjoint's gradients to float rounding (the order of the grid's sums only)."""
     if not torch.cuda.is_available():
         pytest.skip("no CUDA")
-    import physmorph.mpm.gap_kernels as GK
+    import physmorph.mpm.gap_step as GK
     spec, dc, u = _window_case("cuda")
     pm, pn = _planes(spec.prm, (0, 0, 0), (0, 1.0, 0))
-    spec = dataclasses.replace(spec, track_geom=False, gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0))
+    spec = dataclasses.replace(spec, track_geom=False, gap=(pm, pn, np.asarray(spec.x0, np.float32), 0.0, sig))
     monkeypatch.setattr(GK, "WARP_ADJOINT", False)
     plain = _tape_outputs(spec, dc, u)
     monkeypatch.setattr(GK, "WARP_ADJOINT", True)
@@ -226,3 +233,17 @@ def test_split_g2p_adjoint_in_cell_order_is_the_plain_one(monkeypatch):
     for a, b in zip(plain[4:], warp[4:]):
         torch.testing.assert_close(b, a, rtol=1e-4, atol=1e-5 * float(a.abs().max()))
         assert float(a.abs().max()) > 0
+
+
+def test_soft_sides_with_a_vanishing_blur_are_the_hard_ones():
+    """(9) D148c's soft shares at a blur far below the particles' distances to the planes are the hard sides, bit for
+    bit on the CPU (the blend s v1 + (1 - s) v0 and the weighted deposits reduce to the hard selection)."""
+    spec, dc, u = _window_case("cpu")
+    pm, pn = _planes(spec.prm, (0, 0, 0), (0, 1.0, 0))
+    q = np.asarray(spec.x0, np.float32)
+    hard = _tape_outputs(dataclasses.replace(spec, track_geom=False, gap=(pm, pn, q, 0.0, 0.0)), dc, u)
+    soft = _tape_outputs(dataclasses.replace(spec, track_geom=False, gap=(pm, pn, q, 0.0, 1e-12)), dc, u)
+    for a, b in zip(hard[:4], soft[:4]):
+        assert torch.equal(a, b)
+    for a, b in zip(hard[4:], soft[4:]):
+        torch.testing.assert_close(b, a, rtol=1e-6, atol=1e-7 * float(a.abs().max()))

@@ -75,7 +75,10 @@ class Window:
         # D148 (gap_split): the target's gap planes; the sides' points are set by the objective at the window start
         gap = None
         if cfg.gap_split != "off":
-            gap = (tgt.gap[0], tgt.gap[1], None, cfg.gap_vp if cfg.gap_split == "interface" else 0.0)
+            # D148c (soft): the share of side 1 = Phi(signed distance / sig), sig^2 = eps / 2 of the side point's plan
+            # (the gate grid's, eps = its cell squared)
+            sig = float(tgt.gate[1]) / 2.0 ** 0.5 if cfg.gap_split == "soft" else 0.0
+            gap = (tgt.gap[0], tgt.gap[1], None, cfg.gap_vp if cfg.gap_split == "interface" else 0.0, sig)
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,

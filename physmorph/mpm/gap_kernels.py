@@ -1,36 +1,49 @@
-"""The two sides of a target gap on their own grid fields (D148, `--gap_split`): the kernels of a split step.
+"""The two sides of a target gap on their own grid fields (D148, `--gap_split`): the deposit and grid kernels of a split
+step (the G2P kernels in gap_g2p.py, the step's Python in gap_step.py).
 
 The frozen P2G still deposits every particle into the total field (mass m, momentum p). At a gap node (gap_split.py:
 a node outside the target whose kernel box holds two pieces of it; plane point m_g, unit normal n_g, n_g = 0 elsewhere)
-a particle's side is the side of the plane its window-start transport image q_p lies on (q_p frozen for the window).
-k_p2g_side1 deposits each particle's side-1 part at gap nodes into a second field (m1, p1); side 0 is the total minus
-side 1. k_grid_op_gap: at a node with both sides (and, in variant B, a particle volume below one cell) the sides'
-post-force velocities v0 = (p - p1) / (m - m1) + dt f, v1 = p1 / m1 + dt f; approaching, (v0 - v1) . n_g > 0, both take
-the total field's velocity p / m + dt f (the single field's, so a pressed interface carries what the bulk carries);
-separating, each keeps its own (free separation, Bardenhagen et al. 2000). Every other node is kernels.k_grid_op's
-arithmetic on the total field. k_g2p_gap gathers a particle's velocity and affine field from its side's field at gap
-nodes and from the total elsewhere (kernels.k_g2p's arithmetic); k_g2p_adj_gap is its hand adjoint (adjoints.k_g2p_adj
-with the same selection). The sides and the planes are constants of the window's tape.
+a particle's share of side 1 is s = 1 when its window-start transport image q_p lies on the plane's positive side and
+0 otherwise (sig = 0, the hard sides of D148 / D148b); with sig > 0 (D148c, soft sides) s = Phi((q_p - m_g) . n_g /
+sig), the plan's mass beyond the plane under its own Gaussian blur (sig^2 = eps / 2 of the plan's kernel exp(-|x-y|^2 /
+eps)). k_p2g_side1 deposits s times each particle's deposit at gap nodes into a second field (m1, p1); side 0 is the
+total minus side 1. k_grid_op_gap: at a node with both sides (and, in variant B, a particle volume below one cell) the
+sides' post-force velocities v0 = (p - p1) / (m - m1) + dt f, v1 = p1 / m1 + dt f; approaching, (v0 - v1) . n_g > 0,
+both take the total field's velocity p / m + dt f (the single field's); separating, each keeps its own (free
+separation, Bardenhagen et al. 2000). Every other node is kernels.k_grid_op's arithmetic on the total field. The
+sides, the planes and `near` (1 where a gap node lies in the stencil of a particle whose base node this is: the
+particles without one skip the split's kernels) are constants of the window's tape. k_p2g_side1_adj is the deposit's
+hand adjoint (adjoints.k_p2g_adj's arithmetic, weighted by s).
 """
 from __future__ import annotations
 
 import warp as wp
 
 from .adjoints import _weight_and_grad
-from .constitutive import bspline_w, weight
-from .kernels import WARP_LANES, _warp_sum3, base_node, bond_velocity, cell_key, gid, valid_pos
-
-WARP_ADJOINT = True      # the split G2P's adjoint in cell order on CUDA (tests switch it to compare with the plain one)
+from .constitutive import weight
+from .kernels import base_node, bond_velocity, gid, valid_pos
 
 
 @wp.func
-def gap_side(q: wp.vec3, pm: wp.vec3, pn: wp.vec3) -> int:
-    """1 when the node is a gap node and q lies on its plane's positive side, else 0."""
+def gap_weight(q: wp.vec3, pm: wp.vec3, pn: wp.vec3, sig: float) -> float:
+    """The particle's share of side 1 at a node: 0 off the gap nodes; hard (sig = 0) the plane's side of q; soft
+    (sig > 0) the normal CDF of q's signed distance to the plane over sig."""
     if pn[0] == 0.0 and pn[1] == 0.0 and pn[2] == 0.0:
-        return 0
-    if wp.dot(q - pm, pn) > 0.0:
-        return 1
-    return 0
+        return 0.0
+    d = wp.dot(q - pm, pn)
+    if sig > 0.0:
+        return 0.5 * (1.0 + wp.erf(d / (sig * 1.4142135623730951)))
+    if d > 0.0:
+        return 1.0
+    return 0.0
+
+
+@wp.func
+def near_gap(b: wp.vec3i, near: wp.array(dtype=int), nx: int, ny: int, nz: int) -> int:
+    """1 when a gap node may lie in the stencil of base node b (outside the node range: 1, the kernels then look)."""
+    if b[0] >= 0 and b[0] < nx and b[1] >= 0 and b[1] < ny and b[2] >= 0 and b[2] < nz:
+        return near[gid(b[0], b[1], b[2], ny, nz)]
+    return 1
 
 
 @wp.kernel
@@ -40,28 +53,19 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 m: wp.array(dtype=float), vol: wp.array(dtype=float),
                 nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
                 q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
+                near: wp.array(dtype=int), sig: float,
                 grid_m1: wp.array(dtype=float), grid_v1: wp.array(dtype=wp.vec3),
                 gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
                 nx: int, ny: int, nz: int):
-    """kernels.k_p2g's deposit, at the gap nodes where the particle is on side 1 only."""
+    """kernels.k_p2g's deposit times the particle's share of side 1, at the gap nodes."""
     p = wp.tid()
     xp = x[p]
     if not valid_pos(xp):
         return
     b = base_node(xp, gmin, inv_dx)
-    qp = q[p]
-    any1 = int(0)
-    for oi in range(4):
-        for oj in range(4):
-            for ok in range(4):
-                i = b[0] + oi
-                j = b[1] + oj
-                k = b[2] + ok
-                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
-                    g = gid(i, j, k, ny, nz)
-                    any1 = any1 + gap_side(qp, plane_m[g], plane_n[g])
-    if any1 == 0:
+    if near_gap(b, near, nx, ny, nz) == 0:
         return
+    qp = q[p]
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
     G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form (k_p2g's)
@@ -77,12 +81,87 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 k = b[2] + ok
                 if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
                     g = gid(i, j, k, ny, nz)
-                    if gap_side(qp, plane_m[g], plane_n[g]) == 1:
+                    s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                    if s > 0.0:
                         xg = gmin + wp.vec3(float(i), float(j), float(k)) * dx
                         dgp = xg - xp
                         w = weight(dgp, inv_dx)
-                        wp.atomic_add(grid_m1, g, w * m[p])
-                        wp.atomic_add(grid_v1, g, w * (mv + G @ dgp))
+                        wp.atomic_add(grid_m1, g, s * (w * m[p]))
+                        wp.atomic_add(grid_v1, g, s * (w * (mv + G @ dgp)))
+
+
+@wp.kernel(enable_backward=False)
+def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
+                    C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
+                    dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
+                    m: wp.array(dtype=float), vol: wp.array(dtype=float),
+                    nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
+                    q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
+                    near: wp.array(dtype=int), sig: float,
+                    gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, nx: int, ny: int, nz: int,
+                    adj_gm1: wp.array(dtype=float), adj_gv1: wp.array(dtype=wp.vec3),
+                    adj_x: wp.array(dtype=wp.vec3), adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
+                    adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33), has_adj_dFc: int,
+                    adj_P: wp.array(dtype=wp.mat33)):
+    """The adjoint of k_p2g_side1 (adjoints.k_p2g_adj with each node's term times the share s, a constant of the tape);
+    m, vol, the bonds, the fragment flags, the sides and the planes are constants of the tape."""
+    p = wp.tid()
+    xp = x[p]
+    if not valid_pos(xp):
+        return
+    b = base_node(xp, gmin, inv_dx)
+    if near_gap(b, near, nx, ny, nz) == 0:
+        return
+    qp = q[p]
+    Feff = F[p] + dFc[p]
+    C0 = 3.0 * inv_dx * inv_dx
+    sc = -C0 * dt * vol[p]
+    G = sc * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]
+    frag_p = bond_K > 0 and frag[p] > 0.5
+    vp = v[p]
+    if frag_p:
+        vs = wp.vec3(0.0, 0.0, 0.0)
+        for a in range(bond_K):
+            vs = vs + v[nbr[p * bond_K + a]]
+        vp = vs / float(bond_K)
+    mp = m[p]
+    damp = 1.0 - dt * drag
+    mv = mp * vp * damp
+    a_mv = wp.vec3(0.0, 0.0, 0.0)
+    a_G = wp.mat33(0.0)
+    a_xp = wp.vec3(0.0, 0.0, 0.0)
+    GT = wp.transpose(G)
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                i = b[0] + oi
+                j = b[1] + oj
+                k = b[2] + ok
+                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                    g = gid(i, j, k, ny, nz)
+                    s = gap_weight(qp, plane_m[g], plane_n[g], sig)
+                    if s > 0.0:
+                        dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
+                        w, dw = _weight_and_grad(dgp, inv_dx)
+                        agv = s * adj_gv1[g]
+                        a_w = (s * adj_gm1[g]) * mp + wp.dot(agv, mv + G @ dgp)
+                        a_mv = a_mv + w * agv
+                        a_G = a_G + w * wp.outer(agv, dgp)
+                        a_xp = a_xp - (w * (GT @ agv) + a_w * dw)
+    adj_x[p] = adj_x[p] + a_xp
+    a_vp = (mp * damp) * a_mv
+    if frag_p:
+        a_vs = a_vp / float(bond_K)
+        for a in range(bond_K):
+            wp.atomic_add(adj_v, nbr[p * bond_K + a], a_vs)
+    else:
+        wp.atomic_add(adj_v, p, a_vp)
+    adj_C[p] = adj_C[p] + mp * a_G
+    adj_P[p] = adj_P[p] + sc * (a_G @ Feff)
+    a_Feff = sc * (wp.transpose(a_G) @ P[p])
+    adj_F[p] = adj_F[p] + a_Feff
+    if has_adj_dFc != 0:
+        adj_dFc[p] = adj_dFc[p] + a_Feff
 
 
 @wp.func
@@ -158,292 +237,3 @@ def k_grid_op_gap(grid_m: wp.array(dtype=float), grid_mom: wp.array(dtype=wp.vec
     else:
         grid_vel[g] = wp.vec3(0.0, 0.0, 0.0)
         grid_vel1[g] = wp.vec3(0.0, 0.0, 0.0)
-
-
-@wp.kernel
-def k_g2p_gap(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
-              C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
-              dFc: wp.array(dtype=wp.mat33), F_new: wp.array(dtype=wp.mat33),
-              grid_v: wp.array(dtype=wp.vec3), grid_v1: wp.array(dtype=wp.vec3),
-              q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-              gmin: wp.vec3, dx: float, inv_dx: float, dt: float,
-              nx: int, ny: int, nz: int):
-    """kernels.k_g2p, each node's velocity from the particle's side's field."""
-    p = wp.tid()
-    xp = x[p]
-    if not valid_pos(xp):
-        return
-    qp = q[p]
-    vnew = wp.vec3(0.0, 0.0, 0.0)
-    Cnew = wp.mat33(0.0)
-    C0 = 3.0 * inv_dx * inv_dx
-    b = base_node(xp, gmin, inv_dx)
-    for oi in range(4):
-        for oj in range(4):
-            for ok in range(4):
-                i = b[0] + oi
-                j = b[1] + oj
-                k = b[2] + ok
-                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
-                    xg = gmin + wp.vec3(float(i), float(j), float(k)) * dx
-                    dgp = xg - xp
-                    w = weight(dgp, inv_dx)
-                    g = gid(i, j, k, ny, nz)
-                    vg = grid_v[g]
-                    if gap_side(qp, plane_m[g], plane_n[g]) == 1:
-                        vg = grid_v1[g]
-                    vnew = vnew + w * vg
-                    Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
-    v[p] = vnew
-    C[p] = Cnew
-    F_new[p] = (wp.identity(n=3, dtype=float) + dt * Cnew) @ (F[p] + dFc[p])
-
-
-@wp.kernel(enable_backward=False)
-def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
-                  grid_v: wp.array(dtype=wp.vec3), grid_v1: wp.array(dtype=wp.vec3),
-                  q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-                  gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
-                  adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33), adj_Fnew: wp.array(dtype=wp.mat33),
-                  adj_x: wp.array(dtype=wp.vec3), adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33),
-                  has_adj_dFc: int, adj_grid_v: wp.array(dtype=wp.vec3), adj_grid_v1: wp.array(dtype=wp.vec3)):
-    """The adjoint of k_g2p_gap (adjoints.k_g2p_adj with the side's field at each node)."""
-    p = wp.tid()
-    xp = x[p]
-    if not valid_pos(xp):
-        return
-    qp = q[p]
-    C0 = 3.0 * inv_dx * inv_dx
-    b = base_node(xp, gmin, inv_dx)
-    Cnew = wp.mat33(0.0)
-    for oi in range(4):
-        for oj in range(4):
-            for ok in range(4):
-                i = b[0] + oi
-                j = b[1] + oj
-                k = b[2] + ok
-                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
-                    dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
-                    w = bspline_w(dgp[0] * inv_dx) * bspline_w(dgp[1] * inv_dx) * bspline_w(dgp[2] * inv_dx)
-                    g = gid(i, j, k, ny, nz)
-                    vg = grid_v[g]
-                    if gap_side(qp, plane_m[g], plane_n[g]) == 1:
-                        vg = grid_v1[g]
-                    Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
-    a_vnew = adj_v[p]
-    B = F[p] + dFc[p]
-    A = wp.identity(n=3, dtype=float) + dt * Cnew
-    a_Fn = adj_Fnew[p]
-    a_B = wp.transpose(A) @ a_Fn
-    adj_F[p] = adj_F[p] + a_B
-    if has_adj_dFc != 0:
-        adj_dFc[p] = adj_dFc[p] + a_B
-    a_Cnew = adj_C[p] + dt * (a_Fn @ wp.transpose(B))
-    a_CnT = wp.transpose(a_Cnew)
-    a_xp = wp.vec3(0.0, 0.0, 0.0)
-    for oi in range(4):
-        for oj in range(4):
-            for ok in range(4):
-                i = b[0] + oi
-                j = b[1] + oj
-                k = b[2] + ok
-                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
-                    dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
-                    w, dw = _weight_and_grad(dgp, inv_dx)
-                    g = gid(i, j, k, ny, nz)
-                    s1 = gap_side(qp, plane_m[g], plane_n[g]) == 1
-                    vg = grid_v[g]
-                    if s1:
-                        vg = grid_v1[g]
-                    Ad = a_Cnew @ dgp
-                    c = w * a_vnew + (C0 * w) * Ad
-                    if s1:
-                        wp.atomic_add(adj_grid_v1, g, c)
-                    else:
-                        wp.atomic_add(adj_grid_v, g, c)
-                    a_w = wp.dot(a_vnew, vg) + C0 * wp.dot(vg, Ad)
-                    a_xp = a_xp - ((C0 * w) * (a_CnT @ vg) + a_w * dw)
-    adj_x[p] = adj_x[p] + a_xp
-
-
-@wp.kernel(enable_backward=False)
-def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
-                       x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
-                       grid_v: wp.array(dtype=wp.vec3), grid_v1: wp.array(dtype=wp.vec3), Cn: wp.array(dtype=wp.mat33),
-                       q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
-                       gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
-                       adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
-                       adj_Fnew: wp.array(dtype=wp.mat33), adj_x: wp.array(dtype=wp.vec3),
-                       adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33), has_adj_dFc: int,
-                       adj_grid_v: wp.array(dtype=wp.vec3), adj_grid_v1: wp.array(dtype=wp.vec3)):
-    """k_g2p_adj_gap in the trajectory's cell order (adjoints.k_g2p_adj_warp's form): the lanes on lane 0's stencil sum
-    their grid adjoint per field before one atomic per node and field; the new affine field read from the forward."""
-    blk, lane = wp.tid()
-    qi = blk * WARP_LANES + lane
-    p = int(0)
-    ok = False
-    if qi < n:
-        p = order[qi]
-        ok = valid_pos(x[p])
-    C0 = 3.0 * inv_dx * inv_dx
-    b = wp.vec3i(0, 0, 0)
-    key = int(-1)
-    xp = wp.vec3(0.0, 0.0, 0.0)
-    qp = wp.vec3(0.0, 0.0, 0.0)
-    a_vnew = wp.vec3(0.0, 0.0, 0.0)
-    a_Cnew = wp.mat33(0.0)
-    if ok:
-        xp = x[p]
-        qp = q[p]
-        b = base_node(xp, gmin, inv_dx)
-        key = cell_key(b, ny, nz)
-        Cnew = Cn[p]
-        a_vnew = adj_v[p]
-        B = F[p] + dFc[p]
-        A = wp.identity(n=3, dtype=float) + dt * Cnew
-        a_Fn = adj_Fnew[p]
-        a_B = wp.transpose(A) @ a_Fn
-        adj_F[p] = adj_F[p] + a_B
-        if has_adj_dFc != 0:
-            adj_dFc[p] = adj_dFc[p] + a_B
-        a_Cnew = adj_C[p] + dt * (a_Fn @ wp.transpose(B))
-    k0 = wp.tile_extract(wp.tile(key), 0)
-    b0 = wp.vec3i(wp.tile_extract(wp.tile(b[0]), 0), wp.tile_extract(wp.tile(b[1]), 0),
-                  wp.tile_extract(wp.tile(b[2]), 0))
-    same = ok and key == k0
-    a_CnT = wp.transpose(a_Cnew)
-    a_xp = wp.vec3(0.0, 0.0, 0.0)
-    for oi in range(4):
-        for oj in range(4):
-            for ok_ in range(4):
-                c0 = wp.vec3(0.0, 0.0, 0.0)
-                c1 = wp.vec3(0.0, 0.0, 0.0)
-                if ok:
-                    i = b[0] + oi
-                    j = b[1] + oj
-                    k = b[2] + ok_
-                    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
-                        dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
-                        w, dw = _weight_and_grad(dgp, inv_dx)
-                        g = gid(i, j, k, ny, nz)
-                        s1 = gap_side(qp, plane_m[g], plane_n[g]) == 1
-                        vg = grid_v[g]
-                        if s1:
-                            vg = grid_v1[g]
-                        Ad = a_Cnew @ dgp
-                        c = w * a_vnew + (C0 * w) * Ad
-                        a_w = wp.dot(a_vnew, vg) + C0 * wp.dot(vg, Ad)
-                        a_xp = a_xp - ((C0 * w) * (a_CnT @ vg) + a_w * dw)
-                        if same:
-                            if s1:
-                                c1 = c
-                            else:
-                                c0 = c
-                        elif s1:
-                            wp.atomic_add(adj_grid_v1, g, c)
-                        else:
-                            wp.atomic_add(adj_grid_v, g, c)
-                sc0 = _warp_sum3(c0)
-                sc1 = _warp_sum3(c1)
-                if lane == 0 and k0 >= 0:
-                    i0 = b0[0] + oi
-                    j0 = b0[1] + oj
-                    k0_ = b0[2] + ok_
-                    if i0 >= 0 and i0 < nx and j0 >= 0 and j0 < ny and k0_ >= 0 and k0_ < nz:
-                        g0 = gid(i0, j0, k0_, ny, nz)
-                        wp.atomic_add(adj_grid_v, g0, sc0)
-                        wp.atomic_add(adj_grid_v1, g0, sc1)
-    if ok:
-        adj_x[p] = adj_x[p] + a_xp
-
-
-def record_g2p_gap(tape, tr, t: int, dfc, N: int):
-    """Record k_g2p_gap's adjoint for step t of Trajectory `tr` on `tape` (the forward was launched unrecorded): in
-    the cell order on CUDA (k_g2p_adj_gap_warp), else per particle (k_g2p_adj_gap)."""
-    from .adjoints import _dummy_mat
-    prm, dev = tr.prm, tr.device
-    gmin, inv_dx = wp.vec3(*prm.grid_min), 1.0 / prm.dx
-    x, F, gv, gv1, v1, C1, Fn = tr.x[t], tr.F[t], tr.gvel[t], tr.gvel1[t], tr.v[t + 1], tr.C[t + 1], tr.Fraw[t + 1]
-    a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
-
-    def backward():
-        tail = [gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz, v1.grad, C1.grad, Fn.grad, x.grad, F.grad, a_dfc,
-                int(dfc.grad is not None), gv.grad, gv1.grad]
-        if tr.order is not None and WARP_ADJOINT:
-            wp.launch_tiled(k_g2p_adj_gap_warp, dim=[tr.order_blocks],
-                            inputs=[tr.order, N, x, F, dfc, gv, gv1, C1, tr.gap_q, tr.gap_m, tr.gap_n] + tail,
-                            block_dim=WARP_LANES, device=dev)
-        else:
-            wp.launch(k_g2p_adj_gap, dim=N, inputs=[x, F, dfc, gv, gv1, tr.gap_q, tr.gap_m, tr.gap_n] + tail,
-                      device=dev)
-
-    tape.record_func(backward=backward, arrays=[a for a in (x, F, gv, gv1, v1, C1, Fn, dfc) if a.grad is not None])
-
-
-def attach(tr, gap, A, Z, n_grid: int, rg: bool):
-    """Allocate the split step's arrays on Trajectory `tr`. gap = (plane_m (ngrid, 3), plane_n (ngrid, 3), q (N, 3) or
-    None, vp): vp 0 = variant A, > 0 = variant B with that volume per particle (the sample's fill volume / N)."""
-    pm, pn, q, vp = gap
-    prm, dev, T = tr.prm, tr.device, tr.T
-    tr.gap_m, tr.gap_n = A(pm, wp.vec3), A(pn, wp.vec3)
-    tr.gap_q = A(q, wp.vec3) if q is not None else Z(wp.vec3)
-    tr.gap_vp = float(vp)
-    g1 = [wp.zeros(prm.ngrid, dtype=wp.float32, device=dev, requires_grad=rg) for _ in range(n_grid)]
-    p1 = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=dev, requires_grad=rg) for _ in range(n_grid)]
-    v1 = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=dev, requires_grad=rg) for _ in range(n_grid)]
-    tr.gm1 = [g1[t % n_grid] for t in range(T)]
-    tr.gmom1 = [p1[t % n_grid] for t in range(T)]
-    tr.gvel1 = [v1[t % n_grid] for t in range(T)]
-    # variant B's node volume: one buffer a step on a tape (the grid kernel's generated adjoint replays its branch)
-    nv = (T if rg else 1) if tr.gap_vp > 0 else 1
-    tr.gap_vol = [wp.zeros(prm.ngrid, dtype=float, device=dev) for _ in range(nv)]
-    tr.gap_ones = wp.ones(tr.N, dtype=float, device=dev) if tr.gap_vp > 0 else None
-    tr.gap_stats = [wp.zeros(4, dtype=float, device=dev) for _ in range(T)]          # a record a step
-
-
-def grid_op(tr, t: int):
-    """Step t's grid operation with the gap nodes' two fields."""
-    from .contact import k_node_volume
-    from .kernels import WALL_NODES
-    p, dev = tr.prm, tr.device
-    gv = tr.gap_vol[t % len(tr.gap_vol)]
-    if tr.gap_vp > 0:                                   # variant B: the node's particle volume, off the tape
-        gv.zero_()
-        J = tr.J[t] if tr.carries else tr.gap_ones
-        wp.launch(k_node_volume, dim=tr.N, inputs=[tr.x[t], J, tr.gap_vp, gv, wp.vec3(*p.grid_min), p.dx, 1.0 / p.dx,
-                                                   p.nx, p.ny, p.nz], device=dev, record_tape=False)
-    tr.gap_stats[t].zero_()
-    wp.launch(k_grid_op_gap, dim=p.ngrid, inputs=[tr.gm[t], tr.gmom[t], tr.gm1[t], tr.gmom1[t], tr.gap_n, gv,
-                                                  int(tr.gap_vp > 0), tr.gvel[t], tr.gvel1[t], p.dt, wp.vec3(*p.f_ext),
-                                                  p.grid_min[1], p.dx, p.nx, p.ny, p.nz, p.floor_y, p.floor_friction,
-                                                  WALL_NODES, tr.gap_stats[t]], device=dev)
-
-
-def record(tr) -> list:
-    """The last rollout's split record over its steps: [split mass, separating mass, split node-steps, separating
-    node-steps] (mass summed over steps)."""
-    import torch
-    return [float(v) for v in torch.stack([wp.to_torch(s) for s in tr.gap_stats]).sum(0).tolist()]
-
-
-def p2g_side1(tr, t: int, dfc, bnb, bnc, bK: int):
-    """Step t's side-1 deposit (after the frozen P2G; on a tape by its generated adjoint)."""
-    prm = tr.prm
-    if tr.share_grid or tr.persistent:
-        tr.gm1[t].zero_()
-        tr.gmom1[t].zero_()
-    wp.launch(k_p2g_side1, dim=tr.N, inputs=[tr.x[t], tr.v[t], tr.C[t], tr.F[t], dfc, tr.P[t], tr.m, tr.vol, bnb, bnc,
-                                             bK, tr.gap_q, tr.gap_m, tr.gap_n, tr.gm1[t], tr.gmom1[t],
-                                             wp.vec3(*prm.grid_min), prm.dx, 1.0 / prm.dx, prm.dt, prm.drag, prm.nx,
-                                             prm.ny, prm.nz], device=tr.device)
-
-
-def g2p(tr, t: int, dfc, tape):
-    """Step t's G2P from each particle's side's field (the hand adjoint on a hand tape, else the generated one)."""
-    prm = tr.prm
-    wp.launch(k_g2p_gap, dim=tr.N, inputs=[tr.x[t], tr.v[t + 1], tr.C[t + 1], tr.F[t], dfc, tr.Fraw[t + 1], tr.gvel[t],
-                                           tr.gvel1[t], tr.gap_q, tr.gap_m, tr.gap_n, wp.vec3(*prm.grid_min), prm.dx,
-                                           1.0 / prm.dx, prm.dt, prm.nx, prm.ny, prm.nz],
-              device=tr.device, record_tape=tape is None)
-    if tape is not None:
-        record_g2p_gap(tape, tr, t, dfc, tr.N)

@@ -11,7 +11,7 @@ import torch
 import warp as wp
 
 from . import adjoints as ADJ
-from . import gap_kernels as GK
+from . import gap_step as GK
 from . import kernels as K
 from .arrays import (_id, _id_dev, _is_tensor, _release_idle_cuda_cache, compute_rest_volumes,  # noqa: F401
                      scalar_or_array, to_wp, to_wp_int)                     # (re-exported: the helpers moved to arrays.py)
@@ -172,7 +172,7 @@ class Trajectory:
         self.gm = [gm_l[t % n_grid] for t in range(T)]
         self.gmom = [gmom_l[t % n_grid] for t in range(T)]
         self.gvel = [gvel_l[t % n_grid] for t in range(T)]
-        self.gap = gap is not None                  # D148 (gap_split, mpm/gap_kernels.attach); None: the frozen path
+        self.gap = gap is not None                  # D148 (gap_split, mpm/gap_step.attach); None: the frozen path
         if self.gap:
             GK.attach(self, gap, A, Z, n_grid, rg)
         # MATERIAL RE-COUPLING of decoupled particles (kernels.k_p2g / k_update): bonds =
@@ -325,7 +325,7 @@ class Trajectory:
         if tape is not None:
             ADJ.record_p2g(tape, self, t, dfc, bnb, bnc, bK, N)
         if self.gap:                                 # D148: the side-1 part at gap nodes (generated adjoint)
-            GK.p2g_side1(self, t, dfc, bnb, bnc, bK)
+            GK.p2g_side1(self, t, dfc, bnb, bnc, bK, tape)
         self._st = (dfc, bnb, brest, bnc, bK, tape)
 
     def _grid(self, t: int):
