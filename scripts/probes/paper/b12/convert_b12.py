@@ -1,6 +1,6 @@
 """B12 (D145 amendment 5) conversion, B5's convert_pair.py for ISD / 4Deform: the 21 evaluated level sets of one run
-(every component; t = k/20) back to the pipeline frame (x = (y / s + c) / a: prep_pair.py's common centring c and scale
-s from pair_info.json, then B5's export scale a), their mesh properties (also of the largest-area component, the
+(every component; t = k/20) back to the pipeline frame (x = y / s + c: prep_pair.py's common centring c and scale s
+from pair_info.json; the inputs were B5's pipeline-frame meshes), their mesh properties (also of the largest-area component, the
 authors' own display), and the pipeline's stratified 300k volume sample (seed 97) of each; written as the archive
 output/gpu/d145_b12/<name>300k_<TAG>_frames12.npz (frames (21, 300000, 3), raws, tgt = the pipeline's seed-97 target
 sample, deliver_n = 21). A frame with no level set or one the sampler cannot fill is NaN in the archive and named in the
@@ -57,7 +57,7 @@ def props(k):
         return r, nan
     vb = np.asarray(raw.vertices, np.float64)
     r["raw_bounds"] = [vb.min(0).tolist(), vb.max(0).tolist()]
-    m = trimesh.Trimesh((vb / S + C) / A, np.asarray(raw.faces), process=True)
+    m = trimesh.Trimesh(vb / S + C, np.asarray(raw.faces), process=True)
     r.update(watertight=bool(m.is_watertight), winding_consistent=bool(m.is_winding_consistent),
              euler=int(m.euler_number))
     repaired = None

@@ -1,4 +1,4 @@
-"""b12_radial_prep.py SRC TGT SAVE_DIR -- D145 B12: prep_pair.py's CORR=radial data without trimesh's ray engine (env nsd has
+"""b12_radial_prep.py SRC TGT SAVE_DIR NAME -- D145 B12: prep_pair.py's CORR=radial data without trimesh's ray engine (env nsd has
 no rtree, and ~/miniforge3 is not to be touched): each of 5k source samples is paired with the FIRST hit of the ray from
 the pair's centre (the origin after prep_pair's common centring) through it, by a vectorised Moller-Trumbore test against
 every target triangle; a ray that hits nothing falls back to the nearest point of a 400k-point surface sample of the
@@ -45,7 +45,7 @@ def first_hit(V, F, d):
     return tb, fb
 
 
-src, tgt, save = sys.argv[1:4]
+src, tgt, save, tname = sys.argv[1:5]
 np.random.seed(0)
 mx = trimesh.load(src, force="mesh", process=True)
 my = trimesh.load(tgt, force="mesh", process=True)
@@ -66,7 +66,7 @@ px, npx = pp.sample(mx, 20000)
 py, npy = pp.sample(my, 20000)
 dx = pp.make_dptc(vx, nx, px, npx)
 dy = pp.make_dptc(vy, ny, py, npy)
-name_x, name_y = "00_sphere", "01_" + os.path.splitext(os.path.basename(tgt))[0]
+name_x, name_y = "00_sphere", "01_" + tname
 for sub in ("mesh", "ptc", "train"):
     os.makedirs(os.path.join(save, sub), exist_ok=True)
 with open(os.path.join(save, "train", f"{name_x}-{name_y}.flax"), "wb") as fh:

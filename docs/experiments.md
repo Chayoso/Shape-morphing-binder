@@ -4838,13 +4838,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   centre, with a nearest-point fallback; ISD weight 200 with `separate_train` 1, 4Deform weight 100, as shipped). It runs
   on bunny and dragon, seed 1, and answers "the baseline was run without its loss". Seeds: the conf's `rng_seed`, shipped
   value first (ISD 0 / 1 / 2, 4Deform 5 / 6 / 7). Seed 1 runs on the six meshes, then the radial arm, then seeds 2–3 if
-  cards allow. *Inputs.* B5's exported pair per mesh (`baselines/buonomo/inputs/<mesh>/sphere.ply`, `<mesh>.ply`), so
-  every external baseline starts from the same two meshes. `prep_pair.py` makes 20k surface samples with normals and 5k
+  cards allow. *Inputs.* The meshes B5 exported in the pipeline frame (`baselines/buonomo/inputs/<mesh>/
+  sphere_for_<mesh>_ourframe.ply`, which is `assets/isosphere.obj` where the pipeline places it, and `<mesh>_ourframe.ply`;
+  for the teapot its outer body, `teapot_outer_ourframe.ply`, as in B5), so every external baseline starts from the same
+  two shapes. (Corrected at 11:44, before any run: the first text named B5's `sphere.ply` / `<mesh>.ply`. Those are the
+  100k-point oriented clouds made for Buonomo et al.'s SDF fit, not meshes.) `prep_pair.py` makes 20k surface samples with normals and 5k
   "verts" per shape, one common centring and one scale (extent 1, seed 0). *Output and reading, as for B5.* Each method's
   own evaluation gives the zero level set at t = k/20, k = 0…20 (marching cubes 256³ in the authors' box). Every component
   is kept: the authors' display keeps only the largest-area component, so a wrapper (`eval_full.py`) calls their extractor
   with `connected=False`. Their code is otherwise untouched, and the largest component's numbers are recorded beside it.
-  The frames go back to the pipeline frame through `pair_info.json` and B5's scale a. Each frame records watertight
+  The frames go back to the pipeline frame through `pair_info.json` (x = y / s + c). Each frame records watertight
   (after hole filling), components, the largest component's genus, the enclosed volume against the target mesh's, and
   the pipeline's stratified 300k volume sample (seed 97). These go into the archive `output/gpu/d145_b12/
   <mesh>300k_<ISD|FD><n|r><seed>_frames12.npz` (21 frames). Readings: the end against the independent sample and the
@@ -4866,7 +4869,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   nothing falls back to the nearest point of a 400k surface sample (prep_pair's fallback uses the exact closest point).
   Queue: bunny ISD seed 1 is the smoke run, placed after the RGV dragon run. `b12_watch.sh` inserts the rest of seed 1,
   the radial arm and the bunny / dragon readings once the smoke run has been converted and end-checked, and it appends
-  seeds 2–3 at the end of the queue. If the smoke run fails, nothing else is queued.
+  seeds 2–3 at the end of the queue. If the smoke run fails, nothing else is queued. *11:44–11:46: the data redone.* The
+  11:36 prep had read B5's point-cloud PLYs (100k vertices and one dummy face) as meshes, so each shape was a single
+  triangle. That explains the radial test's 0 / 5000 hits. These folders were removed before any run and remade from the
+  `*_ourframe` meshes. Now the six sources are watertight. The targets are watertight except bunny (its open base) and
+  dragon, as in the pipeline. Radial hits: bunny 4904 / 5000 (96 fall back to the nearest sample), dragon 5000 / 5000.
+  `convert_b12.py` maps x = y / s + c (no B5 scale).
   **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
   tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
   do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus
