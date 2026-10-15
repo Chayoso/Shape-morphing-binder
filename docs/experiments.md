@@ -4927,6 +4927,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     angular-momentum consistent. The render arm moves more, so the drag makes more angular momentum. The cause is not
     the spacing push and not mainly u. A consistent drag would damp the whole APIC momentum, m v and m C, by the same
     factor. That is a change to the frozen code, so it goes to the user after experiments. Recorded as found.
+    *Refined by D149 (relayed 2026-10-15).* Net rotation and the net / gross angular move are kinematic, not
+    conservation measures: a deforming body can reorient at zero L, as a falling cat does. The conserved quantity is
+    APIC's L = Σ m x × v + Σ m D axial(C), with D = dx² / 3, which the records measure. The frozen drag damps m v only,
+    so it does three things:
+    - it partly decays a rigid spin;
+    - it creates hidden affine spin where the orbital and affine parts are opposite;
+    - it suppresses visible rotation, including a turn at zero L.
+
+    D150's L-consistent drag (40k bunny, D146b + D149 base, two runs each):
+    - The largest |L| falls from 54–57 to 13–16 (2.6–2.8 with a torque-free layer as well).
+    - The net rotation rises from 0.005–0.006° to 0.037–0.046°.
+    - Shape and rest stay within spread.
+
+    D99 found the same at 300k: 0.0040° → 0.0334°. On the bunny with D149 (two runs each), the render arm is at or ahead
+    of its twin on every momentum measure. Decision: D150 and the torque-free layer stay OUT of the 10/18 freeze, off by
+    default. The paper reports net rotation as kinematic and L via the records, and the bob / homer excess as a property
+    of the frozen drag. Draft updated (`docs/paper/discussion_draft.md`, angular momentum).
   **B14 smoke, Xu / OT end checks and visible pieces (2026-10-15 12:05–12:52 CDT).**
   - *B14 bunny ISD, seed 1, `CORR=none`.* Training took 1317 s on GPU 0 and evaluation 1016 s (21 meshes, 256³). The
     end check against the independent sample reads silhouette IoU 0.9829 and chamfer 0.0574 (floor 0.9893); the start

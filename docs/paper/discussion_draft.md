@@ -218,7 +218,7 @@ method and stays deferred.
 | representation | MPM particles + grid | MPM particles + grid | neural SDF + velocity | triangle mesh, fixed connectivity | particles | mesh / SDF grid |
 | genus change from a sphere | yes (dragon genus 15, teapot, bob) | yes | yes (bob frames genus 31–44) | no (genus 0 only) | n/a (no surface) | no / yes |
 | mass | exact by construction | exact by construction | none (volume kept by the velocity's divergence) | none | exact (equal weights) | none |
-| momentum | linear: conserved to the measured drift; angular: the drag's transfer form makes some (below) | conserved by the stress control | not defined | not defined | not defined | not defined |
+| momentum | linear: conserved to the measured drift; angular (APIC's L, from the records): the frozen drag does not respect it (below) | conserved by the stress control | not defined | not defined | not defined | not defined |
 | contact, external forces | multi-body contact, floor, gravity (measured below) | not in our protocol [TBD: what the TVCG paper shows] | none | none | none | none |
 | end at rest | yes (kinetic below 1e-5) | no (0.0028–0.95) | n/a | n/a | n/a | n/a |
 | correspondences | none | none | none | sphere map (CMCF) | none (computed plan) | none |
@@ -393,8 +393,9 @@ the step. Gradient components that oppose the physics are removed [Yu et al. 202
 - Within the seed spread everywhere: silhouette IoU on the particles, chamfer and the centre of mass. Thin coverage is
   also within the spread, except bob, where the render arm is 17 % better.
 - Worse, and reported: bob's net rotation (0.0039–0.0051° against 0.0003–0.0005°) and the frame-to-frame net / gross
-  angular move on bob (+50 %) and homer (+33 %). Their source is the drag's transfer form, not the render gradient
-  directly (see Angular momentum below).
+  angular move on bob (+50 %) and homer (+33 %). Both are kinematic measures. Their source is the frozen drag, which
+  does not respect angular momentum and acts more on a body that deforms more; it is not the render gradient directly
+  (see Angular momentum below).
 <!-- Source: D145 overnight readings 2026-10-15, output/gpu/d145_evidence/band_1015.txt. -->
 <!-- (was: [TBD: B1's five other meshes and the dragon's seeds]) -->
 
@@ -429,15 +430,41 @@ surface discs of Zhu and Bridson's field with Solenthaler et al.'s correction [S
   is 18.4–23.0 GB across the six meshes (homer the largest). Before the runtime work, 36.1 GB was recorded for the dragon.
 - Render-only mesh optimisation is far cheaper still: Large Steps reaches the bunny in about 20 s.
 
-**Angular momentum.** The stress control and APIC's transfer conserve angular momentum: with the drag off, the grid
-changes it only at its float32 floor (0.1–0.2 per window, against 20–56 with the drag on). The default drag (0.9 / s)
-scales the particle momentum m v in the particle-to-grid transfer but not APIC's affine momentum m C. A deforming body
-holds opposite spins in the two, so the drag makes net angular momentum, and more of it the more the body moves.
-- The body's net rotation over a run stays below 0.014° (B1, six meshes).
-- The render arm rotates bob more than its twin does (0.004–0.005° against 0.0003–0.0005°).
-- A drag that scales the whole APIC momentum would remove this source. That is a change of the method, not of the
-  protocol [TBD: whether the re-freeze adopts it].
-<!-- Source: D145 "Where bob's rotation and the bob / homer angular ratio come from" (2026-10-15). -->
+**Angular momentum.** We report two kinds of measure and keep them apart.
+
+- *The conserved quantity.* This is APIC's angular momentum, L = Σ m x × v + Σ m D axial(C) with D = dx² / 3. The
+  particle–grid transfer keeps it exactly [Jiang et al. 2015], and our per-window records measure it (L at each window
+  start and its change by the grid step and by each position update). With the drag off, the grid changes L only at
+  its float32 floor: 0.1–0.2 per window, against 20–56 with the drag on.
+- *Kinematic measures.* The net rotation (the best-fit rigid rotation between kept frames) and the net / gross angular
+  move are kinematic, not conservation measures. A deforming body can reorient at zero L, as a falling cat does.
+  - The frozen drag (0.9 / s) acts in the particle-to-grid transfer on m v only, not on m C or the stress impulse.
+    It is an external damping that does not respect L:
+    - It partly decays a rigid spin.
+    - Where the orbital and affine parts of L are opposite, it creates hidden affine spin. On the 300k bunny, |L| at
+      a window start peaks at 180–270 in windows 7–8, higher in the render arm, and the grid's change of L sums to
+      500–600 against 70–80 for all the position updates.
+    - It damps the orbital part directly, so it also suppresses visible rotation, including a turn at zero L.
+  - The position updates below the grid inject Σ m δ × v, which the drag absorbs. The largest is u's switch-on: about
+    40 at window 4 of the 300k bunny.
+- *Bob and homer.* The render arm deforms these two more than its twin does, so the drag makes more L. On bob, the
+  grid's change of L sums to 885–964 against 646–683; on homer, 1470–1550 against 1210–1310. This shows as a higher
+  net / gross angular move on both, and on bob as a higher net rotation (0.0039–0.0051° against 0.0003–0.0005°). All
+  of it is tiny, a property of the frozen drag, and reported as found.
+  On the bunny with the 10/18 code (two runs each), the render arm is at or ahead of its twin on every momentum
+  measure:
+  - centre of mass 3.4e-5 against 3.9–4.0e-5 pitches;
+  - net rotation 0.0030–0.0032° against 0.0044–0.0045°;
+  - net / gross overlapping.
+- *An L-consistent drag.* A drag that damps the whole APIC momentum (D150) cuts the largest |L| from 54–57 to 13–16
+  on the 40k bunny. It also lets the body turn more (net rotation 0.005–0.006° → 0.037–0.039°), because the frozen
+  drag had been damping the turn at zero L. Shape and rest are within spread either way, and an earlier 300k bunny
+  test found the same (0.0040° → 0.0334°). It is not part of the frozen method. The paper therefore reports the net
+  rotation as kinematic and L through the records.
+<!-- Sources: D145 "Where bob's rotation and the bob / homer angular ratio come from" (2026-10-15); D149 / D150 on
+wip/d149 (the D149 agent, relayed 2026-10-15). -->
+
+**The run's net rotation** stays below 0.014° on all six meshes (B1).
 
 **Volume on the common measure.** We do not claim better volume preservation on the occupancy measure. The claims
 are separate:
@@ -500,4 +527,5 @@ replaced by B14 (the authors' ISD / 4Deform code), B15 (NISE) and B13 (the force
 13. The two-body scene's end-error definition in the paper's terms, and whether the TVCG paper [Xu et al. 2025] shows
     contact or external forces (the methods table says only "not in our protocol").
 14. B13, the force-controlled ablation inside our pipeline (waits for the re-freeze tag).
-15. Whether the re-freeze adopts a drag that scales the whole APIC momentum (the angular-momentum source above).
+15. ~~Whether the re-freeze adopts an L-consistent drag~~ (decided: D150 and the torque-free layer stay out of the
+    10/18 freeze; net rotation is reported as kinematic, L via the records). The momentum rows are re-read on the tag.
