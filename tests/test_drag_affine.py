@@ -6,7 +6,8 @@ B-spline, and P2G / G2P keep it. The frozen drag scales the first part by (1 - d
 whose two parts are opposite (a deforming body with no net spin) gains L = -dt drag L_v every step.
 
 (1) a deforming, elastic body with L = 0 split into opposite parts: with the switch its L stays at float zero over six
-    steps; without it, it grows by the drag's share of L_v; the linear momentum is the same either way;
+    steps; without it, it gains about dt drag |L_v| (in the first step: G2P then rebuilds C from the grid); the linear
+    momentum is the same either way;
 (2) the switch off is the frozen path: drag_c 0 (the kernels' expression unchanged; tests/test_volume_exact.py (1)
     compares the whole window bit for bit against the code before the change);
 (3) the adjoint with the switch: the hand-written adjoints against Warp's generated ones, and a window against finite
@@ -77,8 +78,11 @@ def test_a_deforming_body_with_no_spin_keeps_none_under_the_drag():
     off = _run(x, v, C, F0, False)
     L_on = np.linalg.norm(sum(_L(*on, 1.0, 0.5)))
     L_off = np.linalg.norm(sum(_L(*off, 1.0, 0.5)))
+    one = 0.9 / 240.0 * np.linalg.norm(Lv)                          # the frozen drag's first step: dt drag |L_v|
     assert L_on < 2e-6 * scale, (L_on, scale)                       # D150: the drag scales L as a whole: 0 stays 0
-    assert L_off > 5e-3 * scale, (L_off, scale)                     # frozen: about 6 steps x dt drag x |L_v| (0.0225)
+    # frozen: the first step makes about dt drag |L_v| (G2P then rebuilds C from the grid, so the opposite parts no
+    # longer hold their initial size and later steps add less)
+    assert L_off > 0.5 * one and L_off > 1000 * L_on, (L_off, one, L_on)
     p_on, p_off = on[1].astype(np.float64).sum(0), off[1].astype(np.float64).sum(0)
     assert np.linalg.norm(p_on - p_off) < 1e-5 * np.abs(v).sum()    # the linear momentum is the same either way
 
