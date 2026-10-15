@@ -6249,6 +6249,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     half a small rise of the late mean (+0.2–0.3 pt render arm, +0.5 pt twin), spread over points at the threshold.
     No thin feature is lost.
   - The repeat (SL2, SP2) is to tell whether the late mean's rise repeats.
+  **The bunny repeat (SL2 12:55–13:07, SP2 13:08–13:21 CDT on GPU 1; read 13:25).** Two runs an arm, against the
+  D146b base:
+
+  | run | silhouette IoU | chamfer | thin | end kin | apart 3–10 | windows | body net (P) | net rotation | ang. net / gross | yardstick sil | display front |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | SL2 | 0.9890 | 0.0551 | 3.71 % | 1.36e-6 | 1188 | 99 | 3.45e-5 | 0.0032° | 2.85e-3 | 7.04e-4 | 0.0087 |
+  | SP2 | 0.9874 | 0.0552 | 3.64 % | 2.07e-6 | 1412 | 97 | 3.88e-5 | 0.0045° | 3.26e-3 | 1.46e-3 | 0.0127 |
+
+  - The render arm's thin miss does not repeat. SL2 sits below the base band, and the two runs' mean is 4.26 % against
+    CBL / CBL2's 4.18: spread by the rule.
+  - The twin's does repeat by the letter. SP / SP2 4.06 / 3.64 % sit above CBP's 3.33 % ± 0.14, a band from one base run
+    and the render arm's width. D145's three twin seeds on the deliverable code read 4.3–4.7 %. Recorded as a repeated
+    +0.3–0.7 pt on the twin against one base run.
+  - The apart count's miss (SL2 1188 against [833, 1037]) does not repeat: SL read 960.
+  - Silhouette IoU, chamfer and the end kin are within the band or better.
+  - Momentum, with two runs an arm, the render arm against its twin:
+    - centre of mass 3.44 / 3.45e-5 against 4.00 / 3.88e-5;
+    - net rotation 0.0030 / 0.0032° against 0.0044 / 0.0045°;
+    - angular net / gross 3.34 / 2.85e-3 against 3.23 / 3.26e-3, overlapping (on the base the render arm was 0.5e-3
+      behind).
+    - So the bunny render arm is at or ahead of its twin on every momentum measure.
   **The 300k dragon pair (SL 11:53–12:21, SP 12:23–12:55 CDT on GPU 1; read 13:00; P = 0.0482 wu). (i), (ii) and
   (iv) pass. (iii) is within D146's limits, with two small replay-band misses.**
 
