@@ -6524,6 +6524,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   **The user's decision package (11:32 CDT, local `d148_gap_split/d146b_wl/`):** CDL | RW and CBL | RWB side by side at
   full length (the shorter run holds its last frame), the crevice close-up, the three dragon sites at a quarter speed
   with the simulated time, and a one-screen Korean table (`요약표_D146b_vs_WL.md`).
+  **Is the spray cleanup pulling the beads to the far wall? (11:38 CDT, CPU; `d148_cleanup_pull.py`, `tmp/d148/cpull_*`):
+  no.** Per particle and window from the isolation gate's first count (the 8th-neighbour ramp 1.2–1.8 at the window's
+  start, as `isolation_gate`), the cleanup's pull −g_spray at the committed end, the target point nearest the end
+  position, and the plane of the nearest D148 gap node: (i) RWX's opening beads (53150, 134793): gated from window 6
+  (0.83 s) and 9 (1.33 s); the nearest target point on their origin's side of the plane at every window to 14; the
+  pull's cosine with the normal toward the far wall −0.77 to −0.99 (it pulls them back to their own wall), growing from
+  1e-6 to 6.5e-6 at windows 12–14 as the gap opens; only after 53150 has crossed the plane (window 15, 2.33 s on) is its
+  nearest target point across and the pull toward the far wall (+0.90 to +0.94). The loop bead (267025): gated from
+  window 15, the nearest point on its side, the cosine +0.34 → −0.59 (sideways). The 613 particles gated in the
+  opening's box at 1.8–3.4 s: the nearest point across the plane from their origin for 0.26–0.47 of them at windows
+  6–9, 0.27–0.35 after, the pull zero for the median particle from window 11 (inside the target's support, where the
+  distance field is flat zero). (ii) D135's own floating pieces (FB's dump; CDL's per-particle dump starts at window 36,
+  6 s, after its foam): the 513 particles of the crevice foam gated from window 10 (1.5 s), the nearest point across the
+  plane from their origin for 0.14–0.23, the pull zero for the median particle from window 12 and toward the far side
+  (cosine > 0.5) for 0.01–0.18 of them, toward their own side for 0.01–0.47; the loop blob's 214: across for 0.01–0.04,
+  the pull zero for the median. The cheapest D146b dump run: CDL's arguments on `repo_d148rx` with `--gap_split off`,
+  `D146_A0=6 D148_A1=30` and `--term_dump`, no render (the beads selected from frames by the apart test in the boxes):
+  one 300k dragon on one card, about 37 minutes. (iii) The gate's count near the gap nodes in the opening's box, per
+  window: D146b CDL / CDL2 812–931 at windows 4–9, then 919–946 (10), 1113–1152 (11), 1480–1545 (13), 2048–2141 (18–20);
+  D146b + WL RW / RWX the same to window 8, then 1066–1084 (9), 1205–1213 (10), 1237–1260 (11) (+25–35 % at 1.33–1.83 s:
+  the split counts particles apart earlier at the opening), then 1320–1345 (13), 1636–1648 (19–20) (−15 to −25 % after:
+  no foam); D135's FB 801–958 then 1109 (11), 2047–2055 (19–20), WG (D135 + WL) as RW. So the far-wall pull is not the
+  shared root cause: the cleanup is the largest pull on the opening beads but a restoring one until they have crossed,
+  and D135's foam is not cleanup-driven. dF_c sits at its cap on every particle, the body included, in RWX's dump
+  (windows 6–22), so the control does not distinguish the beads either.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
