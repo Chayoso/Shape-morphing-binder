@@ -5005,6 +5005,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Xu et al. has 6–9× our apart particles and 3.6–6.2× our blobs.
     - OT has slightly fewer apart than ours but 1.5–2.4× the blobs, and its bumps stand about twice as high. Transport
       without a body leaves fewer, larger and more visible pieces.
+  **The 10/18 freeze: what stops now and the post-tag evidence queue (2026-10-15 ~13:45 CDT; the user via the
+  coordinator: frozen on Sat 10/18 as D135 + D146b + D149, plus the floating-Gaussian fix if it passes by then;
+  every algorithm-dependent item is redone on that tag by 11-07).**
+  - *Held now.* The 34 algorithm-dependent items that had not started (B2 VJ / VD / VA / E / M; B10 TL / TP) are
+    commented out of `main.queue` as `#HOLD-posttag` and enter the post-tag queue. What runs finishes. The external
+    baselines continue: B14 (ISD / 4Deform), B15 (NISE, on D145's pool card), and B12 through its agent.
+  - *Prepared* (`tmp/d145/posttag/`, `scripts/probes/paper/posttag/`). Once the tag exists:
+    1. `posttag_local.sh TAG` makes the tag's tarball.
+    2. `posttag_setup.sh TAG` builds the code copies:
+       - `repo_t`: the tag;
+       - `repo_ts`: plus `patch_s.py` (kept frames);
+       - `repo_tgf`: plus D121's hooks, `rgv_patch.py` and `rgv_patch2.py`, with the full archive.
+
+       Every patch asserts its exact match. The setup also generates `main_posttag.queue` (`gen_posttag.py`), checks
+       every flag in it against the tag's runner, and queues the gate `detproof_tag.sh`. The gate is one card, about
+       20 min: 40k bunny, four windows, deterministic. `repo_ts` and `repo_tgf`, with the hooks on at every window, must
+       equal `repo_t` bit for bit.
+    3. `posttag_watch.sh` puts the evidence queue in ahead of B14's seeds 2–3 once the gate reads SAME twice, and sets
+       `max_cards` to 2.
+  - *Readings.* `read300_cpu.sh` now runs D148's `visible_apart.py` on every post-tag run before its frames go:
+    windows 3–10, and the whole run at every 4th kept frame (folders `d145t_*`, CPU, nice 10, 8 threads).
+  - *The queue: 371 items plus the gate.* Card-hours are from this week's measured medians per mesh, readings included:
+
+    | group | items | card-hours |
+    |---|---|---|
+    | B1 seed 97, then 99 / 101 (six meshes, render arm L and twin P) | 36 | 8.8 |
+    | B1 bunny / dragon seeds 103 / 105 | 8 | 2.1 |
+    | B7: RG97 bunny and dragon on `repo_tgf` (dump and λ = 0 counterfactual at every window; J read) | 2 | 1.4 |
+    | B2: ten arms × bunny / dragon × 3 seeds, and C on the other four meshes × 3 | 72 | 18.4 |
+    | B8 materials | 20 | 5.3 |
+    | B9: 300k gravity / floor / drag and 40k G2 / G5 | 20 | 2.5 |
+    | B10 telemetry | 4 | 1.3 |
+    | B3: 40k gallery, 19 meshes, V / W × 3 seeds plus its ablations | 190 | 7.0 |
+    | B1 every-frame readings | 19 | 8.6 |
+    | **total** | **371** | **55.4** |
+
+    With a 20 % margin (D146b's runs were longer), that is about 67 card-hours. On two cards from Saturday, about 34 h:
+    the post-tag evidence lands around Mon 10/20. visible_apart runs about 5–30 min of CPU per run, alongside.
+  - *Not included, needs a pre-registration (amendment 6) before it runs.* Ablations of the parts the tag adds:
+    D146b off, D149 off, and the floating-Gaussian fix off. Bunny and dragon × 3 seeds at 300k is about 4.7
+    card-hours; the 40k gallery at one seed is about 2.
   **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
   tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
   do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus
