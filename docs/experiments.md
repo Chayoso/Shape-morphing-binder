@@ -6205,6 +6205,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - Apart particles at windows 3–10 (max): 901 / 969 against 1416.
 
   The 300k pairs (bunny, then dragon) started 2026-10-15 11:31 on GPU 1, the coordinator's reservation.
+  **The 300k bunny pair (SL 11:31–11:41, SP 11:41–11:53 CDT on GPU 1, `tmp/d149/d149_chain300k.sh`; read 11:55; P =
+  0.0489 wu). (i), (ii) and (iv) pass. (iii) passes D146's limits, but thin uncovered falls outside the replay band in
+  both arms; the repeat is queued under the attribution rule.**
+
+  | run | push net (P) | body net (P) | probe com largest (P) | net rotation | ang. net / gross | silhouette IoU | chamfer | thin | end kin | apart 3–10 | yardstick sil | display front | windows | s / attempt |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | SL | 6.5e-11 | 3.44e-5 | 3.52e-5 | 0.0030° | 3.34e-3 | 0.9885 | 0.0551 | 4.81 % | 1.32e-6 | 960 | 7.08e-4 | 0.0088 | 78 | 6.48 |
+  | SP | 5.6e-11 | 4.00e-5 | 4.08e-5 | 0.0044° | 3.23e-3 | 0.9875 | 0.0551 | 4.06 % | 2.59e-6 | 974 | 1.52e-3 | 0.0135 | 88 | 6.49 |
+  | CBL | 1.12e-4 | 1.30e-4 | 1.33e-4 | 0.0028° | 3.50e-3 | 0.9883 | 0.0551 | 4.25 % | 1.49e-6 | 901 | 7.53e-4 | 0.0091 | 72 | 7.21 |
+  | CBL2 | 1.10e-4 | 1.32e-4 | 1.35e-4 | 0.0029° | 3.56e-3 | 0.9885 | 0.0551 | 4.11 % | 1.71e-6 | 969 | 8.00e-4 | 0.0095 | 74 | 7.13 |
+  | CBP | 1.06e-4 | 1.33e-4 | 1.37e-4 | 0.0044° | 3.02e-3 | 0.9874 | 0.0552 | 3.33 % | 3.06e-6 | 1416 | 1.29e-3 | 0.0122 | 91 | 7.29 |
+
+  - (i) passes: the push's net is 2×10^6 below the base's.
+  - (ii) passes.
+    - The body's net falls by 74 % (render arm) and 70 % (twin), onto the grid's floor (3.46e-5 / 4.01e-5). The
+      probe's largest displacement reads the same.
+    - The render arm is now ahead of its twin on the centre of mass (3.44e-5 against 4.00e-5) and on the net
+      rotation.
+    - On the mean angular net / gross it is still a little higher (3.34e-3 against 3.23e-3), as on the base
+      (3.50–3.56e-3 against 3.02e-3). The gap is a fifth of the base's, but with one run an arm it is not beyond
+      spread either way.
+  - (iii) holds D146's limits (thin ≤ 5.2 %, kin ≤ 1.53e-5) and the render lead: yardstick −53 %, display −35 %.
+    - Silhouette IoU, chamfer, the end kin and the apart count are inside the base's replay band, or better.
+    - Thin uncovered is outside the band in both arms: SL 4.81 % against [3.97, 4.39]; SP 4.06 % against CBP's
+      3.33 % ± 0.14. That is +0.6–0.7 pt each. D145's seed spread on the deliverable code is L 4.6–4.8 %, P 4.3–4.7 %.
+    - By the pre-registered rule this counts against the change only if it repeats: SL2 and SP2 are queued on GPU 1
+      after the dragon pair.
+  - (iv) passes: 6.48 / 6.49 s an attempt. GPU 1 was otherwise idle, unlike the base runs' cards.
+  - The render share is 0.333 at every window, λ at its rule; the render's influence is the lead above.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
