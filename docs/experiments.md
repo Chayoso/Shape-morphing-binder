@@ -6901,6 +6901,70 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   does not reach particles outside its layer and arrived-scope gate. So a definition change of the cleanup's field
   (the exact target at particle resolution) would not move these pieces; the missing link is a control that reaches a
   piece the grid cannot resolve.
+  **Who detaches them (2026-10-15 13:05–14:20 CDT, CPU; the coordinator after the refutation above: per piece, at the
+  window it first leaves, its displacement against its body neighbours split into grid, u, the spacing push and the
+  relaxation; `d148_detach.py`, `d148_detach_all.py`, `d148_link_cf.py`, logs `tmp/d148/detach4_*.log`,
+  `detach_all2_*.log`, `link2_*.log`, records `output/gpu/d148/detach_*.jsonl`, `detach_all_*.jsonl`).** The split, per
+  window from D146's dump: u = u ug n and the relaxation along the frozen normal (k_layer_project), the push recomputed
+  from k_update (frozen nearest, r = 0.9 P_vol, from the snapshots at steps 0/10/20/30), the grid the rest (its normal
+  part matches the dump's n_adv to 0.002 spacings); the bonds act on the fragment mask only (empty). Read as the exact
+  opening of the distance to the 8 nearest body particles (outside the particle's own set at 1.5 pitches),
+  |r1| − |r0| = Δr · (r0 + r1) / (|r0| + |r1|), split linearly by update. The detaching window: where the apart stretch
+  that reaches the first visible frame begins (kept frames; CDL's windows are not 40 steps from 0, the dump's frame_end
+  gives each window's steps, which corrects the 12:56 reading's window numbers for CDL by 3–6 windows).
+  - *D146b's pieces (CDL's dump, windows 37 on).* Piece 7 (136914 / 193587, seen 7.30 s, the upper hole): detaching
+    window 6.67–6.83 s, opening +1.09 / +1.01 pitches = u on the particle +1.22 / +1.33, the relaxation −0.16 / −0.36,
+    push −0.08 / −0.06, grid +0.05 / +0.04; u +0.94 / +1.18 pitches outward, and along the normal the spray cleanup is
+    0.92–0.97 of the terms' descent, outward (toward the target surface across the hole; the piece 5.4 pitches outside the
+    mesh); the window before, its neighbours' u had opened it +0.64 while it was off the layer. Piece 8 (36357, 11.60 s):
+    three windows of u +0.35 to +0.41 against the relaxation −0.27 to −0.38, crossing the 1.5-pitch link by 0.04. Pieces
+    9 / 10 (110100, 15.55 s; 151959, 19.75 s): off the layer (asymmetry 0.12–0.31 spacings, symmetric in the hole), still
+    (0.01–0.04 spacings a window); the link opens by the u of their body neighbours (+0.19 to +0.51 a window): the walls
+    retract around them.
+  - *D146b + WL's early opening (RWX, windows 7–22).* 53150: the grid opens it in 1.50–1.67 s (+0.53, u −0.21), then grid
+    +0.22 to +0.71 and the neighbours' u +0.31 to +0.83 a window; its 1.55-spacing jump (2.50–2.67 s) is the relaxation
+    pulling it back (−1.40 on the opening; back in the body at 2.83 s), not the detaching update. 57721: grid +0.81
+    (still joined), then grid +0.52 and u +0.63 (u +1.41 pitches, the spray 0.66–0.72 outward) against the relaxation
+    −0.42, three more windows of u +0.72 to +0.83, rejoined by the relaxation (−1.71). 134793: off the layer, a set of 15
+    the grid tears off. The spacing push never opens a link (−0.16 to +0.06 a window, mostly closing).
+  - *Every detachment that becomes a display blob within a second* (`d148_detach_all.py`: newly apart at a window's end,
+    read against `visible_apart.classify` at each window's end): RWX 145 (61 in the side view), CDL 247 (77), CDL2 300
+    (56). The update that opens the link most: RWX u on itself 0.82–0.83, grid 0.08–0.13, relaxation 0.03–0.06, the
+    neighbours' u 0.02; CDL / CDL2 the relaxation 0.56–0.71 (side 0.38–0.56), u 0.26–0.55, the neighbours' u 0.02–0.08,
+    grid 0.00–0.01. In the layer 0.93–0.99, in u's gate 0.90–0.99. The isolation gate at the window's start: > 0 for
+    0.90–1.00, ≥ 0.5 for 0.26–0.68, at its top for 0.03–0.10. The largest term along the normal: transport 0.23–0.55,
+    render 0.21–0.44, spray 0.09–0.18, near 0.04–0.12.
+  - *They sit on a sparse patch* (`d148_link_cf.py`): at the window's end they stand 0.51–0.61 pitches off their
+    same-side neighbours' plane (k_layer_resid's d, the layer graph rebuilt from the dump; beyond the berth in 0.01–0.07);
+    their nearest neighbour was 1.19 (RWX) / 1.44–1.45 (CDL, CDL2) pitches away at the window's start and 1.53–1.54 at its
+    end: the layer step's last 0.1–0.35 pitches takes it past the link, later windows out to a blob.
+  - *D149's count (step 2; `visible_apart.py` over the whole run, every 4th kept frame, `output/gpu/d148/vfull_*.jsonl`).*
+    Side-view blobs per window, 0–1.5 / 1.5–6 / 6–15 / 15 s–end: CDL 1.8 / 5.6 / 2.6 / 3.4, SL 1.4 / 5.6 / 2.8 / 1.9;
+    CDP 1.2 / 5.7 / 2.4 / 1.6, SP 1.5 / 5.1 / 4.9 / 5.1; unique blob particles CDL 270 / SL 276, CDP 266 / SP 284, side
+    126 / 127, 133 / 137. The symmetric push changes nothing in the arm and has more late in the twin; it is not a
+    detaching source.
+  **The proposal (sent 14:20 CDT; no pipeline code before the go): the layer step keeps a particle within the berth of
+  its nearest neighbour.** k_layer_project's step along n (ug u / T and the relaxation's s) clamped so the particle's
+  distance to its nearest frozen neighbour (k_update's minimum-spacing list; with D149 its symmetric closure) does not
+  grow beyond max(berth, that distance before the step); a step that brings it nearer always taken. The berth is the
+  near band's (objective.berth = nn_berth_k × nn_spacing = the target sample's median 8th-neighbour distance, 1.41
+  pitches at 300k: inside it is legitimate rim). No new constant; `--layer_link`, default off, on refreeze-cand 169f251.
+  Window-level counterfactual (the clamp on the window's own layer step along that pair): it bites 0.62–0.68 (RWX) /
+  0.88–0.94 (CDL, CDL2) of the blob detachments; their nearest then within the 1.5-pitch link 0.85–0.88 / 0.89–0.94
+  (without it 0.28–0.33 / 0.02–0.06); it acts on 468 (RWX) / 122–134 (CDL) particles of u's reach a window, 3.8 % / 1 % of
+  |u|. Not covered: the grid's tears, a set leaving together (its nearest is its partner), a particle off the layer left
+  by its walls' u. Rejected on the numbers: a bound on the offset from the plane (|d| ≤ berth bites 0.01–0.07) and u's
+  reach widened to what the isolation gate counts (u is the detaching update; the gate counts 2/3 of the layer above 0
+  and the visible detachments at its top in 0.03–0.10 before they leave).
+  **Pre-registration, CDX (2026-10-15 13:36 CDT server clock, launched 13:37 on GPU 3; the coordinator: launch on an
+  idle card).** The early crevice pieces of D146b (CDL's pieces 0–6, apart from 2.05–4.2 s) lie before CDL's dump
+  (window 37 on). CDX = CDL's arguments (dragon 300k, seed 97, `--relax_driven --u_adam_carry`, the gap split off) on
+  `repo_d148rx` with the D146 hook v2 for windows 11–33 (`D146_A0=10 D148_A1=33`, 1.67–5.5 s) and `--term_dump`;
+  `d148_run.sh` ARM=2 (the side render and the detector, so `d148_why_floating.py` lists its own pieces); GPU 3, one
+  card. A forensic reading, no pass/fail: its own visible pieces in 1.5–6 s (the runs are not bit-reproducible, so CDX's,
+  not CDL's), each read by `d148_detach.py` (who opens the link in the detaching window, the terms along the normal),
+  every detachment by `d148_detach_all.py` (blob-aware) and the clamp's counterfactual by `d148_link_cf.py`
+  (`tmp/d148/cdx_read.sh`, queued for the dump's last window).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
