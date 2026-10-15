@@ -4917,6 +4917,52 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     angular-momentum consistent. The render arm moves more, so the drag makes more angular momentum. The cause is not
     the spacing push and not mainly u. A consistent drag would damp the whole APIC momentum, m v and m C, by the same
     factor. That is a change to the frozen code, so it goes to the user after experiments. Recorded as found.
+  **B14 smoke, Xu / OT end checks and visible pieces (2026-10-15 12:05–12:52 CDT).**
+  - *B14 bunny ISD, seed 1, `CORR=none`.* Training took 1317 s on GPU 0 and evaluation 1016 s (21 meshes, 256³). The
+    end check against the independent sample reads silhouette IoU 0.9829 and chamfer 0.0574 (floor 0.9893); the start
+    reads 0.9888 against the source sample. Along the way:
+    - Occupancy volume over τ (common routine): 0.987 / 0.874 / 0.998 / 0.693 / 1.003 at τ 0 / .25 / .5 / .75 / 1,
+      with a minimum of 0.631 at τ 0.60.
+    - The level set has 2–9 components in 12 of 21 frames and is not watertight in 9.
+    - The largest component has genus 1–2 from t = 0.75. The end is genus 2, while the bunny is genus 0.
+
+    So the end is close, and the frames between are neither one body nor the volume. This repeats 2026-09-23. The
+    smoke run passed, and `b14_watch.sh` inserted the rest of B14 at 12:52.
+  - *Operations.* physmorph's metrics are GPU-only. The first `b14_convert.sh` ran its end check on the CPU, after the
+    job had released its card. Now the job converts, checks on its own card, and then releases it (`b14_pair.sh`). A
+    detached end check claims a card that has been idle for 10+ minutes. The smoke run had started at 12:05 on the old
+    flow, so I stopped its detached end check while it was waiting for a card. It ran at 12:51 on GPU 0, beside D145's
+    own D0L97 run, for about a minute.
+  - *Xu et al. (seed 97) and OT against the independent sample* (`endgen145.py`, a pool job on GPU 2, 12:40):
+
+    | mesh | Xu | OT | floor |
+    |---|---|---|---|
+    | bunny | 0.9598 | 0.9306 | 0.9893 |
+    | dragon | 0.9710 | 0.9440 | 0.9895 |
+    | teapot | 0.9758 | | 0.9909 |
+    | bob | 0.9382 | | 0.9919 |
+    | armadillo | 0.9740 | | 0.9883 |
+    | homer | 0.9471 | | 0.9916 |
+
+    Ours (the B12 agent's end check) is 0.985–0.991 on all six.
+  - *Visible pieces* (D148's `visible_apart.py`, 35bc069; CPU; windows 3–10, unique particles; apart / hidden / bump /
+    blob, side view's blobs in brackets):
+
+    | run | apart | hidden | bump | blob |
+    |---|---|---|---|---|
+    | bunny L97 | 3442 | 248 | 3139 | 55 (20) |
+    | bunny P97 | 4227 | 333 | 3825 | 69 (31) |
+    | dragon L97 | 4100 | 325 | 3752 | 23 (11) |
+    | dragon P97 | 3428 | 232 | 3170 | 26 (11) |
+    | teapot L97 | 1629 | 179 | 1407 | 43 (16) |
+    | bob L97 | 2398 | 223 | 2172 | 3 (1) |
+    | armadillo L97 | 2871 | 232 | 2583 | 56 (23) |
+    | homer L97 | 1778 | 143 | 1599 | 36 (16) |
+
+    Most of the apart count is relief standing 0.5–0.7 pitches (median) outside the display surface. The floating
+    pieces a viewer sees are 3–69 particles over windows 3–10. Over the whole run (every 4th kept frame), the bunny L97
+    has 105 blob particles (39 visible from the side), the dragon L97 384 (168), and Xu et al.'s bunny 373 (249) out of
+    22006 apart. The dragon's Xu and OT whole-run reads are still running (`vis_full.jsonl`).
   **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
   tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
   do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus
