@@ -110,6 +110,7 @@ def _stub_optimizer(cleanup_in_phys, scale=1.0):
     opt.cfg = types.SimpleNamespace(cleanup_in_phys=cleanup_in_phys, work_telemetry=False, grad_dump="", iters=8,
                                     render_weight_scale=scale)
     opt.on_iter = None
+    opt._zd = None          # B13's one-off force-units measurement: none in a dFc run
     opt.tele = {}
     opt.balancer = LambdaBalancer(cfg0.lambda_auto, cfg0.lambda_ema, None, cap_rel=20.0)
     gen = torch.Generator().manual_seed(4)
