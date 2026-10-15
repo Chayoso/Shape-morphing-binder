@@ -109,7 +109,7 @@ class PipelineConfig:
                                     #   particle and step in place of dFc, held at zero (mpm/force.py); "force_mf": that
                                     #   force with no net force and no net torque at every step
     force_scale: float = 1.0        # B13: the force leaf's unit, x (lam + 2 mu) V / (m dx) (window/setup.py)
-    xu_mass: float = 1.0           # that loss's per-particle mass: 1 / ppc, so that a full cell holds 1 as in the oracle
+    xu_mass: float = 1.0            # that loss's per-particle mass: 1 / ppc, so that a full cell holds 1 as in the oracle
     xu_form: str = "oracle"         # which form of that loss: "oracle", the C++ code's (a min-mass penalty, the out-of-
                                     #   target nodes' gradient x5, so not the gradient of its value); "paper", the
                                     #   published one (Xu et al., arXiv 2409.15746): 1/2 sum (ln(m+1) - ln(m*+1))^2 and

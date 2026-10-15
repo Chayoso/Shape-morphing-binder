@@ -4782,6 +4782,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     two float64 reductions a step).
   - If the force arms match the default on the end and the rest, the case for the stress control rests on momentum and
     smoothness alone; reported as found.
+  *Amendment 1 (recorded 2026-10-15 13:46 CDT server clock, before any measured run; the coordinator's message: the
+  user tags the freeze on Sat 10/18 as D135 + D146b + D149, with a floating-Gaussian fix only if it passes by then).*
+  - `wip/b13` is rebased onto `refreeze-cand` 68376d5, whose defaults switch on `--relax_driven`, `--u_adam_carry` and
+    `--spacing_symmetric`. The B13 runs therefore use the candidate's defaults and add no base flags.
+  - The tests and the full suite run on the rebased tree. The deterministic proof compares repo_b13s at the default flags
+    with refreeze-cand 68376d5 (frames12 patch on both). The candidate's own pinned references
+    (`tests/test_refreeze_reference.py`) are part of the suite.
+  - Merge into `refreeze-cand` only when all of this is green.
+  - The 40k reference arm becomes D149's ON1 / ON2: refreeze-prep with the D149 code, the D146b flags and
+    `--spacing_symmetric`, the candidate's default path, same seed, two replays. OFF1 / OFF2 stay beside them as the
+    09b-switch replays.
+  - The 40k smoke and B13a run on the candidate now; the 300k runs wait for the tag.
+  - The card chain that waited from 12:10 was stopped at 13:40 before it claimed a card; it had run nothing.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
