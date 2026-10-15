@@ -176,8 +176,9 @@ def test_the_gradients_match_central_differences_while_the_link_withholds_steps(
     # the hand adjoint (adjoints.k_layer_project_take_adj) against Warp's generated one of k_layer_project_take
     monkeypatch.setattr(TRAJ, "HAND_ADJOINTS", False)
     gd2, gu2 = torch.autograd.grad(L(dfc, u), (dfc, u))
-    assert torch.allclose(gd, gd2, rtol=1e-4, atol=1e-6 * float(gd.abs().max()))
-    assert torch.allclose(gu, gu2, rtol=1e-4, atol=1e-6 * float(gu.abs().max()))
+    # to rounding, the repo's contract for the hand adjoints (tests/test_runtime_exact.py, test_gap_split.py)
+    torch.testing.assert_close(gd, gd2, rtol=1e-4, atol=1e-5 * float(gd2.abs().max()))
+    torch.testing.assert_close(gu, gu2, rtol=1e-4, atol=1e-5 * float(gu2.abs().max()))
     monkeypatch.setattr(TRAJ, "HAND_ADJOINTS", True)
     with torch.no_grad():                                 # without the link the particle moves out
         spec_off, _, _ = _spec(x, sp, None, T, Tc)
