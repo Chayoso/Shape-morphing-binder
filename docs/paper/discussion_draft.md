@@ -231,8 +231,8 @@ column is from the papers [Nicolet et al. 2021, Sec. 5; Shen et al. 2023] until 
 
 | measure | ours | Xu et al. 2025 | Buonomo et al. 2025 | ARAP | OT |
 |---|---|---|---|---|---|
-| end silhouette IoU vs independent sample, bunny (floor 0.9893) | 0.9853–0.9886 | [TBD: same metric, `endgen_1015.jsonl`] | 0.9601 | 0.9874 | [TBD] |
-| same, dragon (floor 0.9895) | 0.9865–0.9886 | [TBD] | 0.9016 | N/A (genus 15) | [TBD] |
+| end silhouette IoU vs independent sample, bunny (floor 0.9893) | 0.9853–0.9886 | 0.9598 (seed 97) | 0.9601 | 0.9874 | 0.9306 |
+| same, dragon (floor 0.9895) | 0.9865–0.9886 | 0.9710 (seed 97) | 0.9016 | N/A (genus 15) | 0.9440 |
 | end silhouette IoU, own sample, bunny / dragon | 0.987–0.988 | 0.958–0.969 / 0.969–0.971 | — | — | — |
 | thin parts uncovered, own sample | 3.5–4.5 % | 31–50 % | [TBD: thin measure on its frames] | [TBD] | [TBD] |
 | yardstick silhouette (exterior), bunny | 7.2–8.0e-4 (five seeds) | 0.0090–0.0099 | [TBD] | [TBD] | [TBD] |
