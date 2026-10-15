@@ -5005,7 +5005,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Xu et al. has 6–9× our apart particles and 3.6–6.2× our blobs.
     - OT has slightly fewer apart than ours but 1.5–2.4× the blobs, and its bumps stand about twice as high. Transport
       without a body leaves fewer, larger and more visible pieces.
-  **The 10/18 freeze: what stops now and the post-tag evidence queue (2026-10-15 ~13:45 CDT; the user via the
+  **The 10/18 freeze: what stops now and the post-tag evidence queue (2026-10-15 ~13:35 CDT; the user via the
   coordinator: frozen on Sat 10/18 as D135 + D146b + D149, plus the floating-Gaussian fix if it passes by then;
   every algorithm-dependent item is redone on that tag by 11-07).**
   - *Held now.* The 34 algorithm-dependent items that had not started (B2 VJ / VD / VA / E / M; B10 TL / TP) are
@@ -5046,7 +5046,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - *Not included, needs a pre-registration (amendment 6) before it runs.* Ablations of the parts the tag adds:
     D146b off, D149 off, and the floating-Gaussian fix off. Bunny and dragon × 3 seeds at 300k is about 4.7
     card-hours; the 40k gallery at one seed is about 2.
-  **Amendment 6: ablations of the tag's new parts (pre-registered 2026-10-15 ~14:05 CDT server clock, before any run;
+  **Amendment 6: ablations of the tag's new parts (pre-registered 2026-10-15 13:43 CDT server clock, before any run;
   the user via the coordinator: "reviewers will ask for each part's effect").**
   - *Arms.* One part off at a time; everything else is the tag's defaults. Each arm is the switch's `--no-` form on
     `refreeze-cand`, which is the path of freeze-2026-10-09b. Names use letters only, so band145 reads arm + seed.
