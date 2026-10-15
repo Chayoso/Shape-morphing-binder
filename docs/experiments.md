@@ -4785,7 +4785,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Amendment 1 (recorded 2026-10-15 13:46 CDT server clock, before any measured run; the coordinator's message: the
   user tags the freeze on Sat 10/18 as D135 + D146b + D149, with a floating-Gaussian fix only if it passes by then).*
   - `wip/b13` is rebased onto `refreeze-cand` 2ba7e6d (68376d5 and the pinned pipeline digest), whose defaults
-    switch on `--relax_driven`, `--u_adam_carry` and `--spacing_symmetric`. The B13 runs therefore use the candidate's defaults and add no base flags.
+    switch on `--relax_driven`, `--u_adam_carry` and `--spacing_symmetric`. The B13 runs therefore use the candidate's
+    defaults and add no base flags.
   - The tests and the full suite run on the rebased tree. The deterministic proof compares repo_b13s at the default flags
     with refreeze-cand 2ba7e6d (frames12 patch on both). The candidate's own pinned references
     (`tests/test_refreeze_reference.py`) are part of the suite.
