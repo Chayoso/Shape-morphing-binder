@@ -336,6 +336,14 @@ In the intermediate frames, the share of material outside the largest connected 
 - Transport alone (OT displacement): it ends on the target sample (a median 0.57 pitches from the nearest target
   point), but its occupancy rises to 1.277 on the dragon as torn material spreads.
 
+What a viewer sees as floating pieces is fewer than the apart count. Over the whole morph (seed 97), the display's own
+field splits the material apart from the largest piece into what is hidden, what is joined to the surface as relief,
+and what is a separate visible piece:
+- Ours: 105 / 384 particles in separate pieces (bunny / dragon). Most of the apart count is relief a median 0.5 pitches
+  high.
+- Xu et al.: 373 / 2391.
+- OT displacement: 250 / 581, standing about 1 pitch high.
+<!-- Source: D145 2026-10-15, D148's visible_apart.py, output/gpu/d145_evidence/vis_full.jsonl. -->
 [TBD: apart particles of OT, Buonomo et al. and ARAP at matched p, harness on B5 / B6 / B11 frames.]
 [TBD: a thin-feature comparison against the SDF morph's frames. The plan predicts rounder ears, horns and fingers for
 the SDF morph; not yet measured.]

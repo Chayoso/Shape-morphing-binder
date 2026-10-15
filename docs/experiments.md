@@ -4962,7 +4962,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     Most of the apart count is relief standing 0.5–0.7 pitches (median) outside the display surface. The floating
     pieces a viewer sees are 3–69 particles over windows 3–10. Over the whole run (every 4th kept frame), the bunny L97
     has 105 blob particles (39 visible from the side), the dragon L97 384 (168), and Xu et al.'s bunny 373 (249) out of
-    22006 apart. The dragon's Xu and OT whole-run reads are still running (`vis_full.jsonl`).
+    22006 apart. The whole-run pass finished at 13:21 (`vis_full.jsonl`; every 4th kept frame of each archive; unique
+    particles; each method's own kept frames, so the frame counts differ):
+
+    | method and mesh | apart | blob (side view) | bump height median, pitches |
+    |---|---|---|---|
+    | ours, bunny | 3327 | 105 (39) | 0.51 |
+    | ours, dragon | 11160 | 384 (168) | 0.55 |
+    | Xu et al., bunny | 22006 | 373 (249) | 0.78 |
+    | Xu et al., dragon | 101475 | 2391 (1690) | 0.93 |
+    | OT, bunny | 2750 | 250 (95) | 1.05 |
+    | OT, dragon | 9954 | 581 (235) | 0.91 |
+
+    Reading:
+    - Xu et al. has 6–9× our apart particles and 3.6–6.2× our blobs.
+    - OT has slightly fewer apart than ours but 1.5–2.4× the blobs, and its bumps stand about twice as high. Transport
+      without a body leaves fewer, larger and more visible pieces.
   **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
   tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
   do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus
