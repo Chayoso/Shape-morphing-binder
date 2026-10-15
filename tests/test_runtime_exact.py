@@ -332,12 +332,12 @@ def test_cell_ordered_p2g_is_the_plain_kernel_to_rounding():
     for warp_order in (False, True):
         gm = wp.zeros(nx ** 3, dtype=float, device="cuda")
         gv = wp.zeros(nx ** 3, dtype=wp.vec3, device="cuda")
-        args = [xa, v, C, F, dfc, P, m, vol, nbr, frag, K_, gm, gv, wp.vec3(0., 0., 0.), 1.0, 1.0, 1 / 240, 0.9,
+        args = [xa, v, C, F, dfc, P, m, vol, nbr, frag, K_, gm, gv, wp.vec3(0., 0., 0.), 1.0, 1.0, 1 / 240, 0.9, 0.0,
                 nx, nx, nx]
         if warp_order:
             Gs = wp.zeros(N, dtype=wp.mat33, device="cuda")
             mvs = wp.zeros(N, dtype=wp.vec3, device="cuda")
-            wp.launch(K.k_p2g_prep, dim=N, inputs=[xa, v, C, F, dfc, P, m, vol, nbr, frag, K_, 1.0, 1 / 240, 0.9,
+            wp.launch(K.k_p2g_prep, dim=N, inputs=[xa, v, C, F, dfc, P, m, vol, nbr, frag, K_, 1.0, 1 / 240, 0.9, 0.0,
                                                    Gs, mvs], device="cuda")
             wp.launch_tiled(K.k_p2g_nodes, dim=[(N + K.WARP_LANES - 1) // K.WARP_LANES],
                             inputs=[order, N, xa, m, Gs, mvs, gm, gv, wp.vec3(0., 0., 0.), 1.0, 1.0, nx, nx, nx],

@@ -268,7 +268,7 @@ class Scene:
         gv_tmp = wp.zeros(self.ngrid, dtype=wp.vec3, device=dev)
         nx, ny, nz = self.nxyz
         wp.launch(K.k_p2g, dim=N, inputs=[self.x, self.v, self.C, self.F, self.dFc, self.P, self.m, self.vol,
-                                          self.nbr0, self.frag0, 0, gm_tmp, gv_tmp, self.gmin, dx, 1.0 / dx, 0.0, 0.0,
+                                          self.nbr0, self.frag0, 0, gm_tmp, gv_tmp, self.gmin, dx, 1.0 / dx, 0.0, 0.0, 0.0,
                                           nx, ny, nz], device=dev)
         wp.launch(K.k_volume, dim=N, inputs=[self.x, self.m, gm_tmp, self.vol, self.gmin, dx, 1.0 / dx, nx, ny, nz],
                   device=dev)
@@ -299,7 +299,7 @@ class Scene:
             S = lambda arr: self._s(arr, b)                                        # noqa: E731
             wp.launch(K.k_p2g, dim=a.n, inputs=[S(self.x), S(self.v), S(self.C), S(self.F), S(dfc), S(self.P),
                                                 S(self.m), S(self.vol), self.nbr0, S(self.frag0), 0,
-                                                self.gm[f], self.gmom[f], self.gmin, dx, inv_dx, a.dt, 0.0,
+                                                self.gm[f], self.gmom[f], self.gmin, dx, inv_dx, a.dt, 0.0, 0.0,
                                                 nx, ny, nz], device=dev)
         fext = wp.vec3(0.0, -a.g, 0.0)
         if a.mode == "single":
@@ -513,7 +513,7 @@ def adjoint_dL(sc, state, D_t, eps0, a):
             for b in range(2):
                 wp.launch(K.k_p2g, dim=n, inputs=[S(xs[t], b), S(vs[t], b), S(Cs[t], b), S(Fs[t], b), S(dfc, b),
                                                   S(Ps[t], b), S(sc.m, b), S(sc.vol, b), sc.nbr0, S(sc.frag0, b), 0,
-                                                  gms[t][b], gmoms[t][b], sc.gmin, dx, inv_dx, a.dt, 0.0, nx, ny, nz],
+                                                  gms[t][b], gmoms[t][b], sc.gmin, dx, inv_dx, a.dt, 0.0, 0.0, nx, ny, nz],
                           device=dev)
                 gvol = gvols[t]
                 wp.launch(k_p2g_volume, dim=n, inputs=[S(xs[t], b), S(Js[t], b), sc.vp, gvol[b], sc.gmin, inv_dx,

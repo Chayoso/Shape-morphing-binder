@@ -17,6 +17,8 @@ class MPMParams:
     dx: float = 0.5
     dt: float = 1.0 / 240.0
     drag: float = 0.9
+    drag_affine: bool = False         # D150 A/B: the drag damps APIC's affine momentum m C as it damps m v (P2G), so the
+                                      #   transferred momentum, linear and angular, is scaled as a whole; off = m v alone
     smoothing: float = 0.955          # F-smoothing s — eq (9)
     f_ext: tuple = (0.0, 0.0, 0.0)
     grid_min: tuple = (-16.0, -16.0, -16.0)
@@ -29,6 +31,12 @@ class MPMParams:
     @property
     def ngrid(self) -> int:
         return self.nx * self.ny * self.nz
+
+    @property
+    def drag_c(self) -> float:
+        """The drag rate on the affine momentum m C in P2G (kernels.k_p2g's drag_c): the drag with drag_affine (D150), else
+        0, the frozen path."""
+        return float(self.drag) if self.drag_affine else 0.0
 
 
 @dataclass

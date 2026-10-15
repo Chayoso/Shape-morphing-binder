@@ -138,6 +138,10 @@ def parse_args(argv=None):
     ap.add_argument("--assim", type=float, default=None,
                     help="material: the share of the elastic strain made permanent at every commit")
     ap.add_argument("--drag", type=float, default=None, help="material: momentum drag rate (1/s)")
+    ap.add_argument("--drag_affine", action=argparse.BooleanOptionalAction, default=False,
+                    help="D150 A/B: the drag damps APIC's affine momentum m C as it damps m v, so the transferred "
+                         "momentum, linear and angular, is scaled as a whole (a body with no spin keeps none); off (the "
+                         "default) = m v alone, the frozen path")
     ap.add_argument("--f_ext", type=float, nargs=3, default=None, metavar=("X", "Y", "Z"),
                     help="external force: a uniform acceleration (wu/s^2) on every grid node")
     ap.add_argument("--floor", action="store_true",
@@ -216,6 +220,8 @@ def main():
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
+    if args.drag_affine:                   # D150
+        prm = dataclasses.replace(prm, drag_affine=True)
     if args.f_ext is not None:
         prm = dataclasses.replace(prm, f_ext=tuple(args.f_ext))
     if args.floor:

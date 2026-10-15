@@ -192,7 +192,7 @@ def test_fragment_p2g_replays_neighbor_velocity(dev):
         with wp.Tape() as tape:
             wp.launch(k_p2g, dim=2, inputs=[
                 x, v, zero, eye, zero, zero, one, one, nbr, frag, 1,
-                gm, gv, wp.vec3(-4., -4., -4.), .5, 2., 1 / 120, 0.,
+                gm, gv, wp.vec3(-4., -4., -4.), .5, 2., 1 / 120, 0., 0.,
                 16, 16, 16], device=dev)
         mass, momentum = gm.numpy().copy(), gv.numpy().copy()
         value = np.sum(momentum.astype(np.float64) * q)

@@ -174,7 +174,7 @@ def k_p2g_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
               dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
               m: wp.array(dtype=float), vol: wp.array(dtype=float),
               nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
-              gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, nx: int, ny: int, nz: int,
+              gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, drag_c: float, nx: int, ny: int, nz: int,
               adj_gm: wp.array(dtype=float), adj_gv: wp.array(dtype=wp.vec3),
               adj_x: wp.array(dtype=wp.vec3), adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
               adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33), has_adj_dFc: int,
@@ -188,7 +188,12 @@ def k_p2g_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
     s = -C0 * dt * vol[p]
-    G = s * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]
+    Cd = C[p]
+    mc = m[p]                                           # d(m C_d) / dC: m, or m (1 - dt drag_c) with D150
+    if drag_c != 0.0:
+        Cd = C[p] * (1.0 - dt * drag_c)
+        mc = m[p] * (1.0 - dt * drag_c)
+    G = s * (P[p] @ wp.transpose(Feff)) + m[p] * Cd
     frag_p = bond_K > 0 and frag[p] > 0.5
     vp = v[p]
     if frag_p:
@@ -227,7 +232,7 @@ def k_p2g_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
             wp.atomic_add(adj_v, nbr[p * bond_K + a], a_vs)
     else:
         wp.atomic_add(adj_v, p, a_vp)
-    adj_C[p] = adj_C[p] + mp * a_G
+    adj_C[p] = adj_C[p] + mc * a_G
     adj_P[p] = adj_P[p] + s * (a_G @ Feff)
     a_Feff = s * (wp.transpose(a_G) @ P[p])
     adj_F[p] = adj_F[p] + a_Feff
@@ -274,7 +279,7 @@ def record_p2g(tape, tr, t: int, dfc, bnb, bnc, bK: int, N: int):
 
     def backward():
         wp.launch(k_p2g_adj, dim=N, inputs=[x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK,
-                                            gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz,
+                                            gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.drag_c, prm.nx, prm.ny, prm.nz,
                                             gm.grad, gmom.grad, x.grad, v.grad, C.grad, F.grad, a_dfc,
                                             int(dfc.grad is not None), P.grad], device=dev)
 

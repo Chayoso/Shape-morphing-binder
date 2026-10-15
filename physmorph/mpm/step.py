@@ -48,7 +48,7 @@ def mpm_step(s: MPMState, prm: MPMParams):
     nb0 = _nobond(N, dev)
     wp.launch(K.k_p2g, dim=N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.P, s.m, s.vol, nb0[0], nb0[2], 0, s.grid_m, s.grid_v,
-                      gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz],
+                      gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.drag_c, prm.nx, prm.ny, prm.nz],
               device=dev)
     wp.launch(K.k_grid_op, dim=prm.ngrid,
               inputs=[s.grid_m, s.grid_v, s.grid_v, prm.dt, fext,
@@ -82,7 +82,7 @@ def compute_volumes(s: MPMState, prm: MPMParams):
     nb0 = _nobond(s.N, s.device)
     wp.launch(K.k_p2g, dim=s.N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.P, s.m, s.vol, nb0[0], nb0[2], 0, s.grid_m, s.grid_v,
-                      gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz],
+                      gmin, prm.dx, inv_dx, 0.0, 0.0, 0.0, prm.nx, prm.ny, prm.nz],
               device=s.device)
     wp.launch(K.k_volume, dim=s.N,
               inputs=[s.x, s.m, s.grid_m, s.vol, gmin, prm.dx, inv_dx, prm.nx, prm.ny, prm.nz],

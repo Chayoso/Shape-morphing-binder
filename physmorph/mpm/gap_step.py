@@ -87,14 +87,14 @@ def p2g_side1(tr, t: int, dfc, bnb, bnc, bK: int, tape=None):
     x, v, C, F, P, gm1, gp1 = tr.x[t], tr.v[t], tr.C[t], tr.F[t], tr.P[t], tr.gm1[t], tr.gmom1[t]
     head = [x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK, tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig,
             tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab, tr.gap_ncell, tr.gap_rep]
-    wp.launch(GKK.k_p2g_side1, dim=tr.N, inputs=head + [gm1, gp1, gmin, dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny,
+    wp.launch(GKK.k_p2g_side1, dim=tr.N, inputs=head + [gm1, gp1, gmin, dx, inv_dx, prm.dt, prm.drag, prm.drag_c, prm.nx, prm.ny,
                                                         prm.nz], device=dev, record_tape=tape is None)
     if tape is None:
         return
     a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
 
     def backward():
-        wp.launch(GKK.k_p2g_side1_adj, dim=tr.N, inputs=head + [gmin, dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny,
+        wp.launch(GKK.k_p2g_side1_adj, dim=tr.N, inputs=head + [gmin, dx, inv_dx, prm.dt, prm.drag, prm.drag_c, prm.nx, prm.ny,
                                                                  prm.nz, gm1.grad, gp1.grad, x.grad, v.grad, C.grad,
                                                                  F.grad, a_dfc, int(dfc.grad is not None), P.grad],
                   device=dev)

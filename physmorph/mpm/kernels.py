@@ -118,7 +118,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           m: wp.array(dtype=float), vol: wp.array(dtype=float),
           nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
-          gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
+          gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, drag_c: float,
           nx: int, ny: int, nz: int):
     p = wp.tid()
     xp = x[p]
@@ -126,7 +126,12 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
         return
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
-    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form
+    # D150 (drag_c = the drag when MPMParams.drag_affine, else 0: the frozen path, its expression unchanged): the drag
+    # damps the affine momentum m C as it damps m v, so the transferred APIC momentum, linear and angular, is scaled whole
+    Cd = C[p]
+    if drag_c != 0.0:
+        Cd = C[p] * (1.0 - dt * drag_c)
+    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * Cd   # total-PK1 form
     vp = v[p]
     if bond_K > 0 and frag[p] > 0.5:
         # FRAGMENT (its occupied-cell component is not the body's): the grid cannot couple
@@ -184,7 +189,7 @@ def k_p2g_prep(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
                m: wp.array(dtype=float), vol: wp.array(dtype=float),
                nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
-               inv_dx: float, dt: float, drag: float,
+               inv_dx: float, dt: float, drag: float, drag_c: float,
                Gs: wp.array(dtype=wp.mat33), mvs: wp.array(dtype=wp.vec3)):
     """k_p2g's particle part: the affine momentum G and the damped momentum m v (1 - dt drag) of each particle, for
     k_p2g_nodes (D138 batch 7). The same expressions as k_p2g's."""
@@ -193,7 +198,10 @@ def k_p2g_prep(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
         return
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
-    Gs[p] = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form
+    Cd = C[p]
+    if drag_c != 0.0:                                   # D150, as k_p2g
+        Cd = C[p] * (1.0 - dt * drag_c)
+    Gs[p] = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * Cd   # total-PK1 form
     vp = v[p]
     if bond_K > 0 and frag[p] > 0.5:
         vp = bond_velocity(v, nbr, p, bond_K)

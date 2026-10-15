@@ -81,7 +81,7 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                 near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
                 boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
                 grid_m1: wp.array(dtype=float), grid_v1: wp.array(dtype=wp.vec3),
-                gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
+                gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, drag_c: float,
                 nx: int, ny: int, nz: int):
     """kernels.k_p2g's deposit times the particle's share of side 1, at the gap nodes."""
     p = wp.tid()
@@ -94,7 +94,10 @@ def k_p2g_side1(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     qp = q[p]
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
-    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form (k_p2g's)
+    Cd = C[p]
+    if drag_c != 0.0:                                   # D150, as kernels.k_p2g
+        Cd = C[p] * (1.0 - dt * drag_c)
+    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * Cd   # total-PK1 form (k_p2g's)
     vp = v[p]
     if bond_K > 0 and frag[p] > 0.5:
         vp = bond_velocity(v, nbr, p, bond_K)
@@ -125,7 +128,7 @@ def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
                     near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
                     boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
-                    gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, nx: int, ny: int, nz: int,
+                    gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float, drag_c: float, nx: int, ny: int, nz: int,
                     adj_gm1: wp.array(dtype=float), adj_gv1: wp.array(dtype=wp.vec3),
                     adj_x: wp.array(dtype=wp.vec3), adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
                     adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33), has_adj_dFc: int,
@@ -143,7 +146,12 @@ def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
     sc = -C0 * dt * vol[p]
-    G = sc * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]
+    Cd = C[p]
+    mc = m[p]                                           # D150, as adjoints.k_p2g_adj
+    if drag_c != 0.0:
+        Cd = C[p] * (1.0 - dt * drag_c)
+        mc = m[p] * (1.0 - dt * drag_c)
+    G = sc * (P[p] @ wp.transpose(Feff)) + m[p] * Cd
     frag_p = bond_K > 0 and frag[p] > 0.5
     vp = v[p]
     if frag_p:
@@ -183,7 +191,7 @@ def k_p2g_side1_adj(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
             wp.atomic_add(adj_v, nbr[p * bond_K + a], a_vs)
     else:
         wp.atomic_add(adj_v, p, a_vp)
-    adj_C[p] = adj_C[p] + mp * a_G
+    adj_C[p] = adj_C[p] + mc * a_G
     adj_P[p] = adj_P[p] + sc * (a_G @ Feff)
     a_Feff = sc * (wp.transpose(a_G) @ P[p])
     adj_F[p] = adj_F[p] + a_Feff

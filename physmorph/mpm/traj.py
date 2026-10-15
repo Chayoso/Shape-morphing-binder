@@ -266,7 +266,7 @@ class Trajectory:
         C0 = wp.zeros(N, dtype=wp.mat33, device=dev)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[0], self.dFc, self.Fp, self.lam, self.mu, P0], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[0], v0, C0, self.F[0], self.dFc, P0, self.m, self.vol,
-                  self.nbr0, self.ncount0, 0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
+                  self.nbr0, self.ncount0, 0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_volume, dim=N, inputs=[self.x[0], self.m, gm, self.vol, gmin, prm.dx, inv_dx,
                   prm.nx, prm.ny, prm.nz], device=dev)
 
@@ -314,11 +314,11 @@ class Trajectory:
         wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         tape = self._hand_tape()
         p2g_args = [self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t], self.m, self.vol, bnb, bnc, bK,
-                    self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz]
+                    self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.drag_c, prm.nx, prm.ny, prm.nz]
         if self.order is not None and (tape is not None or wp._src.context.runtime.tape is None):
             # cell order (D138 batches 4, 7); its adjoint is the hand-written one, so only off a generated-adjoint tape
             wp.launch(K.k_p2g_prep, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
-                                                   self.m, self.vol, bnb, bnc, bK, inv_dx, prm.dt, prm.drag,
+                                                   self.m, self.vol, bnb, bnc, bK, inv_dx, prm.dt, prm.drag, prm.drag_c,
                                                    self.p2g_G, self.p2g_mv], device=dev, record_tape=False)
             wp.launch_tiled(K.k_p2g_nodes, dim=[self.order_blocks],
                             inputs=[self.order, N, self.x[t], self.m, self.p2g_G, self.p2g_mv, self.gm[t], self.gmom[t],
