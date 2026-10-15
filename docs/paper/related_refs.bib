@@ -1,0 +1,809 @@
+% related_refs.bib -- references for docs/paper/discussion_draft.md (2026-10-15)
+% Every entry was checked against the source named in its `note`/comment (Crossref record of the DOI, arXiv abstract
+% page, OpenReview, CVF, PMLR / NeurIPS / ICLR proceedings, or the project's repository). A field that could not be
+% verified is left out rather than guessed; an entry marked UNVERIFIED in its comment is not cited in the prose.
+
+% ---------------------------------------------------------------------------------------------------------------
+% Our own prior work (cited as prior work, never as a competitor)
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1109/TVCG.2025.3591729; arXiv 2409.15746 (SCA 2024 poster version).
+@article{xu2025dmpm,
+  author  = {Xu, Michael and Song, Chang-Yong and Levin, David I. W. and Hyde, David},
+  title   = {A Differentiable Material Point Method Framework for Shape Morphing},
+  journal = {IEEE Transactions on Visualization and Computer Graphics},
+  volume  = {31},
+  number  = {10},
+  pages   = {9140--9153},
+  year    = {2025},
+  doi     = {10.1109/TVCG.2025.3591729}
+}
+
+% Crossref 10.1145/3606037.3606840 (2-page SCA 2023 contribution).
+@inproceedings{xu2023dgc,
+  author    = {Xu, Michael and Levin, David I. W.},
+  title     = {Deformation Gradient Control of Physically Simulated Amorphous Solids},
+  booktitle = {Proceedings of the ACM SIGGRAPH/Eurographics Symposium on Computer Animation (SCA)},
+  pages     = {1--2},
+  year      = {2023},
+  doi       = {10.1145/3606037.3606840}
+}
+
+% arXiv abs page 2511.16988 (v1 2025-11-21, v2 2026-04-20; no venue in the comments field). The title is v2's;
+% v1 was "PhysMorph-GS: Differentiable Shape Morphing via Joint Optimization of Physics and Rendering Objectives".
+@misc{song2025physmorphgs,
+  author        = {Song, Chang-Yong and Hyde, David},
+  title         = {{PhysMorph-GS}: Render-Guided Volumetric Morphing with Differentiable Physics},
+  year          = {2025},
+  eprint        = {2511.16988},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.GR}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Simulation, surfacing and optimisation building blocks of our method
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1145/3197517.3201293.
+@article{hu2018mlsmpm,
+  author  = {Hu, Yuanming and Fang, Yu and Ge, Ziheng and Qu, Ziyin and Zhu, Yixin and Pradhana, Andre and Jiang, Chenfanfu},
+  title   = {A Moving Least Squares Material Point Method with Displacement Discontinuity and Two-Way Rigid Body Coupling},
+  journal = {ACM Transactions on Graphics},
+  volume  = {37},
+  number  = {4},
+  pages   = {1--14},
+  year    = {2018},
+  doi     = {10.1145/3197517.3201293}
+}
+% The TOG article number is not in the Crossref record read here; add it from the ACM DL page.
+
+% Crossref 10.1145/2461912.2461948.
+@article{stomakhin2013snow,
+  author  = {Stomakhin, Alexey and Schroeder, Craig and Chai, Lawrence and Teran, Joseph and Selle, Andrew},
+  title   = {A Material Point Method for Snow Simulation},
+  journal = {ACM Transactions on Graphics},
+  volume  = {32},
+  number  = {4},
+  pages   = {1--10},
+  year    = {2013},
+  doi     = {10.1145/2461912.2461948}
+}
+
+% Crossref 10.1016/S0045-7825(99)00338-2 (multi-velocity-field contact used by the two-body scene).
+@article{bardenhagen2000granular,
+  author  = {Bardenhagen, S. G. and Brackbill, J. U. and Sulsky, D.},
+  title   = {The Material-Point Method for Granular Materials},
+  journal = {Computer Methods in Applied Mechanics and Engineering},
+  volume  = {187},
+  number  = {3--4},
+  pages   = {529--541},
+  year    = {2000},
+  doi     = {10.1016/S0045-7825(99)00338-2}
+}
+
+% Crossref 10.1145/1073204.1073298.
+@article{zhu2005sand,
+  author  = {Zhu, Yongning and Bridson, Robert},
+  title   = {Animating Sand as a Fluid},
+  journal = {ACM Transactions on Graphics},
+  volume  = {24},
+  number  = {3},
+  pages   = {965--972},
+  year    = {2005},
+  doi     = {10.1145/1073204.1073298}
+}
+
+% Crossref 10.1002/cav.162.
+@article{solenthaler2007unified,
+  author  = {Solenthaler, Barbara and Schl{\"a}fli, J{\"u}rg and Pajarola, Renato},
+  title   = {A Unified Particle Model for Fluid--Solid Interactions},
+  journal = {Computer Animation and Virtual Worlds},
+  volume  = {18},
+  number  = {1},
+  pages   = {69--82},
+  year    = {2007},
+  doi     = {10.1002/cav.162}
+}
+
+% PMLR page proceedings.mlr.press/v89/feydy19a.html.
+@inproceedings{feydy2019sinkhorn,
+  author    = {Feydy, Jean and S{\'e}journ{\'e}, Thibault and Vialard, Fran{\c{c}}ois-Xavier and Amari, Shun-ichi and Trouv{\'e}, Alain and Peyr{\'e}, Gabriel},
+  title     = {Interpolating between Optimal Transport and {MMD} using {Sinkhorn} Divergences},
+  booktitle = {Proceedings of the Twenty-Second International Conference on Artificial Intelligence and Statistics (AISTATS)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {89},
+  pages     = {2681--2690},
+  year      = {2019}
+}
+
+% NeurIPS proceedings page (hash 3fe78a8acf5fda99de95303940a2420c).
+@inproceedings{yu2020pcgrad,
+  author    = {Yu, Tianhe and Kumar, Saurabh and Gupta, Abhishek and Levine, Sergey and Hausman, Karol and Finn, Chelsea},
+  title     = {Gradient Surgery for Multi-Task Learning},
+  booktitle = {Advances in Neural Information Processing Systems 33 (NeurIPS 2020)},
+  year      = {2020}
+}
+
+% Crossref 10.1145/3592433.
+@article{kerbl20233dgs,
+  author  = {Kerbl, Bernhard and Kopanas, Georgios and Leimk{\"u}hler, Thomas and Drettakis, George},
+  title   = {{3D} Gaussian Splatting for Real-Time Radiance Field Rendering},
+  journal = {ACM Transactions on Graphics},
+  volume  = {42},
+  number  = {4},
+  pages   = {1--14},
+  year    = {2023},
+  doi     = {10.1145/3592433}
+}
+
+% Crossref 10.1145/3641519.3657428.
+@inproceedings{huang20242dgs,
+  author    = {Huang, Binbin and Yu, Zehao and Chen, Anpei and Geiger, Andreas and Gao, Shenghua},
+  title     = {{2D} Gaussian Splatting for Geometrically Accurate Radiance Fields},
+  booktitle = {ACM SIGGRAPH 2024 Conference Papers},
+  pages     = {1--11},
+  year      = {2024},
+  doi       = {10.1145/3641519.3657428}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Baselines' building blocks (ARAP interpolation B11)
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1145/344779.344859.
+@inproceedings{alexa2000arap,
+  author    = {Alexa, Marc and Cohen-Or, Daniel and Levin, David},
+  title     = {As-Rigid-as-Possible Shape Interpolation},
+  booktitle = {Proceedings of the 27th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH '00)},
+  pages     = {157--164},
+  year      = {2000},
+  doi       = {10.1145/344779.344859}
+}
+
+% Crossref 10.1145/1015706.1015736.
+@article{sumner2004deftransfer,
+  author  = {Sumner, Robert W. and Popovi{\'c}, Jovan},
+  title   = {Deformation Transfer for Triangle Meshes},
+  journal = {ACM Transactions on Graphics},
+  volume  = {23},
+  number  = {3},
+  pages   = {399--405},
+  year    = {2004},
+  doi     = {10.1145/1015706.1015736}
+}
+
+% Crossref 10.1145/1060244.1060274 (SPM 2005; an extended version is in Graphical Models 68(3), 2006,
+% doi 10.1016/j.gmod.2006.03.001).
+@inproceedings{xu2005poisson,
+  author    = {Xu, Dong and Zhang, Hongxin and Wang, Qing and Bao, Hujun},
+  title     = {Poisson Shape Interpolation},
+  booktitle = {Proceedings of the 2005 ACM Symposium on Solid and Physical Modeling (SPM)},
+  pages     = {267--274},
+  year      = {2005},
+  doi       = {10.1145/1060244.1060274}
+}
+
+% Crossref 10.1111/j.1467-8659.2012.03179.x (SGP 2012).
+@article{kazhdan2012cmcf,
+  author  = {Kazhdan, Michael and Solomon, Jake and Ben-Chen, Mirela},
+  title   = {Can Mean-Curvature Flow be Modified to be Non-singular?},
+  journal = {Computer Graphics Forum},
+  volume  = {31},
+  number  = {5},
+  pages   = {1745--1754},
+  year    = {2012},
+  doi     = {10.1111/j.1467-8659.2012.03179.x}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Render-only shape optimisation (family f)
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1145/3478513.3480501; paper PDF (rgl.epfl.ch): Article 248; code github.com/rgl-epfl/large-steps-pytorch (BSD-3).
+@article{nicolet2021largesteps,
+  author  = {Nicolet, Baptiste and Jacobson, Alec and Jakob, Wenzel},
+  title   = {Large Steps in Inverse Rendering of Geometry},
+  journal = {ACM Transactions on Graphics},
+  volume  = {40},
+  number  = {6},
+  pages   = {248:1--248:13},
+  year    = {2021},
+  doi     = {10.1145/3478513.3480501}
+}
+
+% Crossref 10.1002/cav.2101; code github.com/Profactor/continuous-remeshing (MIT).
+@article{palfinger2022continuous,
+  author  = {Palfinger, Werner},
+  title   = {Continuous Remeshing for Inverse Rendering},
+  journal = {Computer Animation and Virtual Worlds},
+  volume  = {33},
+  number  = {5},
+  pages   = {e2101},
+  year    = {2022},
+  doi     = {10.1002/cav.2101}
+}
+
+% Crossref 10.1145/3592430; arXiv 2308.05371; code github.com/nv-tlabs/FlexiCubes (Apache-2.0).
+@article{shen2023flexicubes,
+  author  = {Shen, Tianchang and Munkberg, Jacob and Hasselgren, Jon and Yin, Kangxue and Wang, Zian and Chen, Wenzheng and Gojcic, Zan and Fidler, Sanja and Sharp, Nicholas and Gao, Jun},
+  title   = {Flexible Isosurface Extraction for Gradient-Based Mesh Optimization},
+  journal = {ACM Transactions on Graphics},
+  volume  = {42},
+  number  = {4},
+  pages   = {1--16},
+  year    = {2023},
+  doi     = {10.1145/3592430}
+}
+
+% Crossref 10.1145/3528223.3530139; code github.com/rgl-epfl/differentiable-sdf-rendering (BSD-3).
+@article{vicini2022sdf,
+  author  = {Vicini, Delio and Speierer, S{\'e}bastien and Jakob, Wenzel},
+  title   = {Differentiable Signed Distance Function Rendering},
+  journal = {ACM Transactions on Graphics},
+  volume  = {41},
+  number  = {4},
+  pages   = {1--18},
+  year    = {2022},
+  doi     = {10.1145/3528223.3530139}
+}
+
+% Crossref 10.1109/cvpr52688.2022.00810.
+@inproceedings{munkberg2022nvdiffrec,
+  author    = {Munkberg, Jacob and Chen, Wenzheng and Hasselgren, Jon and Evans, Alex and Shen, Tianchang and M{\"u}ller, Thomas and Gao, Jun and Fidler, Sanja},
+  title     = {Extracting Triangular {3D} Models, Materials, and Lighting From Images},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {8270--8280},
+  year      = {2022},
+  doi       = {10.1109/CVPR52688.2022.00810}
+}
+
+% ICLR 2025 proceedings page (hash 4ae7d78ebbe48f772e31c5c3fcc04c43); arXiv 2405.20283; code github.com/gmh14/tssplat.
+@inproceedings{guo2025tetsphere,
+  author    = {Guo, Minghao and Wang, Bohan and He, Kaiming and Matusik, Wojciech},
+  title     = {{TetSphere} Splatting: Representing High-Quality Geometry with {Lagrangian} Volumetric Meshes},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2025}
+}
+
+% NeurIPS 2024 proceedings page (hash 1651f1ea5ee6213e301a89f222f3fec7), DOI 10.52202/079017-0384; arXiv 2404.13445.
+@inproceedings{son2024dmesh,
+  author    = {Son, Sanghyun and Gadelha, Matheus and Zhou, Yang and Xu, Zexiang and Lin, Ming C. and Zhou, Yi},
+  title     = {{DMesh}: A Differentiable Mesh Representation},
+  booktitle = {Advances in Neural Information Processing Systems 37 (NeurIPS 2024)},
+  year      = {2024},
+  doi       = {10.52202/079017-0384}
+}
+
+% arXiv abs page 2511.18680 (comments: "3DV2026 Accepted (Poster)").
+@inproceedings{gao2026highgenus,
+  author        = {Gao, Xiang and Wang, Xinmu and Wu, Xiaolong and Li, Jiazhi and Shi, Jingyu and Guo, Yu and Liu, Yuanpeng and Song, Xiyun and Yu, Heather and Lin, Zongfang and Gu, Xianfeng David},
+  title         = {Inverse Rendering for High-Genus Surface Meshes from Multi-View Images},
+  booktitle     = {International Conference on 3D Vision (3DV)},
+  year          = {2026},
+  eprint        = {2511.18680},
+  archivePrefix = {arXiv}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Surface interpolation (family a)
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1111/j.1467-8659.2012.03180.x (SGP 2012).
+@article{heeren2012shells,
+  author  = {Heeren, B. and Rumpf, M. and Wardetzky, M. and Wirth, B.},
+  title   = {Time-Discrete Geodesics in the Space of Shells},
+  journal = {Computer Graphics Forum},
+  volume  = {31},
+  number  = {5},
+  pages   = {1755--1764},
+  year    = {2012},
+  doi     = {10.1111/j.1467-8659.2012.03180.x}
+}
+
+% Crossref 10.1111/cgf.12450 (SGP 2014).
+@article{heeren2014shells,
+  author  = {Heeren, B. and Rumpf, M. and Schr{\"o}der, P. and Wardetzky, M. and Wirth, B.},
+  title   = {Exploring the Geometry of the Space of Shells},
+  journal = {Computer Graphics Forum},
+  volume  = {33},
+  number  = {5},
+  pages   = {247--256},
+  year    = {2014},
+  doi     = {10.1111/cgf.12450}
+}
+
+% Crossref 10.1145/3658174 (SIGGRAPH 2024).
+@article{sassen2024repulsive,
+  author  = {Sassen, Josua and Schumacher, Henrik and Rumpf, Martin and Crane, Keenan},
+  title   = {Repulsive Shells},
+  journal = {ACM Transactions on Graphics},
+  volume  = {43},
+  number  = {4},
+  pages   = {1--22},
+  year    = {2024},
+  doi     = {10.1145/3658174}
+}
+
+% Crossref 10.1145/1276377.1276457.
+@article{kilian2007shapespace,
+  author  = {Kilian, Martin and Mitra, Niloy J. and Pottmann, Helmut},
+  title   = {Geometric Modeling in Shape Space},
+  journal = {ACM Transactions on Graphics},
+  volume  = {26},
+  number  = {3},
+  pages   = {64},
+  year    = {2007},
+  doi     = {10.1145/1276377.1276457}
+}
+
+% Crossref 10.1006/aima.1997.1634 (displacement interpolation).
+@article{mccann1997convexity,
+  author  = {McCann, Robert J.},
+  title   = {A Convexity Principle for Interacting Gases},
+  journal = {Advances in Mathematics},
+  volume  = {128},
+  number  = {1},
+  pages   = {153--179},
+  year    = {1997},
+  doi     = {10.1006/aima.1997.1634}
+}
+
+% Crossref 10.1007/s11263-022-01743-0. (Not BaRe-ESA: that is Hartman, Pierson, Bauer, Charon, Daoudi, ICCV 2023.)
+@article{hartman2023h2,
+  author  = {Hartman, Emmanuel and Sukurdeep, Yashil and Klassen, Eric and Charon, Nicolas and Bauer, Martin},
+  title   = {Elastic Shape Analysis of Surfaces with Second-Order {Sobolev} Metrics: A Comprehensive Numerical Framework},
+  journal = {International Journal of Computer Vision},
+  volume  = {131},
+  number  = {5},
+  pages   = {1183--1209},
+  year    = {2023},
+  doi     = {10.1007/s11263-022-01743-0}
+}
+
+% Crossref 10.1111/cgf.13785 (SGP 2019).
+@article{eisenberger2019divfree,
+  author  = {Eisenberger, M. and L{\"a}hner, Z. and Cremers, D.},
+  title   = {Divergence-Free Shape Correspondence by Deformation},
+  journal = {Computer Graphics Forum},
+  volume  = {38},
+  number  = {5},
+  pages   = {1--12},
+  year    = {2019},
+  doi     = {10.1111/cgf.13785}
+}
+
+% Crossref 10.1007/978-3-030-58548-8_11 (ECCV 2020, LNCS).
+@inproceedings{eisenberger2020hamiltonian,
+  author    = {Eisenberger, Marvin and Cremers, Daniel},
+  title     = {Hamiltonian Dynamics for Real-World Shape Interpolation},
+  booktitle = {Computer Vision -- ECCV 2020},
+  series    = {Lecture Notes in Computer Science},
+  pages     = {179--196},
+  year      = {2020},
+  doi       = {10.1007/978-3-030-58548-8_11}
+}
+
+% Crossref 10.1109/cvpr46437.2021.00739.
+@inproceedings{eisenberger2021neuromorph,
+  author    = {Eisenberger, Marvin and Novotny, David and Kerchenbaum, Gael and Labatut, Patrick and Neverova, Natalia and Cremers, Daniel and Vedaldi, Andrea},
+  title     = {{NeuroMorph}: Unsupervised Shape Interpolation and Correspondence in One Go},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {7469--7479},
+  year      = {2021},
+  doi       = {10.1109/CVPR46437.2021.00739}
+}
+
+% Crossref 10.1109/cvpr52733.2024.00351.
+@inproceedings{cao2024sms,
+  author    = {Cao, Dongliang and Eisenberger, Marvin and El Amrani, Nafie and Cremers, Daniel and Bernard, Florian},
+  title     = {Spectral Meets Spatial: Harmonising {3D} Shape Matching and Interpolation},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {3658--3668},
+  year      = {2024},
+  doi       = {10.1109/CVPR52733.2024.00351}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Transport (family b)
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1145/2070781.2024192 (SIGGRAPH Asia 2011).
+@article{bonneel2011displacement,
+  author  = {Bonneel, Nicolas and van de Panne, Michiel and Paris, Sylvain and Heidrich, Wolfgang},
+  title   = {Displacement Interpolation Using {Lagrangian} Mass Transport},
+  journal = {ACM Transactions on Graphics},
+  volume  = {30},
+  number  = {6},
+  pages   = {1--12},
+  year    = {2011},
+  doi     = {10.1145/2070781.2024192}
+}
+
+% Crossref 10.1145/2766963.
+@article{solomon2015convolutional,
+  author  = {Solomon, Justin and de Goes, Fernando and Peyr{\'e}, Gabriel and Cuturi, Marco and Butscher, Adrian and Nguyen, Andy and Du, Tao and Guibas, Leonidas},
+  title   = {Convolutional {Wasserstein} Distances: Efficient Optimal Transportation on Geometric Domains},
+  journal = {ACM Transactions on Graphics},
+  volume  = {34},
+  number  = {4},
+  pages   = {1--11},
+  year    = {2015},
+  doi     = {10.1145/2766963}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Neural implicit and flow-based morphs (family c)
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1109/iccv51070.2023.01313.
+@inproceedings{novello2023nise,
+  author    = {Novello, Tiago and da Silva, Vinicius and Schardong, Guilherme and Schirmer, Luiz and Lopes, Helio and Velho, Luiz},
+  title     = {Neural Implicit Surface Evolution},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {14233--14243},
+  year      = {2023},
+  doi       = {10.1109/ICCV51070.2023.01313}
+}
+
+% Crossref 10.1145/3528233.3530713 (SIGGRAPH 2022 Conference Proceedings).
+@inproceedings{liu2022lipschitz,
+  author    = {Liu, Hsueh-Ti Derek and Williams, Francis and Jacobson, Alec and Fidler, Sanja and Litany, Or},
+  title     = {Learning Smooth Neural Functions via {Lipschitz} Regularization},
+  booktitle = {ACM SIGGRAPH 2022 Conference Proceedings},
+  pages     = {1--13},
+  year      = {2022},
+  doi       = {10.1145/3528233.3530713}
+}
+
+% arXiv abs page 2501.14038 (comments: ICLR 2025); code github.com/Sangluisme/Implicit-surf-Deformation (AGPL-3.0;
+% README: example data "with their correspondences", Faust_r and shrec16_cuts).
+@inproceedings{sang2025isd,
+  author        = {Sang, Lu and Canfes, Zehranaz and Cao, Dongliang and Bernard, Florian and Cremers, Daniel},
+  title         = {Implicit Neural Surface Deformation with Explicit Velocity Fields},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2025},
+  eprint        = {2501.14038},
+  archivePrefix = {arXiv}
+}
+
+% Crossref 10.1109/cvpr52734.2025.00613; project page 4deform.github.io ("estimated sparse, noisy correspondences");
+% code github.com/Sangluisme/4Deform (no LICENSE file in the root, checked 2026-10-15).
+@inproceedings{sang2025fourdeform,
+  author    = {Sang, Lu and Canfes, Zehranaz and Cao, Dongliang and Marin, Riccardo and Bernard, Florian and Cremers, Daniel},
+  title     = {{4Deform}: Neural Surface Deformation for Robust Shape Interpolation},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {6542--6551},
+  year      = {2025},
+  doi       = {10.1109/CVPR52734.2025.00613}
+}
+
+% Crossref 10.1111/cgf.70196 (SGP 2025); code github.com/camillebnm/neural_shape_morphing (MIT, per D145 B5).
+@article{buonomo2025vpnsm,
+  author  = {Buonomo, Camille and Digne, Julie and Chaine, Rapha{\"e}lle},
+  title   = {Volume Preserving Neural Shape Morphing},
+  journal = {Computer Graphics Forum},
+  volume  = {44},
+  number  = {5},
+  pages   = {e70196},
+  year    = {2025},
+  doi     = {10.1111/cgf.70196}
+}
+
+% Crossref 10.1145/3811331 (SIGGRAPH 2026).
+@article{buonomo2026explicitflows,
+  author  = {Buonomo, Camille and Digne, Julie and Chaine, Rapha{\"e}lle},
+  title   = {Explicit Flows for Implicit Surfaces},
+  journal = {ACM Transactions on Graphics},
+  volume  = {45},
+  number  = {4},
+  pages   = {1--17},
+  year    = {2026},
+  doi     = {10.1145/3811331}
+}
+
+% NeurIPS 2020 proceedings page (hash 6f1d0705c91c2145201df18a1a0c7345); arXiv 2006.07982 (survey agent, 2026-10-15).
+@inproceedings{jiang2020shapeflow,
+  author    = {Jiang, Chiyu Max and Huang, Jingwei and Tagliasacchi, Andrea and Guibas, Leonidas},
+  title     = {{ShapeFlow}: Learnable Deformation Flows Among {3D} Shapes},
+  booktitle = {Advances in Neural Information Processing Systems 33 (NeurIPS 2020)},
+  year      = {2020}
+}
+
+% arXiv abs page 2510.09537; NeurIPS 2025 proceedings page (hash e0c256700465c158de71081b4cf5e8c3), DOI
+% 10.52202/085713-5118 (survey agent). Code github.com/schardong/flowing (MIT). Landmark-based.
+@inproceedings{bizzi2025flowing,
+  author    = {Bizzi, Arthur and Grynberg, Matias and Matias, Vitor and Perazzo, Daniel and Lima, Jo{\~a}o Paulo and Velho, Luiz and Gon{\c{c}}alves, Nuno and Pereira, Jo{\~a}o and Schardong, Guilherme and Novello, Tiago},
+  title     = {{FLOWING}: Implicit Neural Flows for Structure-Preserving Morphing},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2025},
+  doi       = {10.52202/085713-5118}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Generative 3D morphing (family d)
+% ---------------------------------------------------------------------------------------------------------------
+
+% arXiv abs page 2601.00204 (comments: accepted by CVPR 2026); code github.com/XiaokunSun/MorphAny3D (MIT).
+@inproceedings{sun2026morphany3d,
+  author        = {Sun, Xiaokun and Cai, Zeyu and Tang, Hao and Tai, Ying and Yang, Jian and Zhang, Zhenyu},
+  title         = {{MorphAny3D}: Unleashing the Power of Structured Latent in {3D} Morphing},
+  booktitle     = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  year          = {2026},
+  eprint        = {2601.00204},
+  archivePrefix = {arXiv}
+}
+
+% arXiv 2601.14103; ICLR 2026 poster (iclr.cc/virtual/2026/poster/10008661) (survey agent). Code github.com/xiaolul2/Interp3D (MIT).
+@inproceedings{liu2026interp3d,
+  author        = {Liu, Xiaolu and Li, Yicong and He, Qiyuan and Zhu, Jiayin and Ji, Wei and Yao, Angela and Zhu, Jianke},
+  title         = {{Interp3D}: Correspondence-aware Interpolation for Generative Textured {3D} Morphing},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2026},
+  eprint        = {2601.14103},
+  archivePrefix = {arXiv}
+}
+
+% NeurIPS 2025 proceedings page (hash 17b08a9de93e2accf13429643e7eafdc), DOI 10.52202/085713-0544; arXiv 2511.22425
+% (survey agent). No code found.
+@inproceedings{yin2025wukong,
+  author    = {Yin, Minghao and Cao, Yukang and Han, Kai},
+  title     = {{Wukong's} 72 Transformations: High-fidelity Textured {3D} Morphing via Flow Models},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2025},
+  doi       = {10.52202/085713-0544}
+}
+
+% arXiv 2502.14316; ICCV 2025 poster (iccv.thecvf.com/virtual/2025/poster/1610) (survey agent). Code
+% github.com/Songlin1998/Textured-3D-DiffMorpher (no licence file).
+@inproceedings{yang2025regenerative,
+  author        = {Yang, Songlin and Lan, Yushi and Chen, Honghua and Pan, Xingang},
+  title         = {Textured {3D} Regenerative Morphing with {3D} Diffusion Prior},
+  booktitle     = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  year          = {2025},
+  eprint        = {2502.14316},
+  archivePrefix = {arXiv}
+}
+
+% Crossref 10.1109/iccv.2019.00548.
+@inproceedings{niemeyer2019occflow,
+  author    = {Niemeyer, Michael and Mescheder, Lars and Oechsle, Michael and Geiger, Andreas},
+  title     = {Occupancy Flow: {4D} Reconstruction by Learning Particle Dynamics},
+  booktitle = {Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV)},
+  pages     = {5378--5388},
+  year      = {2019},
+  doi       = {10.1109/ICCV.2019.00548}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Physics-based control and differentiable simulation (family e)
+% ---------------------------------------------------------------------------------------------------------------
+
+% Crossref 10.1145/54852.378507.
+@inproceedings{witkin1988spacetime,
+  author    = {Witkin, Andrew and Kass, Michael},
+  title     = {Spacetime Constraints},
+  booktitle = {Proceedings of the 15th Annual Conference on Computer Graphics and Interactive Techniques (SIGGRAPH 1988)},
+  pages     = {159--168},
+  year      = {1988},
+  doi       = {10.1145/54852.378507}
+}
+
+% Crossref 10.1145/882262.882337.
+@article{treuille2003keyframe,
+  author  = {Treuille, Adrien and McNamara, Antoine and Popovi{\'c}, Zoran and Stam, Jos},
+  title   = {Keyframe Control of Smoke Simulations},
+  journal = {ACM Transactions on Graphics},
+  volume  = {22},
+  number  = {3},
+  pages   = {716--723},
+  year    = {2003},
+  doi     = {10.1145/882262.882337}
+}
+
+% Crossref 10.1145/1015706.1015744.
+@article{mcnamara2004adjoint,
+  author  = {McNamara, Antoine and Treuille, Adrien and Popovi{\'c}, Zoran and Stam, Jos},
+  title   = {Fluid Control Using the Adjoint Method},
+  journal = {ACM Transactions on Graphics},
+  volume  = {23},
+  number  = {3},
+  pages   = {449--456},
+  year    = {2004},
+  doi     = {10.1145/1015706.1015744}
+}
+
+% Crossref 10.1145/1015706.1015743.
+@article{fattal2004targetdriven,
+  author  = {Fattal, Raanan and Lischinski, Dani},
+  title   = {Target-Driven Smoke Animation},
+  journal = {ACM Transactions on Graphics},
+  volume  = {23},
+  number  = {3},
+  pages   = {441--448},
+  year    = {2004},
+  doi     = {10.1145/1015706.1015743}
+}
+
+% Crossref 10.1016/j.gmod.2008.12.007.
+@article{thurey2009detail,
+  author  = {Th{\"u}rey, N. and Keiser, R. and Pauly, M. and R{\"u}de, U.},
+  title   = {Detail-Preserving Fluid Control},
+  journal = {Graphical Models},
+  volume  = {71},
+  number  = {6},
+  pages   = {221--228},
+  year    = {2009},
+  doi     = {10.1016/j.gmod.2008.12.007}
+}
+
+% Crossref 10.1145/1531326.1531359.
+@article{barbic2009reduced,
+  author  = {Barbi{\v{c}}, Jernej and da Silva, Marco and Popovi{\'c}, Jovan},
+  title   = {Deformable Object Animation Using Reduced Optimal Control},
+  journal = {ACM Transactions on Graphics},
+  volume  = {28},
+  number  = {3},
+  pages   = {1--9},
+  year    = {2009},
+  doi     = {10.1145/1531326.1531359}
+}
+
+% Crossref 10.1145/2010324.1964978.
+@article{nielsen2011guide,
+  author  = {Nielsen, Michael B. and Bridson, Robert},
+  title   = {Guide Shapes for High Resolution Naturalistic Liquid Simulation},
+  journal = {ACM Transactions on Graphics},
+  volume  = {30},
+  number  = {4},
+  pages   = {1--8},
+  year    = {2011},
+  doi     = {10.1145/2010324.1964978}
+}
+
+% Crossref 10.1145/3641519.3657468.
+@inproceedings{chen2024eigenfluids,
+  author    = {Chen, Yixin and Levin, David and Langlois, Timothy},
+  title     = {Fluid Control with {Laplacian} Eigenfunctions},
+  booktitle = {ACM SIGGRAPH 2024 Conference Papers},
+  pages     = {1--11},
+  year      = {2024},
+  doi       = {10.1145/3641519.3657468}
+}
+
+% Crossref 10.1145/3757377.3763903; arXiv 2511.01259.
+@inproceedings{li2025flowmapadjoint,
+  author    = {Li, Zhiqi and He, Jinjin and B{\"o}rcs{\"o}k, Barnab{\'a}s and Zhang, Taiyuan and Chen, Duowen and Du, Tao and Lin, Ming and Turk, Greg and Zhu, Bo},
+  title     = {An Adjoint Method for Differentiable Fluid Simulation on Flow Maps},
+  booktitle = {SIGGRAPH Asia 2025 Conference Papers},
+  pages     = {1--12},
+  year      = {2025},
+  doi       = {10.1145/3757377.3763903}
+}
+
+% Crossref 10.1145/3490168.
+@article{du2022diffpd,
+  author  = {Du, Tao and Wu, Kui and Ma, Pingchuan and Wah, Sebastien and Spielberg, Andrew and Rus, Daniela and Matusik, Wojciech},
+  title   = {{DiffPD}: Differentiable Projective Dynamics},
+  journal = {ACM Transactions on Graphics},
+  volume  = {41},
+  number  = {2},
+  pages   = {1--21},
+  year    = {2022},
+  doi     = {10.1145/3490168}
+}
+
+% arXiv abs page 2104.02646 (ICLR 2021).
+@inproceedings{jatavallabhula2021gradsim,
+  author        = {Jatavallabhula, Krishna Murthy and Macklin, Miles and Golemo, Florian and Voleti, Vikram and Petrini, Linda and Weiss, Martin and Considine, Breandan and Parent-Levesque, Jerome and Xie, Kevin and Erleben, Kenny and Paull, Liam and Shkurti, Florian and Nowrouzezahrai, Derek and Fidler, Sanja},
+  title         = {{gradSim}: Differentiable Simulation for System Identification and Visuomotor Control},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2021},
+  eprint        = {2104.02646},
+  archivePrefix = {arXiv}
+}
+
+% arXiv abs page 2304.03223 (ICLR 2023).
+@inproceedings{li2023dexdeform,
+  author        = {Li, Sizhe and Huang, Zhiao and Chen, Tao and Du, Tao and Su, Hao and Tenenbaum, Joshua B. and Gan, Chuang},
+  title         = {{DexDeform}: Dexterous Deformable Object Manipulation with Human Demonstrations and Differentiable Physics},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2023},
+  eprint        = {2304.03223},
+  archivePrefix = {arXiv}
+}
+
+% Crossref 10.1109/icra.2019.8794333.
+@inproceedings{hu2019chainqueen,
+  author    = {Hu, Yuanming and Liu, Jiancheng and Spielberg, Andrew and Tenenbaum, Joshua B. and Freeman, William T. and Wu, Jiajun and Rus, Daniela and Matusik, Wojciech},
+  title     = {{ChainQueen}: A Real-Time Differentiable Physical Simulator for Soft Robotics},
+  booktitle = {International Conference on Robotics and Automation (ICRA)},
+  pages     = {6265--6271},
+  year      = {2019},
+  doi       = {10.1109/ICRA.2019.8794333}
+}
+
+% arXiv abs page 1910.00935 (comments: ICLR 2020).
+@inproceedings{hu2020difftaichi,
+  author        = {Hu, Yuanming and Anderson, Luke and Li, Tzu-Mao and Sun, Qi and Carr, Nathan and Ragan-Kelley, Jonathan and Durand, Fr{\'e}do},
+  title         = {{DiffTaichi}: Differentiable Programming for Physical Simulation},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2020},
+  eprint        = {1910.00935},
+  archivePrefix = {arXiv}
+}
+
+% arXiv abs page 2104.03311 (comments: ICLR 2021 spotlight).
+@inproceedings{huang2021plasticinelab,
+  author        = {Huang, Zhiao and Hu, Yuanming and Du, Tao and Zhou, Siyuan and Su, Hao and Tenenbaum, Joshua B. and Gan, Chuang},
+  title         = {{PlasticineLab}: A Soft-Body Manipulation Benchmark with Differentiable Physics},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2021},
+  eprint        = {2104.03311},
+  archivePrefix = {arXiv}
+}
+
+% ---------------------------------------------------------------------------------------------------------------
+% Rendering + physics (identification / forward dynamics)
+% ---------------------------------------------------------------------------------------------------------------
+
+% arXiv abs page 2303.05512 (ICLR 2023 spotlight).
+@inproceedings{li2023pacnerf,
+  author        = {Li, Xuan and Qiao, Yi-Ling and Chen, Peter Yichen and Jatavallabhula, Krishna Murthy and Lin, Ming and Jiang, Chenfanfu and Gan, Chuang},
+  title         = {{PAC-NeRF}: Physics Augmented Continuum Neural Radiance Fields for Geometry-Agnostic System Identification},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2023},
+  eprint        = {2303.05512},
+  archivePrefix = {arXiv}
+}
+
+% Crossref 10.1109/cvpr52733.2024.00420.
+@inproceedings{xie2024physgaussian,
+  author    = {Xie, Tianyi and Zong, Zeshun and Qiu, Yuxing and Li, Xuan and Feng, Yutao and Yang, Yin and Jiang, Chenfanfu},
+  title     = {{PhysGaussian}: Physics-Integrated {3D} {Gaussians} for Generative Dynamics},
+  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+  pages     = {4389--4398},
+  year      = {2024},
+  doi       = {10.1109/CVPR52733.2024.00420}
+}
+
+% arXiv abs page 2406.14927 (NeurIPS 2024).
+@inproceedings{cai2024gic,
+  author        = {Cai, Junhao and Yang, Yuji and Yuan, Weihao and He, Yisheng and Dong, Zilong and Bo, Liefeng and Cheng, Hui and Chen, Qifeng},
+  title         = {{GIC}: {Gaussian}-Informed Continuum for Physical Property Identification and Simulation},
+  booktitle     = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year          = {2024},
+  eprint        = {2406.14927},
+  archivePrefix = {arXiv}
+}
+
+% Crossref 10.1007/978-3-031-72627-9_23 (ECCV 2024, LNCS).
+@inproceedings{zhong2024springgaus,
+  author    = {Zhong, Licheng and Yu, Hong-Xing and Wu, Jiajun and Li, Yunzhu},
+  title     = {Reconstruction and Simulation of Elastic Objects with Spring-Mass {3D} {Gaussians}},
+  booktitle = {Computer Vision -- ECCV 2024},
+  series    = {Lecture Notes in Computer Science},
+  pages     = {407--423},
+  year      = {2024},
+  doi       = {10.1007/978-3-031-72627-9_23}
+}
+
+% Crossref 10.1007/978-3-031-72627-9_22 (ECCV 2024, LNCS).
+@inproceedings{zhang2024physdreamer,
+  author    = {Zhang, Tianyuan and Yu, Hong-Xing and Wu, Rundi and Feng, Brandon Y. and Zheng, Changxi and Snavely, Noah and Wu, Jiajun and Freeman, William T.},
+  title     = {{PhysDreamer}: Physics-Based Interaction with {3D} Objects via Video Generation},
+  booktitle = {Computer Vision -- ECCV 2024},
+  series    = {Lecture Notes in Computer Science},
+  pages     = {388--406},
+  year      = {2024},
+  doi       = {10.1007/978-3-031-72627-9_22}
+}
+
+% arXiv abs page 2501.18982 (ICLR 2025).
+@inproceedings{lin2025omniphysgs,
+  author        = {Lin, Yuchen and Lin, Chenguo and Xu, Jianjin and Mu, Yadong},
+  title         = {{OmniPhysGS}: {3D} Constitutive {Gaussians} for General Physics-Based Dynamics Generation},
+  booktitle     = {International Conference on Learning Representations (ICLR)},
+  year          = {2025},
+  eprint        = {2501.18982},
+  archivePrefix = {arXiv}
+}
