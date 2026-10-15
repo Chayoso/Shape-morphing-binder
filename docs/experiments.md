@@ -6965,6 +6965,57 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   not CDL's), each read by `d148_detach.py` (who opens the link in the detaching window, the terms along the normal),
   every detachment by `d148_detach_all.py` (blob-aware) and the clamp's counterfactual by `d148_link_cf.py`
   (`tmp/d148/cdx_read.sh`, queued for the dump's last window).
+  *CDX's dump (windows 11–32; 28 and 33 null commits, not dumped), read 13:57 CDT.* 198 detachments become display blobs
+  within a second (74 in the side view): the update that opens the link most u on the particle 0.72–0.80, the relaxation
+  0.12–0.18, the neighbours' u 0.07–0.08, grid 0.02–0.03; in the layer 0.92–0.95; u on them a median +0.71–0.73 pitches.
+  The nearest neighbour 1.23–1.28 pitches away at the window's start, 1.54–1.55 at its end; the plane-offset bound would
+  bite 0.01; the link clamp bites 0.69–0.72 and leaves the nearest within the 1.5-pitch link in 0.82–0.85 (without it
+  0.20–0.21); it acts on 314 particles of u's reach a window, 2.5 % of |u|. The early crevice phase of D146b is u's.
+- **D151, the layer's step keeps a particle within the berth of its nearest neighbour (`--layer_link`; the user's go
+  2026-10-15, relayed ~13:55 CDT, on the proposal of D148's last paragraphs; code on `wip/d151` from refreeze-cand
+  169f251, dd3d959 + bc1feac; server `repo_d151`).** The definition (kernels.k_layer_link_take / k_layer_project_take, the hand
+  adjoint adjoints.k_layer_project_take_adj): the layer's step along the normal (u's ug u / T and the relaxation's s, as
+  k_layer_project) is taken only while it keeps the particle's nearest frozen neighbour (the minimum spacing's list,
+  k_update's snbr; with D149 the symmetric closure) within max(berth, that distance before the step); a step that brings
+  it nearer is always taken. The berth is the near band's (objective.berth = nn_berth_k × the target's NN spacing = the
+  target sample's median 8th-neighbour distance, 1.41 pitches at 300k). The decision is taken outside the tape
+  (take ∈ {0, 1} a particle and step), the frozen kernels are untouched and the switch off launches them; window and
+  scene paths (the scene's per body, its own berth). Tests (`tests/test_layer_link.py`, hyde06 CPU 21 passed / 3 CUDA
+  skipped with test_frozen_recipe, test_layer_relax, test_relax_driven): a particle u pushes three spacings out stays
+  within the berth of its nearest (without the link 1.7+ spacings off), an inward push inside the berth is the old path
+  bit for bit, the switch off is bit for bit, the bridge's gradients match central differences while the link withholds
+  a particle's steps and the hand adjoint matches the generated one; CUDA: the window hands one berth to every
+  trajectory, the one-body scene with the link is the window with it. The full suite on a card: queued
+  (`tmp/d151_suite.sh`).
+  **Pre-registration of the 300k gate (2026-10-15 14:02 CDT server clock, before any run).** Runs on `repo_d151`, seed
+  97, the refreeze-cand defaults (D146, D146b, D149 on) plus `--layer_link`: dragon300k_NL (render arm), dragon300k_NP
+  (twin, `--render_weight_scale 0`), bunny300k_NL, bunny300k_NP; `tmp/d151/d151_chain.sh` on up to two cards under the
+  lock protocol (agent D148), each run followed by D149's readings (t3end_, e3end_ against d90's independent sample,
+  momentum on every kept frame `m_`, apart `d120_apart`), the side render (`render_deliverable.py +field=zbs`, arms and
+  twins) and the detector; on the CPU `visible_apart.py` over the whole run (every 4th kept frame) and
+  `d148_why_floating.py`'s pieces. The base: D149's SL / SP (dragon) and SL, SL2 / SP, SP2 (bunny) — exactly the
+  refreeze-cand configuration; the secondary spread CDL / CDL2 / CDP and CBL / CBL2 / CBP (D146b without D149; D149
+  changes no visible count, D148 step 2). Base side renders of SL (dragon, bunny) for the side-by-side videos.
+  Items (a run passes an item if it holds for both meshes; arms and twins read alike unless said):
+  (1) Visible floating pieces: the unique side-view blob particles over the whole run at most half the base's (dragon
+  SL / SP; bunny the mean of SL, SL2 / SP, SP2), and the side-view blobs a window at 1.5–6 s at most half; reported also
+  0–1.5 / 6–15 / 15 s–end, all blobs, and the detector's confirmed pieces; and no new kind of artefact on the side view
+  (the side renders at quarter speed over 0–6 s and 9–14 s against the base's, by eye: holes, spikes, flat or striped
+  patches, flicker; reported as found).
+  (2) 0–1.5 s within the band: at windows 1–9 the record's transport term d_vol, silhouette term d_sil and kinetic
+  energy kin within the base runs' range widened by its width (arms: SL, CDL, CDL2 dragon / SL, SL2, CBL, CBL2 bunny;
+  twins: SP, CDP / SP, SP2, CBP).
+  (3) The end, at rest, the render lead: silhouette IoU, chamfer and thin uncovered within the base's range (dragon SL,
+  CDL, CDL2; bunny SL, SL2) widened by its width; the last kinetic record at D148's rest limits (dragon 3.3e-5, bunny
+  1.53e-5); the arm ahead of its twin on the yardstick's silhouette and the display's front 1 − IoU.
+  (4) Momentum: the momentum probe's net translation and net rotation over the kept frames and the record's net body
+  translation / rotation not beyond the base's range widened by its width; λ and g_share (median over windows) read
+  against the base's, not gated.
+  (5) Cost: seconds an attempt at most 1.05 × the base's mean.
+  Expectation (D148's counterfactuals): the blob detachments −70 to −90 %; the unique side-view blob particles −50 to
+  −80 %, not zero (the grid's tears, sets leaving together, particles off the layer left by their walls); the end, rest,
+  lead and momentum within the spread; cost +1–3 %. Read Friday morning; the side-by-side videos (base | layer_link,
+  dragon and bunny side), the visible-pieces table and each item to the coordinator; adoption is the user's decision.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
