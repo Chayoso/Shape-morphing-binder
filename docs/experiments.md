@@ -6670,6 +6670,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   shared root cause: the cleanup is the largest pull on the opening beads but a restoring one until they have crossed,
   and D135's foam is not cleanup-driven. dF_c sits at its cap on every particle, the body included, in RWX's dump
   (windows 6–22), so the control does not distinguish the beads either.
+  **Which early apart particles does the display show? (12:00 CDT, CPU, for the coordinator after D145's u-off finding;
+  `d148_visible.py`, `tmp/d148/vis_*.log`, sheets `output/gpu/d148/vis_{CBL,CDL,FB}.jpg`).** Every particle outside
+  the largest set connected at 1.5 pitches (d120_apart's count) at every kept frame of windows 3–10, against the
+  display's own field (render/exterior.py's Zhu–Bridson field with Solenthaler's factor, radius 3, offset 0.8 pitches):
+  hidden where the field of all the other particles (its own connected set left out) is negative at it, inside the
+  display surface; a blob where it is outside and the full field turns positive between it and the nearest particle
+  outside its set (its own piece of surface); else a bump (outside, joined), with its height (the field's value, in
+  pitches); the side view's occlusion (a particle nearer by two pitches over its blob's footprint). Unique over windows
+  3–10 (apart / hidden / bump / blob): bunny D146b arm CBL 3215 / 260 / 2883 / 72, its twin CBP 4292 / 314 / 3903 / 75,
+  D135's L97 3442 / 248 / 3139 / 55, the u-off arm U97 (D135's code, `--u_off`) 60 / 8 / 52 / 0; dragon D146b arm CDL
+  4481 / 316 / 4108 / 57, twin CDP 3963 / 299 / 3636 / 28, D135's L97 4100 / 325 / 3752 / 23 and FB 4240 / 344 / 3866
+  / 30. The bumps stand a median 0.41–0.65 pitches outside the surrounding display surface (p90 1.08–1.48); per window
+  242–596 of CBL's above half a pitch and 71–232 above one (CDL up to 2314 and 984 at window 9); U97's at most 0.57
+  (none above one). In the side view, not occluded, per window: CBL 184–332 bumps and 3–14 blobs, CDL up to 1407 and
+  21. The visible ones sit in sets of 2–64 particles mostly (CBL per window: single 116–164, 2–8 384–653, 9–64 72–342).
+  On the renders the blobs show at most as faint highlights; the bumps above two pitches (FB at 1.25–1.65 s) as lobes,
+  ridges and ripples of the surface: visible relief, not floating pieces. (2) What u does to them (FB's dump, D135's
+  dragon; CBL's and CDL's per-particle dumps start at window 36): at the window each visible one first stands apart,
+  u times its gate a median +1.10 pitches outward (p90 of |.| 1.52), in the outer layer 0.99 of them, u's transport
+  gate on for 0.98, their normal displacement 0.68 pitches above their neighbours' median (p90 1.39); the hidden apart
+  ones: u 0, layer 0.67, gate 0.27, +0.09; the body: u 0, layer 0.06, gate 0.02. dF_c's rms 0.020 for all three (its
+  cap). (3) Not D125's render-driven population: the twins (render off) have as many (CBP more than CBL, CDP close to
+  CDL), dF_c is at its cap everywhere, and u off removes them (U97: 60, none above one pitch). They are outer-layer
+  particles u pushes out about one pitch past their neighbours in the window they leave. The cheapest D146b dump for the
+  same reading: CBL's and CDL's arguments on `repo_d148rx` with `--gap_split off`, `D146_A0=2 D148_A1=11`, no render
+  (bunny about 10 min, dragon about 30 min, one card).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
