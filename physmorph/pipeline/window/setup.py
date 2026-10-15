@@ -16,6 +16,7 @@ import warp as wp
 from ... import gpu
 from ...prof import timed
 from ...mpm.constitutive import lame
+from ...mpm import layer_torque as LT
 from ...mpm.function import PersistentAdjoint, RolloutSpec
 from ...mpm.state import MPMParams
 from ...mpm.traj import Trajectory
@@ -58,8 +59,12 @@ class Window:
             ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw)
         relax = 0.0 if cfg.baseline.startswith("xu") else 1.0 / float(cfg.T)   # the baseline has no relaxation
         # D146 (relax_driven): the relaxation's steps are the driven ones, as u's; off, all 2T steps (the frozen path)
+        # D150 (b), layer_torque_free: the layer's position update is also free of the torque modes n x v0 (v0 the start's
+        # velocity; mpm/layer_torque.py), here for the relaxation and in solve.free_of_rigid for u; None = the frozen path
+        self.v0 = start.v
+        nv = LT.torque_modes(self.lmask, self.lnrm, start.v) if cfg.layer_torque_free else None
         layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, ref,          # the u gate is set by the objective
-                 cfg.T if cfg.relax_driven else None)
+                 cfg.T if cfg.relax_driven else None, nv)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
         # rest volume gives, among each particle's 16 nearest at the window's start; with spacing_symmetric (D149) among
         # the symmetric closure of those lists, so that each pair pushes both of its particles

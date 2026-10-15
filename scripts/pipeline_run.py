@@ -85,6 +85,9 @@ def parse_args(argv=None):
                     help="D146b A/B: u's Adam moments carry from one committed window to the next (u still starts at zero; "
                          "each coordinate's bias correction counts its own age; reset on an outer reject); off (the "
                          "default) = fresh moments every window, the frozen path")
+    ap.add_argument("--layer_torque_free", action=argparse.BooleanOptionalAction, default=False,
+                    help="D150 (b) A/B: the layer's position update (relaxation and u) is also free of the three torque "
+                         "modes n x v0 at the window start's velocity; off (the default) = the six rigid modes, the frozen path")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
@@ -249,7 +252,7 @@ def run_config(args, cfg0, prep):
                               gap_split=args.gap_split,
                               gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
                                       if args.gap_split in ("interface", "walls") else 0.0),
-                              u_adam_carry=args.u_adam_carry,
+                              u_adam_carry=args.u_adam_carry, layer_torque_free=args.layer_torque_free,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,

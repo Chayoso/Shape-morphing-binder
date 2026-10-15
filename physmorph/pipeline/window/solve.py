@@ -20,6 +20,7 @@ import warp as wp
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
 from ..target import TargetPack
+from ...mpm import layer_torque as LT
 from ...prof import STATE as PROF_STATE, take as prof_take, timed
 from .objective import Objective, end_drift
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
@@ -150,7 +151,10 @@ class WindowOptimizer:
         with torch.no_grad():
             g = wp.to_torch(self.win.tr.layer_ug) * self.win.lmask
             r, n = self.win.x0 - self.win.x0.mean(0), self.win.lnrm
-            A = torch.cat((g[:, None] * n, g[:, None] * torch.linalg.cross(r, n, dim=1)), 1).double()
+            # D150 (b), layer_torque_free: and no torque at the start's velocity, sum g u (n x v0) = 0, so u's displacement
+            # leaves APIC's angular momentum (sum m du x v) unchanged at v0 (mpm/layer_torque.py)
+            v0 = getattr(self.win, "v0", None) if cfg.layer_torque_free else None
+            A = LT.u_modes(g, n, r, v0)
             self.rigid = (A, torch.linalg.pinv(A.T @ A))
 
     def free_of_rigid(self):

@@ -13,6 +13,7 @@ import warp as wp
 from . import adjoints as ADJ
 from . import gap_step as GK
 from . import kernels as K
+from . import layer_torque as LT
 from .arrays import (_id, _id_dev, _is_tensor, _release_idle_cuda_cache, compute_rest_volumes,  # noqa: F401
                      scalar_or_array, to_wp, to_wp_int)                     # (re-exported: the helpers moved to arrays.py)
 from .state import MPMParams
@@ -240,10 +241,18 @@ class Trajectory:
             Minv = torch.linalg.pinv(modes.T @ modes).cpu().numpy()
             self.layer_rn = A(rn.float(), wp.vec3)
             self.layer_M = tuple(wp.mat33(*Minv[i:i + 3, j:j + 3].ravel().tolist()) for i in (0, 3) for j in (0, 3))
+            # D150 (b), layer_torque_free: also the three torque modes n x v0 (mpm/layer_torque.py), the nine modes'
+            # Gram inverse in one array; None = the six rigid modes, the frozen path
+            lnv = layer[8] if len(layer) > 8 else None
+            self.layer_torque = lnv is not None
+            if self.layer_torque:
+                self.layer_nv = A(lnv, wp.vec3)
+                self.layer_Mt = LT.gram_blocks(LT.modes(xt, lmask, lnrm, torch.as_tensor(lnv, device=xt.device)), device)
             self.xu = scratch(lambda: Z(wp.vec3, rg), T + 1)
             self.ld = scratch(lambda: Z(wp.float32, rg), T + 1)
             self.ls = scratch(lambda: Z(wp.float32, rg), T + 1)
-            self.lb = scratch(lambda: wp.zeros(2, dtype=wp.vec3, device=device, requires_grad=rg), T + 1)
+            nb = 3 if self.layer_torque else 2
+            self.lb = scratch(lambda: wp.zeros(nb, dtype=wp.vec3, device=device, requires_grad=rg), T + 1)
             # the position-mode control leaf u (N,): a warp view of the caller's tensor when
             # given (layer_u), else a zero buffer the eval path assigns into
             self.layer_u = (layer_u if layer_u is not None
@@ -371,15 +380,26 @@ class Trajectory:
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             self.lb[t + 1].zero_()
-            wp.launch(K.k_layer_relax, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm, self.layer_rn,
-                      self.layer_nbr, self.layer_w, self.layer_K,
-                      self.layer_frac if t < self.relax_steps else 0.0, self.layer_ref,
-                      self.ls[t + 1], self.lb[t + 1]], device=dev)
-            wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
-                      self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,
-                      self._x_out(t)], device=dev, record_tape=tape is None)
-            if tape is not None:
-                ADJ.record_layer_project(tape, self, t, layer_u, N)
+            if self.layer_torque:                    # D150 (b): the nine modes (mpm/layer_torque.py)
+                wp.launch(LT.k_layer_relax_t, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm, self.layer_rn,
+                          self.layer_nv, self.layer_nbr, self.layer_w, self.layer_K,
+                          self.layer_frac if t < self.relax_steps else 0.0, self.layer_ref,
+                          self.ls[t + 1], self.lb[t + 1]], device=dev)
+                wp.launch(LT.k_layer_project_t, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
+                          self.layer_nrm, self.layer_rn, self.layer_nv, self.layer_Mt, layer_u, self.layer_frac_u,
+                          self.layer_ug, self._x_out(t)], device=dev, record_tape=tape is None)
+                if tape is not None:
+                    LT.record_project(tape, self, t, layer_u, N)
+            else:
+                wp.launch(K.k_layer_relax, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm, self.layer_rn,
+                          self.layer_nbr, self.layer_w, self.layer_K,
+                          self.layer_frac if t < self.relax_steps else 0.0, self.layer_ref,
+                          self.ls[t + 1], self.lb[t + 1]], device=dev)
+                wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
+                          self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,
+                          self._x_out(t)], device=dev, record_tape=tape is None)
+                if tape is not None:
+                    ADJ.record_layer_project(tape, self, t, layer_u, N)
         self._after_positions(t)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],

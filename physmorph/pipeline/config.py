@@ -152,6 +152,9 @@ class PipelineConfig:
     u_adam_carry: bool = False      # D146b A/B: u's Adam moments carry from one committed window to the next (u itself still
                                     #   starts at zero), each coordinate's bias correction counting its own age; reset on an
                                     #   outer reject; dFc's stay per window; off = fresh moments every window (the frozen path)
+    layer_torque_free: bool = False  # D150 (b) A/B: the layer's position update (the relaxation and u) is also free of the
+                                    #   three torque modes n x v0 (v0 the window start's velocity), so it leaves APIC's
+                                    #   angular momentum unchanged at v0; off = the six rigid modes only (D94, D98)
     coh_k: int = 8                  # material bond neighbours (source kNN)
 
     # ---- outer acceptance ----
