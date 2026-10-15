@@ -6985,8 +6985,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   within the berth of its nearest (without the link 1.7+ spacings off), an inward push inside the berth is the old path
   bit for bit, the switch off is bit for bit, the bridge's gradients match central differences while the link withholds
   a particle's steps and the hand adjoint matches the generated one; CUDA: the window hands one berth to every
-  trajectory, the one-body scene with the link is the window with it. The full suite on a card: queued
-  (`tmp/d151_suite.sh`).
+  trajectory, the one-body scene with the link is the window with it. The full suite on a card (`tmp/d151_suite.sh`,
+  GPU 1, 14:03–14:11 CDT): 418 passed, 2 skipped, exit 0 (the pinned refreeze references and digest included: the
+  default path is the re-freeze's bit for bit).
   **Pre-registration of the 300k gate (2026-10-15 14:02 CDT server clock, before any run).** Runs on `repo_d151`, seed
   97, the refreeze-cand defaults (D146, D146b, D149 on) plus `--layer_link`: dragon300k_NL (render arm), dragon300k_NP
   (twin, `--render_weight_scale 0`), bunny300k_NL, bunny300k_NP; `tmp/d151/d151_chain.sh` on up to two cards under the
@@ -7016,6 +7017,11 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   −80 %, not zero (the grid's tears, sets leaving together, particles off the layer left by their walls); the end, rest,
   lead and momentum within the spread; cost +1–3 %. Read Friday morning; the side-by-side videos (base | layer_link,
   dragon and bunny side), the visible-pieces table and each item to the coordinator; adoption is the user's decision.
+  *Operations.* The chains start only on the suite's exit 0; the dragon chain holds GPU 1 from 14:12 CDT (NL first), the
+  bunny chain takes D148's second card when CDX's renders free GPU 3; the base side renders of SL / SP
+  (`d151_base_render.sh`) follow the chains (started first at 14:12, they took the card the chains wait for; stopped
+  after 22 s and requeued, the partial render removed and logged); `d151_post.sh` runs visible_apart and
+  why_floating on the CPU as each render's tracks appear; `tmp/d148/cdx_why.sh` reads CDX's own pieces after its render.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

@@ -5,6 +5,10 @@
 source /data/relcfd/chayo/physmorph_v2/tmp/d146/cache_env.sh
 B=/data/relcfd/chayo/physmorph_v2; L=$B/gpu_locks; RS=$B/repo_d151; G=$B/output/gpu; D=$G/d151; T=$B/tmp
 mkdir -p $D $L; S=$D/status.txt
+# after the gate's chains (they hold D148's cards first): both meshes' chains done or stopped
+until grep -q "chain dragon done\|chain stopped at dragon" $S 2>/dev/null && grep -q "chain bunny done\|chain stopped at bunny" $S 2>/dev/null; do
+  sleep 60
+done
 gpu=""
 while [ -z "$gpu" ]; do
   held=$(grep -l "^agent D148" $L/gpu*.lock/info 2>/dev/null | wc -l)
