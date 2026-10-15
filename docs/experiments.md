@@ -6460,6 +6460,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   35.1 min (CDL 29.7, CDL2 30.6); RWT 10.83 s (≤ 12.42), 32.8 min: pass. The user's material (`output/gpu/d148/videos`,
   local `output/results_2026-10-14/d148_gap_split/d146b_wl/`): CDL | RW side by side, the crevice close-up, and the
   three sites at a quarter speed with the time stamped.
+  **The D146b + WL bunny pair read (2026-10-15 11:30 CDT; `gate_read_rw_bunny.log`).** (2) By the letter RWB is outside
+  the two-run band at w4 med (5.03 against [4.98, 4.98]), w6–w9 p90 (11.69–14.33 below 12.63–14.94) and w6–w8 face med
+  (above): fails; post-hoc (D135's widths) only w8 p90 (13.67 against [14.08, 14.33]; D135's own width there 0.09).
+  RWBT: no twin band (CBP has no shear log). (3) RWB silhouette 0.9888 (≥ 0.9880), chamfer 0.0551, thin 4.23 % (≤ 4.39):
+  passes; RWBT 0.9879 (≥ 0.9872), 0.0552, thin 3.83 % against ≤ 3.47 (CBP 3.33): fails, and post-hoc (≤ 3.63) too.
+  Both at rest (kin 3.0e-6, 3.7e-6); the render lead held (yardstick 7.26e-4 against 1.21e-3, display front 0.0088
+  against 0.0127). (4) RWB 969 (≤ 969), RWBT 1319 (≤ 1416): pass. (5) RWB 7.51 s an attempt (≤ 8.96; CBL 7.21: +4 %),
+  11.9 min (CBL 9.8, CBL2 9.9); RWBT 7.52 s, 12.4 min: pass. Frames with particles apart in the detector's tracks
+  (under 5 s): CBL 8, CBL2 0, CBP 0, RWB 4; none at the ear's gap (D135's WB showed a blob there).
+  **RWX, the beads with consistent sides (11:35 CDT; `rwx_beads.log`, `d148_rwx_beads.py` on D146's per-particle dump,
+  windows 6–22).** RWX (D146b + WL, the same arguments as RW with the dumps) repeats the opening beads (tracks 2.05–3.35
+  s) and a loop bead (2.95–3.50 s). What acts on their particles against the 64 nearest of the body around them: dF_c
+  at its cap on every particle (rms 0.020, cap share 1.00, the body the same): no difference; u times its gate ±0.02–0.07
+  spacings; the grid's advection and the jumps below it within the body's range until the stranding window. The
+  difference is the spray cleanup's pull (the W1 cleanup, on the particles its isolation gate counts as apart): at the
+  opening beads' stranding window (13, from 2.0 s) 3.5e-6 and 4.5e-6 against 0 on the body, 7–30 times the transport's
+  pull on them (−5e-7, itself 3–4 times the body's); the render's pull 9.4e-8 and 6.0e-7 against 1e-8 on the body;
+  their speed at the driven end 0.72 wu/s against the body's 0.29, and 2.2 pitches moved in the window. The loop bead:
+  the cleanup's pull 1.6–2.1e-7 against 0–2e-8 two and three windows before, −1.5e-6 (16 times the body's) at its
+  stranding window, the transport's 1.8–2 times the body's. So the beads that strand with consistent sides are driven
+  by the cleanup once its gate counts them apart (and to a smaller degree by the render), not by the labels; whether
+  the cleanup's nearest target point lies across the gap is the next measurement.
+  **The user's decision package (11:40 CDT, local `d148_gap_split/d146b_wl/`):** CDL | RW and CBL | RWB side by side at
+  full length (the shorter run holds its last frame), the crevice close-up, the three dragon sites at a quarter speed
+  with the simulated time, and a one-screen Korean table (`요약표_D146b_vs_WL.md`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
