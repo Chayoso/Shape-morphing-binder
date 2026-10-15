@@ -4905,6 +4905,106 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   bunny's 12 runs are re-run after the other five meshes for (1) and (2), all twelve whatever their result; the first
   batch stays in `results/` as superseded and its end numbers are a replicate (end IoU, chamfer, genus, watertightness
   and self-intersection do not depend on the frame choice).
+  *B12 reading (2026-10-15 18:10 CDT server clock; the after-chain done 15:50 CDT, rc 0: 72 measured runs and the
+  bunny's 12 re-runs, no crash, nothing re-run for a result; `b12_summary.py` on hyde06, its output in
+  `baselines/b12/logs/b12_summary.md`, local copy and rows in `output/results_2026-10-15/b12_render_only/`).* As
+  registered: per mesh and arm min–max over view-set seeds 97 / 99 / 101. Ours = D145 B1's render arm L97 / L99 / L101,
+  from D145's existing files only: the end check through the same `b11_endcheck.py` (`ours_endcheck.jsonl`), the volume
+  routine for L97 bunny and dragon (the other four pending in B1), the harness on the D135 deliverables SB / FB, the run
+  minutes of `tab_1015`. Ours has no mesh: genus, components and self-intersection are not read for ours. LS = Large
+  Steps, FC = FlexiCubes; wall = the optimisation's net time (amendment (2); every run has it).
+  **End (silhouette IoU / chamfer against the independent sample; floor own-vs-independent in brackets).** bunny: LS a
+  0.9868–0.9873 / 0.0573, b 0.9869–0.9875 / 0.0572–0.0573; FC a 0.873–0.913 / 0.093–0.115, b 0.961–0.974 / 0.065–0.070;
+  ours 0.9853–0.9886 / 0.0551–0.0552 (0.9893 / 0.0567). dragon: LS a 0.9755–0.9800 / 0.067–0.090, b 0.9819–0.9844 /
+  0.063–0.067; FC a 0.894–0.906 / 0.25–0.27, b 0.959–0.963 / 0.12–0.14; ours 0.9865–0.9886 / 0.0545–0.0546 (0.9895 /
+  0.0557). teapot: LS a 0.9813–0.9853 / 0.0571–0.0572, b 0.9806–0.9810 / 0.0573–0.0574; FC a 0.920–0.948 /
+  0.063–0.071, b 0.9786–0.9825 / 0.0570–0.0574; ours 0.9900–0.9902 / 0.0545–0.0546 (0.9909 / 0.0562). bob: LS a
+  0.9848–0.9893 / 0.062–0.075, b 0.9893–0.9899 / 0.066–0.067; FC a 0.817–0.833 / 0.36–0.39, b 0.905–0.908 / 0.20–0.23;
+  ours 0.9877–0.9907 / 0.0546–0.0547 (0.9919 / 0.0564). armadilo: LS a 0.9820–0.9837 / 0.0566–0.0580, b 0.9843–0.9848
+  / 0.0563; FC a 0.771–0.872 / 0.14–0.19, b 0.961–0.965 / 0.061–0.066; ours 0.9851–0.9870 / 0.0546–0.0548 (0.9883 /
+  0.0560). homer: LS a 0.9879–0.9881 / 0.0562–0.0563, b 0.9880–0.9888 / 0.0560–0.0561; FC a 0.890–0.936 /
+  0.091–0.098, b 0.977–0.980 / 0.068–0.071; ours 0.9874–0.9890 / 0.0540–0.0541 (0.9916 / 0.0556). LS against ours:
+  ranges overlap on bunny, bob and homer; LS below on armadilo (0.0003–0.005), dragon (0.002–0.013) and teapot
+  (0.005–0.010). Ours' chamfer is below the floor on every mesh (an evenly spaced particle set against a random sample
+  of a mesh), so a baseline's chamfer is read against the floor, not against ours: LS 0.5–3.6 % above it on bunny,
+  teapot, armadilo and homer, 9–34 % on bob, 12–62 % on the dragon.
+  **Topology.** LS: genus 0 and one closed component in every frame of all 36 runs (756 frames), dragon (genus 15),
+  teapot and bob (genus 1) included: no change of topology, as registered. FC changes it without control: the largest
+  component's genus at the end 16–54 on the bunny (a genus-0 target), 16–48 dragon, 4–11 teapot, 24–58 bob, 7–30
+  armadilo, 5–37 homer; 4–149 components at the end, up to 96–345 over the frames, 18–20 of 21 frames with more than
+  one; the every-10-iteration log reaches genus 8–79. Whether FC opened the teapot's handle, bob's hole or the dragon's
+  loops cannot be read from a genus count when spurious handles on the genus-0 targets reach the same counts:
+  undecided, not claimed.
+  **Self-intersection.** LS: 31 of 36 delivered ends self-intersect: every dragon, bob, armadilo and homer run, teapot
+  4 / 6, bunny 3 / 6. End pairs: dragon 278–1159, bob 598–4846, homer 618–806, armadilo 26–335, teapot 0–91, bunny 0–73.
+  All late: the self-intersecting frames are frames 14–20 (q ≥ 0.70), 1–3 a run, armadilo 3–7. On the dragon and bob,
+  whose loops and ring LS cannot open, every end is genus 0 and self-intersecting. FC: 9–16 frames a run, 490–4590
+  pairs at the end.
+  **Volume (D145's routine, min / max over the 21 frames; end).** LS: bunny 0.960–0.985 / 1.094–1.147; 1.003–1.004,
+  dragon 0.963 / 1.604–1.735; 1.050–1.164, teapot 0.963–0.996 / 1.064–1.106; 1.027–1.038, bob 0.949–0.988 /
+  1.354–1.438; 1.029–1.071, armadilo 0.958–0.970 / 1.081–1.106; 1.000–1.019, homer 0.836–0.860 / 1.015–1.090;
+  1.004–1.006. Ours (L97): bunny 0.986 / 1.028; 1.005, dragon 0.964 / 1.075; 1.015; the other four pending in B1. The
+  dragon's LS mesh encloses 1.82–1.98 × the target mesh's volume at its largest. FC: 0.729–0.986 / 0.979–1.203; end
+  0.764–1.140.
+  **Intermediate frames (D145's harness, seed 97; occupied volume, then apart particles, at p = 0.25 / 0.5 / 0.75).**
+  Occupied volume. LS: dragon 1.10–1.15 / 1.26–1.34 / 1.41–1.45, bob 0.99–1.14 / 1.13–1.28 / 1.28–1.31, homer
+  0.91–0.94 / 0.85–0.88 / 0.91, bunny 1.00–1.02 / 1.07–1.10 / 1.02–1.08. Ours: bunny SB 1.013 / 1.016 / 1.027, dragon
+  FB 0.991 / 1.008 / 1.022. Apart particles. LS dragon 93–134 / 256–485 / 736–1030 against ours 1 / 2 / 15; on the
+  bunny ours has more, 90 / 139 / 305 against LS 41–61 / 60–85 / 56–79; LS on the other four 15–123 / 14–288 / 22–416.
+  Progress. LS's p at the end is 0.956–1.000 and it reaches p 0.75 at step 29–125 of 1900–3000 (1–6 % of the steps,
+  all in phase 1): its frames are optimiser iterates with no time in them. FC's p at the end is 0.58–0.60 in arm (a) on
+  bunny, dragon, teapot and armadilo, 0.29 on bob, 0.93 on homer, 0.65–0.97 in (b); it never reaches p 0.75 in (a) on
+  5 of 6 meshes, nor on bob in (b). Its apart particles at p 0.25 are 68–2018. Ours SB / FB: 0.9999 / 1.0000.
+  **Wall (net, one RTX 6000 Ada).** LS a 18–33 s, b 27–53 s; FC 10–28 s; ours 7.2–18.4 min (432–1104 s, D145's run
+  minutes). LS is 13–61× faster than ours per mesh.
+  **Predictions.**
+  LS bunny / armadilo / homer:
+  - Genus-0 end: yes.
+  - IoU in (b), 0.980–0.988: yes for bunny and armadilo; homer 0.9880–0.9888, at and just above the top.
+  - IoU in (a), 0.970–0.985: yes for armadilo; bunny (0.9868–0.9873) and homer (0.9879–0.9881) above it. 18 views at
+    188 px under-determine less than predicted.
+  - "Smooth" end: not held. The ends self-intersect (armadilo and homer 6 / 6, bunny 3 / 6).
+  LS dragon, teapot, bob:
+  - Genus 0 in every frame: yes.
+  - IoU (registered 0.95–0.97 dragon and teapot, 0.90–0.95 bob): missed high (dragon 0.976–0.984, teapot 0.981–0.985,
+    bob 0.985–0.990). The genus LS cannot reach shows in the chamfer, the volume and the end's self-intersection, not
+    in the silhouette.
+  LS self-intersection and volume:
+  - Self-intersecting frames on dragon and armadilo: yes, and on all six meshes.
+  - Volume range wider than ours: yes on bunny and dragon; the other four wait for B1.
+  FC:
+  - Changes topology: yes.
+  - Opens the teapot's handle and bob's hole in (b), not all the dragon's loops: undecided (above).
+  - Intermediate frames with several components: yes (18–20 of 21).
+  - End IoU below LS on the genus-0 meshes: yes (bunny, armadilo, homer, both arms).
+  Both:
+  - Faster than ours: yes, but in seconds, not minutes.
+  *Observed, not gated.*
+  - (i) The bunny's re-run wrote into the first batch's run directories (the same paths). The first batch survives only
+    as its first rows in `endcheck.jsonl` / `vol.jsonl` and its status lines, not "in `results/`" as the amendment
+    said. As a replicate, its end IoU matches the re-run within 0.0010 for LS (0.9868–0.9879 over both batches) and
+    within 0.017 for FC (FCa101 0.8558 against 0.8728). The runs are not bit-reproducible.
+  - (ii) FC's enclosed mesh volume at the end (0.69–0.99 of the target's) is below the occupancy routine's on every
+    mesh and arm, by 0.02–0.26 (36 of 36 runs); LS's two agree within 0.07. Not read further.
+  - (iii) LS homer's volume falls to 0.836–0.860 mid-run, and its occupied volume at p 0.5 to 0.85–0.88. The
+    dragon and bob swell instead.
+  - (iv) The dragon's LS image loss at the end is 6–12× the bunny's (a 0.0092–0.0108, b 0.0063–0.0072 against
+    0.0009–0.0010).
+  **Reading for the paper.** Supervised by the same images from the same sphere, Large Steps reaches our end
+  silhouette on the genus-0 targets (bunny and homer overlap, armadilo 0.0003–0.005 below) in 18–53 s, 13–61× faster
+  than ours. The end shape alone does not motivate the physics, and the paper must not claim a better end silhouette
+  than inverse rendering on genus-0 targets.
+  What render-only does not deliver:
+  - Topology: genus 0 in all 756 frames. The dragon's loops and bob's ring end as self-intersecting genus-0 surfaces
+    (12 / 12 ends), with the chamfer 9–62 % over the sampling floor.
+  - Self-intersection: 31 / 36 delivered ends self-intersect.
+  - In-betweens: the volume swings to 1.60–1.74 (dragon) and 1.35–1.44 (bob) mid-run, against ours' 0.96–1.08 on
+    bunny and dragon. The frames are iterates, not a motion: 75 % of the progress falls in the first 1–6 % of the
+    steps.
+  FlexiCubes changes topology but without control: spurious genus 4–58, up to 345 components, end IoU 0.77–0.98.
+  Supported claim: comparable end silhouettes, not better. The gain is the trajectory (volume-holding on bunny and
+  dragon; the other four wait for B1) and genus > 0 targets reached at the floor's chamfer where LS needs
+  self-intersecting surfaces. Ours' own genus and self-intersection are not measured here (particles, no mesh).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
