@@ -6754,6 +6754,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   particles u pushes out about one pitch past their neighbours in the window they leave. The cheapest D146b dump for the
   same reading: CBL's and CDL's arguments on `repo_d148rx` with `--gap_split off`, `D146_A0=2 D148_A1=11`, no render
   (bunny about 10 min, dragon about 30 min, one card).
+  **Why does the objective let a visible floating piece survive? (2026-10-15 12:56 CDT, CPU; the user on the package:
+  both videos still show Gaussians, so the WL / D146b choice waits; `d148_why_floating.py`, `d148_piece_slaved.py`,
+  `tmp/d148/why_*.log`, `slaved_*.log`, sheets `output/gpu/d148/why_{CDL,RW}_sheet.jpg`).** The pieces: the detector's
+  tracks (side; front too for the bunny) with particles apart, each confirmed at its largest frame as a blob of the
+  display's own field, not occluded, in the track's box; their connected sets; tracks sharing particles merged. CDL 11
+  pieces, RW 5, each of 1–3 particles: a single particle draws a full round disc (the sheets: discs in the crevice at
+  3.75–5.2 s, in the loop hole at 4.55–5.0 s, in the upper holes at 7.3 s, 15.5–16 s and 19.75–22.3 s; RW's at 2.0 s,
+  2.55–3.0 s, 4.05 s, 6.45–8.3 s, 19.2–28.35 s); every one back in the body at the run's end. The bunny: none confirmed
+  (2 / 7 side / front candidate tracks of CBL, 4 / 5 of RWB, none a separate piece of the display at its frame). Per
+  piece and window while out (the target sample recomputed from prepare's load_normalized matches the run's exactly; the
+  mesh distance exact, open3d): (a) the piece lies outside the true target mesh by more than a pitch in 27 of 28 CDL
+  piece-windows and 22 of 22 RW (medians 2–8 pitches); (b) the cleanup's field (t.dt3, cell 2.29 pitches) reads zero at
+  2 of 28 and 9 of 22 (RW's last piece, half of it in the zero region), the isolation gate counts the piece in 28 / 28
+  and 21.5 / 22: the hypothesis (outside by more than a pitch while the field reads zero) holds for 1 of 11 and 1 of 5
+  pieces, 2 of 16; (c) the near band is eligible in 19 % and 5 % of the piece-windows (the pieces lie 2–7 pitches from
+  the nearest target point, beyond the loss cell's 3); (d) the transport's map moves them 2–5.4 pitches at their first
+  windows (the body 0.2–1), toward the nearest target point (cosine +0.9 to +1.0) for CDL's crevice pieces, away from it
+  (−0.92 to −0.98) for RW's opening bead and loop piece (their destination on the other wall), 0.08–0.4 pitches later;
+  (e) 2–9 of the 18 training views at 188 px see 15 of the 16 pieces (the piece raises alpha by 0.5–0.9 at a pixel
+  outside the target's silhouette); one (CDL's 11.6 s piece, 1.5 pitches from the body) none. Refuted: the objective
+  sees the pieces and pulls on them. What does not move them: in the piece's 4^3 stencil (the MPM cell is 6.12 pitches,
+  the pieces 1–5.4 pitches, 0.2–0.85 cells, from the body) the body holds 0.9983–0.9998 of the nodal mass, so the grid
+  velocity there is the body's (0.001–0.27 wu/s); the early pieces move 0.1–1.6 wu/s, |v − v_grid| 0.6–1.2 of their own
+  speed (position updates below the grid: the RWX dump showed jumps of up to 1.55 spacings a window on its opening
+  bead), the late ones 0.002–0.05 wu/s, still for seconds. CDL's own per-particle dump (windows 36 on) at its late pieces
+  (11.6 s, 15.5–16 s, 19.75–22.3 s): the cleanup's position gradient 2.3–5.8e-6 on the piece against 0 on the 64
+  nearest, the near band's 6.5e-6 against 0 where eligible, the render's 1e-7 against 1e-8, the transport's as the
+  body's; yet its dF_c's rms (0.0005–0.005) is the body's, it lies outside u's layer or gate (layer 0, u 0; the 11.6 s
+  piece in the layer with u +0.04–0.22 spacings and jumps −0.14 to −0.25), and it moves 0.015–0.05 spacings a window,
+  the body's. The pull exists at the particle and does not reach a control that moves it: dF_c acts through the grid,
+  where 1–3 particles inside the body's cell are 0.02–0.17 % of the nodal mass, and u, the one control below the grid,
+  does not reach particles outside its layer and arrived-scope gate. So a definition change of the cleanup's field
+  (the exact target at particle resolution) would not move these pieces; the missing link is a control that reaches a
+  piece the grid cannot resolve.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
