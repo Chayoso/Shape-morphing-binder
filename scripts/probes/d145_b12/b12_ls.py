@@ -13,7 +13,7 @@ one step on all views. Extension (pre-registered): while the phase-2 loss fell b
 iterations, 100 more, up to 500 phase-2 iterations. nvdiffrast's gradient boost 3 (the authors' PyTorch scripts).
 
   b12_ls.py MESH ARM SEED [--smoke K]     (ARM a: matched views, b: strong views; --smoke: K phase-1 iterations,
-                                             10 phase-2 iterations, nothing kept)
+                                             10 phase-2 iterations, under results/smoke)
 Writes results/ls/<mesh>_<arm>_s<seed>/: run.json (config, losses, timing, convergence), frames.npz (the 21 frame
 meshes in the pipeline frame, their iterate index and loss progress)."""
 import argparse
@@ -127,6 +127,7 @@ l1 = np.linalg.norm(v_np[f_np[:, 1]] - v_np[f_np[:, 2]], axis=1)
 l2 = np.linalg.norm(v_np[f_np[:, 2]] - v_np[f_np[:, 0]], axis=1)
 h = float(np.mean([l0, l1, l2]) / 2)
 v2, f2 = remesh_botsch(v_np, f_np, i=5, h=h, project=True)
+v2, f2 = np.ascontiguousarray(v2, np.float64), np.ascontiguousarray(f2, np.int32)
 t_remesh = time.time() - t1
 faces_by_phase.append(np.asarray(f2, np.int32))
 f = torch.tensor(np.asarray(f2, np.int32), dtype=torch.int32, device=dev)
@@ -174,7 +175,7 @@ for j, (i, kk) in enumerate(zip(picks, iters)):
     fr[f"f{j:02d}"] = faces_by_phase[mesh_of[i]]
 topo_frames = [dict(topo_np(fr[f"v{j:02d}"], fr[f"f{j:02d}"]), signed_volume=signed_volume(fr[f"v{j:02d}"], fr[f"f{j:02d}"]))
                for j in range(len(picks))]
-if not args.smoke:
+if True:  # smoke runs save too (results/smoke*), so the CPU readout can be tested
     np.savez_compressed(f"{out}/frames.npz", raws=np.array(iters), q=np.array(q), **fr)
     np.savez_compressed(f"{out}/curve.npz", cand=np.array(cand), L=np.array(Ls), phase=np.array(phase),
                         steps=np.array(step_losses))

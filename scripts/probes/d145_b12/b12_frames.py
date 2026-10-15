@@ -29,7 +29,7 @@ from b11_common import components, topo
 RUN, NAME, LABEL, OUTDIR = sys.argv[1:5]
 B5 = "/data/relcfd/chayo/physmorph_v2/baselines/buonomo/inputs"
 N, SEED = 300000, 97
-z = np.load(f"{RUN}/frames.npz")
+z = dict(np.load(f"{RUN}/frames.npz"))          # read eagerly: forked workers must not share one zip handle
 K = len(z["raws"])
 raws = np.asarray(z["raws"]).astype(np.int64)
 exp = json.load(open(f"{B5}/{NAME}/export.json"))

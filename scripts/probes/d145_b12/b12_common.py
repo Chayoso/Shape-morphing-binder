@@ -144,6 +144,7 @@ class Renderer:
         antialiased (shade x alpha, alpha); with raw=True also the un-antialiased shade (V,res,res,1) and the
         coverage (V,res,res,1)."""
         dr = self.dr
+        v, f, n = v.contiguous(), f.int().contiguous(), n.contiguous()
         mvp = self.mvp if views is None else self.mvp[views]
         dirs = self.dirs if views is None else self.dirs[views]
         v_clip = torch.matmul(torch.nn.functional.pad(v, (0, 1), value=1.0), mvp.transpose(1, 2)).contiguous()

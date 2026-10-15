@@ -158,7 +158,7 @@ topo_frames = [dict(topo_np(fr[f"v{j:02d}"], fr[f"f{j:02d}"]), signed_volume=sig
                for j in range(len(picks))]
 last = len(Ls) - 1
 conv = (Lf[last - 100] - Lf[last]) / max(Lf[last - 100], 1e-30) if last >= 100 else None
-if not args.smoke:
+if True:  # smoke runs save too (results/smoke*), so the CPU readout can be tested
     np.savez_compressed(f"{out}/frames.npz", raws=np.array(iters), q=np.array(q), **fr)
     np.savez_compressed(f"{out}/curve.npz", cand=np.array(cand), L=np.array(Ls), terms=np.array(loss_curve))
 res = dict(method="flexicubes", mesh=args.mesh, arm=args.arm, seed=args.seed, views=vs["desc"], n_views=vs["n"],
