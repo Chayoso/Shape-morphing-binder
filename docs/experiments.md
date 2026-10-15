@@ -4884,6 +4884,39 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     setup in the same folder from 11:38. The rename moved that folder away for about a minute (11:48:00–11:48:55) before I
     put it back. Its smoke process (started 11:47) was gone afterwards. The coordinator has been told. B14's own files
     now live only in `baselines/b14`.
+  **Where bob's rotation and the bob / homer angular ratio come from (the coordinator: split the every-metric breaks by
+  source, as for the centre of mass; read 2026-10-15 12:00–12:15 CDT from the runs' own per-window records; CPU only;
+  `tmp/d145/rot145.py`, `angL145.py`, `output/gpu/d145_evidence/rot_1015.jsonl`).** Two record kinds exist.
+  - *The rotation by position update* (`*_vrot`: Σ r × D / Σ r² over each committed window, about its starting centre).
+    Summed over windows, the grid's advection carries 98–99 % of it in both arms. The spacing push is 0.3–1.7 % (bob L
+    0.5–1.1e-4°, P 0.3–0.8e-4°; homer L 0.8–1.2e-4°, P 0.4–0.9e-4°). u is 1e-10° (rigid-free) and the relaxation 1e-7°.
+    This measure does not close against the reading (`momentum_probe.py`, consecutive kept frames, r updated). The records'
+    body sum is 0.0063–0.0073° for bob in both arms, while the reading gives 0.0039–0.0051° (L) and 0.0003–0.0005° (P). At
+    1e-5 rad, both are set by second-order deformation terms (|D|² / r² per window), not by a rigid turn. So this split is
+    not the reading's split.
+  - *The angular momentum per unit mass* (APIC's affine part included): L_start at each window, and the window's changes
+    by update (L_grid, L_space, L_u, L_relax). The render arm carries more of it. Bob |L_start| peaks at 374–398 against
+    227–239; homer's median is 28–58 against 15–30. Who changes it (sum over windows of |ΔL|, L / P):
+    - Grid: bob 885–964 / 646–683 (+40 %), homer 1470–1550 / 1210–1310 (+20 %).
+    - Spacing push: bob 9.9–10.7 / 6.8–7.2, homer 18.3–19.3 / 16.8–17.4.
+    - u: bob 50–52 / 50–64, homer 30–33 / 24–26.
+    - Relaxation: 3–10 in both.
+
+    So 95 % of the flow and almost all the excess sit in the grid step. The spacing push is about 1 % of the flow, so D149's
+    symmetric closure would not remove the excess. *The grid's mechanism.* The drag (default 0.9 / s) damps the particle
+    momentum m v by (1 − dt·drag) in P2G (`mpm/kernels.py` k_p2g: `mv = m[p] * vp * (1.0 - dt * drag)`). APIC's affine
+    momentum m C (in G) is not damped. A deforming body at zero net angular momentum keeps opposite spins in r × v and in
+    the affine part, so damping only one part creates net angular momentum. Two checks:
+    - bunny D0L97 (drag 0) has |ΔL_grid| 0.1–0.2 per window, the float32 floor. Default L97 has 20–56, and its L_start grows
+      0 → 243 over windows 1–8.
+    - With drag 0, the remaining injectors are u (a 41–46 jump at window 4, when u switches on: du × v, in both arms) and the
+      spacing push (~1 per window). Nothing damps them then: L_start stays at 41–51, and the reading's rotation is 0.022°
+      against L97's 0.002°.
+
+    Reading: bob's +1025 % rotation and the bob / homer angular ratios trace to the drag's P2G form, which is not
+    angular-momentum consistent. The render arm moves more, so the drag makes more angular momentum. The cause is not
+    the spacing push and not mainly u. A consistent drag would damp the whole APIC momentum, m v and m C, by the same
+    factor. That is a change to the frozen code, so it goes to the user after experiments. Recorded as found.
   **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
   tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
   do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus
