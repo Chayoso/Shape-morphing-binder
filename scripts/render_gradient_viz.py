@@ -516,7 +516,7 @@ def main(argv=None):
                         img = body_arrows(img, cam, (az, r), p, n, cov, op, sites, sz)
                     dr = ImageDraw.Draw(img)
                     Wd, Hd = img.size
-                    bx, by, bw = int(Wd - 700 * sz), int(Hd - 130 * sz), int(520 * sz)
+                    bx, by, bw = int(Wd - 640 * sz), int(Hd - 130 * sz), int(520 * sz)
                     small = [tnote]
                     if kd == "A":
                         title = "Where does the render act on dFᴄ?"
@@ -568,8 +568,8 @@ def main(argv=None):
                         title = "What did the render do to dFᴄ?"
                         colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_D,
                                    [(0, "0 %"), (.25, "25 %"), (.5, "50 %"), (.75, "75 %"), (1, "≥ 100 %")],
-                                   "how much the render changed this particle's control\n(% of the control without the render"
-                                   + (f"; averaged over {D_AVG} windows, {D_AVG / 6:.2f} s)" if D_AVG > 1 else ")"), f_s)
+                                   "how much the render changed this particle's control\n(% of it without the render"
+                                   + (f"; {D_AVG}-window mean, {D_AVG / 6:.2f} s)" if D_AVG > 1 else ")"), f_s)
                         hatch_legend(dr, cam, bx, int(Hd - 228 * sz), sz, Hd,
                                      "control negligible here (under 1 % of the largest)", f_s)
                         ax, ay = bx, int(Hd - 318 * sz)
