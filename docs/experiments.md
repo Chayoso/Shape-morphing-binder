@@ -5046,6 +5046,36 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - *Not included, needs a pre-registration (amendment 6) before it runs.* Ablations of the parts the tag adds:
     D146b off, D149 off, and the floating-Gaussian fix off. Bunny and dragon × 3 seeds at 300k is about 4.7
     card-hours; the 40k gallery at one seed is about 2.
+  **Amendment 6: ablations of the tag's new parts (pre-registered 2026-10-15 ~14:05 CDT server clock, before any run;
+  the user via the coordinator: "reviewers will ask for each part's effect").**
+  - *Arms.* One part off at a time; everything else is the tag's defaults. Each arm is the switch's `--no-` form on
+    `refreeze-cand`, which is the path of freeze-2026-10-09b. Names use letters only, so band145 reads arm + seed.
+    - NRD, `--no-relax_driven` (D146): the layer relaxation in every step again.
+    - NUC, `--no-u_adam_carry` (D146b): u's Adam moments fresh every window again.
+    - NSS, `--no-spacing_symmetric` (D149): each particle's own 16 nearest for the minimum spacing again.
+    - NFX, the floating-Gaussian fix off. Only if the tag carries the fix; its off-flag goes to the setup as
+      `POSTTAG_FX_FLAG`.
+  - *Runs.*
+    - 300k: bunny and dragon × seeds 97 / 99 / 101 against the tag's B1 render arm L of the same seeds. Only seed 97
+      keeps its frames.
+    - 40k: the B3 gallery's 19 meshes × seed 97 against B3's V97 on the tag.
+    - The flag check in `posttag_setup.sh` stops the setup if any of these flags is missing in the tag.
+  - *Readings, as B1 / B2.*
+    - tab145 rows and band145 three-seed ranges; an arm differs from L on a measure only when the ranges do not
+      overlap. The measures: yardstick, display, silhouette IoU, chamfer, thin, apart, end kinetic, centre of mass,
+      rotation and net / gross.
+    - visible_apart: windows 3–10, and the whole run.
+    - The per-window records: L, and the centre of mass by update.
+    - gallery_ind at 40k.
+  - *What each part is expected to do, from its own entry; recorded as found whatever the result.*
+    - NRD: the late wobble returns (D146's tail measure).
+    - NUC: u's window-to-window dither returns (D146).
+    - NSS: the centre-of-mass drift returns to about 1–2e-4 pitches, against about 3.5e-5 with D149.
+    - NFX: more visible pieces.
+  - *Queue.* `gen_a6.py`, right after B1 seed 97 and before B7:
+    - With three arms: 75 items (18 at 300k and 57 at 40k), about 4.7 + 2.1 = 6.8 card-hours.
+    - With NFX: 100 items, about 9.
+    - The post-tag total is then about 62 card-hours measured (about 75 with the margin), about 37 h on two cards.
   **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
   tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
   do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus

@@ -1,5 +1,7 @@
 #!/bin/bash
-# posttag_setup.sh TAG -- D145 post-tag, server half (after posttag_local.sh): the tag's code copies for the evidence re-run
+# [POSTTAG_FX_FLAG=--no-<fix>] posttag_setup.sh TAG -- D145 post-tag, server half (after posttag_local.sh): the tag's code
+# copies for the evidence re-run (POSTTAG_FX_FLAG: the floating-Gaussian fix's off-flag when the tag carries the fix;
+# amendment 6's NFX arm is generated only then)
 #   repo_t   the tag as is (full archive): B3 / B9 40k (g40, g40f) and the determinism reference
 #   repo_ts  + patch_s.py (kept frames written in place of the full archive; output only): every 300k end300 run
 #   repo_tgf + patch_d145g.py (D121 hooks) + rgv_patch.py + rgv_patch2.py (RGV's records), full archive: B7 / RGV (jv)
