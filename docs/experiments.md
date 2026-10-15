@@ -6249,6 +6249,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     half a small rise of the late mean (+0.2–0.3 pt render arm, +0.5 pt twin), spread over points at the threshold.
     No thin feature is lost.
   - The repeat (SL2, SP2) is to tell whether the late mean's rise repeats.
+  **The 300k dragon pair (SL 11:53–12:21, SP 12:23–12:55 CDT on GPU 1; read 13:00; P = 0.0482 wu). (i), (ii) and
+  (iv) pass. (iii) is within D146's limits, with two small replay-band misses.**
+
+  | run | push net (P) | body net (P) | probe com largest (P) | net rotation | ang. net / gross | silhouette IoU | chamfer | thin | end kin | apart 3–10 | yardstick sil | display front | windows | s / attempt |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | SL | 1.2e-10 | 1.43e-4 | 1.43e-4 | 0.0041° | 3.08e-3 | 0.9876 | 0.0546 | 3.60 % | 7.1e-6 | 2550 | 5.19e-4 | 0.0091 | 159 | 9.18 |
+  | SP | 6.5e-11 | 1.32e-4 | 1.32e-4 | 0.0061° | 2.77e-3 | 0.9874 | 0.0546 | 3.17 % | 1.65e-5 | 3150 | 1.20e-3 | 0.0122 | 181 | 9.46 |
+  | CDL | 4.7e-5 | 1.32e-4 | 1.32e-4 | 0.0048° | 2.99e-3 | 0.9871 | 0.0545 | 3.25 % | 5.9e-6 | 3150 | 5.31e-4 | 0.0087 | 166 | 9.95 |
+  | CDL2 | 4.2e-5 | 1.46e-4 | 1.47e-4 | 0.0047° | 2.87e-3 | 0.9871 | 0.0545 | 2.90 % | 8.8e-6 | 2810 | 5.26e-4 | 0.0090 | 176 | 9.83 |
+  | CDP | 4.8e-5 | 1.44e-4 | 1.46e-4 | 0.0058° | 2.76e-3 | 0.9879 | 0.0546 | 3.09 % | 1.11e-5 | 3042 | 1.19e-3 | 0.0130 | 155 | 9.93 |
+
+  - (i): the push's net falls to float rounding.
+  - (ii): the body's net is unchanged, as predicted. The dragon's drift is the grid's floor (1.43e-4 / 1.32e-4).
+    - SL is 1.1e-5 above SP, inside the pre-registered spread of 1.8e-5; on the base the arms' order flips between
+      runs.
+    - The render arm is ahead on the net rotation and higher on the mean angular net / gross (+11 %), as on its base.
+  - (iii): every value is within D146's dragon limits. Against the replay band:
+    - SL's chamfer is 0.0546 against a band of exactly 0.0545, and its thin is at the band's top.
+    - SP's IoU is 0.0005 below CDP's.
+    - SP's end kin is above CDP's, but its median over the last ten windows is 9.7e-6 against 1.10e-5.
+    - The render lead holds: yardstick −57 %, display −25 %.
+  - (iv) passes.
 - **D150, the drag damps APIC's whole momentum (`--drag_affine`; opened 2026-10-15 12:00 CDT by the coordinator from
   D145's reading of bob / homer: the grid step carries 95 % of the angular momentum's flow, and the render arm carries
   more of it; pre-check pre-registered 2026-10-15 12:20 CDT, before its runs; branch `wip/d149`).**
