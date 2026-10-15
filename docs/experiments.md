@@ -6234,6 +6234,45 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       after the dragon pair.
   - (iv) passes: 6.48 / 6.49 s an attempt. GPU 1 was otherwise idle, unlike the base runs' cards.
   - The render share is 0.333 at every window, λ at its rule; the render's influence is the lead above.
+- **D150, the drag damps APIC's whole momentum (`--drag_affine`; opened 2026-10-15 12:00 CDT by the coordinator from
+  D145's reading of bob / homer: the grid step carries 95 % of the angular momentum's flow, and the render arm carries
+  more of it; pre-check pre-registered 2026-10-15 12:20 CDT, before its runs; branch `wip/d149`).**
+  - *The code, measured.* The drag enters in P2G only (`kernels.k_p2g`, `k_p2g_prep`, D148's `k_p2g_side1`):
+    `m v (1 − dt drag)`. The affine momentum m C in G and the step's stress impulse are not damped.
+  - The grid's momentum is p_i = Σ_p w_ip [m v_p (1 − d) + (m C_p − dt V P Fᵀ terms)(x_i − x_p)], with d = dt × drag.
+    - Linear: Σ_i p_i = (1 − d) Σ m v.
+    - Angular, with the cubic B-spline (D = dx²/3): L_v (1 − d) + L_C + the stress torque (zero; the Kirchhoff stress is
+      symmetric).
+    - So each step adds −d L_v. A deforming body with no net spin holds opposite L_v and L_C, and gains angular
+      momentum.
+  - The change, behind the switch: G = −C0 dt V P Fᵀ + m C (1 − dt drag), in every P2G kernel and in its hand adjoint.
+    The frozen expression is unchanged with the switch off (drag_c = 0).
+    - Damping the grid velocity before G2P would also scale the step's stress impulse, so it is not the same.
+    - This form scales exactly the transferred momentum: L → (1 − d)(L_v + L_C), and linear momentum as before.
+  - *Tests* (`tests/test_drag_affine.py`, CPU on hyde06; the CUDA window test runs with the suite):
+    - A deforming elastic body has L = 0 split as |L_v| = |L_C| = 88.8. One step without the switch gives |L| = 0.333
+      (= dt drag |L_v|); after six steps 0.372. G2P rebuilds C from the grid after the first step, so the first step
+      makes most of it. With the switch: 1.6e-6 after one step, 1.1e-5 after six.
+    - The hand adjoint matches Warp's generated one; a window matches finite differences on dFc and u.
+    - The frozen path is bit for bit: `test_volume_exact`'s reference on CPU.
+  - *Precedent: D99 (2026-10-05) is this definition, refuted and reverted.*
+    - The APIC angular momentum was kept (the grid's and the jumps' changes opposite, cos −1.00).
+    - The visible net rotation rose 8–12× on the bunny 300k: kept frames 0.0040° → 0.0334° (L), 0.0034° → 0.0404° (P).
+    - The source D99 named is the position updates below the grid (u, the minimum spacing, the relaxation). They move r
+      and leave v, so Σ m δr × v ≠ 0. The v-only drag damped the bulk part of what they put in; a consistent drag stops
+      doing that.
+    - D145's drag-0 run D0L97 agrees: L_start 41–51 (u's du × v at window 4) instead of 243, but the reading's rotation
+      0.022° against 0.002°.
+  - *Pre-check (a), on the coordinator's decision instead of a blind 300k gate.*
+    - Runs: bunny 40k, seed 97, the D146b + D149 base (`--relax_driven --u_adam_carry --spacing_symmetric`), render
+      arm. `--drag_affine` on (A1, A2) against off (B1, B2), `repo_d150s`, GPU 1 after D149's bunny repeat.
+    - Read, per run: net rotation and mean angular net / gross (`momentum_probe.py` on the kept frames); the record's
+      L_start (largest, end) and the run's sums of L_grid and L_jump (net and path).
+    - Prediction: (i) the grid's ΔL falls to its floor with the switch, |L_grid| per window ≈ 0.1–0.2 against 20–56.
+      (ii) The net rotation and the angular net / gross rise in both runs with the switch, several-fold, as D99. L_start
+      stays at the jumps' size (tens) instead of growing to hundreds.
+    - If (ii) holds, D150 is recorded as refuted by its precedent and by this check, and the bob / homer 300k gate is
+      not run. The angular momentum the position updates put in is then the definition to study (b, reading first).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
