@@ -109,6 +109,18 @@ class WindowOptimizer:
         self.dFc = torch.zeros(cfg.T, N, 3, 3, device=cfg.device, requires_grad=True)
         self.u = torch.zeros(N, device=cfg.device, requires_grad=True)
         self.leaves = [self.dFc, self.u]
+        # B13 (baseline force / force_mf): the driven control is an external force per particle and step (mpm/force.py);
+        # dFc is held at zero. The step control's constants (Adam's eps, the adaptive step's target norm) are dFc's
+        # gradient units: they take the ratio of the two physics gradients' norms measured once at the source, as the
+        # Xu baseline's took its loss's scale (D112)
+        self.force = None
+        if getattr(self.win, "force", None):
+            self.dFc.requires_grad_(False)
+            self.force = torch.zeros(cfg.T, N, 3, device=cfg.device, requires_grad=True)
+            self.leaves = [self.force, self.u]
+            if tgt.force_ratio is not None:                 # (measured at the run's first gradient, _force_units)
+                self.win.eps_eff *= tgt.force_ratio * 3.0 ** 0.5
+                self.win.target_norm_eff *= tgt.force_ratio
         self.mom = [torch.zeros_like(p) for p in self.leaves]
         self.vel = [torch.zeros_like(p) for p in self.leaves]
         self.adam_t = 0
@@ -143,6 +155,7 @@ class WindowOptimizer:
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
+        self._zd = None                     # B13: a zero dFc with a gradient, for the run's one ratio measurement
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
         # momentum balance: the body's centre-of-mass motion per window was u's net translation (ratio 1.0-1.1,
         # correlation +0.98, D93) and u carried half to two thirds of its rotation. Its displacement keeps no part
@@ -163,7 +176,7 @@ class WindowOptimizer:
         return self.obj.scalar(e, self.lam_r)
 
     def eval(self) -> Eval:
-        return eval_terms(self.win, self.obj, self.dFc, self.u)
+        return eval_terms(self.win, self.obj, self.leaves[0], self.u)
 
     # ---- window start ----
     def warm_start(self, dfc_init):
@@ -176,14 +189,14 @@ class WindowOptimizer:
         self.tele.update(zero_ok=int(r0 is None), zero_reason=r0)
         E0 = self.scalar(e0) if r0 is None else np.inf
         with torch.no_grad():
-            self.dFc.copy_(dfc_init * self.cfg.warm_decay)
+            self.leaves[0].copy_(dfc_init * self.cfg.warm_decay)
         ew = self.eval()
         rw = state_reason(ew)
         self.tele.update(warm_ok=int(rw is None), warm_reason=rw)
         Ew = self.scalar(ew)
         if not (rw is None and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
-                self.dFc.zero_()
+                self.leaves[0].zero_()
             # D146b: u's carried moments are not the warm start's to discard
             for b in (self.mom + self.vel) if self.u_age is None else (self.mom[0], self.vel[0]):
                 b.zero_()
@@ -219,6 +232,8 @@ class WindowOptimizer:
         the endpoint position-space gradients of both channels (telemetry only)."""
         cfg, obj, leaves = self.cfg, self.obj, self.leaves
         Lp_core = obj.phys_core(e)
+        if self._zd is not None:
+            self._force_units(torch.autograd.grad(Lp_core, [self._zd, leaves[0]], retain_graph=True))
         with timed("cleanup"):
             Ldt = obj.cleanup(e.xT)
         diag = None
@@ -252,6 +267,19 @@ class WindowOptimizer:
             self._calibrate_lambda(gp, gr, gr_raw)
         g = [a + self.lam_r * b for a, b in zip(gp, gr)]
         return [gi + di for gi, di in zip(g, gdt)], diag
+
+    def _force_units(self, g):
+        """B13: the physics gradient's norm on the force leaf over its norm on dFc (both at zero control, the run's first
+        gradient), once a run: the target norm (a total norm) takes the ratio, Adam's eps (per coordinate) the ratio
+        of the per-coordinate RMS (dFc has 9 coordinates a particle and step, the force 3)."""
+        gd, gf = _norm([g[0]]), _norm([g[1]])
+        r = gf / gd if gd > 0 and np.isfinite(gf / gd) and gf > 0 else 1.0
+        self.tgt.force_ratio = r
+        self.win.eps_eff *= r * 3.0 ** 0.5
+        self.win.target_norm_eff *= r
+        self._zd = None
+        print(f"[B13] force units: |g_f| / |g_dFc| = {r:.4g} (|g_dFc| {gd:.4g}); eps {self.win.eps_eff:.4g}, "
+              f"target norm {self.win.target_norm_eff:.4g}", flush=True)
 
     def _calibrate_lambda(self, gp, gr, gr_raw):
         """lambda from the PROJECTED render gradient at the window's first gradient, every window (the balancer's
@@ -301,7 +329,10 @@ class WindowOptimizer:
                         vh = v_ / (1 - cfg.beta2 ** t_)
                         d = mh / (vh.sqrt() + win.eps_eff)
                     p -= a_try * d
-                if cfg.dfc_clip > 0:
+                if cfg.dfc_clip > 0 and self.force is not None:   # B13: the same per-particle, per-step cap
+                    n = self.force.norm(dim=2, keepdim=True)
+                    self.force *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
+                elif cfg.dfc_clip > 0:
                     n = self.dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
                     self.dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 self.u.clamp_(-win.sp0, win.sp0)           # one spacing per window
@@ -389,8 +420,10 @@ class WindowOptimizer:
             self._it = it
             if self.tgt.grid_ot is not None:
                 self.tgt.grid_ot.repeat = same_point
+            if self.force is not None and self.tgt.force_ratio is None and it == 0:
+                self._zd = torch.zeros_like(self.dFc, requires_grad=True)     # B13: the run's first gradient
             with timed("grad_fwd"):
-                e = graph_terms(self.win, self.obj, self.dFc, self.u)
+                e = graph_terms(self.win, self.obj, self.leaves[0], self.u, dfc_leaf=self._zd)
             same_point = True
             with timed("grad_bwd"):
                 g, diag = self.gradient(e, it)
@@ -420,7 +453,7 @@ class WindowOptimizer:
             e_n, a_try, new, bak = found
             if diag is not None:
                 self.tele.update(work_record(diag[0], diag[1], e.state(), e_n.state()))
-                self.tele["step_norm"] = float((self.dFc.detach() - bak[0]).norm())
+                self.tele["step_norm"] = float((self.leaves[0].detach() - bak[0]).norm())
             rec = self.record(it, e_n, new, a_try, gn)
             if self.on_iter is not None:
                 self._stream(it, e_n, rec, diag)
@@ -448,7 +481,7 @@ class WindowOptimizer:
         ot = self.tgt.grid_ot
         if cfg.ot_warm_trials and ot is not None and self.accepted > 0 and self.acc_solved is not None:
             ot._solved, ot.repeat = self.acc_solved, True       # D142: the accepted candidate's potentials, no sweep
-        commit = commit_rollout(win, self.obj, self.dFc, self.u, self.lam_r)
+        commit = commit_rollout(win, self.obj, self.leaves[0], self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), win.loss_floor_eff))
@@ -484,7 +517,7 @@ class WindowOptimizer:
         stats = {"replay_rel": replay_rel, "accepted": self.accepted, "rejected": self.rejected,
                  "grad_converged": grad_converged, "ls_exhausted": ls_exhausted, "L_start": L_start,
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
-                 "dfc": self.dFc.detach()[:cfg.T].clone(),
+                 "dfc": self.leaves[0].detach()[:cfg.T].clone(),       # (B13: the force, the next warm start's)
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
@@ -498,6 +531,12 @@ class WindowOptimizer:
             stats["selection_merit"] = selection_merit
             with timed("commit_records"):
                 stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
+            if self.force is not None:                  # B13: what the committed force put into the body (a record)
+                from ...mpm.force import impulse_record
+                with torch.no_grad():
+                    stats.update(impulse_record(self.force.detach(), commit.x[:cfg.T], win.spec.force[1],
+                                                win.force == "force_mf", win.x0.mean(0)),
+                                 force_ratio=self.tgt.force_ratio)
             if cfg.work_telemetry:                      # diagnostic records, not read by the run
                 stats.update(self.obj.scale_record(commit.x[-1]))
                 stats.update(self.obj.control_record(win.expand(self.dFc.detach())))

@@ -55,6 +55,8 @@ class RolloutSpec:
     volume_exact: bool | str = False    # "carried" (D131): the motion's volume J carried in the smoothed F; False / "off": the old path
     J0: np.ndarray | None = None        # the tracked volume at the start (volume_exact; None = 1)
     gap: tuple | None = None            # D148 (gap_split): (plane_m, plane_n, q, vp[, sig]) of mpm/gap_step; None = the frozen path
+    force: tuple | None = None          # B13 (baseline force / force_mf): (mf, c) of mpm/force; PersistentAdjoint makes the
+                                        #   (control_steps, N, 3) force leaf; None = no force, the frozen path
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -241,13 +243,21 @@ class PersistentAdjoint:
         # position-mode control leaf buffer (§7): a persistent (N,) tensor the bridge copies into
         self.u = torch.zeros(N, device=dev)
         self.u_wp = wp.from_torch(self.u, dtype=wp.float32, requires_grad=True) if spec.layer is not None else None
+        # B13: the external force leaf buffer (control_steps, N, 3) the bridge copies into, one view a driven step
+        self.f = self.f_wp = None
+        force = None
+        if spec.force is not None:
+            Tc = T if spec.control_steps is None else int(spec.control_steps)
+            self.f = torch.zeros(Tc, N, 3, device=dev)
+            self.f_wp = [wp.from_torch(self.f[t], dtype=wp.vec3, requires_grad=True) for t in range(Tc)]
+            force = (self.f_wp, *spec.force)
         self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
                                Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp,
                                device=dev, requires_grad=True, vol0=spec.vol0,
                                Fg0=spec.Fg0, track_geom=spec.track_geom, bonds=bonds, persistent=True,
                                layer=spec.layer, layer_u=self.u_wp, bond_history=spec.bond_history,
                                control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint, spacing=spec.spacing,
-                               volume_exact=spec.volume_exact, J0=spec.J0, gap=spec.gap)
+                               volume_exact=spec.volume_exact, J0=spec.J0, gap=spec.gap, force=force)
         tr = self.traj
         self.geom = bool(spec.track_geom)
         self.sx = torch.zeros(N, 3, device=dev)
@@ -312,20 +322,24 @@ class PersistentAdjoint:
             self._zero_grads()
             self.tape.backward(grads=self.seeds)
 
-    def apply(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None):
-        return _WarpMPMPersistent.apply(dFc_t, u_t, self)
+    def apply(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None, f_t: torch.Tensor | None = None):
+        """f_t: B13's (control_steps, N, 3) external force leaf (spec.force); None = zero force or none."""
+        return _WarpMPMPersistent.apply(dFc_t, u_t, self, f_t)
 
 
 class _WarpMPMPersistent(torch.autograd.Function):
     """The _WarpMPMExt bridge on a PersistentAdjoint (same outputs, same seeds)."""
 
     @staticmethod
-    def forward(ctx, dFc_t: torch.Tensor, u_t, adj: PersistentAdjoint):
+    def forward(ctx, dFc_t: torch.Tensor, u_t, adj: PersistentAdjoint, f_t=None):
         N, T = adj.N, adj.T
         adj.dc.copy_(dFc_t.detach().reshape(T, N, 3, 3))
         if adj.u_wp is not None:
             adj.u.copy_(u_t.detach() if u_t is not None else torch.zeros(N, device=adj.u.device))
         ctx.u_req = u_t is not None and u_t.requires_grad and adj.u_wp is not None
+        if adj.f is not None:                      # B13: the external force
+            adj.f.copy_(f_t.detach() if f_t is not None else torch.zeros_like(adj.f))
+        ctx.f_req = f_t is not None and f_t.requires_grad and adj.f is not None
         adj.forward()
         ctx.adj = adj
         tr = adj.traj
@@ -356,6 +370,9 @@ class _WarpMPMPersistent(torch.autograd.Function):
             else:
                 adj.sV.zero_()
             adj.backward()
-            g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3) for d in adj.dc_wp])      # stack copies
+            g = None
+            if ctx.needs_input_grad[0]:            # (B13 holds dFc at zero without a gradient)
+                g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3) for d in adj.dc_wp]).reshape(T, N, 3, 3)
             g_u = wp.to_torch(adj.u_wp.grad).clone() if ctx.u_req else None
-        return g.reshape(T, N, 3, 3), g_u, None
+            g_f = torch.stack([wp.to_torch(d.grad) for d in adj.f_wp]) if ctx.f_req else None
+        return g, g_u, None, g_f

@@ -279,7 +279,8 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
            "com": x.mean(0).tolist(), "v_com": v.mean(0).tolist(),
            "move": float((x - x_start).norm(dim=1).mean()), "Jmin": jmin,
            "Jmin_traj": commit.jmin_traj, **counts,
-           "selection_merit": stats["selection_merit"], "transport_energy": energy, **diag}
+           "selection_merit": stats["selection_merit"], "transport_energy": energy, **diag,
+           **{k: v for k, v in stats.items() if k.startswith("force_")}}    # B13's records (baseline force*), else none
     if thin is not None and cfg.work_telemetry:
         m = thin_metrics(x, thin)
         rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))

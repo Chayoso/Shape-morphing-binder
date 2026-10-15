@@ -70,6 +70,8 @@ class TargetPack:
     ot_scale: float | None = None       # transport scale: equal gradient norm with D_vol
     settled_step: float | None = None   # last accepted step (warm start of the search)
     u_adam: tuple | None = None         # D146b (u_adam_carry): u's Adam state (m, v, age) after the last committed window
+    force_ratio: float | None = None    # B13 (baseline force*): |grad_f phys| / |grad_dFc phys| at the source (the first
+                                        #   gradient), the step control's constants in the force leaf's units
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
     ext: Exterior | None = None         # the render terms' exterior, when they are read on it
     relief: object = None               # window/layer.TargetRelief: the relaxation's reference, from the target's surface

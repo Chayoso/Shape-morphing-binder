@@ -4683,6 +4683,119 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   control of every particle, concentrated about tenfold on the rim and the thin parts; it moves those parts toward the
   target and lowers the silhouette and shading errors by 30–46 % at the end, without moving the centre of mass, the
   transport term or the rest.
+  **B13, the control variable: an external force in place of the stress control (pre-registered 2026-10-15 12:08 CDT
+  server clock, before any measured run; the B13 agent on the coordinator's brief; branch `wip/b13` from refreeze-prep
+  2b0cafc; `tmp/b13/`, `output/gpu/b13/`; a baseline mode that changes nothing of ours).** Classical physics-based shape
+  control drives the body toward the target with external forces (Treuille et al. 2003; McNamara et al. 2004; Fattal and
+  Lischinski 2004; Chen, Levin and Langlois, SIGGRAPH 2024; Li et al., SIGGRAPH Asia 2025). A reviewer will ask why we
+  control the stress (dFc) and not forces. B13 is the controlled ablation inside our simulator: the objective, the render
+  terms, the optimiser, the windows, u and the readout are the same, and only the control variable changes. Our prior
+  F-control [Xu et al. 2025] is B4; the two blocks answer different questions (B4 the objective, B13 the control).
+  *The arms (`--baseline force`, `--baseline force_mf`; without them the frozen path bit for bit).*
+  - (a) `force`: an external force f_p(t) per particle and driven step, in the driven half of every window, the steps
+    dFc acts in now. dFc is held at zero. The force enters as the particle's velocity increment c a_p before P2G, which
+    spreads the impulse dt f_p to the nodes with the B-spline weights (and P2G's factor 1 − dt drag, which every
+    momentum of the step takes). The leaf a is the force per unit mass in units of A0 = (λ + 2μ) V / (m dx), the
+    acceleration that the P-wave modulus's unit stress gives one particle's volume V across one MPM cell; A0 = c_p² / dx
+    with c_p the P-wave speed, the same at every N (bunny: c_p 13.5 wu/s, dx 0.306 wu, A0 ≈ 600 wu/s²); c = dt A0.
+  - (b) `force_mf`: the same force, with each driven step's forces projected at that step's positions onto zero net
+    force and zero net torque about the centre of mass: f' = f − a − b × r, a = mean f, b = I⁻¹ Σ r × f, I = Σ |r|² 1 −
+    r rᵀ, r = x − x̄ (equal masses). The B-spline weights reproduce constants and linear functions, so the grid receives
+    neither linear nor angular momentum from f'. This is the "momentum-free force" a reviewer would propose. It is
+    still not the divergence of a stress: the force acts on each particle independently, and the projection is global.
+  - Held equal: u as in our pipeline (its transport gate, its clamp, its rigid-mode removal, D146b's carried moments),
+    so the comparison isolates dFc against the force; the layer relaxation (D146 `--relax_driven`), the minimum
+    spacing, the bonds, the eight-term objective and the render terms (PCGrad, λ at the rule's value), Adam with the
+    Armijo search, the per-particle per-step cap (0.02, here on |a|), the warm start (the last window's control × 0.5),
+    the plastic assimilation at every commit (with dFc at zero it takes the elastic stretch the forces left), the
+    acceptance and the stopping.
+  - The step control's constants (Adam's eps, the adaptive step's target norm) are numbers in dFc's gradient units.
+    They take the ratio of the physics gradient's norm on the force leaf to its norm on dFc, measured once at the run's
+    first gradient (both at zero control), as D112 converted them to Xu's loss units; eps, a per-coordinate constant,
+    takes that ratio × √3 (9 coordinates of dFc against 3 of the force per particle and step).
+  - Not run: the Fattal–Lischinski driving force as a non-optimised reference. A faithful version needs its own target
+    field, gathering term and per-scene gains, which is more than a few hours; the optimised arms are the stronger
+    comparison.
+  *Code paths (the design note).*
+  - New: `physmorph/mpm/force.py`. It holds the increment and the projection kernels, with hand adjoints recorded on
+    the tape. The projection's moments are summed in float64, and its adjoint includes the dependence on the positions.
+  - `mpm/traj.py`: `Trajectory(force=...)`; in the driven steps P2G reads v + c f' in place of v.
+  - `mpm/adjoints.record_p2g`: the velocity that P2G read (default `tr.v[t]`).
+  - `mpm/function.py`: `RolloutSpec.force`, the force leaf of the persistent adjoint, and the bridge's fourth input.
+    The bridge returns dFc's gradient only when dFc requires one; autograd discarded it before.
+  - `pipeline/window/setup.py` (the unit, the eval trajectory's force buffer, `load`), `rollout.graph_terms`,
+    `solve.py` (the leaf, the cap, the unit ratio, the record), `run/runner.py` (the `force_*` records),
+    `TargetPack.force_ratio`, `config.py` (the baseline values, `force_scale`), `scripts/pipeline_run.py` (the choices,
+    `--force_scale`; the Xu-only settings now keyed on "xu").
+  - The default path: every change sits behind `cfg.baseline in (force, force_mf)` or `force is not None`; when off,
+    P2G's inputs, the adjoint's arrays and every kernel are the old ones.
+  - Records per committed window (`force_*`): the centre of mass's velocity increment the force gave (`force_dv`), the
+    angular momentum per unit mass it added (`force_dL`), the gross increment, the leaf's largest entry, the unit ratio.
+  *Tests (`tests/test_force_baseline.py`, on hyde06).*
+  - (1) The projection has no net force and no net torque, and equals the float64 reference.
+  - (2) The increment's hand adjoints, plain and projected, against float64 autograd of the same map.
+  - (3) A window (persistent graphs, CPU and CUDA) against central finite differences on the force and u, both arms.
+  - (4) Momentum: the grid's linear and angular momentum at every step. The plain force adds dt Σ f and dt Σ x × f; the
+    projected force adds neither, to float rounding, with and without the elastic stress.
+  - (5) A zero force is no force: the rollout bit for bit, the gradients to rounding.
+  - (6) In a run (CUDA): dFc stays zero and the records exist; the default run has no force.
+  - Then the full suite. The default path is also checked end to end: the 40k bunny, seed 97, four windows, D146b
+    flags, under Warp's run-to-run deterministic mode (`tmp/rt/det_run.py`), repo_b13 at the default flags against the
+    base refreeze-prep 2b0cafc; every frame, metric and history field but clocks must be bit for bit equal (as D145's
+    proof).
+  *Runs (the D146b base: `--relax_driven --u_adam_carry`; one run a card, lowest card priority).*
+  - Now, the 40k bunny smoke, seed 97, repo_b13s (frames12 output): F (force) and FM (force_mf), scale 1. The default
+    arm's reference is D149's OFF1 / OFF2: the same base code, flags and seed, two replays.
+  - Now, B13a, the unit's sensitivity at 40k (bunny, seed 97): `--force_scale` 1/16, 1/4 and 4 for each arm, beside the
+    smoke's 1. The scale used at 300k is, per arm, the one with the lowest geometry energy (`transport_energy`, the
+    objective's main term, in the same units for every arm) at the delivered last window, as D118 chose Xu's α by its
+    own loss. Within 2 % of each other, the scale nearer 1 is taken. Every run's end is reported, so the choice is
+    visible.
+  - At the re-freeze tag (when the coordinator gives it): 6 meshes (bunny, dragon, teapot, bob, armadilo, homer) × 2
+    arms × seeds 97 / 99 / 101 at 300k = 36 runs, at the chosen scales. The default arm is B1's render arm L on the
+    same tag and seeds; where B1 has not run on that tag, B13 runs L itself. Budget: about 9 card-hours for the runs and
+    about 6 for the readings.
+  *Readout (D145's harness, unchanged).*
+  - End against the independent sample (d90), with the floor: silhouette IoU and chamfer, the yardstick and the display
+    (`read300.sh`); the run's own silhouette IoU, chamfer and thin uncovered.
+  - At rest: the last kinetic record.
+  - Momentum: the centre of mass's largest and final displacement, the net / gross angular move and the net rotation on
+    every kept frame (`mom.sh`, `momentum_probe.py`, as D149 read CBL / CBL2 / CBP); beside them the records' sums of
+    `force_dv` / `force_dL` and the body's net (`body_vcom`, `rot145.py`, `angL145.py`).
+  - Floating material: apart particles in windows 3–10 (`d120_apart.py`), and at matched progress p = 0.25 / 0.5 / 0.75
+    on seed 97 (`harness.py`).
+  - The volume routine (`vol145.py`).
+  - Runtime: wall, attempts, seconds an attempt.
+  - Reading: an arm differs from the default on a measure when the two three-run ranges do not overlap (D145).
+  *Hypothesis (a prediction to be measured, not a target).*
+  - (a) `force` pushes the body and puts momentum in. The records' `force_dv` is nonzero in every window. The centre of
+    mass's largest displacement is at least 100× the default's (D149: 1e-5 to 1.3e-4 pitches), and the net rotation at
+    least 10× (default about 0.008°).
+  - It does not end at rest unless damped: the last kinetic record lies above the default's three-run range. A force
+    holds an elastic deformation that springs back once it is released, while dFc writes the deformation into the
+    stress-free state. So it needs more windows, and its end is behind the default's on silhouette IoU and chamfer on at
+    least four of the six meshes. Per-particle forces push particles one by one: apart particles in windows 3–10 lie
+    above the default's range.
+  - (b) `force_mf` puts in no momentum by construction: `force_dv` at most 1e-9 of the gross increment, and the probe's
+    centre of mass within the default's range. In everything else it behaves like (a).
+  - Cost per attempt within ±10 % of the default's (the increment adds a few small kernels a step; the projection,
+    two float64 reductions a step).
+  - If the force arms match the default on the end and the rest, the case for the stress control rests on momentum and
+    smoothness alone; reported as found.
+  *Amendment 1 (recorded 2026-10-15 13:46 CDT server clock, before any measured run; the coordinator's message: the
+  user tags the freeze on Sat 10/18 as D135 + D146b + D149, with a floating-Gaussian fix only if it passes by then).*
+  - `wip/b13` is rebased onto `refreeze-cand` 2ba7e6d (68376d5 and the pinned pipeline digest), whose defaults
+    switch on `--relax_driven`, `--u_adam_carry` and `--spacing_symmetric`. The B13 runs therefore use the candidate's
+    defaults and add no base flags.
+  - The tests and the full suite run on the rebased tree. The deterministic proof compares repo_b13s at the default flags
+    with refreeze-cand 2ba7e6d (frames12 patch on both). The candidate's own pinned references
+    (`tests/test_refreeze_reference.py`) are part of the suite.
+  - Merge into `refreeze-cand` only when all of this is green.
+  - The 40k reference arm becomes D149's ON1 / ON2: refreeze-prep with the D149 code, the D146b flags and
+    `--spacing_symmetric`, the candidate's default path, same seed, two replays. OFF1 / OFF2 stay beside them as the
+    09b-switch replays.
+  - The 40k smoke and B13a run on the candidate now; the 300k runs wait for the tag.
+  - The card chain that waited from 12:10 was stopped at 13:40 before it claimed a card; it had run nothing.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
@@ -6060,6 +6173,411 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   show in it. The predictions: the opening bead gone where covered, falsified; the opening delayed by B's gate,
   falsified (about 1.5 s); D135's foam gone, confirmed; the beads left only in the uncovered part, falsified. By the
   letter WL fails items (1) and (4) on the dragon; (2), (3), (5) pass. The bunny (WB, WBT) and WG99 to follow.
+- **D149, the minimum spacing's push made momentum-exact (`--spacing_symmetric`; pre-registered 2026-10-14 17:40 CDT
+  server clock, before any D149 run; the coordinator approved it as a definition correction inside the framework,
+  under the user's autonomy rule; branch `wip/d149` from refreeze-prep 2b0cafc; `tmp/d149/`, `output/gpu/d149/`).**
+  D145 found that about four fifths of the bunny's centre-of-mass drift is the minimum spacing's push (D70), in both
+  arms. The user requires the render arm to beat its twin on every measure at 300k, momentum included, and the paper
+  claims the physics is preserved: a position projection that breaks Newton's third law is a defect.
+  *Measured first (CPU, read-only, `tmp/d149/d149_measure.py`, `d149_cum.py`, `d149_rot.py`; the D146b base runs CBL,
+  CBL2, CBP and D145's B1 bunny runs; P = 0.708 × the median 8th-neighbour distance of the target sample, D145's pitch,
+  0.0489 wu bunny, 0.0482 wu dragon).* From the code (`kernels.k_update`, `window/setup.py`, `mpm/traj.py`,
+  `adjoints.k_update_adj`):
+  - (a) The lists are asymmetric. Each particle lists its 16 nearest at the window's start (kNN 17, self dropped).
+    7.0–8.5 % of the directed edges are one-sided: the mutual share is 0.915–0.930 at every window start read.
+  - (b) It is a Jacobi update: it reads x[t] and writes x[t+1] (no in-place race). There is no per-particle
+    normalisation: each listed pair adds (r − L) d / L, scaled by a fixed 0.5 / T. A pair listed both ways therefore
+    moves its two particles by bitwise-opposite amounts: d is antisymmetric, and L and r = ½(r_p + r_q) are symmetric.
+  - (c) The masses are equal. The dynamics mass is one float, 40000 / N, for every particle, so the equal split is
+    already the mass-weighted split.
+  - (d) The push is in the tape with a hand adjoint (`k_update_adj`); the lists and r are constants of the tape.
+  - (e) It acts in every step of the window, driven and released (2T steps), at the rate 1/T.
+  - (f) The lists are refreshed at each window's start only. They are then frozen for every line-search candidate,
+    the adjoint, the commit replay and the record.
+
+  Read on CBL's kept window starts, with the lists rebuilt as setup.py does (cKDTree in place of the device tree) and
+  r = 0.9 × the source's (V/N)^(1/3):
+  - At a window's start every overlapping pair (L < r) is mutual. Window 1 has 677 540 overlapping directed edges,
+    2.26 a particle, none one-sided.
+  - Inside the window, pairs that only one side lists move into overlap: 16 by step 12 of window 1, 117 by steps
+    24–36. That is 0.02 % of the overlaps, but each moves one particle only.
+  - One step's net, from the mutual edges, is 1e-19 P (zero in float64). From the one-sided edges it is 7e-8 to 8e-7
+    P, against the record's per-step mean of 6.1e-7 P in window 1.
+  - The overlaps fall to 0.12 a particle by window 10 and to almost none late. So 99 % of the push's net drift is in
+    place by window 4–6 in all nine bunny 300k runs (window 1 alone: 2.7e-5 P).
+  - It is systematic, not a random walk: the push's net over its path is 0.67–0.75.
+
+  Net over the committed windows (the record's vectors summed, in P):
+
+  | run | push | grid | relaxation | body | push share of body |
+  |---|---|---|---|---|---|
+  | CBL | 1.12e-4 | 3.4e-5 | 5e-7 | 1.30e-4 | +0.84 |
+  | CBL2 | 1.10e-4 | 3.5e-5 | 3e-7 | 1.32e-4 | +0.81 |
+  | CBP | 1.06e-4 | 4.3e-5 | 5e-7 | 1.33e-4 | +0.76 |
+
+  On this base the render arm's record total is not behind its twin's. The push's net rotation is 6–8e-5°, against
+  the body's 8.0–8.3e-3°: the grid carries the rotation. The dragon (CDL, CDL2, CDP) differs: push 4.2–4.8e-5 P,
+  reached by window 9–27, but grid 1.37–1.54e-4 P over 155–176 windows. There the grid's floor is three quarters of
+  the drift.
+  So the centroid breaks through (a) alone, exposed by (f): pairs that only one side lists at the start come into
+  overlap during the window. (b), (c), (d) and (e) do not break it.
+  *The change (`config.spacing_symmetric`, `--spacing_symmetric`, default off = the frozen path bit for bit).* The
+  neighbour relation becomes the symmetric closure of the window start's 16 nearest: q is in p's row iff q is among
+  p's 16 nearest or p is among q's. Rows are padded with p's own index to the widest row; the kernel and its adjoint
+  already skip a pair at L = 0, so the kernel is unchanged. Each unordered pair then sits in both rows, and its two
+  terms are computed from the same x[t] and are bitwise opposite. With equal masses, Σ m Δx = 0 and Σ m x × Δx = 0
+  (central and opposite) in every step in exact arithmetic; what remains is the rounding of each particle's own sum.
+  The reach (the 16 nearest at the window's start, r = 0.9 pitch, the pair's mean) and the strength (each particle
+  moves half the overlap over one window, every step at 1/T) are unchanged. Only the about 0.02 % of overlapping
+  pairs that were one-sided now act on both particles. No constant, weight or schedule. The adjoint is
+  `k_update_adj` on the same list, exact as before. The closure's degree is 17.1–17.4 on average, p99 21–22, max
+  26–28, so the push loop runs to about 28 instead of 16. If the 40k check measures the push kernel's own time as a
+  visible share of a window, the rows are sorted with the padding last and the loop stops at the first pad (a kernel
+  change that the default lists, which never hold p, cannot reach), under the same tests. The record's spacing part
+  reads the same lists, so it measures the change directly.
+  *Tests (`tests/test_spacing_symmetric.py`, on hyde06).*
+  - (1) The closure is symmetric, contains every original edge, holds no self edge but the padding, and its width is
+    the largest degree.
+  - (2) On a random cloud whose lists are taken before a compression, one step's Σ m Δx and Σ m x × Δx of the push:
+    - with the closure, at the float32 floor relative to Σ m |Δx| (≤ 1e-6);
+    - with the 16-nearest lists, far from it (the test must tell them apart).
+  - (3) The adjoint against central finite differences in float64 of a scalar of x[T] through a Trajectory with the
+    closure, against x0 and dFc.
+  - (4) With the switch off, the lists and the rollout are those of the frozen path bit for bit; also
+    `tests/test_frozen_recipe.py` and the whole suite (exit status 0).
+  *Runs (the D146b base: refreeze-prep + the switch + `--relax_driven --u_adam_carry`, seed 97; `repo_d149` on hyde06,
+  one run a card through the lock directory).*
+  - 40k bunny check: the render arm off ×2 (the replay spread) and on ×2, the twin off and on ×1. Also a timing of the
+    push kernel alone at 40k and 300k (16-nearest against closure lists, the kernel's own time per step).
+  - Then 300k bunny: render arm SL and twin SP (`--render_weight_scale 0`), each with the end evaluation (t3end /
+    e3end), the apart particles (`d120_apart.py`) and momentum on every kept frame (`momentum_probe.py`). The same
+    readings are taken on CBL, CBL2 and CBP where they do not exist yet.
+  - The dragon 300k pair (DL / DP against CDL, CDL2 / CDP) if cards allow.
+
+  *Gate (pre-registered):*
+  - (i) The push's net translation over the run, from the record's summed `spacing_vcom`, is ≤ 1e-6 P in both arms:
+    at least 100× below the base's 1.06–1.12e-4, and at least 10× is the claim. Its net rotation (`spacing_vrot`) is
+    reported against the base's 6–8e-5°. It need not vanish: the record takes r about the window's starting centre
+    of mass, so the in-window motion leaves a second-order part.
+  - (ii) The total centre-of-mass displacement: the record's body net, and the momentum probe's largest
+    displacement over the kept frames (read from its full-precision rows). The render arm is not behind its twin
+    beyond the spread. The spread is the grid part's range over the nine bunny runs read here, 3.1–4.9e-5 P, so
+    SL ≤ SP + 1.8e-5 P. The angular net / gross and the net rotation are reported beside.
+  - (iii) The end and the run: silhouette IoU, chamfer, thin uncovered, at rest (the last kinetic record) and apart
+    particles (windows 3–10, max).
+    - Pass: within D146's end limits, the same as D146b's item (3). Bunny: IoU ≥ 0.9871, chamfer ≤ 0.0552,
+      thin ≤ 5.2 %, kin ≤ 1.53e-5. Dragon: 0.9853, 0.0546, 5.5 %, 3.3e-5.
+    - Also read against the base's replay band: SL against CBL / CBL2, widened by their width; SP against CBP widened
+      by the same width. The apart count is read against the same band. By D146's attribution rule a miss of this
+      band counts against the change only if it repeats in a second run.
+    - The render lead holds: SL's yardstick exterior silhouette and display front 1 − IoU are below SP's.
+  - (iv) The cost: seconds an attempt ≤ 1.05 × the base's (bunny CBL / CBL2 7.13–7.21 s, so ≤ 7.57 s; dragon
+    9.83–9.95 s, so ≤ 10.45 s). The push kernel's own time is reported per step and as a share of a window.
+  - 40k check: (i) holds and the push's net is ≥ 10× below the off arms'; the on arms' silhouette IoU, chamfer, thin,
+    kin and windows fall within the off arms' two-run range widened by its width.
+
+  *Prediction.* Bunny:
+  - The push's net falls to 1e-10 to 1e-9 P (float32 rounding of the per-particle sums).
+  - The body's net falls to the grid's floor plus the relaxation, about 3–5e-5 P, in both arms. That is −60 to −75 %
+    against the base.
+  - The run is otherwise the base run inside its replay spread, since 0.02 % of the pairs change.
+  - The angular measures barely move, because the grid carries them.
+  - The cost rises by under 1 % (the push loop is a small part of k_update, and k_update a small part of a step).
+
+  Dragon: the push's net is removed too, but the body's net falls only about 25 % (the grid's 1.4–1.5e-4 P stays).
+  The dragon's centre of mass will still drift at the float32 floor of P2G/G2P, a separate part, reported as found.
+  Adoption into the re-freeze is decided after the gate, not here.
+  **The tests and the 40k check (chain 2026-10-14 18:21–18:34 CDT on GPU 2, `tmp/d149/d149_chain40k.sh`; read
+  2026-10-15 11:30 by `d149_read.py`, `d149_kin.py`; `output/gpu/d149/`).**
+  - Tests: `test_spacing_symmetric.py` 11 passed on the card. The full suite on `repo_d149` passed at its first run:
+    409 passed, 2 skipped, exit 0.
+  - In the test's compressed cloud, one step's linear / angular imbalance of the push is 9.3e-4 / 1.2e-3 with the 16
+    nearest and 1.2e-8 / 6.4e-9 with the closure.
+
+  The 40k bunny runs, seed 97, the D146b base; P = 0.0978 wu. Render arm OFF1 / OFF2 against ON1 / ON2; twin POFF
+  against PON:
+
+  | run | push net (P) | body net (P) | silhouette IoU | chamfer | thin | end kin | windows | apart 3–10 | s / attempt |
+  |---|---|---|---|---|---|---|---|---|---|
+  | OFF1 | 1.15e-4 | 1.24e-4 | 0.9755 | 0.1098 | 4.06 % | 1.98e-5 | 45 | 46 | 1.72 |
+  | OFF2 | 1.35e-4 | 1.44e-4 | 0.9743 | 0.1100 | 5.47 % | 2.44e-5 | 32 | 42 | 1.74 |
+  | ON1 | 1.7e-10 | 1.07e-5 | 0.9746 | 0.1101 | 5.62 % | 3.29e-5 | 37 | 16 | 1.75 |
+  | ON2 | 8.5e-11 | 1.05e-5 | 0.9746 | 0.1099 | 4.06 % | 2.33e-5 | 37 | 50 | 1.74 |
+  | POFF | 7.0e-5 | 7.9e-5 | 0.9738 | 0.1100 | 3.75 % | 1.60e-5 | 41 | 16 | 1.75 |
+  | PON | 1.2e-10 | 1.01e-5 | 0.9740 | 0.1100 | 3.75 % | 2.32e-5 | 34 | 21 | 1.78 |
+
+  - (i) passes. The push's net falls 10^5–10^6×, to float rounding; its largest window falls from 5–9e-5 to 1–3e-10.
+  - The body's net falls by 92 % (render arm) and 87 % (twin). Every ON run sits on the grid's own floor, which is
+    1.00–1.06e-5 in all six runs, so the render arm and its twin are within that spread.
+  - The push's net rotation in the record does not fall: ON 1.28–1.30e-4° against OFF 1.17–1.42e-4°, twin 7.9e-5
+    against 7.1e-5°. That record takes r at the window's start, so what it reads is the in-window second-order part
+    named above, not a torque. It is about 1.5 % of the body's rotation (7–9e-3°), which the grid carries.
+  - The other measures against OFF's two-run range widened by its width: silhouette IoU, chamfer, thin and windows are
+    inside.
+  - The end kinetic energy is outside for ON1 (3.29e-5 against [1.52, 2.90]e-5). PON (2.32e-5) is outside POFF's
+    1.60e-5 ± the same width. So the 40k check fails by the letter on the end kin. The runs stop at 32–45 windows, and
+    the median of the last ten windows overlaps: OFF 3.10 / 3.84, ON 3.29 / 3.26, POFF 2.72, PON 3.19 (e-5).
+  - The cost per attempt is +0–2 %.
+
+  The kernels alone (`d149_timing.py`; lists at a window start, positions 24 steps in; the closure's width 27, mean
+  degree 17.4 at 300k and 17.5 at 40k):
+
+  | N | k_update (µs a launch) | k_update_adj (µs a launch) |
+  |---|---|---|
+  | 300k | 165 → 220 | 209 → 268 |
+  | 40k | 22 → 28 | 28 → 33 |
+
+  The momentum probe on the base runs (kept frames, full precision; centre of mass largest / end, P):
+  - CBL 1.33e-4 / 1.30e-4, CBL2 1.35e-4 / 1.32e-4, CBP 1.37e-4 / 1.33e-4.
+  - Angular net / gross, mean: 3.50e-3 / 3.56e-3 against 3.02e-3.
+  - Net rotation: 0.0028° / 0.0029° against 0.0044°.
+  - Apart particles at windows 3–10 (max): 901 / 969 against 1416.
+
+  The 300k pairs (bunny, then dragon) started 2026-10-15 11:31 on GPU 1, the coordinator's reservation.
+  **The 300k bunny pair (SL 11:31–11:41, SP 11:41–11:53 CDT on GPU 1, `tmp/d149/d149_chain300k.sh`; read 11:55; P =
+  0.0489 wu). (i), (ii) and (iv) pass. (iii) passes D146's limits, but thin uncovered falls outside the replay band in
+  both arms; the repeat is queued under the attribution rule.**
+
+  | run | push net (P) | body net (P) | probe com largest (P) | net rotation | ang. net / gross | silhouette IoU | chamfer | thin | end kin | apart 3–10 | yardstick sil | display front | windows | s / attempt |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | SL | 6.5e-11 | 3.44e-5 | 3.52e-5 | 0.0030° | 3.34e-3 | 0.9885 | 0.0551 | 4.81 % | 1.32e-6 | 960 | 7.08e-4 | 0.0088 | 78 | 6.48 |
+  | SP | 5.6e-11 | 4.00e-5 | 4.08e-5 | 0.0044° | 3.23e-3 | 0.9875 | 0.0551 | 4.06 % | 2.59e-6 | 974 | 1.52e-3 | 0.0135 | 88 | 6.49 |
+  | CBL | 1.12e-4 | 1.30e-4 | 1.33e-4 | 0.0028° | 3.50e-3 | 0.9883 | 0.0551 | 4.25 % | 1.49e-6 | 901 | 7.53e-4 | 0.0091 | 72 | 7.21 |
+  | CBL2 | 1.10e-4 | 1.32e-4 | 1.35e-4 | 0.0029° | 3.56e-3 | 0.9885 | 0.0551 | 4.11 % | 1.71e-6 | 969 | 8.00e-4 | 0.0095 | 74 | 7.13 |
+  | CBP | 1.06e-4 | 1.33e-4 | 1.37e-4 | 0.0044° | 3.02e-3 | 0.9874 | 0.0552 | 3.33 % | 3.06e-6 | 1416 | 1.29e-3 | 0.0122 | 91 | 7.29 |
+
+  - (i) passes: the push's net is 2×10^6 below the base's.
+  - (ii) passes.
+    - The body's net falls by 74 % (render arm) and 70 % (twin), onto the grid's floor (3.46e-5 / 4.01e-5). The
+      probe's largest displacement reads the same.
+    - The render arm is now ahead of its twin on the centre of mass (3.44e-5 against 4.00e-5) and on the net
+      rotation.
+    - On the mean angular net / gross it is still a little higher (3.34e-3 against 3.23e-3), as on the base
+      (3.50–3.56e-3 against 3.02e-3). The gap is a fifth of the base's, but with one run an arm it is not beyond
+      spread either way.
+  - (iii) holds D146's limits (thin ≤ 5.2 %, kin ≤ 1.53e-5) and the render lead: yardstick −53 %, display −35 %.
+    - Silhouette IoU, chamfer, the end kin and the apart count are inside the base's replay band, or better.
+    - Thin uncovered is outside the band in both arms: SL 4.81 % against [3.97, 4.39]; SP 4.06 % against CBP's
+      3.33 % ± 0.14. That is +0.6–0.7 pt each. D145's seed spread on the deliverable code is L 4.6–4.8 %, P 4.3–4.7 %.
+    - By the pre-registered rule this counts against the change only if it repeats: SL2 and SP2 are queued on GPU 1
+      after the dragon pair.
+  - (iv) passes: 6.48 / 6.49 s an attempt. GPU 1 was otherwise idle, unlike the base runs' cards.
+  - The render share is 0.333 at every window, λ at its rule; the render's influence is the lead above.
+  **Where the thin set loses coverage (`tmp/d149/d149_thin.py`, `d149_thin_late.py`; the run's own thin set, 4260
+  points; read 12:25–12:40).**
+  - Over every kept frame from window 20 on, the uncovered share swings ±0.25–0.38 pt (sd) within each run.
+    - Its mean is SL 4.26 % against CBL 3.92 and CBL2 4.10 (+0.16 to +0.34).
+    - The twin: SP 3.99 against CBP 3.52 (+0.47, about two sd).
+    - Over the last twenty kept frames: SL 4.51 against 4.26 / 4.01; SP 4.01 against 3.46.
+  - At the last frame, 127 thin points are uncovered in SL and covered in both CBL and CBL2; 37 are the reverse.
+  - They form no region: the largest connected set (3 spacings) has two points, and the rest are single points spread
+    over the body.
+  - Their gaps are 1.52–1.60 spacings in SL against 0.9–1.48 in the base runs: points straddling the metric's
+    1.5-spacing threshold. 320–390 thin points of every run sit within 1.4–1.6 spacings at the end.
+  - So the end values' +0.6–0.7 pt is about half the end frame's draw (the runs stop at different windows) and about
+    half a small rise of the late mean (+0.2–0.3 pt render arm, +0.5 pt twin), spread over points at the threshold.
+    No thin feature is lost.
+  - The repeat (SL2, SP2) is to tell whether the late mean's rise repeats.
+  **The bunny repeat (SL2 12:55–13:07, SP2 13:08–13:21 CDT on GPU 1; read 13:25).** Two runs an arm, against the
+  D146b base:
+
+  | run | silhouette IoU | chamfer | thin | end kin | apart 3–10 | windows | body net (P) | net rotation | ang. net / gross | yardstick sil | display front |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | SL2 | 0.9890 | 0.0551 | 3.71 % | 1.36e-6 | 1188 | 99 | 3.45e-5 | 0.0032° | 2.85e-3 | 7.04e-4 | 0.0087 |
+  | SP2 | 0.9874 | 0.0552 | 3.64 % | 2.07e-6 | 1412 | 97 | 3.88e-5 | 0.0045° | 3.26e-3 | 1.46e-3 | 0.0127 |
+
+  - The render arm's thin miss does not repeat. SL2 sits below the base band, and the two runs' mean is 4.26 % against
+    CBL / CBL2's 4.18: spread by the rule.
+  - The twin's does repeat by the letter. SP / SP2 4.06 / 3.64 % sit above CBP's 3.33 % ± 0.14, a band from one base run
+    and the render arm's width. D145's three twin seeds on the deliverable code read 4.3–4.7 %. Recorded as a repeated
+    +0.3–0.7 pt on the twin against one base run.
+  - The apart count's miss (SL2 1188 against [833, 1037]) does not repeat: SL read 960.
+  - Silhouette IoU, chamfer and the end kin are within the band or better.
+  - Momentum, with two runs an arm, the render arm against its twin:
+    - centre of mass 3.44 / 3.45e-5 against 4.00 / 3.88e-5;
+    - net rotation 0.0030 / 0.0032° against 0.0044 / 0.0045°;
+    - angular net / gross 3.34 / 2.85e-3 against 3.23 / 3.26e-3, overlapping (on the base the render arm was 0.5e-3
+      behind).
+    - So the bunny render arm is at or ahead of its twin on every momentum measure.
+  **The 300k dragon pair (SL 11:53–12:21, SP 12:23–12:55 CDT on GPU 1; read 13:00; P = 0.0482 wu). (i), (ii) and
+  (iv) pass. (iii) is within D146's limits, with two small replay-band misses.**
+
+  | run | push net (P) | body net (P) | probe com largest (P) | net rotation | ang. net / gross | silhouette IoU | chamfer | thin | end kin | apart 3–10 | yardstick sil | display front | windows | s / attempt |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | SL | 1.2e-10 | 1.43e-4 | 1.43e-4 | 0.0041° | 3.08e-3 | 0.9876 | 0.0546 | 3.60 % | 7.1e-6 | 2550 | 5.19e-4 | 0.0091 | 159 | 9.18 |
+  | SP | 6.5e-11 | 1.32e-4 | 1.32e-4 | 0.0061° | 2.77e-3 | 0.9874 | 0.0546 | 3.17 % | 1.65e-5 | 3150 | 1.20e-3 | 0.0122 | 181 | 9.46 |
+  | CDL | 4.7e-5 | 1.32e-4 | 1.32e-4 | 0.0048° | 2.99e-3 | 0.9871 | 0.0545 | 3.25 % | 5.9e-6 | 3150 | 5.31e-4 | 0.0087 | 166 | 9.95 |
+  | CDL2 | 4.2e-5 | 1.46e-4 | 1.47e-4 | 0.0047° | 2.87e-3 | 0.9871 | 0.0545 | 2.90 % | 8.8e-6 | 2810 | 5.26e-4 | 0.0090 | 176 | 9.83 |
+  | CDP | 4.8e-5 | 1.44e-4 | 1.46e-4 | 0.0058° | 2.76e-3 | 0.9879 | 0.0546 | 3.09 % | 1.11e-5 | 3042 | 1.19e-3 | 0.0130 | 155 | 9.93 |
+
+  - (i): the push's net falls to float rounding.
+  - (ii): the body's net is unchanged, as predicted. The dragon's drift is the grid's floor (1.43e-4 / 1.32e-4).
+    - SL is 1.1e-5 above SP, inside the pre-registered spread of 1.8e-5; on the base the arms' order flips between
+      runs.
+    - The render arm is ahead on the net rotation and higher on the mean angular net / gross (+11 %), as on its base.
+  - (iii): every value is within D146's dragon limits. Against the replay band:
+    - SL's chamfer is 0.0546 against a band of exactly 0.0545, and its thin is at the band's top.
+    - SP's IoU is 0.0005 below CDP's.
+    - SP's end kin is above CDP's, but its median over the last ten windows is 9.7e-6 against 1.10e-5.
+    - The render lead holds: yardstick −57 %, display −25 %.
+  - (iv) passes.
+  **Adopted (the user's decision, 2026-10-15 ~13:40 CDT, relayed by the coordinator).** The freeze will be D135 +
+  D146b + D149, plus the floating-Gaussian fix if it passes by 10-18; the tag comes on 10-18. The candidate is branch
+  `refreeze-cand` (2ba7e6d, untagged).
+  - It is refreeze-prep (2b0cafc) with D149's code, and with `--relax_driven`, `--u_adam_carry` and
+    `--spacing_symmetric` on by default; each keeps its `--no-` form, 09b's path.
+  - `tests/test_frozen_recipe.py` asserts the configuration, and that the three `--no-` forms are D135's.
+  - `tests/test_refreeze_reference.py` pins:
+    - the window case with the re-freeze's rollout switches, bit for bit on the CPU (`tests/data/refreeze_ref.npz`);
+    - the digest of a deterministic-mode pipeline run with the re-freeze's run-stage switches
+      (`tests/data/refreeze_pipeline_ref.json`, `tests/refreeze_runs.py`).
+  - The full suite on hyde06 (GPU 1, 13:43–13:47 CDT): 412 passed, 2 skipped, exit 0 at the first run.
+  - B13's baseline mode rebases onto it and merges itself when its tests are green.
+- **D150, the drag damps APIC's whole momentum (`--drag_affine`; opened 2026-10-15 12:00 CDT by the coordinator from
+  D145's reading of bob / homer: the grid step carries 95 % of the angular momentum's flow, and the render arm carries
+  more of it; pre-check pre-registered 2026-10-15 12:20 CDT, before its runs; branch `wip/d149`).**
+  - *The code, measured.* The drag enters in P2G only (`kernels.k_p2g`, `k_p2g_prep`, D148's `k_p2g_side1`):
+    `m v (1 − dt drag)`. The affine momentum m C in G and the step's stress impulse are not damped.
+  - The grid's momentum is p_i = Σ_p w_ip [m v_p (1 − d) + (m C_p − dt V P Fᵀ terms)(x_i − x_p)], with d = dt × drag.
+    - Linear: Σ_i p_i = (1 − d) Σ m v.
+    - Angular, with the cubic B-spline (D = dx²/3): L_v (1 − d) + L_C + the stress torque (zero; the Kirchhoff stress is
+      symmetric).
+    - So each step adds −d L_v. A deforming body with no net spin holds opposite L_v and L_C, and gains angular
+      momentum.
+  - The change, behind the switch: G = −C0 dt V P Fᵀ + m C (1 − dt drag), in every P2G kernel and in its hand adjoint.
+    The frozen expression is unchanged with the switch off (drag_c = 0).
+    - Damping the grid velocity before G2P would also scale the step's stress impulse, so it is not the same.
+    - This form scales exactly the transferred momentum: L → (1 − d)(L_v + L_C), and linear momentum as before.
+  - *Tests* (`tests/test_drag_affine.py`, CPU on hyde06; the CUDA window test runs with the suite):
+    - A deforming elastic body has L = 0 split as |L_v| = |L_C| = 88.8. One step without the switch gives |L| = 0.333
+      (= dt drag |L_v|); after six steps 0.372. G2P rebuilds C from the grid after the first step, so the first step
+      makes most of it. With the switch: 1.6e-6 after one step, 1.1e-5 after six.
+    - The hand adjoint matches Warp's generated one; a window matches finite differences on dFc and u.
+    - The frozen path is bit for bit: `test_volume_exact`'s reference on CPU.
+  - *Precedent: D99 (2026-10-05) is this definition, refuted and reverted.*
+    - The APIC angular momentum was kept (the grid's and the jumps' changes opposite, cos −1.00).
+    - The visible net rotation rose 8–12× on the bunny 300k: kept frames 0.0040° → 0.0334° (L), 0.0034° → 0.0404° (P).
+    - The source D99 named is the position updates below the grid (u, the minimum spacing, the relaxation). They move r
+      and leave v, so Σ m δr × v ≠ 0. The v-only drag damped the bulk part of what they put in; a consistent drag stops
+      doing that.
+    - D145's drag-0 run D0L97 agrees: L_start 41–51 (u's du × v at window 4) instead of 243, but the reading's rotation
+      0.022° against 0.002°.
+  - *Pre-check (a), on the coordinator's decision instead of a blind 300k gate.*
+    - Runs: bunny 40k, seed 97, the D146b + D149 base (`--relax_driven --u_adam_carry --spacing_symmetric`), render
+      arm. `--drag_affine` on (A1, A2) against off (B1, B2), `repo_d150s`, GPU 1 after D149's bunny repeat.
+    - Read, per run: net rotation and mean angular net / gross (`momentum_probe.py` on the kept frames); the record's
+      L_start (largest, end) and the run's sums of L_grid and L_jump (net and path).
+    - Prediction: (i) the grid's ΔL falls to its floor with the switch, |L_grid| per window ≈ 0.1–0.2 against 20–56.
+      (ii) The net rotation and the angular net / gross rise in both runs with the switch, several-fold, as D99. L_start
+      stays at the jumps' size (tens) instead of growing to hundreds.
+    - If (ii) holds, D150 is recorded as refuted by its precedent and by this check, and the bob / homer 300k gate is
+      not run. The angular momentum the position updates put in is then the definition to study (b, reading first).
+  - *(b) Reading: what the literature does with v when a particle's position is moved (2026-10-15 12:15–12:35; notes
+    with sources in the session; papers read in full unless marked).*
+    - APIC: Jiang et al. 2015 (tech report, media.disneyanimation.com …/apic-tec.pdf); Jiang, Schroeder, Teran 2017 (JCP,
+      arXiv 1603.06188). The proof that G2P keeps L ends with L^P = L^G + Σ (x^{n+1} − x^n) × m v^{n+1}. That vanishes
+      because the displacement is Δt v, so an extra shift δ leaks exactly Σ m δ × v: our leak, isolated by APIC's own
+      proof.
+    - Position-based dynamics:
+      - PBD (Müller et al. 2007), sec. 3.3: a mass-weighted projection with Σ m Δp = 0 and Σ m p × Δp = 0, velocities
+        v = (p − x)/Δt.
+      - XPBD (Macklin et al. 2016) has the same structure.
+      - Dahl and Bargteil 2019 (MIG) restore P and L exactly with a global rigid-velocity correction after the
+        projection. That is a non-local add-on, excluded here by the no-patch rule.
+    - SPH particle shifting:
+      - Xu et al. 2009 (abstract) and Lind et al. 2012 (abstract and secondary): Taylor-correct v ← v + (∇v) δ, and
+        state that the scheme "ceases to be strictly conservative".
+      - δ+-SPH / δ-ALE-SPH (Sun et al. 2017, 2019; Antuono et al. 2021): linear momentum through pair symmetry; angular
+        momentum lost because the pair term is not radial.
+    - MPM relocation:
+      - Chen et al. 2021 (TOG): split particles keeping the mass centroid, every child copying v and the affine matrix,
+        which is exact.
+      - AGIMP (Gao et al. 2017, via Chen et al.): linear only.
+  - *The algebra (APIC's L = Σ m x × v + Σ m D axial(C)).*
+    - Today's update (x ← x + δ, v and C kept): ΔP = 0 exactly, ΔL = Σ m δ × v exactly.
+    - The coordinator's first suggestion, moving the particle within its own affine field (v ← v + C δ), is not exact.
+      ΔP = Σ m C δ, so it breaks the linear momentum today's update keeps. ΔL = Σ m δ × v + Σ m (x + δ) × C δ; for a
+      uniform C and a rigid-free δ that is twice today's first-order leak. The suggestion was wrong, recorded as found.
+    - v ← v − C δ cancels the leak to first order for a uniform C only.
+    - The one exact local rule found is for pairs, the push's: when a pair's separation goes r → λ r, its transverse
+      relative velocity scales by 1/λ (the pair's L kept, dissipative).
+  - *Measured budget (record sums over the committed windows, net / path, per unit mass).*
+    - Bunny SL: grid 61 / 577; u 52 / 71, of which 43 at window 4 when u switches on; push 6.4 / 8.1; relaxation
+      3.1 / 5.8.
+    - Dragon SL: grid 51 / 1513; u 34 / 76; push 11 / 21; relaxation 8.5 / 14.
+    - D0L97 (drag 0): grid 4.7 / 6.8; u 36 / 84; |L_start| ends at 42, the leftover spin that shows as 0.022°.
+    - With the drag on v alone, the grid's net cancels the jumps' net because the body starts and ends at rest. Its
+      path is the hidden spin the drag makes: L_start peaks at 180–473.
+    - u is 70–85 % of what the position updates put in, the push 10–20 %, the relaxation 5–10 %.
+  - *Proposed definition, (2) of the coordinator's sequence: the torque-free layer update.* `k_layer_project` already
+    removes the six rigid modes (n, r × n) from the layer's normal displacement (u and the relaxation; D94, D98) with a
+    Gram matrix frozen at the window start. It also removes the three torque modes n_p × v_p at the window start's
+    velocity v₀, so that Σ m δ × v₀ = 0 in every step. The leftover Σ m δ × (v_t − v₀) is to be measured. The push's
+    pair rule stays out unless its share matters. This is implemented and checked at 40k only if (a) reproduces D99;
+    adoption is the user's.
+  - *(a) Result (runs 13:21–13:33 CDT on GPU 1, `tmp/d149/d150_pre40k.sh`, `output/gpu/d150`; read 13:36): (i) holds;
+    (ii) holds for the net rotation and fails for the angular net / gross, which halves. D99 reproduced on the net
+    rotation.*
+
+    | run | net rotation (kept frames) | ang. net / gross mean | |L_start| max | grid ΔL per window, median | grid path / net | u path | silhouette IoU | thin | end kin | windows |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    | A1 | 0.0370° | 2.72e-3 | 16.2 | 0.22 | 22.2 / 22.0 | 21.1 | 0.9742 | 5.78 % | 2.1e-5 | 40 |
+    | A2 | 0.0386° | 3.27e-3 | 12.9 | 0.26 | 17.8 / 17.5 | 17.3 | 0.9751 | 4.06 % | 2.8e-5 | 33 |
+    | B1 | 0.0060° | 6.09e-3 | 54.1 | 1.72 | 98.1 / 19.4 | 18.9 | 0.9758 | 4.38 % | 2.7e-5 | 35 |
+    | B2 | 0.0050° | 6.08e-3 | 56.7 | 1.15 | 105.3 / 17.3 | 16.8 | 0.9755 | 4.69 % | 2.4e-5 | 41 |
+
+    - (i) The grid no longer makes spin. Its path equals its net, so it only removes what the jumps put in, and the
+      largest |L_start| falls from 54–57 to 13–16.
+    - (ii) The visible net rotation rises 6–8× (D99: 8–12×). The record's rotation of the body rises 2.5× (2.1e-2°
+      against 0.8e-2°). The mean angular net / gross halves (2.7–3.3e-3 against 6.1e-3), against the prediction.
+    - Shape: silhouette IoU 0.0004–0.0016 lower; thin and the end kin within the spread.
+    - So the consistent drag leaves the jumps' angular momentum (u's 8–14 at window 4) to show as a slow rotation the
+      drag only then takes out. That is what the torque-free layer is for; its check C follows.
+  - *The torque-free layer, implemented (`--layer_torque_free`, default off; 370952c; pre-registered 2026-10-15 13:05
+    CDT, before its runs).*
+    - The relaxation: `mpm/layer_torque.py` adds the nine-mode projection (`k_layer_relax_t`, `k_layer_project_t` and
+      its hand adjoint with the moments binned as D138's). The frozen six-mode kernels are untouched.
+    - u: `solve.free_of_rigid`'s modes gain g (n × v₀) (`layer_torque.u_modes`; without v₀ the matrix is the six
+      modes', checked equal).
+    - v₀ is the window start's velocity, a constant of the tape like the start's r.
+    - Tests (`tests/test_layer_torque.py`, CPU, 4 passed; the CUDA window with the suite):
+      - A rough slab with a smooth non-rigid v₀: the layer's step has torque at v₀ 2.6e-2 of its gross with the six
+        modes, 2.4e-7–1.0e-6 with the nine, in every step. Its net translation and rotation stay at 1–2e-6.
+      - u projected on the nine modes: translation, rotation and torque at v₀ below 1e-10.
+      - Hand against generated adjoints; a window against finite differences on dFc and u.
+    - *Its 40k check (the coordinator's step 2).* C1, C2 = `--drag_affine --layer_torque_free` on the same base and
+      seed, against (a)'s A (`--drag_affine` alone) and B (off).
+      - Read as (a), plus the leftover: the record's L_u and L_relax are Σ m δ × v_t per step, so with the switch they
+        are exactly Σ m δ × (v_t − v₀).
+      - Prediction:
+        - The jumps' injection (L_u + L_relax, path) falls by 50–80 %. The leftover is the window's change of
+          velocity; it is largest at u's switch-on in window 4, where the body accelerates.
+        - The net rotation and angular net / gross of C fall below A's.
+        - Whether C reaches B (the frozen drag) is open.
+      - No gate: the numbers go to the user with the adoption question.
+    - *Result (C1, C2 13:33–13:37 CDT on GPU 1; read 13:40). The angular momentum is nearly exact, but the visible
+      rotation is as A's. Not clean; D150 stays out of the freeze.*
+
+      | run | net rotation (kept frames) | ang. net / gross mean | |L_start| max | grid ΔL per window, median | u net / path | push net | relaxation net | silhouette IoU | thin |
+      |---|---|---|---|---|---|---|---|---|---|
+      | C1 | 0.0463° | 2.11e-3 | 2.6 | 0.05 | 0.7 / 5.7 | 4.3 | 0.5 | 0.9756 | 3.91 % |
+      | C2 | 0.0407° | 2.28e-3 | 2.8 | 0.05 | 1.1 / 6.3 | 3.9 | 0.4 | 0.9752 | 3.91 % |
+
+      - The leftover Σ m δ × (v_t − v₀) is u's 0.7–1.1 net and 5.7–6.3 path, against A's 12–17 / 17–21: u's net
+        injection falls by 93–94 %. The push's 3.9–4.3 is now the largest part of the jumps'.
+      - |L_start| stays below 2.8 all run, against 13–16 (A) and 54–57 (B).
+      - The body still turns 0.041–0.046° over the run, as in A (0.037–0.039°) and 7–8× B's.
+        - With the angular momentum near zero, this is a turn from shape change at zero angular momentum: a deforming
+          body can reorient without angular momentum.
+        - The frozen drag on m v alone damps the bulk x × v part, so it works as a rotation damper and hides that
+          turn (0.005°) while it makes hidden affine spin (|L| 55).
+        - So the measured net rotation and APIC's angular momentum point in opposite directions here.
+      - The mean angular net / gross falls to 2.1–2.3e-3 (B 6.1e-3).
+      - Silhouette IoU, thin and the end kin are within the spread.
+      - Reading: D150 (with or without the torque-free layer) makes the angular momentum consistent, but it makes the
+        body visibly turn about 0.04°. That is the measure the paper reports. Recommended out of the freeze (the
+        timebox, the user's decision). bob / homer's angular excess is reported as found, with this explanation.
+      - Both switches stay in the code, default off, with their tests.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
