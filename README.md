@@ -115,7 +115,8 @@ the grid spray gate (D126, D133), the render on the body alone (D127), the other
 `motion` D130, `smoothed` D134), the log and ratio support forms, the surface-dense sampling (D122) and the
 coarse-to-fine render switch.
 `--baseline xu` runs in the same simulator, so it also gets the volume handling and the density match unless those
-switches are passed.
+switches are passed. `--baseline force` and `force_mf` (B13) swap dFc for an external force per particle and driven
+step (the second with no net force and no net torque at every step); everything else is ours.
 
 **What it conserves.** Stress cannot change total momentum: it enters the grid transfer as `G·(x_i − x_p)`, and the
 B-spline weights satisfy `Σ w_ip (x_i − x_p) = 0`. The Kirchhoff stress is symmetric, so angular momentum is kept too.

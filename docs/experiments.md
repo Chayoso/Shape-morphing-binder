@@ -4683,6 +4683,105 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   control of every particle, concentrated about tenfold on the rim and the thin parts; it moves those parts toward the
   target and lowers the silhouette and shading errors by 30–46 % at the end, without moving the centre of mass, the
   transport term or the rest.
+  **B13, the control variable: an external force in place of the stress control (pre-registered 2026-10-15 12:08 CDT
+  server clock, before any measured run; the B13 agent on the coordinator's brief; branch `wip/b13` from refreeze-prep
+  2b0cafc; `tmp/b13/`, `output/gpu/b13/`; a baseline mode that changes nothing of ours).** Classical physics-based shape
+  control drives the body toward the target with external forces (Treuille et al. 2003; McNamara et al. 2004; Fattal and
+  Lischinski 2004; Chen, Levin and Langlois, SIGGRAPH 2024; Li et al., SIGGRAPH Asia 2025). A reviewer will ask why we
+  control the stress (dFc) and not forces. B13 is the controlled ablation inside our simulator: the objective, the render
+  terms, the optimiser, the windows, u and the readout are the same, and only the control variable changes. Our prior
+  F-control [Xu et al. 2025] is B4; the two blocks answer different questions (B4 the objective, B13 the control).
+  *The arms (`--baseline force`, `--baseline force_mf`; without them the frozen path bit for bit).*
+  - (a) `force`: an external force f_p(t) per particle and driven step, in the driven half of every window, the steps
+    dFc acts in now. dFc is held at zero. The force enters as the particle's velocity increment c a_p before P2G, which
+    spreads the impulse dt f_p to the nodes with the B-spline weights (and P2G's factor 1 − dt drag, which every
+    momentum of the step takes). The leaf a is the force per unit mass in units of A0 = (λ + 2μ) V / (m dx), the
+    acceleration that the P-wave modulus's unit stress gives one particle's volume V across one MPM cell; A0 = c_p² / dx
+    with c_p the P-wave speed, the same at every N (bunny: c_p 13.5 wu/s, dx 0.306 wu, A0 ≈ 600 wu/s²); c = dt A0.
+  - (b) `force_mf`: the same force, with each driven step's forces projected at that step's positions onto zero net
+    force and zero net torque about the centre of mass: f' = f − a − b × r, a = mean f, b = I⁻¹ Σ r × f, I = Σ |r|² 1 −
+    r rᵀ, r = x − x̄ (equal masses). The B-spline weights reproduce constants and linear functions, so the grid receives
+    neither linear nor angular momentum from f'. This is the "momentum-free force" a reviewer would propose. It is
+    still not the divergence of a stress: the force acts on each particle independently, and the projection is global.
+  - Held equal: u as in our pipeline (its transport gate, its clamp, its rigid-mode removal, D146b's carried moments),
+    so the comparison isolates dFc against the force; the layer relaxation (D146 `--relax_driven`), the minimum
+    spacing, the bonds, the eight-term objective and the render terms (PCGrad, λ at the rule's value), Adam with the
+    Armijo search, the per-particle per-step cap (0.02, here on |a|), the warm start (the last window's control × 0.5),
+    the plastic assimilation at every commit (with dFc at zero it takes the elastic stretch the forces left), the
+    acceptance and the stopping.
+  - The step control's constants (Adam's eps, the adaptive step's target norm) are numbers in dFc's gradient units.
+    They take the ratio of the physics gradient's norm on the force leaf to its norm on dFc, measured once at the run's
+    first gradient (both at zero control), as D112 converted them to Xu's loss units; eps, a per-coordinate constant,
+    takes that ratio × √3 (9 coordinates of dFc against 3 of the force per particle and step).
+  - Not run: the Fattal–Lischinski driving force as a non-optimised reference. A faithful version needs its own target
+    field, gathering term and per-scene gains, which is more than a few hours; the optimised arms are the stronger
+    comparison.
+  *Code paths (the design note).*
+  - New: `physmorph/mpm/force.py`. It holds the increment and the projection kernels, with hand adjoints recorded on
+    the tape. The projection's moments are summed in float64, and its adjoint includes the dependence on the positions.
+  - `mpm/traj.py`: `Trajectory(force=...)`; in the driven steps P2G reads v + c f' in place of v.
+  - `mpm/adjoints.record_p2g`: the velocity that P2G read (default `tr.v[t]`).
+  - `mpm/function.py`: `RolloutSpec.force`, the force leaf of the persistent adjoint, and the bridge's fourth input.
+    The bridge returns dFc's gradient only when dFc requires one; autograd discarded it before.
+  - `pipeline/window/setup.py` (the unit, the eval trajectory's force buffer, `load`), `rollout.graph_terms`,
+    `solve.py` (the leaf, the cap, the unit ratio, the record), `run/runner.py` (the `force_*` records),
+    `TargetPack.force_ratio`, `config.py` (the baseline values, `force_scale`), `scripts/pipeline_run.py` (the choices,
+    `--force_scale`; the Xu-only settings now keyed on "xu").
+  - The default path: every change sits behind `cfg.baseline in (force, force_mf)` or `force is not None`; when off,
+    P2G's inputs, the adjoint's arrays and every kernel are the old ones.
+  - Records per committed window (`force_*`): the centre of mass's velocity increment the force gave (`force_dv`), the
+    angular momentum per unit mass it added (`force_dL`), the gross increment, the leaf's largest entry, the unit ratio.
+  *Tests (`tests/test_force_baseline.py`, on hyde06).*
+  - (1) The projection has no net force and no net torque, and equals the float64 reference.
+  - (2) The increment's hand adjoints, plain and projected, against float64 autograd of the same map.
+  - (3) A window (persistent graphs, CPU and CUDA) against central finite differences on the force and u, both arms.
+  - (4) Momentum: the grid's linear and angular momentum at every step. The plain force adds dt Σ f and dt Σ x × f; the
+    projected force adds neither, to float rounding, with and without the elastic stress.
+  - (5) A zero force is no force: the rollout bit for bit, the gradients to rounding.
+  - (6) In a run (CUDA): dFc stays zero and the records exist; the default run has no force.
+  - Then the full suite. The default path is also checked end to end: the 40k bunny, seed 97, four windows, D146b
+    flags, under Warp's run-to-run deterministic mode (`tmp/rt/det_run.py`), repo_b13 at the default flags against the
+    base refreeze-prep 2b0cafc; every frame, metric and history field but clocks must be bit for bit equal (as D145's
+    proof).
+  *Runs (the D146b base: `--relax_driven --u_adam_carry`; one run a card, lowest card priority).*
+  - Now, the 40k bunny smoke, seed 97, repo_b13s (frames12 output): F (force) and FM (force_mf), scale 1. The default
+    arm's reference is D149's OFF1 / OFF2: the same base code, flags and seed, two replays.
+  - Now, B13a, the unit's sensitivity at 40k (bunny, seed 97): `--force_scale` 1/16, 1/4 and 4 for each arm, beside the
+    smoke's 1. The scale used at 300k is, per arm, the one with the lowest geometry energy (`transport_energy`, the
+    objective's main term, in the same units for every arm) at the delivered last window, as D118 chose Xu's α by its
+    own loss. Within 2 % of each other, the scale nearer 1 is taken. Every run's end is reported, so the choice is
+    visible.
+  - At the re-freeze tag (when the coordinator gives it): 6 meshes (bunny, dragon, teapot, bob, armadilo, homer) × 2
+    arms × seeds 97 / 99 / 101 at 300k = 36 runs, at the chosen scales. The default arm is B1's render arm L on the
+    same tag and seeds; where B1 has not run on that tag, B13 runs L itself. Budget: about 9 card-hours for the runs and
+    about 6 for the readings.
+  *Readout (D145's harness, unchanged).*
+  - End against the independent sample (d90), with the floor: silhouette IoU and chamfer, the yardstick and the display
+    (`read300.sh`); the run's own silhouette IoU, chamfer and thin uncovered.
+  - At rest: the last kinetic record.
+  - Momentum: the centre of mass's largest and final displacement, the net / gross angular move and the net rotation on
+    every kept frame (`mom.sh`, `momentum_probe.py`, as D149 read CBL / CBL2 / CBP); beside them the records' sums of
+    `force_dv` / `force_dL` and the body's net (`body_vcom`, `rot145.py`, `angL145.py`).
+  - Floating material: apart particles in windows 3–10 (`d120_apart.py`), and at matched progress p = 0.25 / 0.5 / 0.75
+    on seed 97 (`harness.py`).
+  - The volume routine (`vol145.py`).
+  - Runtime: wall, attempts, seconds an attempt.
+  - Reading: an arm differs from the default on a measure when the two three-run ranges do not overlap (D145).
+  *Hypothesis (a prediction to be measured, not a target).*
+  - (a) `force` pushes the body and puts momentum in. The records' `force_dv` is nonzero in every window. The centre of
+    mass's largest displacement is at least 100× the default's (D149: 1e-5 to 1.3e-4 pitches), and the net rotation at
+    least 10× (default about 0.008°).
+  - It does not end at rest unless damped: the last kinetic record lies above the default's three-run range. A force
+    holds an elastic deformation that springs back once it is released, while dFc writes the deformation into the
+    stress-free state. So it needs more windows, and its end is behind the default's on silhouette IoU and chamfer on at
+    least four of the six meshes. Per-particle forces push particles one by one: apart particles in windows 3–10 lie
+    above the default's range.
+  - (b) `force_mf` puts in no momentum by construction: `force_dv` at most 1e-9 of the gross increment, and the probe's
+    centre of mass within the default's range. In everything else it behaves like (a).
+  - Cost per attempt within ±10 % of the default's (the increment adds a few small kernels a step; the projection,
+    two float64 reductions a step).
+  - If the force arms match the default on the end and the rest, the case for the stress control rests on momentum and
+    smoothness alone; reported as found.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from

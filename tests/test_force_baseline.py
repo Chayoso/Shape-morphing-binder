@@ -132,7 +132,8 @@ def test_a_window_with_the_force_has_an_exact_adjoint(dev, mf):
                 vals.append(float(_loss(adj.apply(_expand(dc0), leaves[1], leaves[0]))))
         fd = (vals[0] - vals[1]) / (2 * h)
         an = float((gi * d).sum())
-        assert fd == pytest.approx(an, rel=0.03, abs=1e-4 * max(1.0, abs(an))), (i, fd, an)
+        rel = 1e-3 if dev == "cpu" else 0.03                    # CUDA: the atomics' replay noise
+        assert fd == pytest.approx(an, rel=rel, abs=1e-4 * max(1.0, abs(an))), (i, fd, an)
 
 
 # ---- (4) momentum ---------------------------------------------------------------------------------------------------
