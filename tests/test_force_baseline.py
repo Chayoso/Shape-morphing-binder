@@ -82,7 +82,8 @@ def test_the_increments_adjoint_is_float64_autograds(dev, mf):
     got = [a.grad.numpy().astype(np.float64) for a in (tr.x[0], tr.v[0], fa)]
     X, V, F = (torch.tensor(a, dtype=torch.float64, requires_grad=True) for a in (x, v, f))
     out = V + 0.05 * (FK.rigid_free(F, X) if mf else F)
-    ref = [g.numpy() for g in torch.autograd.grad((out * torch.as_tensor(W, dtype=torch.float64)).sum(), (X, V, F))]
+    gs = torch.autograd.grad((out * torch.as_tensor(W, dtype=torch.float64)).sum(), (X, V, F), allow_unused=True)
+    ref = [np.zeros(x.shape) if g is None else g.numpy() for g in gs]
     for name, a, b in zip(("x", "v", "f"), got, ref):
         scale = max(np.abs(b).max(), 1e-12)
         assert np.abs(a - b).max() <= 1e-5 * scale, (name, float(np.abs(a - b).max()), scale)
