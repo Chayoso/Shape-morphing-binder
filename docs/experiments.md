@@ -4820,6 +4820,45 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   moves the layer's control by 54 % (window 1) → 9 % (windows 11–20) → 20–25 % (later) of its size and u by 50–72 %, and
   the window's silhouette term is 50–79 % lower late in the run; iterations equal in 70 of 71 windows. 4K and the dragon
   wait for the user.
+  **Amendment 5, B12: the ICLR 2025 method and 4Deform with the authors' own code (pre-registered 2026-10-15 11:50 CDT
+  server clock, before any B12 run; the user via the coordinator: "the ICLR 2025 method and the other morphing methods
+  compared, with a discussion in the paper").** This reverses amendment 1's "4Deform dropped" and its "the released ICLR
+  2025 code is not run". *Which ICLR 2025 run is the paper's.* Two different things carry the name. ISD = Sang et al.,
+  *Implicit Neural Surface Deformation with Explicit Velocity Fields* (ICLR 2025): the authors' JAX code (Sangluisme/
+  Implicit-surf-Deformation @ e7992a5, AGPL-3.0), set up on hyde06 on 2026-09-23 (env `nsd`, `baselines_prep/`), ~18 min
+  per pair. LF-INSD = Buonomo et al.'s landmark-free re-implementation of the same method inside their SIREN framework
+  (B5's 10-h-a-pair variant, deferred). The paper's ICLR 2025 baseline is ISD, the authors' code: it is the method as
+  published, and it is cheap. LF-INSD stays deferred. 4Deform (CVPR 2025, Sangluisme/4Deform @ 7f2274e) is the same
+  group's follow-up, ~1 h per pair. It ships without a licence, so it is run for comparison only and neither code nor
+  outputs are redistributed. *Configuration.* Each method uses the authors' shipped FAUST configuration (ISD 15k epochs,
+  T = 10; 4Deform 25k + 5k fine-tune, T = 5; every loss weight as shipped). There is one necessary change: a sphere-to-target
+  pair has no correspondences, so the matching weight is 0 (and ISD's `separate_train` is 0, because with it on, the
+  velocity network learns from the matching loss alone). This is the correspondence-free setting (`CORR=none`). A second
+  arm gives the authors their matching loss (`CORR=radial`: each sphere sample is paired with the ray hit from the pair's
+  centre, with a nearest-point fallback; ISD weight 200 with `separate_train` 1, 4Deform weight 100, as shipped). It runs
+  on bunny and dragon, seed 1, and answers "the baseline was run without its loss". Seeds: the conf's `rng_seed`, shipped
+  value first (ISD 0 / 1 / 2, 4Deform 5 / 6 / 7). Seed 1 runs on the six meshes, then the radial arm, then seeds 2–3 if
+  cards allow. *Inputs.* B5's exported pair per mesh (`baselines/buonomo/inputs/<mesh>/sphere.ply`, `<mesh>.ply`), so
+  every external baseline starts from the same two meshes. `prep_pair.py` makes 20k surface samples with normals and 5k
+  "verts" per shape, one common centring and one scale (extent 1, seed 0). *Output and reading, as for B5.* Each method's
+  own evaluation gives the zero level set at t = k/20, k = 0…20 (marching cubes 256³ in the authors' box). Every component
+  is kept: the authors' display keeps only the largest-area component, so a wrapper (`eval_full.py`) calls their extractor
+  with `connected=False`. Their code is otherwise untouched, and the largest component's numbers are recorded beside it.
+  The frames go back to the pipeline frame through `pair_info.json` and B5's scale a. Each frame records watertight
+  (after hole filling), components, the largest component's genus, the enclosed volume against the target mesh's, and
+  the pipeline's stratified 300k volume sample (seed 97). These go into the archive `output/gpu/d145_b12/
+  <mesh>300k_<ISD|FD><n|r><seed>_frames12.npz` (21 frames). Readings: the end against the independent sample and the
+  floor (B5's end check), the start against the pipeline's source sample, volume over time by the common routine
+  (`vol145.py`), topology per frame, and training and evaluation wall-clock on the same card type as ours. On bunny and
+  dragon the pool's end300 readings (yardstick, display, apart) are added. Self-intersection is not measured: a marching-cubes
+  level set of one scalar field is embedded by construction. A non-watertight frame, a frame with no level set, or one the
+  sampler cannot fill is recorded as found. No setting is tuned. *Cards.* Pool jobs (`tmp/d145/b12/b12_pair.sh`), one card
+  each through the lock. Training and evaluation hold the card; the conversion and the end check run after it on the CPU.
+  Each run gets its own copy of the pair's data folder, so two runs never share an output folder. The queue order after
+  the RGV dragon run is: ISD on the six meshes, 4Deform on the six, the radial arm, the rest of D145's queue, then seeds 2–3.
+  *What is expected (from 2026-09-23, sphere → bunny, `CORR=none`).* ISD fits the end (Chamfer / diagonal 0.0070), but
+  in between the body collapses to 1 % of its end volume with genus 24 at t = 0.1. 4Deform never leaves the sphere (0.111
+  at t = 1). Results are recorded as found, whatever they show.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
