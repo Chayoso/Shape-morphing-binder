@@ -6374,6 +6374,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     velocity v₀, so that Σ m δ × v₀ = 0 in every step. The leftover Σ m δ × (v_t − v₀) is to be measured. The push's
     pair rule stays out unless its share matters. This is implemented and checked at 40k only if (a) reproduces D99;
     adoption is the user's.
+  - *(a) Result (runs 13:21–13:33 CDT on GPU 1, `tmp/d149/d150_pre40k.sh`, `output/gpu/d150`; read 13:36): (i) holds;
+    (ii) holds for the net rotation and fails for the angular net / gross, which halves. D99 reproduced on the net
+    rotation.*
+
+    | run | net rotation (kept frames) | ang. net / gross mean | |L_start| max | grid ΔL per window, median | grid path / net | u path | silhouette IoU | thin | end kin | windows |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    | A1 | 0.0370° | 2.72e-3 | 16.2 | 0.22 | 22.2 / 22.0 | 21.1 | 0.9742 | 5.78 % | 2.1e-5 | 40 |
+    | A2 | 0.0386° | 3.27e-3 | 12.9 | 0.26 | 17.8 / 17.5 | 17.3 | 0.9751 | 4.06 % | 2.8e-5 | 33 |
+    | B1 | 0.0060° | 6.09e-3 | 54.1 | 1.72 | 98.1 / 19.4 | 18.9 | 0.9758 | 4.38 % | 2.7e-5 | 35 |
+    | B2 | 0.0050° | 6.08e-3 | 56.7 | 1.15 | 105.3 / 17.3 | 16.8 | 0.9755 | 4.69 % | 2.4e-5 | 41 |
+
+    - (i) The grid no longer makes spin. Its path equals its net, so it only removes what the jumps put in, and the
+      largest |L_start| falls from 54–57 to 13–16.
+    - (ii) The visible net rotation rises 6–8× (D99: 8–12×). The record's rotation of the body rises 2.5× (2.1e-2°
+      against 0.8e-2°). The mean angular net / gross halves (2.7–3.3e-3 against 6.1e-3), against the prediction.
+    - Shape: silhouette IoU 0.0004–0.0016 lower; thin and the end kin within the spread.
+    - So the consistent drag leaves the jumps' angular momentum (u's 8–14 at window 4) to show as a slow rotation the
+      drag only then takes out. That is what the torque-free layer is for; its check C follows.
   - *The torque-free layer, implemented (`--layer_torque_free`, default off; 370952c; pre-registered 2026-10-15 13:05
     CDT, before its runs).*
     - The relaxation: `mpm/layer_torque.py` adds the nine-mode projection (`k_layer_relax_t`, `k_layer_project_t` and
