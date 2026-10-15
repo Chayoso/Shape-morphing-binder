@@ -6100,6 +6100,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (`300k_s97_1080p/s97_1080p_contactfit.mp4`, `300k_s97_4k/`). The hyde06 card released. The scene's 300k twin, s99
   and the final showcase run once, on the re-frozen recipe (D146b and whatever D148 / D149 adopt; D149's symmetric
   spacing push also covers scene/window.py); wip/d147 is kept merged with refreeze-prep (16910d6).
+  **The close-up refitted (2026-10-15 11:57 CDT, hyde06 gpu3 after 10 idle minutes; render_scene 4fd01d3).** The
+  coordinator's rule: the span from the timeline, first contact − 0.5 s to first parting + 0.5 s (3.33–6.83 s, kept
+  frames 67–136), the bodies alone (no floor, no shadow), the corner fit with margin 1.12, still and centred, target
+  ≥ 0.5 of the frame's width for the pair at contact. Measured (`width_frac`, each frame's record): 0.382 at the
+  first contact (3.9 s), 0.35–0.40 over the clip: under the target. The fit is height-bound: over the span the lower
+  body's centre falls 3.4 wu (−1.23 to −4.66) and the centres' heights part by 5.8 wu, and a centred still camera that
+  cuts nothing must hold that. 1080p and 4K replaced (`300k_s97_{1080p,4k}/s97_*_contactfit.mp4`); to the
+  coordinator: a shorter tail (parting + 0.25 s, or contact + 1.5 s, about 0.5 by estimate), the lower bunny leaving
+  the frame at the end, or 0.38 as is.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
