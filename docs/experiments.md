@@ -6469,7 +6469,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   against 0.0127). (4) RWB 969 (≤ 969), RWBT 1319 (≤ 1416): pass. (5) RWB 7.51 s an attempt (≤ 8.96; CBL 7.21: +4 %),
   11.9 min (CBL 9.8, CBL2 9.9); RWBT 7.52 s, 12.4 min: pass. Frames with particles apart in the detector's tracks
   (under 5 s): CBL 8, CBL2 0, CBP 0, RWB 4; none at the ear's gap (D135's WB showed a blob there).
-  **RWX, the beads with consistent sides (11:35 CDT; `rwx_beads.log`, `d148_rwx_beads.py` on D146's per-particle dump,
+  **RWX, the beads with consistent sides (11:31 CDT; `rwx_beads.log`, `d148_rwx_beads.py` on D146's per-particle dump,
   windows 6–22).** RWX (D146b + WL, the same arguments as RW with the dumps) repeats the opening beads (tracks 2.05–3.35
   s) and a loop bead (2.95–3.50 s). What acts on their particles against the 64 nearest of the body around them: dF_c
   at its cap on every particle (rms 0.020, cap share 1.00, the body the same): no difference; u times its gate ±0.02–0.07
@@ -6482,7 +6482,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   stranding window, the transport's 1.8–2 times the body's. So the beads that strand with consistent sides are driven
   by the cleanup once its gate counts them apart (and to a smaller degree by the render), not by the labels; whether
   the cleanup's nearest target point lies across the gap is the next measurement.
-  **The user's decision package (11:40 CDT, local `d148_gap_split/d146b_wl/`):** CDL | RW and CBL | RWB side by side at
+  **The user's decision package (11:32 CDT, local `d148_gap_split/d146b_wl/`):** CDL | RW and CBL | RWB side by side at
   full length (the shorter run holds its last frame), the crevice close-up, the three dragon sites at a quarter speed
   with the simulated time, and a one-screen Korean table (`요약표_D146b_vs_WL.md`).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
