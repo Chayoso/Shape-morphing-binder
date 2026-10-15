@@ -265,11 +265,13 @@ def record_g2p(tape, tr, t: int, dfc, N: int):
     tape.record_func(backward=backward, arrays=[a for a in (x, F, gv, v1, C1, Fn, dfc) if a.grad is not None])
 
 
-def record_p2g(tape, tr, t: int, dfc, bnb, bnc, bK: int, N: int):
-    """Record kernels.k_p2g's adjoint for step t of Trajectory `tr` on `tape` (the forward was launched unrecorded)."""
+def record_p2g(tape, tr, t: int, dfc, bnb, bnc, bK: int, N: int, v=None):
+    """Record kernels.k_p2g's adjoint for step t of Trajectory `tr` on `tape` (the forward was launched unrecorded).
+    v: the velocity P2G read (B13: with the external force's increment, mpm/force.kick); None = tr.v[t]."""
     prm, dev = tr.prm, tr.device
     gmin, inv_dx = wp.vec3(*prm.grid_min), 1.0 / prm.dx
-    x, v, C, F, P, gm, gmom = tr.x[t], tr.v[t], tr.C[t], tr.F[t], tr.P[t], tr.gm[t], tr.gmom[t]
+    v = tr.v[t] if v is None else v
+    x, C, F, P, gm, gmom = tr.x[t], tr.C[t], tr.F[t], tr.P[t], tr.gm[t], tr.gmom[t]
     a_dfc = dfc.grad if dfc.grad is not None else _dummy_mat(dev)
 
     def backward():

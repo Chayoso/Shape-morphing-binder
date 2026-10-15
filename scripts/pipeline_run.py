@@ -97,9 +97,13 @@ def parse_args(argv=None):
     ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
                     help="the baseline loss: the C++ code's (min-mass penalty, out-of-target gradient x5) or the "
                          "published one (Xu et al., arXiv 2409.15746)")
-    ap.add_argument("--baseline", default="", choices=["", "xu", "xu_spray"],
+    ap.add_argument("--baseline", default="", choices=["", "xu", "xu_spray", "force", "force_mf"],
                     help="xu: the comparison baseline, Xu et al.'s objective alone in this simulator (D112); "
-                         "xu_spray: the same with our spray cleanup, the ejection guard")
+                         "xu_spray: the same with our spray cleanup, the ejection guard; force (B13): everything ours "
+                         "but an external force per particle in place of dFc (held at zero); force_mf: that force with "
+                         "no net force and no net torque")
+    ap.add_argument("--force_scale", type=float, default=1.0,
+                    help="B13: the force leaf's unit, x (lam + 2 mu) V / (m dx); read only by --baseline force*")
     ap.add_argument("--layer_relief", action=argparse.BooleanOptionalAction, default=True,
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface; "
                          "D105); --no-layer_relief = the plane of the neighbours, as before")
@@ -205,7 +209,8 @@ def prepared(args, seed: int):
     prep = prepare(args.src, args.tgt, args.n, seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
-                   surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws,
+                   surface=args.n // 4 if args.layer_relief and not args.baseline.startswith("xu") else 0,
+                   draws=args.render_target_draws,
                    match_density=args.match_density,
                    cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0)
     return cfg0, prep
@@ -253,8 +258,9 @@ def run_config(args, cfg0, prep):
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
-                              baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form)
-    if args.baseline:                      # the comparison baseline: Xu et al.'s objective, nothing else of ours
+                              baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
+                              force_scale=args.force_scale)
+    if args.baseline.startswith("xu"):     # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     return cfg
 

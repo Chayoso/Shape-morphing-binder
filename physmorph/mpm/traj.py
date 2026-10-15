@@ -11,6 +11,7 @@ import torch
 import warp as wp
 
 from . import adjoints as ADJ
+from . import force as FK
 from . import gap_step as GK
 from . import kernels as K
 from .arrays import (_id, _id_dev, _is_tensor, _release_idle_cuda_cache, compute_rest_volumes,  # noqa: F401
@@ -33,7 +34,7 @@ class Trajectory:
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
                  Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None,
                  bond_history=False, control_steps=None, polar_adjoint=False, spacing=None,
-                 volume_exact=False, J0=None, gap=None):
+                 volume_exact=False, J0=None, gap=None, force=None):
         if not _is_tensor(x0):
             x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
@@ -175,6 +176,13 @@ class Trajectory:
         self.gap = gap is not None                  # D148 (gap_split, mpm/gap_step.attach); None: the frozen path
         if self.gap:
             GK.attach(self, gap, A, Z, n_grid, rg)
+        # B13 (cfg.baseline "force" / "force_mf"): a per-particle external force in the driven steps, (f, mf, c) of
+        # mpm/force.attach; None: no force, the frozen path
+        self.force = force is not None
+        if self.force:
+            if self.gap:
+                raise ValueError("the force baseline (B13) does not run with gap_split")
+            FK.attach(self, force)
         # MATERIAL RE-COUPLING of decoupled particles (kernels.k_p2g / k_update): bonds =
         # (nbr (N,K) int, rest (N,K) float, frag (N,)) frozen for this rollout; the decoupling
         # test is the 3^3-cell count (step.cell_counts, outside the tape).
@@ -313,11 +321,13 @@ class Trajectory:
             self.gmom[t].zero_()
         wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         tape = self._hand_tape()
-        p2g_args = [self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t], self.m, self.vol, bnb, bnc, bK,
+        # B13: in the driven steps P2G reads the velocity with the external force's increment (mpm/force.kick)
+        vin = FK.kick(self, t) if self.force and t < self.control_steps else self.v[t]
+        p2g_args = [self.x[t], vin, self.C[t], self.F[t], dfc, self.P[t], self.m, self.vol, bnb, bnc, bK,
                     self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz]
         if self.order is not None and (tape is not None or wp._src.context.runtime.tape is None):
             # cell order (D138 batches 4, 7); its adjoint is the hand-written one, so only off a generated-adjoint tape
-            wp.launch(K.k_p2g_prep, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
+            wp.launch(K.k_p2g_prep, dim=N, inputs=[self.x[t], vin, self.C[t], self.F[t], dfc, self.P[t],
                                                    self.m, self.vol, bnb, bnc, bK, inv_dx, prm.dt, prm.drag,
                                                    self.p2g_G, self.p2g_mv], device=dev, record_tape=False)
             wp.launch_tiled(K.k_p2g_nodes, dim=[self.order_blocks],
@@ -327,7 +337,7 @@ class Trajectory:
         else:
             wp.launch(K.k_p2g, dim=N, inputs=p2g_args, device=dev, record_tape=tape is None)
         if tape is not None:
-            ADJ.record_p2g(tape, self, t, dfc, bnb, bnc, bK, N)
+            ADJ.record_p2g(tape, self, t, dfc, bnb, bnc, bK, N, v=vin)
         if self.gap:                                 # D148: the side-1 part at gap nodes (generated adjoint)
             GK.p2g_side1(self, t, dfc, bnb, bnc, bK, tape)
         self._st = (dfc, bnb, brest, bnc, bK, tape)

@@ -104,8 +104,12 @@ class PipelineConfig:
                                     #   motion, cleanup, relaxation, u, minimum spacing, relief reference or render;
                                     #   "xu_spray": the same with our spray cleanup (the ejection guard) as well, in
                                     #   Xu's units (divided by the scale that makes Xu's gradient norm D_vol's at
-                                    #   the source, as our transport's), so it weighs against the loss as ours does
-    xu_mass: float = 1.0            # that loss's per-particle mass: 1 / ppc, so that a full cell holds 1 as in the oracle
+                                    #   the source, as our transport's), so it weighs against the loss as ours does;
+                                    #   "force" (B13): everything ours, but the driven control is an external force per
+                                    #   particle and step in place of dFc, held at zero (mpm/force.py); "force_mf": that
+                                    #   force with no net force and no net torque at every step
+    force_scale: float = 1.0        # B13: the force leaf's unit, x (lam + 2 mu) V / (m dx) (window/setup.py)
+    xu_mass: float = 1.0           # that loss's per-particle mass: 1 / ppc, so that a full cell holds 1 as in the oracle
     xu_form: str = "oracle"         # which form of that loss: "oracle", the C++ code's (a min-mass penalty, the out-of-
                                     #   target nodes' gradient x5, so not the gradient of its value); "paper", the
                                     #   published one (Xu et al., arXiv 2409.15746): 1/2 sum (ln(m+1) - ln(m*+1))^2 and
@@ -176,6 +180,13 @@ class PipelineConfig:
         import math
         if self.xu_form not in ("oracle", "paper"):
             raise ValueError("xu_form must be \"oracle\" or \"paper\"")
+        if self.baseline not in ("", "xu", "xu_spray", "force", "force_mf"):
+            raise ValueError("baseline must be \"\", \"xu\", \"xu_spray\", \"force\" or \"force_mf\"")
+        if self.baseline.startswith("force"):
+            if not (math.isfinite(self.force_scale) and self.force_scale > 0):
+                raise ValueError("force_scale must be finite and positive")
+            if self.gap_split != "off" or self.grad_dump:
+                raise ValueError("the force baseline (B13) runs without gap_split and grad_dump")
         self.volume_exact = {False: "off"}.get(self.volume_exact, self.volume_exact)
         if self.volume_exact not in ("off", "carried"):
             raise ValueError("volume_exact must be \"off\" or \"carried\"")

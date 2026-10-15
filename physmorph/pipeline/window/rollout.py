@@ -69,11 +69,17 @@ def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
                 lk_drv + lk_rel, lstab=lstab, lk_drv=lk_drv, lk_rel=lk_rel, **kw)
 
 
-def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:
-    """Differentiable rollout (the persistent tape; forward and adjoint as CUDA graphs)."""
+def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor, dfc_leaf=None) -> Eval:
+    """Differentiable rollout (the persistent tape; forward and adjoint as CUDA graphs). B13 (win.force): the leaf is
+    the external force (T, N, 3) and dFc is zero, without a gradient unless dfc_leaf (zeros) is given."""
     if getattr(win, "scene", False):                # the multi-body scene (D147)
         from ..scene import rollout as SR
         return SR.graph_terms(win, obj, leaf, u)
+    if getattr(win, "force", None):
+        dfc = win.dc_buf if dfc_leaf is None else win.expand(dfc_leaf)
+        with timed("mpm_tape"):
+            xT, FT, vT, _, V = win.adjoint().apply(dfc, u, leaf)
+        return _evaluate(obj, xT, FT, vT, dfc, V)
     dfc = win.expand(leaf)
     with timed("mpm_tape"):
         xT, FT, vT, _, V = win.adjoint().apply(dfc, u)

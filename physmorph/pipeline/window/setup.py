@@ -84,21 +84,36 @@ class Window:
             wl = tgt.gap_walls
             walls = None if wl is None else (wl["box0"], wl["boxd"], wl["boxi"], wl["labels"], wl["nc"], None)
             gap = (tgt.gap[0], tgt.gap[1], None, vp, sig, walls)
+        # B13 (baseline force / force_mf): an external force per particle in the driven steps in place of dFc, which is
+        # held at zero (mpm/force.py). The leaf is the force per unit mass in units of A0 = (lam + 2 mu) V / (m dx), the
+        # acceleration the P-wave modulus's unit stress gives a particle's volume V (the mean rest volume) across one
+        # MPM cell, times cfg.force_scale; a unit leaf adds c = dt A0 force_scale to the velocity a step
+        self.force = cfg.baseline if cfg.baseline in ("force", "force_mf") else None
+        force = None
+        if self.force:
+            vbar = float(torch.as_tensor(vol0).double().mean())
+            self.force_A0 = (lam0 + 2.0 * mu0) * vbar / (m * float(prm.dx))
+            force = (self.force == "force_mf", float(prm.dt) * self.force_A0 * float(cfg.force_scale))
+            self.f_buf = torch.zeros(cfg.T, N, 3, device=cfg.device)
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,
                                 bond_history=True, control_steps=cfg.T, polar_adjoint=True, spacing=spacing,
-                                volume_exact=vx, J0=J0, track_geom=False, gap=gap)   # no term reads the geometric F
+                                volume_exact=vx, J0=J0, track_geom=False, gap=gap,   # no term reads the geometric F
+                                force=force)
         # the persistent no-grad trajectory: allocated once, rolled out as a CUDA graph for
         # every candidate, the warm-start comparison and the commit rollout; the control is
         # copied into dc_buf, which its dFc sequence views
         self.dc_buf = torch.zeros(T, N, 3, 3, device=cfg.device)
         seq = [wp.from_torch(self.dc_buf[t], dtype=wp.mat33) for t in range(T)]
+        if self.force:                                # B13: the eval trajectory's force views f_buf
+            force = ([wp.from_torch(self.f_buf[t], dtype=wp.vec3) for t in range(cfg.T)], *force)
         with timed("tr_build"):
             self.tr = Trajectory(start.x, m, lam0, mu0, prm, T, F0=start.F, Fp=start.Fp, v0=start.v,
                                  C0=start.C, dFc=seq, device=cfg.device, requires_grad=False, vol0=vol0,
                                  persistent=True, bonds=bonds, layer=layer, bond_history=True,
-                                 control_steps=cfg.T, polar_adjoint=True, spacing=spacing, volume_exact=vx, J0=J0, gap=gap)
+                                 control_steps=cfg.T, polar_adjoint=True, spacing=spacing, volume_exact=vx, J0=J0, gap=gap,
+                                 force=force)
             self.tr.capture()
         self._adj = None
         # unit constants: every fixed weight and gradient-magnitude constant is a legacy-unit
@@ -136,9 +151,14 @@ class Window:
             wp.to_torch(self.tr.gap_rep).copy_(rep.int())
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
-        """Copy a candidate into the eval trajectory's buffers; returns the expanded control."""
-        dc = self.expand(leaf.detach()).detach().contiguous()
-        self.dc_buf.copy_(dc.view(self.T, self.N, 3, 3))
+        """Copy a candidate into the eval trajectory's buffers; returns the expanded control (B13: the leaf is the
+        external force, and the control returned is dFc, zero: dc_buf is never written)."""
+        if self.force:
+            self.f_buf.copy_(leaf.detach())
+            dc = self.dc_buf
+        else:
+            dc = self.expand(leaf.detach()).detach().contiguous()
+            self.dc_buf.copy_(dc.view(self.T, self.N, 3, 3))
         if u is not None:
             wp.to_torch(self.tr.layer_u).copy_(u.detach())
         return dc
