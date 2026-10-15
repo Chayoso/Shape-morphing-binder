@@ -6414,6 +6414,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
         - The net rotation and angular net / gross of C fall below A's.
         - Whether C reaches B (the frozen drag) is open.
       - No gate: the numbers go to the user with the adoption question.
+    - *Result (C1, C2 13:33–13:37 CDT on GPU 1; read 13:40). The angular momentum is nearly exact, but the visible
+      rotation is as A's. Not clean; D150 stays out of the freeze.*
+
+      | run | net rotation (kept frames) | ang. net / gross mean | |L_start| max | grid ΔL per window, median | u net / path | push net | relaxation net | silhouette IoU | thin |
+      |---|---|---|---|---|---|---|---|---|---|
+      | C1 | 0.0463° | 2.11e-3 | 2.6 | 0.05 | 0.7 / 5.7 | 4.3 | 0.5 | 0.9756 | 3.91 % |
+      | C2 | 0.0407° | 2.28e-3 | 2.8 | 0.05 | 1.1 / 6.3 | 3.9 | 0.4 | 0.9752 | 3.91 % |
+
+      - The leftover Σ m δ × (v_t − v₀) is u's 0.7–1.1 net and 5.7–6.3 path, against A's 12–17 / 17–21: u's net
+        injection falls by 93–94 %. The push's 3.9–4.3 is now the largest part of the jumps'.
+      - |L_start| stays below 2.8 all run, against 13–16 (A) and 54–57 (B).
+      - The body still turns 0.041–0.046° over the run, as in A (0.037–0.039°) and 7–8× B's.
+        - With the angular momentum near zero, this is a turn from shape change at zero angular momentum: a deforming
+          body can reorient without angular momentum.
+        - The frozen drag on m v alone damps the bulk x × v part, so it works as a rotation damper and hides that
+          turn (0.005°) while it makes hidden affine spin (|L| 55).
+        - So the measured net rotation and APIC's angular momentum point in opposite directions here.
+      - The mean angular net / gross falls to 2.1–2.3e-3 (B 6.1e-3).
+      - Silhouette IoU, thin and the end kin are within the spread.
+      - Reading: D150 (with or without the torque-free layer) makes the angular momentum consistent, but it makes the
+        body visibly turn about 0.04°. That is the measure the paper reports. Recommended out of the freeze (the
+        timebox, the user's decision). bob / homer's angular excess is reported as found, with this explanation.
+      - Both switches stay in the code, default off, with their tests.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
