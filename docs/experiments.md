@@ -6158,6 +6158,53 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Dragon: the push's net is removed too, but the body's net falls only about 25 % (the grid's 1.4–1.5e-4 P stays).
   The dragon's centre of mass will still drift at the float32 floor of P2G/G2P, a separate part, reported as found.
   Adoption into the re-freeze is decided after the gate, not here.
+  **The tests and the 40k check (chain 2026-10-14 18:21–18:34 CDT on GPU 2, `tmp/d149/d149_chain40k.sh`; read
+  2026-10-15 11:30 by `d149_read.py`, `d149_kin.py`; `output/gpu/d149/`).**
+  - Tests: `test_spacing_symmetric.py` 11 passed on the card. The full suite on `repo_d149` passed at its first run:
+    409 passed, 2 skipped, exit 0.
+  - In the test's compressed cloud, one step's linear / angular imbalance of the push is 9.3e-4 / 1.2e-3 with the 16
+    nearest and 1.2e-8 / 6.4e-9 with the closure.
+
+  The 40k bunny runs, seed 97, the D146b base; P = 0.0978 wu. Render arm OFF1 / OFF2 against ON1 / ON2; twin POFF
+  against PON:
+
+  | run | push net (P) | body net (P) | silhouette IoU | chamfer | thin | end kin | windows | apart 3–10 | s / attempt |
+  |---|---|---|---|---|---|---|---|---|---|
+  | OFF1 | 1.15e-4 | 1.24e-4 | 0.9755 | 0.1098 | 4.06 % | 1.98e-5 | 45 | 46 | 1.72 |
+  | OFF2 | 1.35e-4 | 1.44e-4 | 0.9743 | 0.1100 | 5.47 % | 2.44e-5 | 32 | 42 | 1.74 |
+  | ON1 | 1.7e-10 | 1.07e-5 | 0.9746 | 0.1101 | 5.62 % | 3.29e-5 | 37 | 16 | 1.75 |
+  | ON2 | 8.5e-11 | 1.05e-5 | 0.9746 | 0.1099 | 4.06 % | 2.33e-5 | 37 | 50 | 1.74 |
+  | POFF | 7.0e-5 | 7.9e-5 | 0.9738 | 0.1100 | 3.75 % | 1.60e-5 | 41 | 16 | 1.75 |
+  | PON | 1.2e-10 | 1.01e-5 | 0.9740 | 0.1100 | 3.75 % | 2.32e-5 | 34 | 21 | 1.78 |
+
+  - (i) passes. The push's net falls 10^5–10^6×, to float rounding; its largest window falls from 5–9e-5 to 1–3e-10.
+  - The body's net falls by 92 % (render arm) and 87 % (twin). Every ON run sits on the grid's own floor, which is
+    1.00–1.06e-5 in all six runs, so the render arm and its twin are within that spread.
+  - The push's net rotation in the record does not fall: ON 1.28–1.30e-4° against OFF 1.17–1.42e-4°, twin 7.9e-5
+    against 7.1e-5°. That record takes r at the window's start, so what it reads is the in-window second-order part
+    named above, not a torque. It is about 1.5 % of the body's rotation (7–9e-3°), which the grid carries.
+  - The other measures against OFF's two-run range widened by its width: silhouette IoU, chamfer, thin and windows are
+    inside.
+  - The end kinetic energy is outside for ON1 (3.29e-5 against [1.52, 2.90]e-5). PON (2.32e-5) is outside POFF's
+    1.60e-5 ± the same width. So the 40k check fails by the letter on the end kin. The runs stop at 32–45 windows, and
+    the median of the last ten windows overlaps: OFF 3.10 / 3.84, ON 3.29 / 3.26, POFF 2.72, PON 3.19 (e-5).
+  - The cost per attempt is +0–2 %.
+
+  The kernels alone (`d149_timing.py`; lists at a window start, positions 24 steps in; the closure's width 27, mean
+  degree 17.4 at 300k and 17.5 at 40k):
+
+  | N | k_update (µs a launch) | k_update_adj (µs a launch) |
+  |---|---|---|
+  | 300k | 165 → 220 | 209 → 268 |
+  | 40k | 22 → 28 | 28 → 33 |
+
+  The momentum probe on the base runs (kept frames, full precision; centre of mass largest / end, P):
+  - CBL 1.33e-4 / 1.30e-4, CBL2 1.35e-4 / 1.32e-4, CBP 1.37e-4 / 1.33e-4.
+  - Angular net / gross, mean: 3.50e-3 / 3.56e-3 against 3.02e-3.
+  - Net rotation: 0.0028° / 0.0029° against 0.0044°.
+  - Apart particles at windows 3–10 (max): 901 / 969 against 1416.
+
+  The 300k pairs (bunny, then dragon) started 2026-10-15 11:31 on GPU 1, the coordinator's reservation.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
