@@ -7022,6 +7022,45 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (`d151_base_render.sh`) follow the chains (started first at 14:12, they took the card the chains wait for; stopped
   after 22 s and requeued, the partial render removed and logged); `d151_post.sh` runs visible_apart and
   why_floating on the CPU as each render's tracks appear; `tmp/d148/cdx_why.sh` reads CDX's own pieces after its render.
+  *The post-run steps were lost and redone (2026-10-15 17:54 CDT).* All four runs ended rc 0, but every step after them found no
+  `NAME_frames12.npz`. repo_d151's pipeline_run.py writes the full archive (`NAME_render_full_dt_iso_nn.npz`, 13–31 GB), while
+  D149's kept-frames writer was a patch of the server copy repo_d149s only. `tmp/d151/frames12_from_archive.py` builds the kept
+  file from each archive with D149's rule (every 12th delivered frame and the last: frames, raws, tgt, deliver_n; the same
+  arrays). `tmp/d151/d151_fix.sh` then runs the chain's post-run block unchanged on agent-D151 locks. The runs were not
+  repeated.
+  **Reading (2026-10-15 18:50 CDT; dragon arm complete; the dragon twin's and the bunny's visible pieces follow).**
+  (1) **FAILS.** Dragon NL against SL:
+  - unique side-view blob particles 85 against 127 (−33 %; half is 63.5);
+  - side blobs a window at 1.5–6 s 4.41 against 5.64 (−22 %; half is 2.82);
+  - all blobs fall more: unique 138 against 276; a window at 6–15 s 1.4 against 11.1; at 15 s–end 2.6 against 12.2;
+  - but the visible early pieces stay: at 0–1.5 s 1.4 against 1.4, and the 4–5 s crevice beads are seen alike side by side;
+  - the detector confirms 8 pieces against SL's 6. Pieces #0–#5 sit at 4.05–6.35 s, the same kind as SL's. #6 (17.7–20.35 s)
+    and #7 (18.15–28.2 s, two particles inside a dark pocket of the belly, not in the body at the end) are late and have no
+    counterpart in SL.
+  (2) Fails by the letter only. The base runs agree at windows 1–4 to the printed digits, so the band has zero width, and
+  NL/NP miss it by about 1e-4 relative (dragon NL: w1 d_sil only; the bunny twin: w1–w4).
+  (3) Holds, except the dragon twin's thin 3.29 % against 3.25 %.
+  - Dragon NL: silIoU 0.9873, chamfer 0.0545, thin 3.22 %, kin 5.8e-6.
+  - Bunny NL: 0.9882, 0.0551, 3.87 %, 3.8e-6.
+  - Bunny NP: 0.9877, 0.0551, 3.50 %.
+  (4) **FAILS on every run.** Records' body_net:
+  - dragon NL 1.2e-4 against ≤ 7.7e-6; dragon NP 9.2e-5;
+  - bunny NL 1.8e-5 against ≤ 1.7e-6; bunny NP 7.2e-5 against ≤ 2.0e-6.
+  The dragon NL probe:
+  - the centre of mass creeps steadily over the whole run, also at rest: 0.0005 a at state 612, 0.0017 a at 3012,
+    0.0025 a at the end (SL: 0.0001 a, flat after state 1212);
+  - net / gross linear move largest 7.2e-3 against 2.1e-5;
+  - net rotation at the end 0.0077° against 0.0041°.
+  Cause, from the code: k_layer_project removes the step's six rigid modes summed over the whole layer, as if every
+  particle takes it (D97; u is made rigid-free per window, D94). The link withholds some particles' outward steps, so the
+  sum of the steps taken keeps a rigid part, and every step pushes the body by it.
+  (5) Holds: 8.78 / 9.03 / 6.51 / 6.39 s an attempt against ≤ 9.64 / 9.94 / 6.87 / 6.89. Wall times are dragon 28.2 / 24.4 min
+  and bunny 9.2 / 14.2 min.
+  **Verdict: not adopted.** It fails the main item (1) on the dragon and item (4) on every run. Rigid removal over the
+  steps taken would close (4), but it does nothing for (1), so it was not tried. The re-freeze falls back to refreeze-cand
+  without the floating fix, as the user decided on 2026-10-15.
+  Local copies: `output/results_2026-10-15/d151_gate/`, with the side-by-side videos (SL | NL, dragon and bunny) and the piece
+  sheets.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
