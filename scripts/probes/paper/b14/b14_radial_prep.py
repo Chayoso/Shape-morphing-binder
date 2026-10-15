@@ -1,4 +1,4 @@
-"""b12_radial_prep.py SRC TGT SAVE_DIR NAME -- D145 B12: prep_pair.py's CORR=radial data without trimesh's ray engine (env nsd has
+"""b14_radial_prep.py SRC TGT SAVE_DIR NAME -- D145 B14: prep_pair.py's CORR=radial data without trimesh's ray engine (env nsd has
 no rtree, and ~/miniforge3 is not to be touched): each of 5k source samples is paired with the FIRST hit of the ray from
 the pair's centre (the origin after prep_pair's common centring) through it, by a vectorised Moller-Trumbore test against
 every target triangle; a ray that hits nothing falls back to the nearest point of a 400k-point surface sample of the
@@ -76,6 +76,6 @@ my.export(os.path.join(save, "mesh", name_y + ".ply"))
 trimesh.PointCloud(np.concatenate([vx, px])).export(os.path.join(save, "ptc", name_x + ".ply"))
 trimesh.PointCloud(np.concatenate([vy, py])).export(os.path.join(save, "ptc", name_y + ".ply"))
 info.update(src=os.path.abspath(src), tgt=os.path.abspath(tgt), corr="radial", n_points=20000, n_corr=5000, seed=0,
-            radial_hits=int(hit.sum()), fallback="nearest point of a 400k surface sample (b12_radial_prep.py; no rtree)")
+            radial_hits=int(hit.sum()), fallback="nearest point of a 400k surface sample (b14_radial_prep.py; no rtree)")
 json.dump(info, open(os.path.join(save, "pair_info.json"), "w"), indent=2)
 print(f"wrote {save}: src watertight {mx.is_watertight}, tgt watertight {my.is_watertight}", flush=True)

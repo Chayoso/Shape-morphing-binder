@@ -1,14 +1,14 @@
 #!/bin/bash
-# b12_pair.sh NAME METHOD CORR S -- D145 B12 (amendment 5, 2026-10-15): one external neural morph sphere -> NAME with the
+# b14_pair.sh NAME METHOD CORR S -- D145 B14 (amendment 5, 2026-10-15): one external neural morph sphere -> NAME with the
 # authors' own code. METHOD ISD (Sang et al., ICLR 2025, Implicit-surf-Deformation @ e7992a5) or FD (4Deform, CVPR 2025,
 # @ 7f2274e); CORR none (matching weight 0, ISD separate_train 0) or radial (the shipped matching weights); S = 1, 2, 3 ->
 # rng_seed = shipped + S - 1 (ISD 0, 1, 2; 4Deform 5, 6, 7). Runs as a D145 pool job: the pool claims the card, sets
 # CUDA_VISIBLE_DEVICES and releases the card when this script exits. Training and evaluation (21 meshes at t = k/20,
 # marching cubes 256, every component kept: eval_full.py) on the card; then the conversion to the pipeline frame, the
-# 300k sample and the end check detached on the CPU (b12_convert.sh).
+# 300k sample and the end check detached on the CPU (b14_convert.sh).
 set -u
 NAME=$1; METHOD=$2; CORR=$3; S=$4
-B=/data/relcfd/chayo/physmorph_v2; BL=$B/baselines; W=$B/tmp/d145/b12; R=$BL/b12
+B=/data/relcfd/chayo/physmorph_v2; BL=$B/baselines; W=$B/tmp/d145/b14; R=$BL/b14
 TAG=${METHOD}${CORR:0:1}${S}
 RUN=${NAME}300k_${TAG}
 case $METHOD in
@@ -23,19 +23,19 @@ export TMPDIR=$R/cache/tmp XDG_CACHE_HOME=$R/cache/xdg MPLCONFIGDIR=$R/cache/mpl
 export XLA_PYTHON_CLIENT_PREALLOCATE=false XLA_FLAGS=--xla_gpu_enable_triton_gemm=false
 ST=$R/status.txt; LOG=$R/logs/$RUN.log
 say() { echo "$(date '+%Y-%m-%d %H:%M:%S %Z') $RUN $*" >> $ST; }
-SRC=$BL/Implicit-surf-Deformation/data/b12_${NAME}_${CORR}
+SRC=$BL/Implicit-surf-Deformation/data/b14_${NAME}_${CORR}
 [ -s $SRC/pair_info.json ] || { say "FAILED: no prepared pair $SRC"; exit 1; }
 source /home/chayo/miniforge3/etc/profile.d/conda.sh; conda activate nsd
 cd $REPO
-DR=data/b12r_$RUN                                   # this run's own copy: evaluation writes beside the data
-rm -rf $DR exp_b12/$RUN; cp -rL $SRC $DR
+DR=data/b14r_$RUN                                   # this run's own copy: evaluation writes beside the data
+rm -rf $DR exp_b14/$RUN; cp -rL $SRC $DR
 sed -e "s#DATA_ROOT#./$DR#" -e "s#MATCH_W#$MW#" -e "s#SEP_TRAIN#$SEP#" -E -e "s/rng_seed *= *[0-9]+/rng_seed = $SEED/" \
-  $B/baselines_prep/conf/$TPL > conf/b12_$RUN.conf
+  $B/baselines_prep/conf/$TPL > conf/b14_$RUN.conf
 say "train start (gpu $CUDA_VISIBLE_DEVICES, rng_seed $SEED, match $MW, separate_train $SEP)"
 t0=$(date +%s)
-python train.py --conf ./conf/b12_$RUN.conf --savedir ./exp_b12 --expname $RUN $TARGS --reset > $LOG 2>&1 || { say "FAILED train"; exit 1; }
+python train.py --conf ./conf/b14_$RUN.conf --savedir ./exp_b14 --expname $RUN $TARGS --reset > $LOG 2>&1 || { say "FAILED train"; exit 1; }
 tt=$(( $(date +%s) - t0 ))
-md=$(ls -d exp_b12/$RUN/*/ | sort | tail -1)
+md=$(ls -d exp_b14/$RUN/*/ | sort | tail -1)
 say "train done $tt s ($md)"
 t0=$(date +%s)
 python $W/eval_full.py --modeldir $md --steps 20 --mc_resolution 256 >> $LOG 2>&1 || { say "FAILED eval"; exit 1; }
@@ -51,5 +51,5 @@ echo "{\"run\": \"$RUN\", \"method\": \"$METHOD\", \"corr\": \"$CORR\", \"seed_i
 say "eval done $te s, $n meshes"
 [ $n -eq 21 ] || { say "FAILED: $n meshes, expected 21"; exit 1; }
 conda deactivate
-setsid nohup bash $W/b12_convert.sh $NAME $TAG $RUN $REPO/$DR > /dev/null 2>&1 < /dev/null &
+setsid nohup bash $W/b14_convert.sh $NAME $TAG $RUN $REPO/$DR > /dev/null 2>&1 < /dev/null &
 exit 0

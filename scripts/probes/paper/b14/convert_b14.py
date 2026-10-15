@@ -1,12 +1,12 @@
-"""B12 (D145 amendment 5) conversion, B5's convert_pair.py for ISD / 4Deform: the 21 evaluated level sets of one run
+"""B14 (D145 amendment 5) conversion, B5's convert_pair.py for ISD / 4Deform: the 21 evaluated level sets of one run
 (every component; t = k/20) back to the pipeline frame (x = y / s + c: prep_pair.py's common centring c and scale s
 from pair_info.json; the inputs were B5's pipeline-frame meshes), their mesh properties (also of the largest-area component, the
 authors' own display), and the pipeline's stratified 300k volume sample (seed 97) of each; written as the archive
-output/gpu/d145_b12/<name>300k_<TAG>_frames12.npz (frames (21, 300000, 3), raws, tgt = the pipeline's seed-97 target
+output/gpu/d145_b14/<name>300k_<TAG>_frames12.npz (frames (21, 300000, 3), raws, tgt = the pipeline's seed-97 target
 sample, deliver_n = 21). A frame with no level set or one the sampler cannot fill is NaN in the archive and named in the
 JSON. PLYs kept in the pipeline frame for t in {0.25, 0.5, 0.75, 1} (all 21 for bunny and dragon); the originals deleted.
 
-  $PY convert_b12.py NAME TAG RECON_DIR DATA_DIR
+  $PY convert_b14.py NAME TAG RECON_DIR DATA_DIR
 """
 import glob
 import json
@@ -19,10 +19,10 @@ import numpy as np
 import trimesh
 
 BU = "/data/relcfd/chayo/physmorph_v2/baselines/buonomo"
-R = "/data/relcfd/chayo/physmorph_v2/baselines/b12"
+R = "/data/relcfd/chayo/physmorph_v2/baselines/b14"
 NAME, TAG, RECON, DATA = sys.argv[1:5]
 N, SEED, T = 300000, 97, 21
-OUT_NPZ = f"/data/relcfd/chayo/physmorph_v2/output/gpu/d145_b12/{NAME}300k_{TAG}_frames12.npz"
+OUT_NPZ = f"/data/relcfd/chayo/physmorph_v2/output/gpu/d145_b14/{NAME}300k_{TAG}_frames12.npz"
 KEEP_PLY = {5, 10, 15, 20} if NAME not in ("bunny", "dragon") else set(range(T))
 exp = json.load(open(f"{BU}/inputs/{NAME}/export.json"))
 A = exp["a_to_buonomo"]

@@ -4820,8 +4820,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   moves the layer's control by 54 % (window 1) → 9 % (windows 11–20) → 20–25 % (later) of its size and u by 50–72 %, and
   the window's silhouette term is 50–79 % lower late in the run; iterations equal in 70 of 71 windows. 4K and the dragon
   wait for the user.
-  **Amendment 5, B12: the ICLR 2025 method and 4Deform with the authors' own code (pre-registered 2026-10-15 11:34 CDT
-  server clock, before any B12 run; the user via the coordinator: "the ICLR 2025 method and the other morphing methods
+  **Amendment 5, B14 (renamed from B12 to avoid a clash with the render-only B12, 2026-10-15 11:48): the ICLR 2025
+  method and 4Deform with the authors' own code (pre-registered 2026-10-15 11:34 CDT server clock, before any B14 run; the user via the coordinator: "the ICLR 2025 method and the other morphing methods
   compared, with a discussion in the paper").** This reverses amendment 1's "4Deform dropped" and its "the released ICLR
   2025 code is not run". *Which ICLR 2025 run is the paper's.* Two different things carry the name. ISD = Sang et al.,
   *Implicit Neural Surface Deformation with Explicit Velocity Fields* (ICLR 2025): the authors' JAX code (Sangluisme/
@@ -4849,13 +4849,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   with `connected=False`. Their code is otherwise untouched, and the largest component's numbers are recorded beside it.
   The frames go back to the pipeline frame through `pair_info.json` (x = y / s + c). Each frame records watertight
   (after hole filling), components, the largest component's genus, the enclosed volume against the target mesh's, and
-  the pipeline's stratified 300k volume sample (seed 97). These go into the archive `output/gpu/d145_b12/
+  the pipeline's stratified 300k volume sample (seed 97). These go into the archive `output/gpu/d145_b14/
   <mesh>300k_<ISD|FD><n|r><seed>_frames12.npz` (21 frames). Readings: the end against the independent sample and the
   floor (B5's end check), the start against the pipeline's source sample, volume over time by the common routine
   (`vol145.py`), topology per frame, and training and evaluation wall-clock on the same card type as ours. On bunny and
   dragon the pool's end300 readings (yardstick, display, apart) are added. Self-intersection is not measured: a marching-cubes
   level set of one scalar field is embedded by construction. A non-watertight frame, a frame with no level set, or one the
-  sampler cannot fill is recorded as found. No setting is tuned. *Cards.* Pool jobs (`tmp/d145/b12/b12_pair.sh`), one card
+  sampler cannot fill is recorded as found. No setting is tuned. *Cards.* Pool jobs (`tmp/d145/b14/b14_pair.sh`), one card
   each through the lock. Training and evaluation hold the card; the conversion and the end check run after it on the CPU.
   Each run gets its own copy of the pair's data folder, so two runs never share an output folder. The queue order after
   the RGV dragon run is: ISD on the six meshes, 4Deform on the six, the radial arm, the rest of D145's queue, then seeds 2–3.
@@ -4864,17 +4864,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   at t = 1). Results are recorded as found, whatever they show. (The amendment's commit message says 11:50. That was
   wrong: the server clock read 11:34.) *Operations, 11:33–11:41 CDT.* The prep for `CORR=none` passed on the six meshes
   (11:36). `CORR=radial` failed in `prep_pair.py`: trimesh's ray test needs `rtree`, env `nsd` does not have it, and
-  `~/miniforge3` is not to be touched. The same pairing now comes from `tmp/d145/b12/b12_radial_prep.py`. It uses
+  `~/miniforge3` is not to be touched. The same pairing now comes from `tmp/d145/b14/b14_radial_prep.py`. It uses
   prep_pair's own functions and a numpy Möller–Trumbore first-hit test against every target triangle. A ray that hits
   nothing falls back to the nearest point of a 400k surface sample (prep_pair's fallback uses the exact closest point).
-  Queue: bunny ISD seed 1 is the smoke run, placed after the RGV dragon run. `b12_watch.sh` inserts the rest of seed 1,
+  Queue: bunny ISD seed 1 is the smoke run, placed after the RGV dragon run. `b14_watch.sh` inserts the rest of seed 1,
   the radial arm and the bunny / dragon readings once the smoke run has been converted and end-checked, and it appends
   seeds 2–3 at the end of the queue. If the smoke run fails, nothing else is queued. *11:44–11:46: the data redone.* The
   11:36 prep had read B5's point-cloud PLYs (100k vertices and one dummy face) as meshes, so each shape was a single
   triangle. That explains the radial test's 0 / 5000 hits. These folders were removed before any run and remade from the
   `*_ourframe` meshes. Now the six sources are watertight. The targets are watertight except bunny (its open base) and
   dragon, as in the pipeline. Radial hits: bunny 4904 / 5000 (96 fall back to the nearest sample), dragon 5000 / 5000.
-  `convert_b12.py` maps x = y / s + c (no B5 scale).
+  `convert_b14.py` maps x = y / s + c (no B5 scale). *11:48–11:49, the rename to B14.* Every item, script and folder
+  now uses b14: `tmp/d145/b14`, `baselines/b14`, `output/gpu/d145_b14`, the queue items `b14_*`, and the ISD data
+  `data/b14_*`. Two side effects:
+  - Under the old name the pool had already started the smoke run on GPU 0 at 11:48 (the idle-card rule). I stopped it
+    after about one minute of training (rc 143). Its record is in `d145_b14/aborted_b12_smoke`, and `b14_bunny_ISDn1` is
+    queued in its place.
+  - My mistake: `baselines/b12` was shared by accident. I had created it at 11:36, and the render-only B12 agent built its
+    setup in the same folder from 11:38. The rename moved that folder away for about a minute (11:48:00–11:48:55) before I
+    put it back. Its smoke process (started 11:47) was gone afterwards. The coordinator has been told. B14's own files
+    now live only in `baselines/b14`.
   **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
   tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
   do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus
@@ -4920,8 +4929,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   videos need, so the merge is not possible after the fact. `dragon300k_RG97` (`repo_rgv`, dump and λ = 0 counterfactual
   with control records at every window, `output/gpu/rgv/dragon300k_RG97_{dump,cf}`) is queued as the next item on
   D145's card (11:33). The B7 dragon proof reads G97 (dumps, counterfactual, J).
-  **B5 addendum: NISE (pre-registered 2026-10-15 11:45 CDT server clock, before any NISE run; the coordinator's item,
-  relayed by the D145 agent).** NISE (Novello et al., ICCV 2023, *Neural Implicit Surface Evolution*) runs as a sibling
+  **B15, NISE (registered as the "B5 addendum"; named B15 in the methods table, 2026-10-15; pre-registered 2026-10-15
+  11:45 CDT server clock, before any NISE run; the coordinator's item, relayed by the D145 agent).** NISE (Novello et al., ICCV 2023, *Neural Implicit Surface Evolution*) runs as a sibling
   of BUO, from the implementation in Buonomo et al.'s MIT repository (`baselines/buonomo/neural_shape_morphing` @
   9767ed9, `morph-train.py -p nise`). *Configuration, the authors' defaults:* sphere → each of the six meshes, the same
   mesh configuration and inputs as BUO (ω0 60, 6 × 128 SIREN, NISE initialisation from the source SDF, 2001 epochs,

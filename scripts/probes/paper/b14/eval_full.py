@@ -1,4 +1,4 @@
-"""eval_full.py [the repo's eval.py arguments] -- D145 B12: the authors' own eval.py (run from the repo root, ISD or
+"""eval_full.py [the repo's eval.py arguments] -- D145 B14: the authors' own eval.py (run from the repo root, ISD or
 4Deform), with one change: their marching-cubes extractor keeps EVERY component of the zero level set
 (connected=False) instead of only the largest-area one, so the frames are read like B5's (all components kept).
 Nothing else in their code is touched; the largest component is recovered from the full mesh in the conversion."""
