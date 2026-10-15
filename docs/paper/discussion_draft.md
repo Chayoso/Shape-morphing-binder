@@ -198,12 +198,17 @@ Baselines:
 - (iv) Optimal-transport displacement interpolation on our particles (entropic plan at a blur of one sampling pitch,
   its barycentric map, linear in time): transport without a body.
 - (v) Render-only mesh optimisation from the sphere: Large Steps [Nicolet et al. 2021] `{nicolet2021largesteps}`
-  and FlexiCubes [Shen et al. 2023] `{shen2023flexicubes}` [TBD: B12 runs and readings].
+  and FlexiCubes [Shen et al. 2023] `{shen2023flexicubes}` (B12; bunny read, the other meshes [TBD: B12]).
+- (vi) The implicit velocity-field morph of [Sang et al. 2025] `{sang2025isd}` and its follow-up 4Deform
+  [Sang et al. 2025b] `{sang2025fourdeform}`, with the authors' released code and shipped configurations (B14). Both
+  expect point correspondences between the two shapes, and a sphere-to-target pair has none. The matching weight is
+  therefore zero; a second arm gives them radial correspondences on bunny and dragon [TBD: B14 runs]. 4Deform's
+  repository carries no licence, so it is run for comparison only.
+- (vii) NISE [Novello et al. 2023] `{novello2023nise}` from Buonomo et al.'s repository, on the same SDFs (B15)
+  [TBD: B15 runs].
 
-The released code of [Sang et al. 2025] and of 4Deform [Sang et al. 2025b] expects point correspondences between the
-two shapes, which a sphere-to-target morph does not have. 4Deform's repository also carries no licence. We therefore
-report the correspondence-free re-implementation of [Sang et al. 2025] that ships with Buonomo et al.'s code
-[TBD: INSD runs, deferred in D145 at about 10 h a pair].
+Buonomo et al.'s correspondence-free re-implementation of [Sang et al. 2025] (about 10 h a pair) is not the published
+method and stays deferred.
 <!-- Sources: D145 "Protocol text for the paper"; amendments 1, 4; B5 deferral note. -->
 
 ### Table: what each method models
@@ -213,7 +218,7 @@ report the correspondence-free re-implementation of [Sang et al. 2025] that ship
 | representation | MPM particles + grid | MPM particles + grid | neural SDF + velocity | triangle mesh, fixed connectivity | particles | mesh / SDF grid |
 | genus change from a sphere | yes (dragon genus 15, teapot, bob) | yes | yes (bob frames genus 31–44) | no (genus 0 only) | n/a (no surface) | no / yes |
 | mass | exact by construction | exact by construction | none (volume kept by the velocity's divergence) | none | exact (equal weights) | none |
-| momentum | conserved by the stress control (measured drift below) | conserved by the stress control | not defined | not defined | not defined | not defined |
+| momentum | linear: conserved to the measured drift; angular: the drag's transfer form makes some (below) | conserved by the stress control | not defined | not defined | not defined | not defined |
 | contact, external forces | multi-body contact, floor, gravity (measured below) | not in our protocol [TBD: what the TVCG paper shows] | none | none | none | none |
 | end at rest | yes (kinetic below 1e-5) | no (0.0028–0.95) | n/a | n/a | n/a | n/a |
 | correspondences | none | none | none | sphere map (CMCF) | none (computed plan) | none |
@@ -226,19 +231,19 @@ column is from the papers [Nicolet et al. 2021, Sec. 5; Shen et al. 2023] until 
 
 | measure | ours | Xu et al. 2025 | Buonomo et al. 2025 | ARAP | OT |
 |---|---|---|---|---|---|
-| end silhouette IoU vs independent sample, bunny (floor 0.9893) | [TBD: B1 L, `gallery_ind` metric] | [TBD: same metric] | 0.9601 | 0.9874 | [TBD] |
-| same, dragon (floor 0.9895) | [TBD] | [TBD] | 0.9016 | N/A (genus 15) | [TBD] |
+| end silhouette IoU vs independent sample, bunny (floor 0.9893) | 0.9853–0.9886 | [TBD: same metric, `endgen_1015.jsonl`] | 0.9601 | 0.9874 | [TBD] |
+| same, dragon (floor 0.9895) | 0.9865–0.9886 | [TBD] | 0.9016 | N/A (genus 15) | [TBD] |
 | end silhouette IoU, own sample, bunny / dragon | 0.987–0.988 | 0.958–0.969 / 0.969–0.971 | — | — | — |
 | thin parts uncovered, own sample | 3.5–4.5 % | 31–50 % | [TBD: thin measure on its frames] | [TBD] | [TBD] |
-| yardstick silhouette (exterior), bunny | 7.6–8.0e-4 | 0.0090–0.0099 | [TBD] | [TBD] | [TBD] |
-| display 1 − IoU front, bunny | 0.0091 (seed 97) [TBD: three seeds] | 0.039–0.042 | [TBD] | [TBD] | [TBD] |
+| yardstick silhouette (exterior), bunny | 7.2–8.0e-4 (five seeds) | 0.0090–0.0099 | [TBD] | [TBD] | [TBD] |
+| display 1 − IoU front, bunny | 0.0090–0.0098 (five seeds) | 0.039–0.042 | [TBD] | [TBD] | [TBD] |
 | apart particles at p = 0.25 / 0.5 / 0.75, bunny | 90 / 139 / 305 | 6540 / 4522 / 4102 | [TBD: harness] | [TBD: harness] | [TBD: harness] |
 | same, dragon | 1 / 2 / 15 | 14919 / 6785 / 3844 | [TBD] | N/A | [TBD] |
 | occupancy volume over the morph, bunny | 0.986–1.028 (end 1.005) | 0.990–1.070 | 0.971–1.028 | 0.987–1.016 | 0.986–1.088 |
 | same, dragon | 0.964–1.075 (end 1.015) | 1.013–1.294 | 0.896–0.985 | N/A | 0.964–1.277 |
 | end kinetic energy (last record) | below 1e-5 | 0.0028–0.95 | — | — | — |
-| wall clock a pair | bunny 7.9–8.9 min, dragon 17.2–17.8 min | 2.3–6.8 min | 44–46 min morph + 20–39 min per SDF (CPU) | [TBD: B11 timing] | [TBD: B6 timing] |
-| largest GPU memory | [TBD: B1 logs] | [TBD] | 7–8 GB | CPU | [TBD] |
+| wall clock a pair | bunny 7.1–10.1 min, dragon 17.6–18.8 min (five seeds); others 8.2–18.4 min | 2.3–6.8 min | 44–46 min morph + 20–39 min per SDF (CPU) | [TBD: B11 timing] | [TBD: B6 timing] |
+| largest GPU memory | 18.4–23.0 GB (card peak, six meshes) | [TBD] | 7–8 GB | CPU | [TBD] |
 
 Notes on the table:
 
@@ -247,6 +252,13 @@ Notes on the table:
   as a dry run [TBD: re-read on B1's L97 when the frames are kept].
 - Buonomo et al. ran at one seed with the authors' defaults. Its teapot morph failed (a static field whose zero set
   holds both shapes at every t); that row is reported, not dropped.
+- Render-only mesh optimisation from the sphere (B12, bunny, two setups a / b × three seeds; `d145_b12/b12_rows.json`):
+  - Large Steps ends at 0.9869–0.9879 against the independent sample (floor 0.9893), inside our seed range, in
+    21–28 s. It stays one watertight genus-0 surface. It self-intersects in 1–2 of its 21 frames (up to 252 faces), and
+    its occupancy runs 0.985–1.147 over the frames.
+  - FlexiCubes ends at 0.856–0.970, with genus 12–33 at the end (up to 39 in between), up to 357 components, and 12–18
+    of 21 frames watertight.
+  The other five meshes: [TBD: B12].
 - The occupancy routine reads 0.986 (bunny) and 0.964 (dragon) for our source sphere at t = 0, which has exactly the
   target's volume. This 1–4 % shape bias of voxel occupancy applies to every column.
 
@@ -365,7 +377,22 @@ render acts:
 The render weight is set every window so that the render gradient is half the physics gradient's norm: one third of
 the step. Gradient components that oppose the physics are removed [Yu et al. 2020] `{yu2020pcgrad}`.
 
-[TBD: B1's five other meshes and the dragon's seeds; T1 is read on five seeds for bunny and dragon (amendment 3).]
+**At 300k on all six meshes (B1; bunny and dragon five seeds, the others three; ranges apart unless said):**
+
+- Exterior silhouette residual: −48 % bunny, −49 % dragon, −33 % teapot, −29 % bob, −50 % armadillo, −39 % homer.
+- Shading residual: −13 % to −36 % on all six.
+- Display 1 − IoU: −14 % to −33 %, apart on five meshes (bob only on the back view).
+- Within the seed spread everywhere: silhouette IoU on the particles, chamfer and the centre of mass. Thin coverage is
+  also within the spread, except bob, where the render arm is 17 % better.
+- Worse, and reported: bob's net rotation (0.0039–0.0051° against 0.0003–0.0005°) and the frame-to-frame net / gross
+  angular move on bob (+50 %) and homer (+33 %). Their source is the drag's transfer form, not the render gradient
+  directly (see Angular momentum below).
+<!-- Source: D145 overnight readings 2026-10-15, output/gpu/d145_evidence/band_1015.txt. -->
+<!-- (was: [TBD: B1's five other meshes and the dragon's seeds]) -->
+
+**Across materials (one seed each):** with a soft solid, a stiff solid or a Poisson ratio of 0.45, the render arm still
+lowers the exterior silhouette residual by 38–51 % and the shading residual by 15–30 % against its twin, on bunny and
+dragon.
 <!-- Sources: d145_first_tables.md B3; D145 B1 bunny; B7 render-gradient proof; README "Gradients". -->
 
 One design choice is visible in this comparison. The render terms read the exterior surface discs, not the particle
@@ -384,20 +411,32 @@ surface discs of Zhu and Bridson's field with Solenthaler et al.'s correction [S
 
 **Runtime and memory.**
 
-- A 300k morph takes 7.9–8.9 min (bunny) and 17.2–17.8 min (dragon) on one RTX 6000 Ada.
+- A 300k morph takes 7.1–10.1 min (bunny) and 17.6–18.8 min (dragon) on one RTX 6000 Ada (five seeds each), and
+  8.2–18.4 min on the other four meshes.
 - That is slower than our prior F-control formulation on the same particles (2.3–6.8 min), and slower than ARAP and
   OT, which are CPU- or seconds-scale [TBD: B11 / B6 timings].
 - It is faster than the SDF morph at this scale: 44–46 min of morph training a pair at 200k points, plus 20–39 min
   per target SDF on the CPU.
-- Our memory is much larger than the SDF morph's 7–8 GB. A sampled lower bound of 36.1 GB was recorded for the 300k
-  dragon before the runtime work [TBD: largest GPU memory per mesh from B1's logs on the deliverable code].
+- Our memory is much larger than the SDF morph's 7–8 GB. On the deliverable code, the card's peak during a 300k morph
+  is 18.4–23.0 GB across the six meshes (homer the largest). Before the runtime work, 36.1 GB was recorded for the dragon.
+- Render-only mesh optimisation is far cheaper still: Large Steps reaches the bunny in about 20 s.
+
+**Angular momentum.** The stress control and APIC's transfer conserve angular momentum: with the drag off, the grid
+changes it only at its float32 floor (0.1–0.2 per window, against 20–56 with the drag on). The default drag (0.9 / s)
+scales the particle momentum m v in the particle-to-grid transfer but not APIC's affine momentum m C. A deforming body
+holds opposite spins in the two, so the drag makes net angular momentum, and more of it the more the body moves.
+- The body's net rotation over a run stays below 0.014° (B1, six meshes).
+- The render arm rotates bob more than its twin does (0.004–0.005° against 0.0003–0.0005°).
+- A drag that scales the whole APIC momentum would remove this source. That is a change of the method, not of the
+  protocol [TBD: whether the re-freeze adopts it].
+<!-- Source: D145 "Where bob's rotation and the bob / homer angular ratio come from" (2026-10-15). -->
 
 **Volume on the common measure.** We do not claim better volume preservation on the occupancy measure. The claims
 are separate:
 
 - Mass is exact by construction.
-- The body's physical volume, Σ J V0 from the carried J, stays within −0.24 % … +1.28 % of the target's over the
-  bunny morph (1.0067 at the end) [TBD: the dragon from G97].
+- The body's physical volume, Σ J V0 from the carried J, stays within −0.9 % … +3.1 % of the target's over the morph.
+  The bunny reads 0.9976–1.0128 (1.0067 at the end); the dragon reads 0.9908–1.0314 (1.0079 at the end).
 - On the occupancy routine shared by all methods, ours is comparable to the baselines: bunny 0.986–1.028, dragon
   0.964–1.075.
 - There is an early transient while the surface is spread (the dragon peaks at 1.075 at τ 0.06–0.10). On the dragon,
@@ -405,13 +444,18 @@ are separate:
 
 **ARAP on genus-0 targets.** Where ARAP applies (bunny, armadillo, homer), it reaches the target's end shape almost at
 the sampling floor: silhouette IoU 0.9874, 0.9849 and 0.9884 against floors of 0.9893, 0.9883 and 0.9916. It also
-keeps one closed surface throughout, as an interpolation of fixed connectivity must. We do not claim a better end
-shape than ARAP on these meshes [TBD: ours against the independent sample on the same three meshes]. What ARAP does not
+keeps one closed surface throughout, as an interpolation of fixed connectivity must. Ours reads 0.9853–0.9886,
+0.9851–0.9870 and 0.9874–0.9890 on the same three meshes (three seeds). ARAP lies inside our seed range on the bunny
+and homer, and just below it on the armadillo. We do not claim a better end shape than ARAP on these meshes, nor than
+Large Steps, which ends the bunny at 0.9869–0.9879. What ARAP does not
 give is a body: no mass, no momentum, no contact, no rest. It also has no route to the other three targets.
 
 ### What we do not claim
 
-- We do not claim the best end shape on every target: on genus-0 meshes ARAP is at the sampling floor.
+- We do not claim the best end shape on every target. On genus-0 meshes, ARAP is at the sampling floor, and render-only
+  Large Steps reaches the bunny inside our seed range in about 20 s. The comparison rests on the intermediate frames
+  (harness, visible pieces, volume, self-intersection), on the genus ≥ 1 targets, and on the physical body, not on
+  genus-0 end shapes.
 - We do not claim better volume preservation on the occupancy measure.
 - We do not claim speed or memory parity with geometric interpolants.
 - The render terms' gains on the particle silhouette are small. Their effect is larger on the surface they read (the
@@ -427,23 +471,25 @@ The claims are:
 
 ## Open [TBD] items in this draft
 
-1. Ours against the independent sample at 300k (silhouette IoU, chamfer; the `gallery_ind` metric) on the six meshes,
-   from B1's L runs. This fills the first two rows of the measured table and the ARAP comparison.
-2. Xu et al., OT: the same independent-sample metric, plus the yardstick and display for every method on all six meshes.
-3. The harness at matched p on the baselines' frames (B5, B6, B11): apart particles, volume, display holes. Ours
-   re-read on B1's L97 / L97-dragon instead of D135's SB / FB.
-4. B12: Large Steps and FlexiCubes from the sphere (the B12 agent). Their end metrics, genus reached, intermediate
-   frames, timings.
-5. INSD, the correspondence-free re-implementation of [Sang et al. 2025] (deferred in D145).
+Status 2026-10-15 (D145): items 1, 9 (memory) and 10 are filled. Item 4 is filled for the bunny. Items 5 and 14 are
+replaced by B14 (the authors' ISD / 4Deform code), B15 (NISE) and B13 (the force-controlled ablation).
+
+1. ~~Ours against the independent sample at 300k on the six meshes~~ (filled: B12 agent's `ours_endcheck.jsonl`).
+2. Xu et al., OT: the same independent-sample metric (`d145_evidence/endgen_1015.jsonl`, queued), plus the yardstick
+   and display for every method on all six meshes.
+3. The harness at matched p on the baselines' frames (B5, B6, B11, B12, B14, B15): apart particles, visible pieces
+   (`visible_apart.py`), volume, display holes. Ours re-read on B1's L97 / L97-dragon instead of D135's SB / FB.
+4. B12 on the other five meshes (the bunny is filled).
+5. B14: ISD and 4Deform (authors' code, matching weight 0, plus a radial-correspondence arm on bunny and dragon). B15:
+   NISE. LF-INSD stays deferred.
 6. Genus and components per frame of ours on the six meshes (same routine as B5's native meshes).
 7. A roughness measure read on both ours and Buonomo et al.'s frames.
 8. A thin-feature comparison against Buonomo et al.'s frames.
-9. The largest GPU memory per mesh from B1's logs on the deliverable code. The timings of B11 (ARAP) and B6 (OT).
-10. The dragon's physical volume (Σ J V0, G97) and the dragon's B1 / B2 seeds.
+9. The timings of B11 (ARAP) and B6 (OT). (Our memory is filled.)
+10. ~~The dragon's physical volume and the dragon's B1 / B2 seeds~~ (filled).
 11. The section reference for the two-body scene's rigid-invariant objective.
-12. Buonomo et al. at seeds 2 and 3 (queued in D145).
+12. Buonomo et al. at seeds 2 and 3 (ran overnight: `results/endcheck.jsonl`, not yet in the table).
 13. The two-body scene's end-error definition in the paper's terms, and whether the TVCG paper [Xu et al. 2025] shows
     contact or external forces (the methods table says only "not in our protocol").
-14. If the coordinator runs it: the force-controlled MPM baseline (same simulator, objective and render terms, control
-    = a force field instead of dFc). It would give the "why stress control, not forces" row: centre-of-mass drift, |L|,
-    end kinetic energy. Optionally NISE from Buonomo et al.'s repository as a second level-set morph.
+14. B13, the force-controlled ablation inside our pipeline (waits for the re-freeze tag).
+15. Whether the re-freeze adopts a drag that scales the whole APIC momentum (the angular-momentum source above).

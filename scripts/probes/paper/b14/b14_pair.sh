@@ -5,7 +5,7 @@
 # rng_seed = shipped + S - 1 (ISD 0, 1, 2; 4Deform 5, 6, 7). Runs as a D145 pool job: the pool claims the card, sets
 # CUDA_VISIBLE_DEVICES and releases the card when this script exits. Training and evaluation (21 meshes at t = k/20,
 # marching cubes 256, every component kept: eval_full.py) on the card; then the conversion to the pipeline frame, the
-# 300k sample and the end check detached on the CPU (b14_convert.sh).
+# 300k sample on the CPU, then the end check on this card and the volume (b14_convert.sh).
 set -u
 NAME=$1; METHOD=$2; CORR=$3; S=$4
 B=/data/relcfd/chayo/physmorph_v2; BL=$B/baselines; W=$B/tmp/d145/b14; R=$BL/b14
@@ -51,5 +51,5 @@ echo "{\"run\": \"$RUN\", \"method\": \"$METHOD\", \"corr\": \"$CORR\", \"seed_i
 say "eval done $te s, $n meshes"
 [ $n -eq 21 ] || { say "FAILED: $n meshes, expected 21"; exit 1; }
 conda deactivate
-setsid nohup bash $W/b14_convert.sh $NAME $TAG $RUN $REPO/$DR > /dev/null 2>&1 < /dev/null &
-exit 0
+bash $W/b14_convert.sh $NAME $TAG $RUN $REPO/$DR     # conversion (CPU), end check on this card (physmorph metrics are GPU-only), volume
+exit $?
