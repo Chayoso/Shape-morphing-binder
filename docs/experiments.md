@@ -6108,7 +6108,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   body's centre falls 3.4 wu (−1.23 to −4.66) and the centres' heights part by 5.8 wu, and a centred still camera that
   cuts nothing must hold that. 1080p and 4K replaced (`300k_s97_{1080p,4k}/s97_*_contactfit.mp4`); to the
   coordinator: a shorter tail (parting + 0.25 s, or contact + 1.5 s, about 0.5 by estimate), the lower bunny leaving
-  the frame at the end, or 0.38 as is.
+  the frame at the end, or 0.38 as is. Accepted as is (the coordinator: it reads as a close-up; the 0.5 target
+  ignored the vertical travel); the rule kept as run, no further renders. Next: on the re-freeze tag, the final scene
+  chain (s97, its twin, s99, the amended cut, the still and contact renders; hyde06 idle cards while hyde01 is down).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
