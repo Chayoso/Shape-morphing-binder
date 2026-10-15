@@ -63,10 +63,11 @@ def parse_args(argv=None):
                     help="read the render terms on the exterior (surface discs) in place of the particle cloud")
     ap.add_argument("--min_spacing", type=float, default=0.9,
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
-    ap.add_argument("--spacing_symmetric", action=argparse.BooleanOptionalAction, default=False,
-                    help="D149 A/B: the minimum spacing's neighbours are the symmetric closure of each particle's 16 "
-                         "nearest at the window start, so every pair's push is equal and opposite (the push keeps the "
-                         "centre of mass); off (the default) = each particle's own 16 nearest, the frozen path")
+    ap.add_argument("--spacing_symmetric", action=argparse.BooleanOptionalAction, default=True,
+                    help="D149 (the re-freeze's default): the minimum spacing's neighbours are the symmetric closure of "
+                         "each particle's 16 nearest at the window start, so every pair's push is equal and opposite (the "
+                         "push keeps the centre of mass); --no-spacing_symmetric = each particle's own 16 nearest, the "
+                         "path of freeze-2026-10-09b")
     ap.add_argument("--exterior_radius", type=float, default=3.0,
                     help="D123 A/B: the exterior field's kernel radius in pitches, its offset in proportion (0.8 at 3); "
                          "3 = D59's field, the code as it was")
@@ -74,17 +75,18 @@ def parse_args(argv=None):
                     help="D140 / D144 A/B: the exterior's field; zb (the default) = Zhu and Bridson's, the code as it was; "
                          "aniso = the anisotropic density field (D140, not adopted); zbs = Zhu and Bridson's with "
                          "Solenthaler et al.'s correction (D144)")
-    ap.add_argument("--relax_driven", action=argparse.BooleanOptionalAction, default=False,
-                    help="D146 A/B: the layer relaxation acts in the T driven steps only, the steps u acts in, so the "
-                         "released half has no position edit; off (the default) = every step of the window, the frozen path")
+    ap.add_argument("--relax_driven", action=argparse.BooleanOptionalAction, default=True,
+                    help="D146 (the re-freeze's default): the layer relaxation acts in the T driven steps only, the steps "
+                         "u acts in, so the released half has no position edit; --no-relax_driven = every step of the "
+                         "window, the path of freeze-2026-10-09b")
     ap.add_argument("--gap_split", default="off", choices=["off", "on", "interface", "soft", "fine", "walls"],
                     help="D148 A/B: the two sides of a target gap on their own grid fields (mpm/gap_kernels.py); on = at "
                          "every gap node (variant A), interface = where the node's particle volume is below one cell "
                          "(variant B); off (the default) = the single field, the frozen path")
-    ap.add_argument("--u_adam_carry", action=argparse.BooleanOptionalAction, default=False,
-                    help="D146b A/B: u's Adam moments carry from one committed window to the next (u still starts at zero; "
-                         "each coordinate's bias correction counts its own age; reset on an outer reject); off (the "
-                         "default) = fresh moments every window, the frozen path")
+    ap.add_argument("--u_adam_carry", action=argparse.BooleanOptionalAction, default=True,
+                    help="D146b (the re-freeze's default): u's Adam moments carry from one committed window to the next "
+                         "(u still starts at zero; each coordinate's bias correction counts its own age; reset on an outer "
+                         "reject); --no-u_adam_carry = fresh moments every window, the path of freeze-2026-10-09b")
     ap.add_argument("--u_off", action="store_true",
                     help="D124 A/B (ablation): the u channel never acts (its gate zero on every particle); all else as is")
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],

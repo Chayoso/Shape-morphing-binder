@@ -68,7 +68,8 @@ the state stays valid.
 A result that raises the merit by more than 5 % is rejected and the state is kept. The run ends at the best state after 3 consecutive rejections, or when the
 merit stops improving for 5 windows.
 
-**The frozen recipe (tag `freeze-2026-10-09b`, which supersedes `freeze-2026-10-09`).** `scripts/pipeline_run.py`'s
+**The frozen recipe (the re-freeze candidate, branch `refreeze-cand`, the user's decision of 2026-10-15: tag
+`freeze-2026-10-09b` plus D146, D146b and D149; the tag is to come).** `scripts/pipeline_run.py`'s
 defaults; `config.py` keeps the code as
 it was before each switch, the reference the tests compare against. Beyond the render terms on the exterior, the
 minimum spacing 0.9 and the layer relaxation keeping the target's relief (D62–D105):
@@ -96,9 +97,20 @@ minimum spacing 0.9 and the layer relaxation keeping the target's relief (D62–
   gate and the thin-set measure on the shape's cell): the gaps open early, but the surface forms features ahead of
   the bulk (the bunny's face and ears printed on the sphere at 0.15–0.6 s, D139). At 300k the shape's cell holds
   about 183 particles; a cell-size comparison is to come.
+- The layer relaxation in the driven half (D146, `--relax_driven`). The relaxation moves the outer layer in the T driven
+  steps only, as `u` does, so the released half has no position edit. Before, it pulled the layer back in every released
+  step, half of the late per-window wobble.
+- `u`'s Adam moments carried (D146b, `--u_adam_carry`). `u`'s first and second moments carry from one committed window
+  to the next, each coordinate's bias correction counting its own age. `u` itself still starts at zero every window.
+  Restarted every window, each window's first step was full-sized, and `u` reversed from one window to the next (the
+  other half of the wobble). With both, the late layer motion falls to about a third.
+- The minimum spacing's pairs symmetric (D149, `--spacing_symmetric`). The push acts on the symmetric closure of each
+  particle's 16 nearest at the window's start, so every pair moves both of its particles, equally and oppositely.
+  Before, a pair listed by one side only and closing inside the window moved one particle. That moved the centre of
+  mass by about 1.1e-4 pitches over a bunny run, four fifths of its drift. Now the push's share is at float rounding.
 
 Each stays a switch back to the old path (`--lambda_ema 0.3`, `--volume_exact off`, `--no-match_density`,
-`--no-assim_volume`, `--no-layer_relief`). Measured and left out, and removed from the code with their switches (D141):
+`--no-assim_volume`, `--no-layer_relief`, `--no-relax_driven`, `--no-u_adam_carry`, `--no-spacing_symmetric`). Measured and left out, and removed from the code with their switches (D141):
 the grid spray gate (D126, D133), the render on the body alone (D127), the other volume modes (`history` D129,
 `motion` D130, `smoothed` D134), the log and ratio support forms, the surface-dense sampling (D122) and the
 coarse-to-fine render switch.
@@ -107,9 +119,13 @@ switches are passed.
 
 **What it conserves.** Stress cannot change total momentum: it enters the grid transfer as `G·(x_i − x_p)`, and the
 B-spline weights satisfy `Σ w_ip (x_i − x_p) = 0`. The Kirchhoff stress is symmetric, so angular momentum is kept too.
-Drag only decays momentum. The layer relaxation and `u` move outer-layer positions without a velocity: 11–22 % of that
-layer's motion, 4 % of the particles. Measured over whole 300k morphs, the centre of mass moves at most 0.02 particle
-spacing.
+The minimum spacing's push is pairwise, equal and opposite, and central (D149), so it moves the centre of mass by
+float rounding only. The layer relaxation and `u` move outer-layer positions without a velocity: 11–22 % of that
+layer's motion, 4 % of the particles. Their displacements are free of the six rigid modes (D94, D98), but they still
+change the angular momentum by Σ m δ × v. The drag damps the particle momentum m v and not APIC's affine part m C, so
+it damps the bulk rotation and leaves local spin. A consistent drag (D150, a switch on branch wip/d149, not adopted) keeps the
+angular momentum but lets the body turn about 7× more from shape change (D99, D150). Measured over whole 300k morphs,
+the centre of mass moves by 3–4e-5 (bunny) and 1.3–1.4e-4 (dragon) pitches, the grid's float32 floor.
 
 **Verification.** The test suite passes on the GPU server. The gradient path and the line-search path agree to
 seven digits, and finite differences agree with autograd within 3 % for every loss term at windows 1 and 20 of a 300k
@@ -134,8 +150,8 @@ fallback. The only CPU work is the prepare stage (mesh loading and volume sampli
 ssh hyde06j
 source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
-# sphere -> bunny, 300k particles. No flags = the frozen recipe (tag freeze-2026-10-09b; exactly D135's configuration,
-# asserted by tests/test_frozen_recipe.py): surface proximity; the loss grid and the render pictures following N; the
+# sphere -> bunny, 300k particles. No flags = the frozen recipe (the re-freeze candidate: D135's configuration with
+# --relax_driven, --u_adam_carry and --spacing_symmetric on, asserted by tests/test_frozen_recipe.py): surface proximity; the loss grid and the render pictures following N; the
 # render terms on the exterior (kernel radius 3) at one resolution; the minimum spacing 0.9; the layer relief; the
 # render weight at the rule's value every window (--lambda_ema 1); the volume carried (--volume_exact carried) and
 # assimilated (--assim_volume); the densities matched (--match_density); the MPM cell from the shape (diagonal / 26;
