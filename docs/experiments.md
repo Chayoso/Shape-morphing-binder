@@ -4813,7 +4813,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   CDT: "B2가 좋은 듯. 일단 이거 고정"): A · B2 · C (5-window mean) · D (5-window mean, `+d_avg=5`, labelled like C) and U;
   the 2 × 2 is A · B2 · C · D; B (the one-run scale) and the unaveraged D are kept as alternatives (`alt/`), the raw
   held set as a supplement (`held/`). Next (no further asking): the bunny 4K (panels at 3840 × 2160, the 2 × 2 from them
-  at 3840 × 2160 with `+gridfull=0`), then the dragon (its own RG97 data run after 19:00) at 1080p, then 4K. Palettes checked with the dataviz validator (each ramp --ordinal PASS; C's red / blue poles CVD
+  at 3840 × 2160 with `+gridfull=0`), then the dragon (its own RG97 data run after 19:00) at 1080p, then 4K.
+  **What "physics" is in A and C (2026-10-15, the user's question on the dragon crevice):** the physics core only
+  (`phys_core`: the released end's geometry, i.e. transport, surface proximity and end drift, and the released motion);
+  the cleanup sweep (spray cleanup and near band) is a separate gradient added after PCGrad and its direction was not
+  dumped, so the panels say so in their small print with the run's per-window cleanup / core ratio on the outer layer.
+  In the dragon crevice (D148's box, windows 18–35) the render's share is 4.6 % (flank 2.0 %, horns 24 %, toes 7.6 %):
+  the crevice is seen in a median 4 of the 18 loss views but sits inside the silhouette (on its edge in 17 % of the
+  seen pairs against 64 % for the horns), and 84–96 % of the render gradient is the silhouette term; the cleanup's
+  pull there is 0.91 of the core's (horns 0.60) (`rgv_crevice.py`, local `render_gradient_viz/crevice_dragon/`).
+  `rgv_patch2.py` (repo_rgv2) adds the cleanup's direction and the exact non-render pull (Σ_t ‖core + cleanup‖) to the
+  dump, for the post-refreeze redo, which counts every non-render term in A and C. Palettes checked with the dataviz validator (each ramp --ordinal PASS; C's red / blue poles CVD
   ΔE 25.9; B violet against A orange, a yellow–brown B failed at ΔE 7.7). Rendering influence (the standing block): λ is
   set every window so that |λ ∇L_render| = ½ |∇L_phys| over all controls (1/3 of the first gradient's norm); per
   particle the render's share is 10–25 % on the layer (ears, face, feet, tail up to 30–46 %, p90); the counterfactual

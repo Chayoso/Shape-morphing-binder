@@ -14,6 +14,10 @@ the per-particle records the renderer (scripts/render_gradient_viz.py) colours t
   dfc0n   |dF_c(lambda = 0)|, the Frobenius norm of the lambda = 0 control's mean over the driven steps     (W, N)
   cosrp   the cosine per particle between the render and the physics gradients on dF_c (before PCGrad; their
           time means over the steps as 9-vectors, the dump's gl_*_tmean)                               (W, N)
+The physics' pull (g_phys, cosrp) is the physics core (phys_core: the released end's geometry, i.e. transport, surface
+proximity and end drift, and the released motion) on the dumps of rgv_patch.py, and every non-render term (the core
+and the cleanup sweep: spray cleanup and near band) on those of rgv_patch2.py (physics_def "core" / "all");
+w_cleanup_core_layer records the cleanup sweep's pull against the core's on the outer layer.
   dx      |x_end(render on) - x_end(lambda = 0)| in pitches                                              (W, N)
 win_of_frame maps each kept frame to the window whose rollout holds it (frame 0, the source, to the first). The
 colour scales are fixed for the whole run (scales, JSON): v1 three decades below the 99.5th percentile of both
@@ -53,7 +57,8 @@ dx = np.zeros((W, N), np.float32)
 scal = {k: np.zeros(W) for k in ("w_anim", "w_lam", "w_gshare", "w_t0", "w_t1", "w_ratio_layer", "w_ddfc_rel_layer",
                                  "w_du_rms_layer", "w_u0_rms_layer", "w_gphys_p99_layer", "w_dfc0_p99_layer",
                                  "w_layer_frac", "w_uactive_frac", "w_du_rms_active", "w_u0_rms_active",
-                                 "w_graw_cos", "w_tot_rend", "w_tot_phys")}
+                                 "w_graw_cos", "w_tot_rend", "w_tot_phys", "w_cleanup_core_layer")}
+PHYS_DEF = "core"                     # the physics' pull: the core alone, or "all" non-render terms (rgv_patch2)
 rows = []
 fe_prev = 0
 for w, (a, fe) in enumerate(committed):
@@ -61,10 +66,18 @@ for w, (a, fe) in enumerate(committed):
     c = np.load(os.path.join(cf_dir, f"cf_{a:04d}.npz"), allow_pickle=True)
     lam = float(d["lam_r"])
     gr = d["gl_rend_pc_psum"] if "gl_rend_pc_psum" in d.files else d["gl_rend_psum"]
-    g_rend[w], g_phys[w] = lam * gr, d["gl_phys_psum"]
+    if "gl_nonrend_psum" in d.files:      # RGV v2 dumps: the core and the cleanup together, exactly
+        PHYS_DEF = "all"
+        g_rend[w], g_phys[w] = lam * gr, d["gl_nonrend_psum"]
+    else:
+        g_rend[w], g_phys[w] = lam * gr, d["gl_phys_psum"]
     gu_rend[w] = lam * np.abs(d["gu_rend_pc"] if "gu_rend_pc" in d.files else d["gu_rend"])
     lay = d["layer_mask"] > 0.5
-    tr, tp = d["gl_rend_tmean"].astype(np.float64), d["gl_phys_tmean"].astype(np.float64)   # (N, 9), before PCGrad
+    tr = d["gl_rend_tmean"].astype(np.float64)                                    # (N, 9), before PCGrad
+    tp = d["gl_nonrend_tmean" if PHYS_DEF == "all" else "gl_phys_tmean"].astype(np.float64)
+    if "gl_dt_psum" in d.files:           # the cleanup sweep's pull against the core's on the layer (a record)
+        scal["w_cleanup_core_layer"][w] = float(np.median(d["gl_dt_psum"][d["layer_mask"] > 0.5]
+                                                          / np.maximum(d["gl_phys_psum"][d["layer_mask"] > 0.5], 1e-300)))
     cosrp[w] = (tr * tp).sum(1) / np.maximum(np.linalg.norm(tr, axis=1) * np.linalg.norm(tp, axis=1), 1e-300)
     scal["w_graw_cos"][w] = raw_cos[w] if raw_cos[w] is not None else np.nan
     scal["w_tot_rend"][w], scal["w_tot_phys"][w] = float(g_rend[w].sum()), float(g_phys[w].sum())
@@ -146,7 +159,7 @@ scales = dict(v1_lo=v1_hi * 1e-3, v1_hi=v1_hi, v2_lo=v2_hi * 1e-3, v2_hi=v2_hi, 
 print("scales", scales, flush=True)
 np.savez(out, frames=frames, raws=raws, tgt=z["tgt"], deliver_n=z["deliver_n"], pitch=np.float64(pitch),
          win_of_frame=win_of, g_rend=g_rend, g_phys=g_phys, gu_rend=gu_rend, layer=layer, ddfc=ddfc, du=du, dx=dx,
-         ugate=ugate, dfc0n=dfc0n, cosrp=cosrp, scales=np.str_(json.dumps(scales)), **scal)
+         ugate=ugate, dfc0n=dfc0n, cosrp=cosrp, physics_def=np.str_(PHYS_DEF), scales=np.str_(json.dumps(scales)), **scal)
 json.dump({"pitch": pitch, "scales": scales, "windows": rows,
            "kept_frames_per_window": np.bincount(win_of, minlength=W).tolist()}, open(num_out, "w"), indent=1)
 print("wrote", out, num_out, flush=True)

@@ -264,6 +264,9 @@ def main(argv=None):
     win_of = np.asarray(z["win_of_frame"]).astype(int)
     S = {k: np.asarray(z[k], np.float64) for k in ("w_lam", "w_t0", "w_t1", "w_layer_frac", "w_uactive_frac",
                                                    "w_graw_cos", "w_tot_rend", "w_tot_phys")}
+    CLEAN = (np.asarray(z["w_cleanup_core_layer"], np.float64) if "w_cleanup_core_layer" in z.files
+             else np.full(len(S["w_lam"]), np.nan))
+    PHYS_ALL = "physics_def" in z.files and str(z["physics_def"]) == "all"
     sc = json.loads(str(z["scales"]))
     n_win = len(S["w_lam"])
     centres = 120.0 * (S["w_t0"] + S["w_t1"])                  # each window's centre in simulated frames (240 / s)
@@ -394,7 +397,8 @@ def main(argv=None):
         dr.line([(X(t_now), y0), (X(t_now), y0 + h)], fill=WHITE, width=max(1, int(2 * sz)))
         dr.text((x0, y0 - f.size - 6 * sz), "total pull over the morph (log scale)", font=f, fill=INK)
         dr.text((x0 + w + 8 * sz, Y(lr[-1]) - f.size / 2), "render", font=f, fill=(240, 147, 79))
-        dr.text((x0 + w + 8 * sz, Y(lp[-1]) - f.size / 2), "physics", font=f, fill=(190, 196, 204))
+        dr.text((x0 + w + 8 * sz, Y(lp[-1]) - f.size / 2), "physics" if PHYS_ALL else "physics core", font=f,
+                fill=(190, 196, 204))
         for tk in range(0, int(t_end) + 1, 2):
             dr.text((X(tk) - 4 * sz, y0 + h + 3 * sz), f"{tk}", font=f, fill=INK2)
         dr.text((x0 + w - 10 * sz, y0 + h + 3 * sz), "s", font=f, fill=INK2)
@@ -443,6 +447,16 @@ def main(argv=None):
             taken.append((cxy[0], cxy[1]))
             arrow(do, e1[q].cpu().numpy(), e2[q].cpu().numpy(), float(sg_[q]), sz, alpha=int(255 * float(alpha[q])))
         return Image.alpha_composite(img.convert("RGBA"), over).convert("RGB")
+
+    def phys_note(w):
+        """What "physics" means in A and C: every non-render term (rgv_patch2 dumps), or the core alone."""
+        if PHYS_ALL:
+            return ("physics = all non-render terms: the core (transport, surface proximity, end drift; released "
+                    "motion) and the cleanup (spray cleanup, near band)")
+        r = CLEAN[w]
+        return ("physics = the physics core (transport, surface proximity, end drift; released motion); the cleanup "
+                "terms (spray cleanup, near band) act separately, the spray cleanup mainly on detached particles"
+                + (f"; on the outer layer now their pull is {r:.2f} of the core's" if np.isfinite(r) else ""))
 
     grey = torch.tensor(GREY, device=dev, dtype=torch.float32)
     keep = list(range(0, len(raws), STRIDE)) + ([len(raws) - 1] if (len(raws) - 1) % STRIDE else [])
@@ -526,6 +540,7 @@ def main(argv=None):
                                    "the render's share of the pull on this particle's control", f_s)
                         small = ["share = |λ g_render| / (|λ g_render| + |g_phys|), g = ∂L/∂dFᴄ of the window's first "
                                  "gradient summed over its 20 driven steps (the render's after PCGrad, times λ)"] + small
+                        small = [phys_note(wn)] + small
                     elif kd == "B":
                         title = "How strong is the render's pull?"
                         colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_B,
@@ -561,6 +576,7 @@ def main(argv=None):
                                  "PCGrad acts on all controls at once: it removes the conflicting part of the render "
                                  "gradient only in windows where the two disagree overall (this window: "
                                  f"{'yes' if pcg < 0 else 'no'})"] + small
+                        small = [phys_note(wn)] + small
                         if C_AVG > 1:
                             small = [f"the cosine is a running mean over {C_AVG} windows ({C_AVG / 6:.2f} s): per particle it changes "
                                      f"much from one window to the next"] + small
