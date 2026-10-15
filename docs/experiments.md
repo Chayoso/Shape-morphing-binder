@@ -6292,6 +6292,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - SP's end kin is above CDP's, but its median over the last ten windows is 9.7e-6 against 1.10e-5.
     - The render lead holds: yardstick −57 %, display −25 %.
   - (iv) passes.
+  **Adopted (the user's decision, 2026-10-15 ~13:40 CDT, relayed by the coordinator).** The freeze will be D135 +
+  D146b + D149, plus the floating-Gaussian fix if it passes by 10-18; the tag comes on 10-18. The candidate is branch
+  `refreeze-cand` (2ba7e6d, untagged).
+  - It is refreeze-prep (2b0cafc) with D149's code, and with `--relax_driven`, `--u_adam_carry` and
+    `--spacing_symmetric` on by default; each keeps its `--no-` form, 09b's path.
+  - `tests/test_frozen_recipe.py` asserts the configuration, and that the three `--no-` forms are D135's.
+  - `tests/test_refreeze_reference.py` pins:
+    - the window case with the re-freeze's rollout switches, bit for bit on the CPU (`tests/data/refreeze_ref.npz`);
+    - the digest of a deterministic-mode pipeline run with the re-freeze's run-stage switches
+      (`tests/data/refreeze_pipeline_ref.json`, `tests/refreeze_runs.py`).
+  - The full suite on hyde06 (GPU 1, 13:43–13:47 CDT): 412 passed, 2 skipped, exit 0 at the first run.
+  - B13's baseline mode rebases onto it and merges itself when its tests are green.
 - **D150, the drag damps APIC's whole momentum (`--drag_affine`; opened 2026-10-15 12:00 CDT by the coordinator from
   D145's reading of bob / homer: the grid step carries 95 % of the angular momentum's flow, and the render arm carries
   more of it; pre-check pre-registered 2026-10-15 12:20 CDT, before its runs; branch `wip/d149`).**
