@@ -4868,7 +4868,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   random points) is off: 3D supervision, not rendering. Frames are extracted with training = False (the example's output).
   *Trajectory.* The iterates are the trajectory. 21 frames at matched progress of the method's own image loss, q =
   (L_0 − L_k) / (L_0 − L_end) over the candidate iterates (Large Steps: each phase-1 iteration boundary and each phase-2
-  step; FlexiCubes: each iteration): frame j < 20 the first iterate with q ≥ j / 20, frame 20 the delivered end; the
+  step, amended below; FlexiCubes: each iteration): frame j < 20 the first iterate with q ≥ j / 20, frame 20 the delivered end; the
   iterate index is the frame's raw time (τ = k / K). Each frame sampled at 300k by the pipeline's
   `sample_volume_stratified` (seed 97) in the pipeline frame into the archive format (`*_frames12.npz` with the run's own
   target sample), `output/gpu/d145_b12/`; labels LSa97 … FCb101.
@@ -4896,6 +4896,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Reading.* Per mesh and arm, min–max over the three view-set seeds, beside our three-seed ranges as D145's other
   baselines. A crashed run is re-run once; nothing is re-run for an unfavourable result; no parameter changes after the
   first measured run.
+  *B12 amendment, the readout only (recorded 2026-10-15 12:20 CDT, after the bunny's first batch of 12:07–12:15 and
+  before any other mesh's run; the optimisation and every parameter unchanged).* (1) Large Steps' candidate iterates are
+  every optimiser step of both phases, the full multi-view loss evaluated on each: the first phase-1 iteration's 18 / 25
+  per-view steps carried the loss progress from 0 to 0.31–0.37, so the registered rule (iteration boundaries) gave six
+  copies of one iterate as frames 1–6 and no frame near p = 0.25. (2) The per-iterate recording (the full render of each
+  candidate, the copy to the host; both methods) is timed apart: the reported wall is the optimisation's net time. (3) The
+  bunny's 12 runs are re-run after the other five meshes for (1) and (2), all twelve whatever their result; the first
+  batch stays in `results/` as superseded and its end numbers are a replicate (end IoU, chamfer, genus, watertightness
+  and self-intersection do not depend on the frame choice).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from

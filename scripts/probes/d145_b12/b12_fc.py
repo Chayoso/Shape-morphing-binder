@@ -112,7 +112,12 @@ def image_terms(v, f):
 Ls, cand, store, topo_curve, loss_curve = [], [], [], [], []
 
 
+T_REC = [0.0]
+
+
 def record(it):
+    torch.cuda.synchronize()
+    t_r = time.time()
     with torch.no_grad():
         v, f, _ = extract(False)
         if f.shape[0] == 0:
@@ -126,6 +131,7 @@ def record(it):
     store.append((vn, fn))
     if it % 10 == 0:
         topo_curve.append(dict(it=it, **topo_np(vn, fn)))
+    T_REC[0] += time.time() - t_r
 
 
 torch.cuda.synchronize()
@@ -171,7 +177,8 @@ res = dict(method="flexicubes", mesh=args.mesh, arm=args.arm, seed=args.seed, vi
                        views_per_iteration="all of the arm"),
            loss_start=Ls[0], loss_end=Ls[-1], loss_min=float(np.nanmin(Ls)), converged_drop_last100=conv,
            frames=dict(iterates=iters, q=q, topology=topo_frames), topology_every10=topo_curve,
-           wall=dict(optimisation=wall_opt, total=time.time() - t_all),
+           wall=dict(optimisation=wall_opt, recording=T_REC[0], optimisation_net=wall_opt - T_REC[0],
+                     total=time.time() - t_all),
            gpu_peak_gb=torch.cuda.max_memory_allocated() / 2 ** 30, smoke=bool(args.smoke))
 save_json(f"{out}/run.json", res)
 print(f"[{tag}] {ITERS} iterations, image loss {Ls[0]:.4e} -> {Ls[-1]:.4e}, last-100 drop {conv}, sphere reach "

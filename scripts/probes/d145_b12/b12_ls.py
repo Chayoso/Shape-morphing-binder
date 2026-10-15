@@ -84,12 +84,18 @@ verts_store = []
 step_losses = []
 
 
+T_REC = [0.0]
+
+
 def record(k, v, f_idx, ph):
+    torch.cuda.synchronize()
+    t_r = time.time()
     cand.append(k)
     Ls.append(full_loss(v, f))
     phase.append(ph)
     verts_store.append(v.detach().cpu().numpy().astype(np.float32))
     mesh_of.append(f_idx)
+    T_REC[0] += time.time() - t_r
 
 
 torch.cuda.synchronize()
@@ -109,10 +115,12 @@ for it in range(P1):
         loss.backward()
         opt.step()
         k += 1
-        step_losses.append((k, 1, vi, float(loss)))
-    with torch.no_grad():
-        v = from_differential(M, u, "Cholesky")
-    record(k, v, 0, 1)
+        step_losses.append((k, 1, vi, float(loss.detach())))
+        # every optimiser step is a candidate iterate (amended 2026-10-15 12:20 CDT: the first iteration's 18 / 25
+        # per-view steps carry the loss progress from 0 to about 0.35, so boundaries alone left no frame near p = 0.25)
+        with torch.no_grad():
+            v = from_differential(M, u, "Cholesky")
+        record(k, v, 0, 1)
 torch.cuda.synchronize()
 t_p1 = time.time() - t0
 
@@ -189,9 +197,10 @@ res = dict(method="large_steps", mesh=args.mesh, arm=args.arm, seed=args.seed, v
                        extension=dict(rule=f"+100 while the phase-2 loss fell > {EXT_TOL:.0%} over the last "
                                            f"{EXT_WIN} iterations, up to {P2_MAX}", log=ext_log)),
            steps_total=k, loss_start=Ls[0], loss_end=Ls[-1], loss_min=float(np.min(Ls)),
-           loss_after_phase1=Ls[P1] if len(Ls) > P1 else None, converged_drop_last20=conv,
+           loss_after_phase1=Ls[P1 * V] if len(Ls) > P1 * V else None, converged_drop_last20=conv,
            frames=dict(iterates=iters, q=q, topology=topo_frames),
-           wall=dict(phase1=t_p1, remesh=t_remesh, phase2=t_p2, optimisation=wall_opt, total=time.time() - t_all),
+           wall=dict(phase1=t_p1, remesh=t_remesh, phase2=t_p2, optimisation=wall_opt, recording=T_REC[0],
+                     optimisation_net=wall_opt - T_REC[0], total=time.time() - t_all),
            gpu_peak_gb=torch.cuda.max_memory_allocated() / 2 ** 30, smoke=bool(args.smoke))
 save_json(f"{out}/run.json", res)
 print(f"[{tag}] steps {k} (phase 2 {it2}), loss {Ls[0]:.4e} -> {Ls[-1]:.4e} (after phase 1 {res['loss_after_phase1']}), "
