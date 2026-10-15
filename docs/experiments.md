@@ -4820,6 +4820,82 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   moves the layer's control by 54 % (window 1) → 9 % (windows 11–20) → 20–25 % (later) of its size and u by 50–72 %, and
   the window's silhouette term is 50–79 % lower late in the run; iterations equal in 70 of 71 windows. 4K and the dragon
   wait for the user.
+  **B12 render-only baselines (Large Steps, FlexiCubes): "why physics, why not inverse-render from a sphere?"
+  (pre-registered 2026-10-15 11:52 CDT server clock, before any measured run; the B12 agent on the coordinator's brief;
+  a should-have block that changes nothing of ours. Not the ISD / 4Deform block, which D145 renamed B14.)** Two
+  published render-only shape optimisers, each run from the source sphere with the authors' code and supervised only by
+  rendered images of the target mesh, read through the same harness as B5, B6, B11 and B4.
+  *Code and environment.* Large Steps in Inverse Rendering of Geometry (Nicolet, Jacobson & Jakob, TOG 40(6) 248, 2021):
+  the authors' `largesteps` package 0.2.2 (BSD-3; M = I + λL, cholespy's Cholesky solver, AdamUniform) and their
+  repository's normals (rgl-epfl/large-steps-pytorch 1d72dc4, `scripts/geometry.py`); the Botsch–Kobbelt remesher through
+  gpytoolbox 0.3.8 `remesh_botsch` (the remesher of the authors' Mitsuba 3 tutorial, the same code as the repository's
+  submodule). FlexiCubes (Shen et al., TOG 42(4) 37, 2023): the paper's `flexicubes.py` (nv-tlabs/FlexiCubes 4cc7d6c,
+  Apache 2.0) driven as its `examples/optimize.py`. Both rasterise with nvdiffrast 0.4.0 (NVlabs 253ac4f, the CUDA
+  rasterizer). The PyTorch route rather than Mitsuba 3's `mi.ad.LargeSteps`: the matched arm needs the pipeline's
+  orthographic views and image model, which nvdiffrast takes directly (Mitsuba would path-trace an environment map).
+  Own conda env by prefix (`baselines/b12/env`: python 3.10, torch 2.8.0+cu128, nvdiffrast built with CUDA 12.8);
+  hyde06's tailscale resolver failed during the installs, so their name lookups went through a fallback to 8.8.8.8
+  (`dnsfix/sitecustomize.py`, installs only). Code: `scripts/probes/d145_b12/`.
+  *Targets and source.* The six meshes as B5 exported them in the pipeline frame (the teapot's outer body; the bunny's
+  five base holes fan-filled as B11). Source: B11's sphere (the centre of the seed-97 source sample, the radius of the
+  ball with the volume of B5's exported isosphere).
+  *Image model (both methods, both arms).* The pipeline's render loss's model drawn on the true surface: per pixel
+  (shade × α, α), shade = 0.25 + 0.75 max(n · d, 0) with d toward the camera, background 0; rasterised, interpolated and
+  antialiased by nvdiffrast (the silhouette's gradient), as both authors' renderers do. The target images are drawn from
+  the target mesh by the same operator.
+  *Arms.* (a) matched: the views and resolution of our render loss at 300k: `render_loss.make_views`, 6 azimuths ×
+  elevations 0, ±0.5 rad = 18 orthographic views; 188 px = 96 × (300k / 40k)^(1/3) (`pipeline_run.py`); half-extent
+  1.25 × the target sample's largest |coordinate| (`target.py`); checked against the L97 logs (bunny pixel 0.0520 wu).
+  The brief said eight views: the pipeline has 18, and the eight are the target samples each of its pictures averages.
+  (b) strong: 25 orthographic views on the Mitsuba tutorial's Fibonacci lattice at 512 px, the count and resolution of
+  the paper's Nefertiti. View-set seeds 97 / 99 / 101 per arm: 97 the rig as stated, 99 and 101 the whole rig rotated by
+  `scipy Rotation.random(random_state=seed)`. 6 meshes × 2 methods × 2 arms × 3 seeds = 72 runs.
+  *Large Steps schedule (the authors' Mitsuba 3 "Shape optimization" tutorial, in the PyTorch package).* A 10k
+  icosphere (subdivision 5, 10,242 vertices) on the source sphere; λ = 25, AdamUniform lr 0.1, L1 image loss,
+  nvdiffrast's gradient boost 3 (the authors' PyTorch scripts); phase 1: 100 iterations of one step per view in view
+  order (18 or 25 steps an iteration, the tutorial's first loop); remesh to half the mean edge length (5 iterations,
+  projected); a new parameterisation and optimiser at lr 0.1; phase 2: 100 iterations of one step on all views (the
+  tutorial's second loop). Extension rule, set now: while the full image loss fell by more than 2 % over the last 20
+  phase-2 iterations, 100 more, at most 500 phase-2 iterations. Nothing else is tuned.
+  *FlexiCubes schedule (`examples/optimize.py`'s defaults).* 64³ grid scaled × 2 over the target normalised to its box
+  (largest extent 1.8, `util.load_mesh`), Adam lr 0.01 on (sdf, weight, deform), LambdaLR 10^(−0.0002 it), the SDF
+  regulariser 0.2 → 0.01 over the first quarter, L_dev × 0.5, |weight| × 0.1, 1250 iterations (the README's longer
+  example), every view of the arm in each iteration (the example draws eight random views). Three stated changes: (1)
+  the start is the sphere's signed distance |x − c| − r (negative inside, as FlexiCubes reads it), not the random field;
+  (2) the image terms are the example's mask L1 on the antialiased silhouette plus its depth term's form,
+  ((((s − s_t) α_t)² + 1e-8)^½).mean() × 10, applied to the headlight shading in place of depth: no depth and no normals,
+  so it sees what Large Steps and our render loss see; (3) the example's 3D SDF loss (ground-truth signed distances at
+  random points) is off: 3D supervision, not rendering. Frames are extracted with training = False (the example's output).
+  *Trajectory.* The iterates are the trajectory. 21 frames at matched progress of the method's own image loss, q =
+  (L_0 − L_k) / (L_0 − L_end) over the candidate iterates (Large Steps: each phase-1 iteration boundary and each phase-2
+  step; FlexiCubes: each iteration): frame j < 20 the first iterate with q ≥ j / 20, frame 20 the delivered end; the
+  iterate index is the frame's raw time (τ = k / K). Each frame sampled at 300k by the pipeline's
+  `sample_volume_stratified` (seed 97) in the pipeline frame into the archive format (`*_frames12.npz` with the run's own
+  target sample), `output/gpu/d145_b12/`; labels LSa97 … FCb101.
+  *Readout (the code of B11 / B5 / B6, unchanged).* End: silhouette IoU and chamfer against the independent sample
+  (`d90/*_ind300k.npz`) and against the run's own sample, with the floor (own against independent), by B11's
+  `b11_endcheck.py`. Volume over time: D145's one routine (`tmp/d145/vol145.py`). Per frame mesh: closedness, Euler
+  characteristic, components and the genus of each closed component (B11's `b11_common`), trimesh watertightness,
+  self-intersecting face pairs (libigl's copyleft CGAL, detect only, as B11), the enclosed volume against the target
+  mesh's; FlexiCubes' topology also every 10 iterations. D145's harness (`harness.py`: progress p, apart particles,
+  occupied volume at p = 0.25 / 0.5 / 0.75 and the end) on seed 97 of each arm. Wall per run: the optimisation's own time
+  on one RTX 6000 Ada with nothing else on the card (the readout reported apart). The frames go to the D145 agent for any
+  further end reading (yardstick, display). Cards: one at a time, claimed only after 10 idle unlocked minutes, released
+  between meshes; about 2–3 card-hours with the harness.
+  *Predictions (to be measured).* Large Steps: bunny, armadilo and homer reach a smooth genus-0 end, silhouette IoU
+  against the independent sample 0.980–0.988 in arm (b) and 0.970–0.985 in arm (a) (18 views at 188 px leave concavities
+  and the relief under-determined); dragon (genus 15), teapot and bob (genus 1) stay genus 0 in every frame, the handle,
+  the ring and the dragon's loops filled by a membrane or left as a dent (IoU 0.95–0.97 teapot and dragon, 0.90–0.95
+  bob): the paper's own limitation, no change of topology from the start (its Bob starts from a torus; also Gao et al.,
+  3DV 2026, arXiv 2511.18680). Self-intersecting frames where thin parts swing in (dragon, armadilo). Volume over the
+  frames non-monotone, its range wider than ours (nothing in an image loss holds volume). FlexiCubes: can change
+  topology; with silhouette and shading only it opens the teapot's handle and bob's hole in arm (b), not all the dragon's
+  loops at 64³ (cell ≈ 2.8 % of the box); intermediate frames with several components and floaters; end IoU below Large
+  Steps' on the genus-0 meshes (64³ cannot hold the relief). Both: minutes a run, faster than ours, and no physics: no
+  mass, no momentum, intermediate frames that are optimiser iterates rather than a motion.
+  *Reading.* Per mesh and arm, min–max over the three view-set seeds, beside our three-seed ranges as D145's other
+  baselines. A crashed run is re-run once; nothing is re-run for an unfavourable result; no parameter changes after the
+  first measured run.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
