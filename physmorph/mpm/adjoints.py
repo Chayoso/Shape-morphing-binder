@@ -355,6 +355,26 @@ def k_layer_project_adj(mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3
 
 
 @wp.kernel(enable_backward=False)
+def k_layer_project_take_adj(mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3), rn: wp.array(dtype=wp.vec3),
+                             frac_u: float, ug: wp.array(dtype=float), take: wp.array(dtype=float), has_adj_u: int,
+                             adj_x_out: wp.array(dtype=wp.vec3), adj_x_in: wp.array(dtype=wp.vec3),
+                             adj_s: wp.array(dtype=float), adj_u: wp.array(dtype=float), bins: wp.array(dtype=wp.vec3)):
+    """k_layer_project_adj for kernels.k_layer_project_take (D151): the step's adjoints carry the constant take[p]."""
+    p = wp.tid()
+    a = adj_x_out[p]
+    adj_x_in[p] = adj_x_in[p] + a
+    if mask[p] < 0.5:
+        return
+    q = take[p] * wp.dot(a, nrm[p])
+    adj_s[p] = adj_s[p] + q
+    if has_adj_u != 0:
+        adj_u[p] = adj_u[p] + frac_u * ug[p] * q
+    k = p % _NBINS
+    wp.atomic_add(bins, 2 * k, q * nrm[p])
+    wp.atomic_add(bins, 2 * k + 1, q * rn[p])
+
+
+@wp.kernel(enable_backward=False)
 def k_layer_project_adj_b(bins: wp.array(dtype=wp.vec3), M11: wp.mat33, M12: wp.mat33, M21: wp.mat33, M22: wp.mat33,
                           adj_b: wp.array(dtype=wp.vec3)):
     """The bins' sums, _BSUM threads of _NBINS / _BSUM bins each: b's adjoint, -(M11^T Sn + M21^T Sr) and
@@ -395,8 +415,9 @@ def record_update(tape, tr, t: int, x_next, F_next, bnb, brest, bnc, bK: int, sn
     tape.record_func(backward=backward, arrays=[x, x_next, v1, F, Fn, F_next])
 
 
-def record_layer_project(tape, tr, t: int, layer_u, N: int):
-    """Record kernels.k_layer_project's adjoint for step t of Trajectory `tr` on `tape`."""
+def record_layer_project(tape, tr, t: int, layer_u, N: int, take=None):
+    """Record kernels.k_layer_project's adjoint for step t of Trajectory `tr` on `tape` (with take: the adjoint of
+    kernels.k_layer_project_take, D151)."""
     dev = tr.device
     xu, s, b, xo = tr.xu[t + 1], tr.ls[t + 1], tr.lb[t + 1], tr._x_out(t)
     if getattr(tr, "_proj_bins", None) is None:
@@ -407,9 +428,14 @@ def record_layer_project(tape, tr, t: int, layer_u, N: int):
 
     def backward():
         bins.zero_()
-        wp.launch(k_layer_project_adj, dim=N, inputs=[tr.layer_mask, tr.layer_nrm, tr.layer_rn, tr.layer_frac_u,
-                                                      tr.layer_ug, int(has_u), xo.grad, xu.grad, s.grad, a_u, bins],
-                  device=dev)
+        if take is None:
+            wp.launch(k_layer_project_adj, dim=N, inputs=[tr.layer_mask, tr.layer_nrm, tr.layer_rn, tr.layer_frac_u,
+                                                          tr.layer_ug, int(has_u), xo.grad, xu.grad, s.grad, a_u, bins],
+                      device=dev)
+        else:
+            wp.launch(k_layer_project_take_adj, dim=N, inputs=[tr.layer_mask, tr.layer_nrm, tr.layer_rn,
+                                                               tr.layer_frac_u, tr.layer_ug, take, int(has_u), xo.grad,
+                                                               xu.grad, s.grad, a_u, bins], device=dev)
         wp.launch(k_layer_project_adj_b, dim=_BSUM, inputs=[bins, *tr.layer_M, b.grad], device=dev)
 
     tape.record_func(backward=backward, arrays=[a for a in (xu, s, b, xo, layer_u) if a.grad is not None])

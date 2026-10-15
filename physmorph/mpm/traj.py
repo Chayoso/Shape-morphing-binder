@@ -210,6 +210,7 @@ class Trajectory:
         # nrm (N,3), nbr (N,K), w (N,K), frac[, ug[, ref]]) frozen for this rollout.
         # k_update writes the advected positions into xu[t+1]; the projection writes x[t+1].
         self.layer = None
+        self.layer_link = 0.0                  # D151 (layer_link): off unless the layer tuple gives a berth
         if layer is not None:
             lmask, lnrm, lnbr, lw, lfrac = layer[:5]
             # optional per-particle gate on u (1 where u may act)
@@ -230,6 +231,17 @@ class Trajectory:
             self.relax_steps = T if lsteps is None else int(lsteps)
             if not 0 <= self.relax_steps <= T:
                 raise ValueError("the relaxation's steps must lie between 0 and T")
+            # optional (D151, layer_link): the berth (world units) within which the layer's step keeps a particle's
+            # nearest frozen neighbour of the minimum spacing's list (kernels.k_layer_link_take); None = every step
+            # taken (the frozen path, k_layer_project)
+            llink = layer[8] if len(layer) > 8 else None
+            self.layer_link = 0.0 if llink is None else float(llink)
+            if self.layer_link < 0.0 or not np.isfinite(self.layer_link):
+                raise ValueError("the layer link's berth must be finite and positive")
+            if self.layer_link > 0.0:
+                if self.space_K == 0:
+                    raise ValueError("the layer link reads the minimum spacing's frozen neighbours: it needs spacing")
+                self.ltake = scratch(lambda: Z(wp.float32), T + 1)        # the step's decision per particle and step
             # the six rigid modes of the layer's normal displacements, n and r x n (r about the starting centre of
             # mass), and the inverse of their Gram matrix in 3x3 blocks: the relaxation loses its part along them
             # (k_layer_project, D98)
@@ -375,11 +387,23 @@ class Trajectory:
                       self.layer_nbr, self.layer_w, self.layer_K,
                       self.layer_frac if t < self.relax_steps else 0.0, self.layer_ref,
                       self.ls[t + 1], self.lb[t + 1]], device=dev)
-            wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
-                      self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,
-                      self._x_out(t)], device=dev, record_tape=tape is None)
-            if tape is not None:
-                ADJ.record_layer_project(tape, self, t, layer_u, N)
+            if self.layer_link > 0.0:                 # D151: the step taken where it keeps the nearest within the berth
+                take = self.ltake[t + 1]
+                wp.launch(K.k_layer_link_take, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1],
+                          self.layer_mask, self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u,
+                          self.layer_ug, self.space_nbr, self.space_K, self.layer_link, take], device=dev,
+                          record_tape=False)
+                wp.launch(K.k_layer_project_take, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1],
+                          self.layer_mask, self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u,
+                          self.layer_ug, take, self._x_out(t)], device=dev, record_tape=tape is None)
+                if tape is not None:
+                    ADJ.record_layer_project(tape, self, t, layer_u, N, take=take)
+            else:
+                wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1],
+                          self.layer_mask, self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u,
+                          self.layer_ug, self._x_out(t)], device=dev, record_tape=tape is None)
+                if tape is not None:
+                    ADJ.record_layer_project(tape, self, t, layer_u, N)
         self._after_positions(t)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],

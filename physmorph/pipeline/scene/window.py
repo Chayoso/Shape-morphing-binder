@@ -105,6 +105,9 @@ class SceneWindow:
                 ref = None if body.tgt.relief is None else body.tgt.relief.at(y0, lmask, lnrm @ R0, lnbr, lw)
             layer = (lmask, lnrm, lnbr, lw, 1.0 / float(cfg.T), None, ref,     # as window/setup.Window's, D146 too
                      cfg.T if cfg.relax_driven else None)
+            if cfg.layer_link:                   # D151 as setup.Window's, the body's own berth (its objective's)
+                bcfg = body.cfg if body.cfg is not None else cfg
+                layer = layer + (float(bcfg.nn_berth_k) * float(body.tgt.nn_spacing),)
             spacing = None
             if cfg.min_spacing > 0:
                 rr = cfg.min_spacing * float(torch.as_tensor(vol0[r]).mean()) ** (1.0 / 3.0)

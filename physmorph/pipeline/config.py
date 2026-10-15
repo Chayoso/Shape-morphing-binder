@@ -149,6 +149,10 @@ class PipelineConfig:
                                     #   points from the loss grid's plan; "walls" (D148c) one wall per particle and gap
                                     #   region, persistent, with B's gate (mpm/gap_walls.py); "off" = the single field
     gap_vp: float = 0.0             # variant B: the volume per particle (the sample's fill volume / N), set by the run script
+    layer_link: bool = False        # D151 A/B: the layer's step (u and the relaxation) is taken only while it keeps the
+                                    #   particle's nearest frozen neighbour (the minimum spacing's list) within max(berth,
+                                    #   its distance before the step), the berth the near band's (nn_berth_k x the target's
+                                    #   NN spacing); off = every step taken (the frozen path). Needs min_spacing > 0
     u_adam_carry: bool = False      # D146b A/B: u's Adam moments carry from one committed window to the next (u itself still
                                     #   starts at zero), each coordinate's bias correction counting its own age; reset on an
                                     #   outer reject; dFc's stay per window; off = fresh moments every window (the frozen path)
@@ -183,6 +187,8 @@ class PipelineConfig:
             raise ValueError("gap_split must be \"off\", \"on\", \"interface\", \"soft\", \"fine\" or \"walls\"")
         if self.gap_split in ("interface", "walls") and not self.gap_vp > 0:
             raise ValueError("gap_split interface reads the node volume: gap_vp must be the volume per particle")
+        if self.layer_link and not self.min_spacing > 0:
+            raise ValueError("layer_link reads the minimum spacing's frozen neighbours: min_spacing must be > 0")
         if self.exterior_field not in ("zb", "aniso", "zbs"):
             raise ValueError("exterior_field must be \"zb\", \"aniso\" or \"zbs\"")
         if self.exterior_field == "aniso" and self.exterior_radius != 3.0:

@@ -568,6 +568,60 @@ def k_layer_project(x_in: wp.array(dtype=wp.vec3), s: wp.array(dtype=float), b: 
     x_out[p] = x_in[p] + (frac_u * ug[p] * u[p] + sp) * nrm[p]
 
 
+# ── D151 (layer_link): the layer's step keeps a particle within the berth of its nearest neighbour ──────────────────
+# The layer step (u and the relaxation, k_layer_project) is a surface displacement below the cell. Measured on the
+# 300k dragon (D148, the dumps of CDL / CDL2 / CDX / RWX): in 72-97 % of the detachments that become a separate piece of
+# the display within a second, it is the layer step that takes a particle out of its nearest neighbour's reach, on a
+# sparse patch (the nearest 1.2-1.45 pitches away at the window's start, the step's last 0.1-0.35 pitches across the
+# link), not a flight off the plane (0.4-0.6 pitches off it). Here a step is taken only while the particle's nearest
+# frozen neighbour (the minimum spacing's list, k_update's snbr) stays within max(berth, its distance before the step);
+# a step that brings it nearer is always taken. The berth is the near band's (objective.berth: the target sample's
+# median 8th-neighbour distance, the sampling's own scale, inside which a particle is legitimate rim). The decision is
+# piecewise constant in the positions and taken outside the tape (take[p] in {0, 1}); k_layer_project_take applies it.
+@wp.kernel(enable_backward=False)
+def k_layer_link_take(x_in: wp.array(dtype=wp.vec3), s: wp.array(dtype=float), b: wp.array(dtype=wp.vec3),
+                      mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3), rn: wp.array(dtype=wp.vec3),
+                      M11: wp.mat33, M12: wp.mat33, M21: wp.mat33, M22: wp.mat33,
+                      u: wp.array(dtype=float), frac_u: float, ug: wp.array(dtype=float),
+                      snbr: wp.array(dtype=int), space_K: int, berth: float,
+                      take: wp.array(dtype=float)):
+    p = wp.tid()
+    take[p] = 1.0
+    if mask[p] < 0.5:
+        return
+    ct = M11 @ b[0] + M12 @ b[1]
+    cr = M21 @ b[0] + M22 @ b[1]
+    sp = s[p] - wp.dot(nrm[p], ct) - wp.dot(rn[p], cr)
+    xp = x_in[p]
+    xn = xp + (frac_u * ug[p] * u[p] + sp) * nrm[p]
+    r0 = float(1.0e30)
+    r1 = float(1.0e30)
+    for a in range(space_K):
+        q = snbr[p * space_K + a]
+        if q != p:                                   # D149's symmetric rows pad with the particle itself
+            r0 = wp.min(r0, wp.length(xp - x_in[q]))
+            r1 = wp.min(r1, wp.length(xn - x_in[q]))
+    if r1 > wp.max(berth, r0):
+        take[p] = 0.0
+
+
+@wp.kernel
+def k_layer_project_take(x_in: wp.array(dtype=wp.vec3), s: wp.array(dtype=float), b: wp.array(dtype=wp.vec3),
+                         mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3), rn: wp.array(dtype=wp.vec3),
+                         M11: wp.mat33, M12: wp.mat33, M21: wp.mat33, M22: wp.mat33,
+                         u: wp.array(dtype=float), frac_u: float, ug: wp.array(dtype=float),
+                         take: wp.array(dtype=float), x_out: wp.array(dtype=wp.vec3)):
+    """k_layer_project with the step taken where take[p] = 1 (D151); take is a constant of the tape."""
+    p = wp.tid()
+    if mask[p] < 0.5:
+        x_out[p] = x_in[p]
+        return
+    ct = M11 @ b[0] + M12 @ b[1]
+    cr = M21 @ b[0] + M22 @ b[1]
+    sp = s[p] - wp.dot(nrm[p], ct) - wp.dot(rn[p], cr)
+    x_out[p] = x_in[p] + take[p] * (frac_u * ug[p] * u[p] + sp) * nrm[p]
+
+
 # ── geometric deformation gradient — the RENDER kinematics ───────────────────
 # Fg_{t+1} = (I + dt C_{t+1}) Fg_t: transported by the actual spatial velocity
 # derivative only. It receives NO control addition and NO temporal smoothing, so a

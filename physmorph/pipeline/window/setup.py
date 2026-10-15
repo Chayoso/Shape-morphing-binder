@@ -60,6 +60,10 @@ class Window:
         # D146 (relax_driven): the relaxation's steps are the driven ones, as u's; off, all 2T steps (the frozen path)
         layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, ref,          # the u gate is set by the objective
                  cfg.T if cfg.relax_driven else None)
+        if cfg.layer_link:
+            # D151: the layer's step keeps the particle's nearest frozen neighbour within the berth (the near band's,
+            # objective.berth); off, the tuple ends as before and every step is taken (the frozen path)
+            layer = layer + (float(cfg.nn_berth_k) * float(tgt.nn_spacing),)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
         # rest volume gives, among each particle's 16 nearest at the window's start; with spacing_symmetric (D149) among
         # the symmetric closure of those lists, so that each pair pushes both of its particles
