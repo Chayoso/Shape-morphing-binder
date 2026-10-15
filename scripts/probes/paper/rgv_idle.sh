@@ -9,7 +9,9 @@ declare -A since
 echo "$NAME waiting for a card idle 10+ min $(date '+%m-%d %H:%M:%S')" >> $S
 g=""
 while [ -z "$g" ]; do
-  if [ "$(grep -l "agent RGV" $L/gpu*.lock/info 2>/dev/null | wc -l)" -lt 1 ]; then
+  if [ "$(grep -l "agent RGV" $L/gpu*.lock/info 2>/dev/null | wc -l)" -ge 1 ]; then
+    since=()                                   # RGV holds a card: no idle clock runs meanwhile
+  else
     now=$(date +%s)
     for c in 0 1 2 3; do
       if [ ! -e $L/gpu$c.lock ] && [ "$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -i $c)" -lt 2000 ]; then
