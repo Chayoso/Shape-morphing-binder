@@ -6234,6 +6234,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       after the dragon pair.
   - (iv) passes: 6.48 / 6.49 s an attempt. GPU 1 was otherwise idle, unlike the base runs' cards.
   - The render share is 0.333 at every window, λ at its rule; the render's influence is the lead above.
+  **Where the thin set loses coverage (`tmp/d149/d149_thin.py`, `d149_thin_late.py`; the run's own thin set, 4260
+  points; read 12:25–12:40).**
+  - Over every kept frame from window 20 on, the uncovered share swings ±0.25–0.38 pt (sd) within each run.
+    - Its mean is SL 4.26 % against CBL 3.92 and CBL2 4.10 (+0.16 to +0.34).
+    - The twin: SP 3.99 against CBP 3.52 (+0.47, about two sd).
+    - Over the last twenty kept frames: SL 4.51 against 4.26 / 4.01; SP 4.01 against 3.46.
+  - At the last frame, 127 thin points are uncovered in SL and covered in both CBL and CBL2; 37 are the reverse.
+  - They form no region: the largest connected set (3 spacings) has two points, and the rest are single points spread
+    over the body.
+  - Their gaps are 1.52–1.60 spacings in SL against 0.9–1.48 in the base runs: points straddling the metric's
+    1.5-spacing threshold. 320–390 thin points of every run sit within 1.4–1.6 spacings at the end.
+  - So the end values' +0.6–0.7 pt is about half the end frame's draw (the runs stop at different windows) and about
+    half a small rise of the late mean (+0.2–0.3 pt render arm, +0.5 pt twin), spread over points at the threshold.
+    No thin feature is lost.
+  - The repeat (SL2, SP2) is to tell whether the late mean's rise repeats.
 - **D150, the drag damps APIC's whole momentum (`--drag_affine`; opened 2026-10-15 12:00 CDT by the coordinator from
   D145's reading of bob / homer: the grid step carries 95 % of the angular momentum's flow, and the render arm carries
   more of it; pre-check pre-registered 2026-10-15 12:20 CDT, before its runs; branch `wip/d149`).**
@@ -6273,6 +6288,49 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       stays at the jumps' size (tens) instead of growing to hundreds.
     - If (ii) holds, D150 is recorded as refuted by its precedent and by this check, and the bob / homer 300k gate is
       not run. The angular momentum the position updates put in is then the definition to study (b, reading first).
+  - *(b) Reading: what the literature does with v when a particle's position is moved (2026-10-15 12:15–12:35; notes
+    with sources in the session; papers read in full unless marked).*
+    - APIC: Jiang et al. 2015 (tech report, media.disneyanimation.com …/apic-tec.pdf); Jiang, Schroeder, Teran 2017 (JCP,
+      arXiv 1603.06188). The proof that G2P keeps L ends with L^P = L^G + Σ (x^{n+1} − x^n) × m v^{n+1}. That vanishes
+      because the displacement is Δt v, so an extra shift δ leaks exactly Σ m δ × v: our leak, isolated by APIC's own
+      proof.
+    - Position-based dynamics:
+      - PBD (Müller et al. 2007), sec. 3.3: a mass-weighted projection with Σ m Δp = 0 and Σ m p × Δp = 0, velocities
+        v = (p − x)/Δt.
+      - XPBD (Macklin et al. 2016) has the same structure.
+      - Dahl and Bargteil 2019 (MIG) restore P and L exactly with a global rigid-velocity correction after the
+        projection. That is a non-local add-on, excluded here by the no-patch rule.
+    - SPH particle shifting:
+      - Xu et al. 2009 (abstract) and Lind et al. 2012 (abstract and secondary): Taylor-correct v ← v + (∇v) δ, and
+        state that the scheme "ceases to be strictly conservative".
+      - δ+-SPH / δ-ALE-SPH (Sun et al. 2017, 2019; Antuono et al. 2021): linear momentum through pair symmetry; angular
+        momentum lost because the pair term is not radial.
+    - MPM relocation:
+      - Chen et al. 2021 (TOG): split particles keeping the mass centroid, every child copying v and the affine matrix,
+        which is exact.
+      - AGIMP (Gao et al. 2017, via Chen et al.): linear only.
+  - *The algebra (APIC's L = Σ m x × v + Σ m D axial(C)).*
+    - Today's update (x ← x + δ, v and C kept): ΔP = 0 exactly, ΔL = Σ m δ × v exactly.
+    - The coordinator's first suggestion, moving the particle within its own affine field (v ← v + C δ), is not exact.
+      ΔP = Σ m C δ, so it breaks the linear momentum today's update keeps. ΔL = Σ m δ × v + Σ m (x + δ) × C δ; for a
+      uniform C and a rigid-free δ that is twice today's first-order leak. The suggestion was wrong, recorded as found.
+    - v ← v − C δ cancels the leak to first order for a uniform C only.
+    - The one exact local rule found is for pairs, the push's: when a pair's separation goes r → λ r, its transverse
+      relative velocity scales by 1/λ (the pair's L kept, dissipative).
+  - *Measured budget (record sums over the committed windows, net / path, per unit mass).*
+    - Bunny SL: grid 61 / 577; u 52 / 71, of which 43 at window 4 when u switches on; push 6.4 / 8.1; relaxation
+      3.1 / 5.8.
+    - Dragon SL: grid 51 / 1513; u 34 / 76; push 11 / 21; relaxation 8.5 / 14.
+    - D0L97 (drag 0): grid 4.7 / 6.8; u 36 / 84; |L_start| ends at 42, the leftover spin that shows as 0.022°.
+    - With the drag on v alone, the grid's net cancels the jumps' net because the body starts and ends at rest. Its
+      path is the hidden spin the drag makes: L_start peaks at 180–473.
+    - u is 70–85 % of what the position updates put in, the push 10–20 %, the relaxation 5–10 %.
+  - *Proposed definition, (2) of the coordinator's sequence: the torque-free layer update.* `k_layer_project` already
+    removes the six rigid modes (n, r × n) from the layer's normal displacement (u and the relaxation; D94, D98) with a
+    Gram matrix frozen at the window start. It also removes the three torque modes n_p × v_p at the window start's
+    velocity v₀, so that Σ m δ × v₀ = 0 in every step. The leftover Σ m δ × (v_t − v₀) is to be measured. The push's
+    pair rule stays out unless its share matters. This is implemented and checked at 40k only if (a) reproduces D99;
+    adoption is the user's.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
