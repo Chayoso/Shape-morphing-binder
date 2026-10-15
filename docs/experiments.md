@@ -6353,6 +6353,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     velocity v₀, so that Σ m δ × v₀ = 0 in every step. The leftover Σ m δ × (v_t − v₀) is to be measured. The push's
     pair rule stays out unless its share matters. This is implemented and checked at 40k only if (a) reproduces D99;
     adoption is the user's.
+  - *The torque-free layer, implemented (`--layer_torque_free`, default off; 370952c; pre-registered 2026-10-15 13:05
+    CDT, before its runs).*
+    - The relaxation: `mpm/layer_torque.py` adds the nine-mode projection (`k_layer_relax_t`, `k_layer_project_t` and
+      its hand adjoint with the moments binned as D138's). The frozen six-mode kernels are untouched.
+    - u: `solve.free_of_rigid`'s modes gain g (n × v₀) (`layer_torque.u_modes`; without v₀ the matrix is the six
+      modes', checked equal).
+    - v₀ is the window start's velocity, a constant of the tape like the start's r.
+    - Tests (`tests/test_layer_torque.py`, CPU, 4 passed; the CUDA window with the suite):
+      - A rough slab with a smooth non-rigid v₀: the layer's step has torque at v₀ 2.6e-2 of its gross with the six
+        modes, 2.4e-7–1.0e-6 with the nine, in every step. Its net translation and rotation stay at 1–2e-6.
+      - u projected on the nine modes: translation, rotation and torque at v₀ below 1e-10.
+      - Hand against generated adjoints; a window against finite differences on dFc and u.
+    - *Its 40k check (the coordinator's step 2).* C1, C2 = `--drag_affine --layer_torque_free` on the same base and
+      seed, against (a)'s A (`--drag_affine` alone) and B (off).
+      - Read as (a), plus the leftover: the record's L_u and L_relax are Σ m δ × v_t per step, so with the switch they
+        are exactly Σ m δ × (v_t − v₀).
+      - Prediction:
+        - The jumps' injection (L_u + L_relax, path) falls by 50–80 %. The leftover is the window's change of
+          velocity; it is largest at u's switch-on in window 4, where the body accelerates.
+        - The net rotation and angular net / gross of C fall below A's.
+        - Whether C reaches B (the frozen drag) is open.
+      - No gate: the numbers go to the user with the adoption question.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
