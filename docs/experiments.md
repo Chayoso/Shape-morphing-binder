@@ -4912,6 +4912,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   videos need, so the merge is not possible after the fact. `dragon300k_RG97` (`repo_rgv`, dump and λ = 0 counterfactual
   with control records at every window, `output/gpu/rgv/dragon300k_RG97_{dump,cf}`) is queued as the next item on
   D145's card (11:33). The B7 dragon proof reads G97 (dumps, counterfactual, J).
+  **B5 addendum: NISE (pre-registered 2026-10-15 11:45 CDT server clock, before any NISE run; the coordinator's item,
+  relayed by the D145 agent).** NISE (Novello et al., ICCV 2023, *Neural Implicit Surface Evolution*) runs as a sibling
+  of BUO, from the implementation in Buonomo et al.'s MIT repository (`baselines/buonomo/neural_shape_morphing` @
+  9767ed9, `morph-train.py -p nise`). *Configuration, the authors' defaults:* sphere → each of the six meshes, the same
+  mesh configuration and inputs as BUO (ω0 60, 6 × 128 SIREN, NISE initialisation from the source SDF, 2001 epochs,
+  batch 20000, domain size 3, 80,040 steps at 200k points), seed 1 = the authors' default 668123, B5's existing SDFs
+  (`ni/<mesh>/`). The code sets Adam at 1e-4 for NISE and has no velocity network. It applies its volume normalisation
+  only to the divergence-based methods, so reconstruction uses `--scale 1 1`, and the 21 frames are reconstructed at
+  256³. *Cards:* idle cards only (`run_pair2.sh`: free and unlocked for at least 10 min by `tmp/d145/free_since`, the
+  lock protocol, one card), one pair after another. A pair whose training passes 60 min is stopped (`timeout 3600`),
+  the chain stops there, and it is reported. *Reading, as BUO:* `convert_pair.py` with TAG NISE (21 frames in the
+  pipeline frame, the 300k stratified sample, `output/gpu/d145_b5/<mesh>300k_NISE_frames12.npz`); `endcheck.py` (end
+  silhouette IoU and chamfer against the independent sample, own sample, floor, start against the source sample);
+  `tmp/d145/vol145.py`; genus, components and watertightness per frame from the meshes JSON; training and
+  reconstruction wall-clock per pair. *Expected (Buonomo et al.'s Fig. 10, 12 and Tab. 9).* NISE is faster than their
+  method (0.17–0.6 × its time; about 10–30 min a pair here). It has no volume constraint, and its intermediate
+  volume varies far more than BUO's, with blobby intermediates and parts that can vanish. The end is near BUO's
+  (silhouette IoU about 0.90–0.96). Results are recorded as found.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
