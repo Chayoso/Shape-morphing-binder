@@ -4820,7 +4820,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   moves the layer's control by 54 % (window 1) → 9 % (windows 11–20) → 20–25 % (later) of its size and u by 50–72 %, and
   the window's silhouette term is 50–79 % lower late in the run; iterations equal in 70 of 71 windows. 4K and the dragon
   wait for the user.
-  **Amendment 5, B12: the ICLR 2025 method and 4Deform with the authors' own code (pre-registered 2026-10-15 11:50 CDT
+  **Amendment 5, B12: the ICLR 2025 method and 4Deform with the authors' own code (pre-registered 2026-10-15 11:34 CDT
   server clock, before any B12 run; the user via the coordinator: "the ICLR 2025 method and the other morphing methods
   compared, with a discussion in the paper").** This reverses amendment 1's "4Deform dropped" and its "the released ICLR
   2025 code is not run". *Which ICLR 2025 run is the paper's.* Two different things carry the name. ISD = Sang et al.,
@@ -4858,7 +4858,60 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the RGV dragon run is: ISD on the six meshes, 4Deform on the six, the radial arm, the rest of D145's queue, then seeds 2–3.
   *What is expected (from 2026-09-23, sphere → bunny, `CORR=none`).* ISD fits the end (Chamfer / diagonal 0.0070), but
   in between the body collapses to 1 % of its end volume with genus 24 at t = 0.1. 4Deform never leaves the sphere (0.111
-  at t = 1). Results are recorded as found, whatever they show.
+  at t = 1). Results are recorded as found, whatever they show. (The amendment's commit message says 11:50. That was
+  wrong: the server clock read 11:34.) *Operations, 11:33–11:41 CDT.* The prep for `CORR=none` passed on the six meshes
+  (11:36). `CORR=radial` failed in `prep_pair.py`: trimesh's ray test needs `rtree`, env `nsd` does not have it, and
+  `~/miniforge3` is not to be touched. The same pairing now comes from `tmp/d145/b12/b12_radial_prep.py`. It uses
+  prep_pair's own functions and a numpy Möller–Trumbore first-hit test against every target triangle. A ray that hits
+  nothing falls back to the nearest point of a 400k surface sample (prep_pair's fallback uses the exact closest point).
+  Queue: bunny ISD seed 1 is the smoke run, placed after the RGV dragon run. `b12_watch.sh` inserts the rest of seed 1,
+  the radial arm and the bunny / dragon readings once the smoke run has been converted and end-checked, and it appends
+  seeds 2–3 at the end of the queue. If the smoke run fails, nothing else is queued.
+  **Overnight 2026-10-14 19:00 → 2026-10-15 11:30 CDT: what ran and the readings (`output/gpu/d145_evidence/
+  tab_1015.jsonl`, `band_1015.txt`; tab145 / band145; seeds 97 / 99 / 101 unless named; "apart" = the three-run ranges
+  do not overlap; all of it on the first-version code, to be redone after the re-freeze).** The pool held one card plus
+  idle cards under the 10-minute rule. About 110 300k runs finished with sim rc 0 and none failed: B1 on the six meshes,
+  bunny and dragon with seeds 103 / 105; B2 (C on the six meshes, U / R / V0 / X on bunny and dragon); B8; B9; B7's
+  dragon G97. *B1, render arm L against its twin P.* The yardstick silhouette is lower on every mesh and the ranges are
+  apart: bunny −48 % (5 seeds), dragon −49 % (5 seeds), teapot −33 %, bob −29 %, armadilo −50 %, homer −39 %. Shading
+  is −13 to −36 %, apart on all six. Display front / back 1 − IoU is −14 to −33 %, apart on five meshes (bob's back is
+  apart, its front overlaps). Silhouette IoU, chamfer and thin overlap everywhere, except bob's thin (−17 %, apart).
+  Momentum: rotation is lower on bunny (−42 %, apart), teapot (−17 %) and armadilo (−16 %), and the centre of mass
+  overlaps everywhere. Two measures are worse and must be reported under the user's every-metric requirement: bob's
+  rotation is +1025 % (0.0045° against 0.0004°, both tiny, apart) and its net/gross angular ratio +50 %; homer's
+  net/gross ratio is +33 % (apart). Early apart particles are lower on dragon (−11 %) and bob (−51 %).
+  *Dragon physical volume (sum J V0, G97's carried J, 227 samples).* It reads 1.000 at the start, 0.9908–1.0314 over the
+  run and 1.0079 at the end. Per-particle J at the end is 0.85–1.39 (p01–p99). With bunny (0.9976–1.0128, end 1.0067) the
+  paper's line becomes: "physical volume within −0.9 % … +3.1 % over the run, +0.7–0.8 % at the end". *B2.*
+  - C (`--cell_follows_n`) against L is mixed. On bunny, thin is −31 %, apart particles −79 % and the angular ratio −58 %,
+    but end kinetic is +104 %, rotation +30 % and minutes +43 % (all apart). Teapot and armadilo are better on the
+    yardstick and display (−11 to −22 %), and teapot's rotation is +120 %. Bob is worse: yardstick +47 %, display +16–18
+    %, thin +31 %. Homer's thin is +36 %. This is consistent with the user keeping D135's cell.
+  - U (u off) against L is far worse on shape: yardstick +282 % (bunny) and +701 % (dragon), display +140–290 %, thin +18
+    % and +121 %. It never comes to rest (end kinetic ×45), yet early apart particles are −98 %. So u is both the main
+    shape lever and the source of the early apart sets.
+  - R (relief off) is slightly worse. Dragon yardstick is +8.5 % on silhouette and +19.5 % on shading, kinetic +54 %, thin
+    −6 %. On bunny only shading is apart (+11 %).
+  - V0 (volume body off) has no measure apart at 300k.
+  - X (cloud read) against the exterior: yardstick +29–32 %, display +18–22 %, thin −8 to −10 %, as on the single seed.
+  *B8, materials, against the default L.* The soft solid (E 1.4e4) is +15 / +21 % on the yardstick (bunny / dragon) and
+  thin −7 / −9 %. The stiff solid (E 9.8e5) is better on the bunny yardstick (−9 %) but end kinetic is ×4 (not at rest)
+  and dragon display is +19–30 %. Early apart particles are −80 to −99 % for soft-dragon and stiff on both meshes. Render
+  arm against its twin within each material (seed 97, one run each): yardstick silhouette −38 to −51 % and shading −15 to
+  −30 % in all six (E soft, E stiff, ν 0.45 × bunny, dragon), display front −18 to −33 %. The render's lead holds across
+  materials. *B9, external forces.*
+  - Gravity with the floor (G2, f_ext −0.65), L against no gravity: bunny yardstick +98 %, display +54 %, thin +28 %;
+    dragon +30 % / +31 %. Under gravity the end is not at rest: kinetic is ~1e-3 against 1e-6–1e-5.
+  - Dragon G2L97 against its twin G2P97: yardstick silhouette −57 %, shading equal, display −29 %, thin +16 %.
+  - The bunny twin G2P97 stopped at window 10 ("3 consecutive rejected candidates → early stop"; 7 committed windows,
+    silhouette IoU 0.930). The render arm completed 46 windows. This is one run, recorded as found.
+  - GFL97 (floor friction 0.5) reads like G2L97. D0L97 (drag 0) reads like L97: yardstick 8.2e-4, just above L's 7.2–8.0e-4.
+  The 40k gravity runs (G2 / G5) are not read yet.
+  *RG97 for the RGV dragon videos.* G97 ran at 19:00 on `repo_d145gf` with the sparse dumps (windows 0, 1, 2, 4, 9, 19,
+  39, then every 5th; counterfactual at 0, 4, 9, 19, 39) and without RGV's control records. It is a subset of what the
+  videos need, so the merge is not possible after the fact. `dragon300k_RG97` (`repo_rgv`, dump and λ = 0 counterfactual
+  with control records at every window, `output/gpu/rgv/dragon300k_RG97_{dump,cf}`) is queued as the next item on
+  D145's card (11:33). The B7 dragon proof reads G97 (dumps, counterfactual, J).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
