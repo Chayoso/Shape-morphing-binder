@@ -6582,6 +6582,70 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   not the transport's leash); one body's non-finite term stops both bodies' controls (the scene's sum); and a
   commit-replay null in a landing window commits the uncontrolled continuation, which with `--assim 0` lets the bodies
   spring toward the sphere.
+  **The four fixes and their 40k gate, pre-registered (2026-10-16 11:25 CDT server clock, before any of the gate's runs;
+  the user's approval relayed by the coordinator ~11:00, "1–4 다 고쳐서 40k 확인"; scene code only, `wip/d147` fa0d091 +
+  the gate's scripts, deployed `repo_d147fix`; `scripts/probes/d147/chain20.sh`, `output/gpu/d147/chain20.log`).**
+  *The definitions as implemented.* (1) *Loss raster* (`scene/raster.py`): at each window start the window's persistent
+  rollout is run with zero controls (the uncontrolled continuation), and each body's coordinates in its own frame are
+  read over every step. The body's raster is the smallest cube that holds that extent with the preparation's own margin
+  (two MPM cells, as prepare.py's "leash + 2 dx") inside the CIC deposit's last full cell. The cube is grown from the
+  preparation's by whole steps (gcd of the MPM and loss cell counts: 9 MPM = 14 loss cells a side at 300k, one cell at
+  40k), so the cell and every grid line are kept. The grown target is the frozen `build_target` on the grown cube, with
+  the base target's unit ratios, transport scale and relief. A body inside the preparation's cube keeps its base target
+  (the same object); grown targets are cached by step count. No new constant. (2) *Inf transport:* a body whose own
+  geometry terms (transport with its end drift, stability, cleanup) are not finite at the window's start (the
+  uncontrolled continuation) is left out of the window's objective. Its controls stay zero: its rows are zeroed in the
+  gradient, the warm start and after every step. The other body is optimised as usual. If no body is finite, the sum
+  is used as before. (3) *Replay mismatch* (commit_replay, commit_jt): as the single-body path treats a mismatched
+  commit (a null window: no simulated time, the window solved again from the same start with the attempt's controls
+  as its warm start), the scene's runner solves the window again, up to the single-body patience (5). Only after that
+  is the zero-control continuation committed, recorded with `zero_reason`. Before, every such window committed the
+  zero control as if it were the window's result. (4) *Damping* (`mpm/bodies.py`): each body's deformation velocity,
+  v − (v_c + ω × r), is damped where the single-body drag acts (the velocity P2G reads, m v), at the single-body rate
+  (MPMParams.drag, 0.9 / s, less the world's drag: 0.9 in the scene, none for V0). v_c and ω are the body's
+  mass-weighted mean velocity and I⁻¹ Σ m r × v about its centre of mass (the particles' part; APIC's affine C is left,
+  as the single-body drag leaves it). Σ m (v − v_c − ω × r) = 0 and Σ m r × (v − v_c − ω × r) = 0, so each body's
+  P and L are kept; flight, spin and tumble are not damped. Warp kernels on the tape (generated adjoints), with P2G
+  reading the damped velocities. `--drag 0` (no drag on the whole motion) stays. Records per window: `raster_k`,
+  `raster_extent`, `inactive`, `zero_reason`, `replay_retries`; the scene info's `deformation_drag`.
+  *Tests* (`tests/test_scene_fixes.py`): (4) the damping keeps P and L to rounding and scales only the deformation by
+  1 − κ, leaves a rigid motion alone, keeps each body's P and L over a 48-step rollout of two spinning, deforming bodies
+  while lowering their deformation energy below the undamped run's, is off under the world's drag, and the pair's
+  adjoint with it matches central differences through a contact; (1) the grown raster keeps the cell and the grid
+  lines (the 300k numbers: 5.28 wu kept at step 0, 7.06 wu needs one step), the grown target equals the base target on
+  the base's cells and gives the same transport energy inside both, a state beyond the base raster is inf there and
+  finite on the grown one, and the window's cover grows only the body that leaves (the other keeps its base object);
+  (2) a body whose transport is inf is left out, keeps zero controls, and the other body's step is accepted and
+  committed; (3) a mismatched replay returns a retry and no commit when allowed, the zero-control continuation with
+  `zero_reason` when not; the runner solves a mismatched window again without simulated time; after the patience the
+  continuation is committed and recorded. Then the full suite (the pinned digest included), exit status read; any
+  failure stops the chain before a run.
+  *The 40k gate (chain 20, one card idle for 10 minutes; the tests first on the same card).* Runs on
+  `specs/scene_throw.json`, 2 × 40k, `--assim 0`, every 12th step kept: `fix40k_s97` (render arm), `fix40k_s97_off`
+  (its render-off twin), `fix40k_s99`. References: `throwY40k_a`, `throwY40k_b` (the D135 recipe, the interim's, at
+  40k on this spec and seed, 2026-10-14). Items, per run (`gate.py`; every run must pass items 1–4 and 6):
+  (1) no zero-control window whose reason is one the fixes remove (nonfinite_loss, commit_replay or commit_jt after
+  the patience); the other zero-control windows (no accepted step), the windows with a grown raster, a body left out,
+  and the replay retries reported. (2) *Ears and head hold after the landing* (`head.py`; the forensic's
+  head-displacement measure read the particles' rearrangement, not the shape, so the head is read as a shape): the
+  head band is the top quarter of the target's height (the ears and the crown). At each kept frame, in the body's
+  Buckens frame, the band's two-sided mean nearest distance between the target's points and the body's particles in
+  the band, in sample spacings. Per body the recovery mean over [landing + 1.5 s, cut] must not exceed the larger of
+  the two references' (same body); the recovery maximum and the 300k interim and final runs' values reported
+  (context). (3) *Clean:* no piece apart from its body (apart.py, the whole run) of 10 particles or more beyond 3
+  spacings before the cut (the user's "serious" size, 2026-10-15); the far frames reported. (4) *The judge*
+  (judge.py): progress at the first contact in [0.35, 0.65], parted in the air, both landed, end error ≤ 0.05, early
+  rise ≤ 3× steady. (5) The tumble reported. (6) *Momentum per body:* in flight before the first contact each body's P
+  against P₀ + M g t within 1e-4 relative; over the first contact's windows the pair's P change less gravity's within
+  1e-4 of body 0's launch momentum, and the pair's grid share of L less gravity's torque within 1e-4 of the bodies' L
+  about the pair's centroid; in free flight between the parting and each landing, the body's grid share of its own L
+  within 1e-3 of its spin. (7) The cost (minutes per run; the references 11.5).
+  Pass → the 300k (s97, its twin, s99) is pre-registered and run; fail → stop and report.
+  *Predictions:* (1) no fix-caused zero-control window; the raster grows in some windows after the landings (body 0
+  from about 12.7 s), no body left out, a few replay retries, all resolved within the patience. (2) The heads hold at
+  or below the references. (3) Clean of serious pieces. (4) All three pass; the collision and the floor bounce lose
+  height to the damping (restitution below the 300k runs' 1.4–1.5; the pair still parts in the air before landing).
+  (5) Smaller tumbles than 40k's 16–62°. (6) Within the bounds. (7) 12–13 min a run.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
