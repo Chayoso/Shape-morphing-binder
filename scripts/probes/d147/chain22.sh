@@ -1,5 +1,6 @@
 #!/bin/bash
-# D147 chain 22: the damping's speed-up checked. After chain 21 (the forensic dump runs) ends, on one card idle 10 min:
+# D147 chain 22: the ear-tip dump read and the damping's speed-up checked. After chain 21 (the forensic dump runs) ends,
+# on one card idle 10 min: dump_forensic.py on chain 21's two dump runs (the layer's normals need the card);
 # the scene tests and the full suite on repo_d147fast (exit statuses), then the equality runs at 40k, 6 windows each,
 # seed 97: eqA and eqB on the old damping (repo_d147fix, atomic sums), eqN on the new (repo_d147fast), and
 # drag_equal.py -> runs/drag_equal.txt.
@@ -14,6 +15,11 @@ log "chain22 start, waiting for chain21's end"
 until grep -q "chain21 end\|scene tests exit [1-9]" $O/chain21.log 2>/dev/null; do sleep 60; done
 claim_card "chain22 damping speed-up: tests, suite, equality runs"
 log "claimed gpu$CARD"
+( export PHYSMORPH_RUN_REPO=$NEW PHYSMORPH_OUT=$O; source $NEW/scripts/ops/hyde06_env.sh > /dev/null
+  for t in dump40k_s97 dump40k_s97_off; do
+    $PY $NEW/scripts/probes/d147/dump_forensic.py $R $t 1 auto > $R/dumpfx_$t.txt 2>&1
+    echo "dump forensic $t exit $?: $(head -1 $R/dumpfx_$t.txt | cut -c1-160)" >> $LOG
+  done )
 run_in() {                               # REPO TAG: a 6-window 40k scene run from that repository
   ( export PHYSMORPH_RUN_REPO=$1 PHYSMORPH_OUT=$O; source $1/scripts/ops/hyde06_env.sh > /dev/null
     $PY scripts/scene_run.py --n 40000 --seed 97 --scene $SPEC --flags="--assim 0" --save_stride 1 --windows 6 \
