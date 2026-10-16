@@ -249,7 +249,9 @@ def test_the_grown_target_is_the_base_target_on_a_larger_grid():
     from physmorph.losses.grid_ot import GridSinkhornLoss
     from physmorph.pipeline.scene.raster import BodyRaster, target_for
 
-    canon = MPMParams(dx=0.25, nx=16, ny=16, nz=16, grid_min=(-2.0,) * 3)
+    # a preparation cube that holds the target with its margin, as the real one does (the leash): here the targets
+    # reach 1.95 wu and the kept cube is [-3, 2.5]
+    canon = MPMParams(dx=0.25, nx=24, ny=24, nz=24, grid_min=(-3.0,) * 3)
     bodies, *_ = _scene(scales=(0.6, 0.6), canon=canon)
     body = bodies[0]
     body.base = body.tgt
@@ -264,14 +266,17 @@ def test_the_grown_target_is_the_base_target_on_a_larger_grid():
 
     def energy(p, y):
         cfg = _cfg()                                               # the Objective's solver settings
-        ot = GridSinkhornLoss(p.grid, p.lgmin, p.ldx, p.ldims, eps=p.ldx ** 2, iters=cfg.ot_iters, tol=min(cfg.ot_tol, 1e-3),
-                              mass_total=float(p.m.sum()), cuda_blocks=True, support=p.support)
+        ot = GridSinkhornLoss(p.grid, p.lgmin, p.ldx, p.ldims, eps=p.ldx ** 2, iters=cfg.ot_iters,
+                              tol=min(cfg.ot_tol, 1e-3), mass_total=float(p.m.sum()), cuda_blocks=True,
+                              support=p.support)
         return float(ot.state_energy(y, p.m))
 
+    # the same transport problem (the same measures on the shared cells, no mass outside): the same energy (the
+    # eps-scaling starts from the raster's diameter, which does not change the converged value: 1e-7 on the CPU)
     y = body.Xq * 0.9
     e0, e1 = energy(b0, y), energy(g, y)
-    assert np.isfinite(e0) and abs(e1 - e0) <= 1e-3 * abs(e0) + 1e-8
-    far = body.Xq * 2.0                                            # beyond the base raster: escaped mass there
+    assert np.isfinite(e0) and abs(e1 - e0) <= 1e-4 * abs(e0) + 1e-8
+    far = body.Xq * 3.5                                            # beyond the base raster: escaped mass there
     assert not np.isfinite(energy(b0, far)) and np.isfinite(energy(target_for(body, 2), far))
 
 
