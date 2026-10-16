@@ -6271,6 +6271,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   ignored the vertical travel); the rule kept as run, no further renders. Next: on the re-freeze tag, the final scene
   chain (s97, its twin, s99, the amended cut, the still and contact renders; hyde06 idle cards while hyde01 is down).
   Close-up accepted at 0.38: vertical travel limits the fit; reads as a close-up.
+  **The final scene on the re-freeze, pre-registered (2026-10-15 19:05 CDT server clock, before any of its runs;
+  `wip/d147` caff236 = the tag `freeze-2026-10-15` (fc02a1a) merged with the scene in 3400b62, a clean merge after
+  which only the scene's files, its probes and this record differ from the tag; deployed `repo_d147fin`;
+  `scripts/probes/d147/chain19.sh`, `output/gpu/d147/chain19.log`).** (1) *The suite first:* the full suite on the
+  card, pytest's exit status read (test_refreeze_reference's pinned pipeline digest included: it proves the single-body
+  path is the tag's). Any failure stops the chain before a run. A failure in the scene's code is fixed and the chain
+  restarted; nothing of the frozen algorithm is touched. (2) *The runs,* in this order on one card: `final300k_s97`
+  (the render arm), `final300k_s97_off` (its render-off twin, `--render_weight_scale 0`), `final300k_s99`. The spec is
+  the interim's, `specs/scene_throw.json` (2 × 150k, the launch gap 4.5×, G 0.02, offset 1.0 R, lift 4, 16 s, 96
+  windows, morph_time 7.6 s on the target-side interpolation), with `--assim 0` and every 12th step kept. The recipe is
+  the re-freeze's defaults (D135 + D146b's `--relax_driven --u_adam_carry` + D149's `--spacing_symmetric`, from
+  run_args); the interim ran D135. (3) *The judge,* per run, as for the interim (`judge.py`): the progress at the first
+  contact in [0.35, 0.65] (mean over the bodies), parted in the air, both landed, end error ≤ 0.05, no early rise above
+  3× the steady rate; the tumble reported, not judged. *The cut* by the amended rule (`cut.py`): the earlier of the last
+  kept frame before the bodies come within a spacing again after the parting and the last kept frame at or before the
+  start of the first window with a grid contact impulse after the parting. (4) *Clean:* no piece apart from its body
+  (apart.py's components, joined within two sample spacings) lies beyond 3 spacings of its body in any kept frame at
+  or before the cut. It is now read over the whole run (0–16 s). The interim's reading covered 8–16 s, so the interim
+  s97 is re-read over 0–16 s the same way. Reported per run: the frames, the particle-frames, the largest piece and
+  the largest distance. (5) *The final s97 against the interim:* "beats" = passes the judge and is clean by the letter
+  (the interim is not); "matches" = passes, is not clean, and has no more far particle-frames before its cut than the
+  re-read interim; otherwise "worse". The end error, the progress, the early rise and the tumble are reported side by
+  side, not judged (one run each; s99 against s97 gives the seed's scale). (6) *The render's influence:* the arm
+  against its twin on the judge's items, the end metrics per body (silhouette IoU, chamfer, thin uncovered), the far
+  material and the cut, with λ and g_share over the morph's windows (t ≤ 7.6 s) and over the run; s99 against s97 is
+  the seed's spread. (7) *The delivered run:* s97 if it passes the judge, else s99 if it passes, else s97 with its
+  failures stated. *The renders,* for all three runs (the studio look, render_scene.py zbs, on the same card): the cut
+  (the still camera fitted over the whole run, kept frames 0 to the cut) and the contact close-up (camera=contact over
+  the first contact − 0.5 s to the parting + 0.5 s from the timeline, accepted at about 0.38 of the width) at 4K and
+  1080p, and the whole run at 1080p. One card at a time (a card with no lock and under 2000 MiB for 3 minutes, so that
+  D145's pool keeps its priority); about 3 h. *Predictions:* all three pass the judge (40k 6 of 6, the interim 300k
+  passed); progress at the contact 0.40–0.47; end error 0.018–0.030; body 0's tumble under 30° in at least one run;
+  not clean in at least one of the three (at 40k D146b and the twin kept 1–4 particles out to 3.75–4.0 spacings about
+  3 s after body 1's landing); the twin's end error above the arm's (40k: 0.036 against 0.027–0.028), within or near
+  the seed's spread.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
