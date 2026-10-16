@@ -4,17 +4,32 @@ rigid modes, and a commit at every window.
 Time always advances in the scene: the physics must run the scene's whole length (a collision or a landing raises the
 merit whatever the control does, so the single-body selection would reject and restart those windows). The line search
 already makes each window's control no worse than its start control, zero or the warm start (kept only if it beats
-zero), on the window's own objective, i.e. no worse than the uncontrolled continuation. A window with no accepted step,
-or whose replay failed, commits the zero control's rollout.
+zero), on the window's own objective, i.e. no worse than the uncontrolled continuation. A window with no accepted step
+commits the zero control's rollout.
+
+The fixes of 2026-10-16 (the user's approval; the forensic of the final 300k runs, docs D147):
+(1) each body's loss raster covers its uncontrolled continuation in its frame (scene/raster.py), set when the window is
+    built and before its objective;
+(2) a body whose own terms are not finite at the window's start (its uncontrolled continuation) is left out of the
+    window's objective and keeps zero controls; the other body is optimised as usual (before, the sum was inf and the
+    window ended with no step for either body);
+(3) a commit whose replay disagrees with the accepted candidate (commit_replay, commit_jt) is not replaced by the zero
+    control's rollout: as the single-body path treats such a window (a null window, no simulated time, solved again
+    from the same start with the attempt's controls as its warm start), the runner solves the window again, up to the
+    single-body patience; only after that the zero-control continuation is committed, recorded as such.
 """
 from __future__ import annotations
 
+import numpy as np
 import torch
 import warp as wp
 
 from ..window.solve import WindowOptimizer, WindowResult
 from .objective import SceneObjective
+from .raster import cover
 from .window import SceneWindow
+
+MISMATCH = ("commit_replay", "commit_jt")       # the replay disagrees with the accepted candidate (fix 3)
 
 
 class _FanOut:
@@ -56,14 +71,17 @@ class SceneTarget:
 
 
 def _window(start, prm, cfg, tgt: SceneTarget, vol0, bonds):
-    return SceneWindow(start, prm, cfg, tgt.bodies, vol0, bonds, tgt.mu)
+    win = SceneWindow(start, prm, cfg, tgt.bodies, vol0, bonds, tgt.mu)
+    cover(win)                                          # fix 1: each body's raster before its objective is built
+    return win
 
 
 class SceneOptimizer(WindowOptimizer):
     window_cls, objective_cls = staticmethod(_window), SceneObjective
 
-    def __init__(self, *args, **kw):
+    def __init__(self, *args, retry_mismatch: bool = False, **kw):
         super().__init__(*args, **kw)
+        self.retry_mismatch = bool(retry_mismatch)
         # u's displacement keeps no part along any body's six rigid modes (D94, per body: no body is moved or turned)
         with torch.no_grad():
             win = self.win
@@ -77,20 +95,72 @@ class SceneOptimizer(WindowOptimizer):
                 cols += [on[:, None] * win.lnrm, on[:, None] * torch.linalg.cross(r, win.lnrm, dim=1)]
             A = torch.cat(cols, 1).double()
             self.rigid = (A, torch.linalg.pinv(A.T @ A))
+        # fix 2: the bodies whose own terms are finite at the window's start (the uncontrolled continuation, which the
+        # raster's cover has just rolled out) take part in the window; the others keep zero controls
+        from .rollout import _read
+        with torch.no_grad():
+            if not self.win.zero_rolled:
+                self.win.dc_buf.zero_()
+                self.win.u_buf.zero_()
+                self.win.tr.run()
+            X, V, FT = _read(self.win)
+            active = [self.obj.body_finite(b, X[-1], FT, V[-1], V, X) for b in range(len(self.win.bodies))]
+        # no body finite: the window's objective is the sum as before (inf: no step, the zero-control continuation)
+        self.obj.active = active if any(active) else [True] * len(active)
+        self.inactive = [b for b, a in enumerate(self.obj.active) if not a]
+        self.tele["inactive"] = self.inactive
+
+    # ---- fix 2: a left-out body's controls stay zero ----
+    def _zero_rows(self, ts):
+        """Zero the left-out bodies' rows of ts (a dFc-shaped (T, N, 3, 3) and/or a u-shaped (N,) tensor)."""
+        for b in self.inactive:
+            r = self.win.bodies[b].rows
+            for t in ts:
+                if t is None:
+                    continue
+                if t.dim() == 1:
+                    t[r] = 0.0
+                else:
+                    t[:, r] = 0.0
+        return ts
+
+    def warm_start(self, dfc_init):
+        if self.inactive:
+            dfc_init = dfc_init.clone()
+            self._zero_rows([dfc_init])
+        return super().warm_start(dfc_init)
+
+    def gradient(self, e, it):
+        g, diag = super().gradient(e, it)
+        if self.inactive:
+            with torch.no_grad():
+                self._zero_rows(g)
+        return g, diag
+
+    def free_of_rigid(self):
+        super().free_of_rigid()
+        if self.inactive:
+            with torch.no_grad():
+                self._zero_rows(self.leaves)
 
     def commit(self, hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0) -> WindowResult:
         res = super().commit(hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
+        res.stats.update(inactive=self.inactive, raster_k=self.win.raster_k, raster_extent=self.win.raster_extent)
         if res.commit is not None:
             with torch.no_grad():
                 res.stats["L_split"] = _split_record(self.win, self.u.detach())
+            return res
+        reason = res.stats.get("null_reason")
+        if reason in MISMATCH and self.retry_mismatch:
+            res.stats["retry"] = 1                      # fix 3: no commit; the runner solves the window again
             return res
         from .rollout import commit_rollout             # the uncontrolled continuation: time advances
         with torch.no_grad():
             self.dFc.zero_()
             self.u.zero_()
         c = commit_rollout(self.win, self.obj, self.dFc, self.u, self.lam_r)
-        res.stats.update(zero_commit=1, dfc=self.dFc.detach()[:self.cfg.T].clone(), commit_reason=c.reason,
-                         commit_E_final=float(c.E_final), selection_merit=float(c.E_final))
+        res.stats.update(zero_commit=1, zero_reason=reason, dfc=self.dFc.detach()[:self.cfg.T].clone(),
+                         commit_reason=c.reason, commit_E_final=float(c.E_final), selection_merit=float(c.E_final))
         res.commit = c if c.valid else None
         if res.commit is not None:
             with torch.no_grad():

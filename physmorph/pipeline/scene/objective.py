@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import torch
 
-from ..window.objective import Objective
+from ..window.objective import Objective, end_drift
 from ..window.rollout import Eval
 from .window import SceneWindow
 
@@ -27,6 +27,22 @@ class SceneObjective:
         self.parts = [Objective(v) for v in win.views]
         self.horizon = self.parts[0].horizon
         self.u_gate_frac = sum(p.u_gate_frac for p in self.parts) / len(self.parts)
+        # fix 2 (2026-10-16): the bodies whose terms enter the window's objective (scene/solve.SceneOptimizer sets it from
+        # the window's start; a body left out keeps zero controls, the other is optimised as usual)
+        self.active = [True] * len(self.parts)
+
+    def body_finite(self, b: int, xT, FT, vT, V, X) -> bool:
+        """Whether body b's own geometry terms (transport with its end drift, stability, cleanup) are finite at a state
+        (the window's uncontrolled continuation): the terms that can be inf (the transport's mass check and its unsolved
+        solve); the render terms of a finite state are finite and are not read here (their discs stay unfound)."""
+        body, part = self.win.bodies[b], self.parts[b]
+        r = body.rows
+        with torch.no_grad():
+            y = self.frame(b, xT)
+            Vb = torch.stack([body.deformation(X[t, r], V[t, r]) for t in range(V.shape[0])])
+            drift = end_drift(body.deformation(xT[r], vT[r]), part.horizon)
+            vals = [(part.tgt.ot_scale or 1.0) * (part.transport(y) + drift), part.stability(Vb), part.cleanup(y)]
+            return all(bool(torch.isfinite(torch.as_tensor(v)).all()) for v in vals)
 
     # the exterior's discs of each body (the optimiser keeps the set the accepted candidate was scored with)
     @property
@@ -52,6 +68,8 @@ class SceneObjective:
         T = self.cfg.T
         lv = lk = lr = lpbr = d_sil = lstab = 0.0
         for b, (part, body) in enumerate(zip(self.parts, self.win.bodies)):
+            if not self.active[b]:
+                continue
             r = body.rows
             Vb = torch.stack([body.deformation(X[t, r], V[t, r]) for t in range(V.shape[0])])
             out = part.losses(self.frame(b, xT), FT[r], body.deformation(xT[r], vT[r]), Vb)
@@ -67,10 +85,10 @@ class SceneObjective:
         return e.lv + e.lstab
 
     def cleanup(self, xT, common_geometry=False):
-        return sum(p.cleanup(self.frame(b, xT), common_geometry) for b, p in enumerate(self.parts))
+        return sum(p.cleanup(self.frame(b, xT), common_geometry) for b, p in enumerate(self.parts) if self.active[b])
 
     def near_band_far(self, xT) -> float:
-        return sum(p.near_band_far(self.frame(b, xT)) for b, p in enumerate(self.parts))
+        return sum(p.near_band_far(self.frame(b, xT)) for b, p in enumerate(self.parts) if self.active[b])
 
     def scalar(self, e, lam_r) -> float:
         with torch.no_grad():

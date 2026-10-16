@@ -23,6 +23,7 @@ from .frame import rigid_velocity
 from .solve import SceneOptimizer, SceneTarget
 
 _STATS = ("g_share", "g_cos", "g_phys_norm", "g_rend_norm", "ls_trials", "accepted", "rejected", "replay_rel",
+          "inactive", "raster_k", "raster_extent", "zero_reason",
           "null_reason", "zero_commit", "t_start", "t_grad", "t_ls", "t_commit", "u_gate", "ext_builds", "L_split")
 
 
@@ -82,8 +83,21 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
                 rest[b] = d_now if rest[b] is None else torch.where(frag[:, None], rest[b], d_now)
                 bonds.append((coh[b], rest[b], frag.float()))
         start = StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J)
-        opt = SceneOptimizer(start, prm, cfg, tgt, balancer, vol0, bonds, 1.0, None, lambda *_: None)
-        res = opt.run(dfc_prev)
+        # fix 3: a commit whose replay disagrees with the accepted candidate is a null window, as in the single-body path:
+        # no simulated time, solved again from the same start with the attempt's controls as its warm start, up to the
+        # single-body patience; then the uncontrolled continuation is committed and recorded as such
+        retries = []
+        while True:
+            opt = SceneOptimizer(start, prm, cfg, tgt, balancer, vol0, bonds, 1.0, None, lambda *_: None,
+                                 retry_mismatch=len(retries) < cfg.patience)
+            res = opt.run(dfc_prev)
+            if not res.stats.get("retry"):
+                break
+            retries.append(res.stats.get("null_reason"))
+            dfc_prev = res.stats["dfc"]
+            log(f"[scene] window {a + 1}: the commit's replay disagrees ({retries[-1]}); solved again from its start "
+                f"({len(retries)} of {cfg.patience})")
+            res = opt = None
         stats = res.stats
         if res.commit is None:
             log(f"[scene] window {a + 1}: no valid rollout ({stats.get('commit_reason')}); the scene ends here")
@@ -119,7 +133,7 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
                    "contact_impulse": impulse, **(cross_gap(x, bodies) if len(bodies) == 2 else {}), **counts,
                    "lambda": res.hist[-1]["lambda"] if res.hist else opt.lam_r, "loss": stats.get("commit_E_final"),
                    "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj, **device_memory(),
-                   **{k: stats.get(k) for k in _STATS}, "morph_s": s}
+                   **{k: stats.get(k) for k in _STATS}, "morph_s": s, "replay_retries": retries}
         res.commit = commit = None
         hist.append(rec)
         P = [sum(bp["P"][k] for bp in per) for k in range(3)]
@@ -128,7 +142,10 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
             f"impulse=({impulse[0]:+.3g},{impulse[1]:+.3g},{impulse[2]:+.3g})  P=({P[0]:+.4g},{P[1]:+.4g},{P[2]:+.4g})  "
             + "  ".join(f"b{b}: com=({bp['com'][0]:+.2f},{bp['com'][1]:+.2f}) |w|={sum(w * w for w in bp['omega']) ** 0.5:.3f}"
                         f" R={bp['R_angle']:.1f}deg sil={bp['d_sil']:.4g}" for b, bp in enumerate(per))
-            + ("  zero-control commit" if stats.get("zero_commit") else ""))
+            + (f"  raster={rec['raster_k']}" if any(rec.get("raster_k") or []) else "")
+            + (f"  left out={rec['inactive']}" if rec.get("inactive") else "")
+            + (f"  replay retries={len(retries)}" if retries else "")
+            + (f"  zero-control commit ({stats.get('zero_reason')})" if stats.get("zero_commit") else ""))
     return {"frames": frames, "history": hist, "guards": guards, "Fp": Fp.cpu().numpy()}
 
 

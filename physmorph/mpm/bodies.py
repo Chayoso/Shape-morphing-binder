@@ -14,6 +14,7 @@ import warp as wp
 
 from . import contact as CT
 from .function import RolloutSpec
+from .state import MPMParams
 from .traj import Trajectory, _release_idle_cuda_cache
 
 
@@ -112,20 +113,115 @@ class FloorTrajectory(Trajectory):
                   device=self.device)
 
 
+# ── the deformation's drag (D147 fix 4, the user's approval of 2026-10-16) ───────────────────────────────────────────
+# The scene has no drag on the whole motion (--drag 0: a thrown body keeps its flight), so nothing damps a body's
+# deformation either, while the single-body recipe damps every velocity at MPMParams.drag (0.9 / s) in P2G (m v (1 - dt
+# drag)). Here each body's deformation velocity alone is damped at that rate, where the single-body drag acts: P2G reads
+# v - dt rate (v - (v_c + w x r)), with v_c the body's mass-weighted mean velocity and w = I^-1 sum m r x v its
+# least-squares angular velocity about its centre of mass c (r = x - c; the particles' part: APIC's affine C is left as
+# the single-body drag leaves it). Sum m (v - v_c - w x r) = 0 and sum m r x (v - v_c - w x r) = L - I w = 0, so the
+# body's linear and angular momentum are kept; the rigid motion (flight, spin, tumble) is not damped. On a tape the
+# kernels' generated adjoints carry the gradient through the reductions.
+
+@wp.kernel
+def k_rigid_sums(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
+                 sx: wp.array(dtype=wp.vec3), sv: wp.array(dtype=wp.vec3), sm: wp.array(dtype=float)):
+    p = wp.tid()
+    wp.atomic_add(sx, 0, m[p] * x[p])
+    wp.atomic_add(sv, 0, m[p] * v[p])
+    wp.atomic_add(sm, 0, m[p])
+
+
+@wp.kernel
+def k_rigid_moments(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
+                    sx: wp.array(dtype=wp.vec3), sm: wp.array(dtype=float),
+                    sL: wp.array(dtype=wp.vec3), sI: wp.array(dtype=wp.mat33)):
+    p = wp.tid()
+    r = x[p] - sx[0] / sm[0]
+    wp.atomic_add(sL, 0, m[p] * wp.cross(r, v[p]))
+    wp.atomic_add(sI, 0, m[p] * (wp.dot(r, r) * wp.identity(n=3, dtype=float) - wp.outer(r, r)))
+
+
+@wp.kernel
+def k_deformation_drag(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
+                       sx: wp.array(dtype=wp.vec3), sv: wp.array(dtype=wp.vec3), sm: wp.array(dtype=float),
+                       sL: wp.array(dtype=wp.vec3), sI: wp.array(dtype=wp.mat33), kappa: float,
+                       vd: wp.array(dtype=wp.vec3)):
+    p = wp.tid()
+    c = sx[0] / sm[0]
+    w = wp.inverse(sI[0]) @ sL[0]
+    vd[p] = v[p] - kappa * (v[p] - sv[0] / sm[0] - wp.cross(w, x[p] - c))
+
+
+def deformation_drag_rate(prm: MPMParams) -> float:
+    """The rate the scene's deformation is damped at: the single-body recipe's drag (MPMParams.drag's default), less
+    the drag the scene's world already puts on every velocity (none in the scene; V0 kept the frozen 0.9 and so needs
+    no more)."""
+    return max(float(MPMParams.drag) - float(prm.drag), 0.0)
+
+
+class _DeformationDrag:
+    """A Trajectory whose P2G reads the body's velocities with their deformation part damped (the note above). The
+    damped velocities of step t are their own arrays (vd[t]); P2G is the frozen one, handed vd[t] in place of v[t] for
+    the step (self.v[t] is the step's input array only there), so its hand adjoint seeds vd[t].grad, which the
+    damping kernels' generated adjoints carry to v[t] and x[t]."""
+
+    def _init_drag(self, rate: float):
+        self.drag_kappa = float(self.prm.dt) * float(rate)
+        dev, rg, T = self.device, self.requires_grad, self.T
+        Z1 = lambda dt: [wp.zeros(1, dtype=dt, device=dev, requires_grad=rg) for _ in range(T)]   # noqa: E731
+        self.drag_sx, self.drag_sv, self.drag_sL = Z1(wp.vec3), Z1(wp.vec3), Z1(wp.vec3)
+        self.drag_sm, self.drag_sI = Z1(float), Z1(wp.mat33)
+        self.drag_vd = [wp.zeros(self.N, dtype=wp.vec3, device=dev, requires_grad=rg) for _ in range(T)]
+
+    def _pre_grid(self, t: int):
+        dev, N = self.device, self.N
+        sx, sv, sm, sL, sI, vd = (self.drag_sx[t], self.drag_sv[t], self.drag_sm[t], self.drag_sL[t], self.drag_sI[t],
+                                  self.drag_vd[t])
+        for a in (sx, sv, sm, sL, sI):
+            a.zero_()
+        x, v = self.x[t], self.v[t]
+        wp.launch(k_rigid_sums, dim=N, inputs=[x, v, self.m, sx, sv, sm], device=dev)
+        wp.launch(k_rigid_moments, dim=N, inputs=[x, v, self.m, sx, sm, sL, sI], device=dev)
+        wp.launch(k_deformation_drag, dim=N, inputs=[x, v, sx, sv, sm, sL, sI, self.drag_kappa, vd], device=dev)
+        self.v[t] = vd
+        try:
+            super()._pre_grid(t)
+        finally:
+            self.v[t] = v
+
+
+class DragTrajectory(_DeformationDrag, Trajectory):
+    def __init__(self, *args, drag_rate: float, **kw):
+        super().__init__(*args, **kw)
+        self._init_drag(drag_rate)
+
+
+class DragFloorTrajectory(_DeformationDrag, FloorTrajectory):
+    def __init__(self, *args, drag_rate: float, **kw):
+        super().__init__(*args, **kw)
+        self._init_drag(drag_rate)
+
+
 def body_trajectory(spec: RolloutSpec, dfc, layer_u=None, requires_grad=False, persistent=True,
-                    vp: float | None = None) -> Trajectory:
+                    vp: float | None = None, drag_rate: float | None = None) -> Trajectory:
     """One body's Trajectory from its spec (the frozen single-body construction of window/setup and function.py); over a
     floor (spec.prm.floor_y) with the sample's volume per particle vp, a FloorTrajectory whose centres stay half a
-    pitch above the floor."""
+    pitch above the floor. drag_rate: the deformation's drag (1 / s; None: deformation_drag_rate(spec.prm), the
+    single-body rate where the world has no drag; 0: none)."""
     bonds = ((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None)
     kw = dict(Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dfc, device=spec.device, requires_grad=requires_grad,
               vol0=spec.vol0, Fg0=spec.Fg0, track_geom=spec.track_geom, bonds=bonds, persistent=persistent,
               layer=spec.layer, layer_u=layer_u, bond_history=spec.bond_history, control_steps=spec.control_steps,
               polar_adjoint=spec.polar_adjoint, spacing=spec.spacing, volume_exact=spec.volume_exact, J0=spec.J0)
     args = (spec.x0, spec.m, spec.lam, spec.mu, spec.prm, spec.T)
-    if vp is not None and spec.prm.floor_y > -1.0e8:
-        return FloorTrajectory(*args, floor_c=spec.prm.floor_y + 0.5 * float(vp) ** (1.0 / 3.0), **kw)
-    return Trajectory(*args, **kw)
+    rate = deformation_drag_rate(spec.prm) if drag_rate is None else float(drag_rate)
+    floor = vp is not None and spec.prm.floor_y > -1.0e8
+    if floor:
+        kw["floor_c"] = spec.prm.floor_y + 0.5 * float(vp) ** (1.0 / 3.0)
+    if rate > 0.0:
+        return (DragFloorTrajectory if floor else DragTrajectory)(*args, drag_rate=rate, **kw)
+    return (FloorTrajectory if floor else Trajectory)(*args, **kw)
 
 
 _WARMED: set = set()

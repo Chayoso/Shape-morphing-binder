@@ -26,7 +26,9 @@ import physmorph  # noqa: E402,F401  (before torch: the CuPy / NVRTC order)
 import torch  # noqa: E402
 
 from physmorph import gpu, metrics  # noqa: E402
+from physmorph.mpm.bodies import deformation_drag_rate  # noqa: E402
 from physmorph.pipeline.scene.frame import body_frame  # noqa: E402
+from physmorph.pipeline.scene.raster import BodyRaster  # noqa: E402
 from physmorph.pipeline.scene.runner import run_scene  # noqa: E402
 from physmorph.pipeline.scene.schedule import MorphSchedule  # noqa: E402
 from physmorph.pipeline.scene.spec import SceneSpec, layout  # noqa: E402
@@ -77,7 +79,7 @@ def main():
         # cell at interior nodes in the prototype (M-b) and let the gate fire only after an overlap of a spacing
         vp = (prep.density["target_fill"] if prep.density else prep.v_src) / a.n
         bodies.append(Body(start=start, stop=start + a.n, Xq=gpu.tensor(X.astype(np.float32)), tgt=tgt, vp=vp,
-                           mass=cfg_b.mass_ref_n / a.n, cfg=cfg_b))
+                           mass=cfg_b.mass_ref_n / a.n, cfg=cfg_b, raster=BodyRaster(prep.prm, cfg_b)))
         srcs.append(X)
         vps.append(vp)
         tgts.append(prep.tgt)
@@ -88,6 +90,7 @@ def main():
         start += a.n
     Rt = max(float(np.linalg.norm(t - t.mean(0), axis=1).max()) for t in tgts)
     x0, v0, R0, prm, info = layout(spec, srcs, vps, cfg.young, cfg.poisson, cfg.mass_ref_n, dx, dt, cfg.T, radius=Rt)
+    info["deformation_drag"] = deformation_drag_rate(prm)          # fix 4: the deformation damped at this rate (1 / s)
     if spec.frame == "fixed":                   # V0: the objective in the frame the body has at launch (the world's)
         for bd, R in zip(bodies, R0):
             bd.fixed = (gpu.tensor(x0[bd.rows].mean(0)), gpu.tensor(R.astype(np.float32)))
