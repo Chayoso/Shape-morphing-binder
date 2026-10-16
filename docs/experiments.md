@@ -5139,6 +5139,201 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   method (0.17–0.6 × its time; about 10–30 min a pair here). It has no volume constraint, and its intermediate
   volume varies far more than BUO's, with blobby intermediates and parts that can vanish. The end is near BUO's
   (silhouette IoU about 0.90–0.96). Results are recorded as found.
+  **B13, the control variable: an external force in place of the stress control (pre-registered 2026-10-15 12:08 CDT
+  server clock, before any measured run; the B13 agent on the coordinator's brief; branch `wip/b13` from refreeze-prep
+  2b0cafc; `tmp/b13/`, `output/gpu/b13/`; a baseline mode that changes nothing of ours).** Classical physics-based shape
+  control drives the body toward the target with external forces (Treuille et al. 2003; McNamara et al. 2004; Fattal and
+  Lischinski 2004; Chen, Levin and Langlois, SIGGRAPH 2024; Li et al., SIGGRAPH Asia 2025). A reviewer will ask why we
+  control the stress (dFc) and not forces. B13 is the controlled ablation inside our simulator: the objective, the render
+  terms, the optimiser, the windows, u and the readout are the same, and only the control variable changes. Our prior
+  F-control [Xu et al. 2025] is B4; the two blocks answer different questions (B4 the objective, B13 the control).
+  *The arms (`--baseline force`, `--baseline force_mf`; without them the frozen path bit for bit).*
+  - (a) `force`: an external force f_p(t) per particle and driven step, in the driven half of every window, the steps
+    dFc acts in now. dFc is held at zero. The force enters as the particle's velocity increment c a_p before P2G, which
+    spreads the impulse dt f_p to the nodes with the B-spline weights (and P2G's factor 1 − dt drag, which every
+    momentum of the step takes). The leaf a is the force per unit mass in units of A0 = (λ + 2μ) V / (m dx), the
+    acceleration that the P-wave modulus's unit stress gives one particle's volume V across one MPM cell; A0 = c_p² / dx
+    with c_p the P-wave speed, the same at every N (bunny: c_p 13.5 wu/s, dx 0.306 wu, A0 ≈ 600 wu/s²); c = dt A0.
+  - (b) `force_mf`: the same force, with each driven step's forces projected at that step's positions onto zero net
+    force and zero net torque about the centre of mass: f' = f − a − b × r, a = mean f, b = I⁻¹ Σ r × f, I = Σ |r|² 1 −
+    r rᵀ, r = x − x̄ (equal masses). The B-spline weights reproduce constants and linear functions, so the grid receives
+    neither linear nor angular momentum from f'. This is the "momentum-free force" a reviewer would propose. It is
+    still not the divergence of a stress: the force acts on each particle independently, and the projection is global.
+  - Held equal: u as in our pipeline (its transport gate, its clamp, its rigid-mode removal, D146b's carried moments),
+    so the comparison isolates dFc against the force; the layer relaxation (D146 `--relax_driven`), the minimum
+    spacing, the bonds, the eight-term objective and the render terms (PCGrad, λ at the rule's value), Adam with the
+    Armijo search, the per-particle per-step cap (0.02, here on |a|), the warm start (the last window's control × 0.5),
+    the plastic assimilation at every commit (with dFc at zero it takes the elastic stretch the forces left), the
+    acceptance and the stopping.
+  - The step control's constants (Adam's eps, the adaptive step's target norm) are numbers in dFc's gradient units.
+    They take the ratio of the physics gradient's norm on the force leaf to its norm on dFc, measured once at the run's
+    first gradient (both at zero control), as D112 converted them to Xu's loss units; eps, a per-coordinate constant,
+    takes that ratio × √3 (9 coordinates of dFc against 3 of the force per particle and step).
+  - Not run: the Fattal–Lischinski driving force as a non-optimised reference. A faithful version needs its own target
+    field, gathering term and per-scene gains, which is more than a few hours; the optimised arms are the stronger
+    comparison.
+  *Code paths (the design note).*
+  - New: `physmorph/mpm/force.py`. It holds the increment and the projection kernels, with hand adjoints recorded on
+    the tape. The projection's moments are summed in float64, and its adjoint includes the dependence on the positions.
+  - `mpm/traj.py`: `Trajectory(force=...)`; in the driven steps P2G reads v + c f' in place of v.
+  - `mpm/adjoints.record_p2g`: the velocity that P2G read (default `tr.v[t]`).
+  - `mpm/function.py`: `RolloutSpec.force`, the force leaf of the persistent adjoint, and the bridge's fourth input.
+    The bridge returns dFc's gradient only when dFc requires one; autograd discarded it before.
+  - `pipeline/window/setup.py` (the unit, the eval trajectory's force buffer, `load`), `rollout.graph_terms`,
+    `solve.py` (the leaf, the cap, the unit ratio, the record), `run/runner.py` (the `force_*` records),
+    `TargetPack.force_ratio`, `config.py` (the baseline values, `force_scale`), `scripts/pipeline_run.py` (the choices,
+    `--force_scale`; the Xu-only settings now keyed on "xu").
+  - The default path: every change sits behind `cfg.baseline in (force, force_mf)` or `force is not None`; when off,
+    P2G's inputs, the adjoint's arrays and every kernel are the old ones.
+  - Records per committed window (`force_*`): the centre of mass's velocity increment the force gave (`force_dv`), the
+    angular momentum per unit mass it added (`force_dL`), the gross increment, the leaf's largest entry, the unit ratio.
+  *Tests (`tests/test_force_baseline.py`, on hyde06).*
+  - (1) The projection has no net force and no net torque, and equals the float64 reference.
+  - (2) The increment's hand adjoints, plain and projected, against float64 autograd of the same map.
+  - (3) A window (persistent graphs, CPU and CUDA) against central finite differences on the force and u, both arms.
+  - (4) Momentum: the grid's linear and angular momentum at every step. The plain force adds dt Σ f and dt Σ x × f; the
+    projected force adds neither, to float rounding, with and without the elastic stress.
+  - (5) A zero force is no force: the rollout bit for bit, the gradients to rounding.
+  - (6) In a run (CUDA): dFc stays zero and the records exist; the default run has no force.
+  - Then the full suite. The default path is also checked end to end: the 40k bunny, seed 97, four windows, D146b
+    flags, under Warp's run-to-run deterministic mode (`tmp/rt/det_run.py`), repo_b13 at the default flags against the
+    base refreeze-prep 2b0cafc; every frame, metric and history field but clocks must be bit for bit equal (as D145's
+    proof).
+  *Runs (the D146b base: `--relax_driven --u_adam_carry`; one run a card, lowest card priority).*
+  - Now, the 40k bunny smoke, seed 97, repo_b13s (frames12 output): F (force) and FM (force_mf), scale 1. The default
+    arm's reference is D149's OFF1 / OFF2: the same base code, flags and seed, two replays.
+  - Now, B13a, the unit's sensitivity at 40k (bunny, seed 97): `--force_scale` 1/16, 1/4 and 4 for each arm, beside the
+    smoke's 1. The scale used at 300k is, per arm, the one with the lowest geometry energy (`transport_energy`, the
+    objective's main term, in the same units for every arm) at the delivered last window, as D118 chose Xu's α by its
+    own loss. Within 2 % of each other, the scale nearer 1 is taken. Every run's end is reported, so the choice is
+    visible.
+  - At the re-freeze tag (when the coordinator gives it): 6 meshes (bunny, dragon, teapot, bob, armadilo, homer) × 2
+    arms × seeds 97 / 99 / 101 at 300k = 36 runs, at the chosen scales. The default arm is B1's render arm L on the
+    same tag and seeds; where B1 has not run on that tag, B13 runs L itself. Budget: about 9 card-hours for the runs and
+    about 6 for the readings.
+  *Readout (D145's harness, unchanged).*
+  - End against the independent sample (d90), with the floor: silhouette IoU and chamfer, the yardstick and the display
+    (`read300.sh`); the run's own silhouette IoU, chamfer and thin uncovered.
+  - At rest: the last kinetic record.
+  - Momentum: the centre of mass's largest and final displacement, the net / gross angular move and the net rotation on
+    every kept frame (`mom.sh`, `momentum_probe.py`, as D149 read CBL / CBL2 / CBP); beside them the records' sums of
+    `force_dv` / `force_dL` and the body's net (`body_vcom`, `rot145.py`, `angL145.py`).
+  - Floating material: apart particles in windows 3–10 (`d120_apart.py`), and at matched progress p = 0.25 / 0.5 / 0.75
+    on seed 97 (`harness.py`).
+  - The volume routine (`vol145.py`).
+  - Runtime: wall, attempts, seconds an attempt.
+  - Reading: an arm differs from the default on a measure when the two three-run ranges do not overlap (D145).
+  *Hypothesis (a prediction to be measured, not a target).*
+  - (a) `force` pushes the body and puts momentum in. The records' `force_dv` is nonzero in every window. The centre of
+    mass's largest displacement is at least 100× the default's (D149: 1e-5 to 1.3e-4 pitches), and the net rotation at
+    least 10× (default about 0.008°).
+  - It does not end at rest unless damped: the last kinetic record lies above the default's three-run range. A force
+    holds an elastic deformation that springs back once it is released, while dFc writes the deformation into the
+    stress-free state. So it needs more windows, and its end is behind the default's on silhouette IoU and chamfer on at
+    least four of the six meshes. Per-particle forces push particles one by one: apart particles in windows 3–10 lie
+    above the default's range.
+  - (b) `force_mf` puts in no momentum by construction: `force_dv` at most 1e-9 of the gross increment, and the probe's
+    centre of mass within the default's range. In everything else it behaves like (a).
+  - Cost per attempt within ±10 % of the default's (the increment adds a few small kernels a step; the projection,
+    two float64 reductions a step).
+  - If the force arms match the default on the end and the rest, the case for the stress control rests on momentum and
+    smoothness alone; reported as found.
+  *Amendment 1 (recorded 2026-10-15 13:46 CDT server clock, before any measured run; the coordinator's message: the
+  user tags the freeze on Sat 10/18 as D135 + D146b + D149, with a floating-Gaussian fix only if it passes by then).*
+  - `wip/b13` is rebased onto `refreeze-cand` 2ba7e6d (68376d5 and the pinned pipeline digest), whose defaults
+    switch on `--relax_driven`, `--u_adam_carry` and `--spacing_symmetric`. The B13 runs therefore use the candidate's
+    defaults and add no base flags.
+  - The tests and the full suite run on the rebased tree. The deterministic proof compares repo_b13s at the default flags
+    with refreeze-cand 2ba7e6d (frames12 patch on both). The candidate's own pinned references
+    (`tests/test_refreeze_reference.py`) are part of the suite.
+  - Merge into `refreeze-cand` only when all of this is green.
+  - The 40k reference arm becomes D149's ON1 / ON2: refreeze-prep with the D149 code, the D146b flags and
+    `--spacing_symmetric`, the candidate's default path, same seed, two replays. OFF1 / OFF2 stay beside them as the
+    09b-switch replays.
+  - The 40k smoke and B13a run on the candidate now; the 300k runs wait for the tag.
+  - The card chain that waited from 12:10 was stopped at 13:40 before it claimed a card; it had run nothing.
+  *The card checks, the 40k smoke and B13a, read (chain on GPU 2, 14:36–15:14 CDT, `tmp/b13/b13_chain40k.sh`; the
+  suite on 251d901 18:42–18:46; read 2026-10-15 19:05 CDT by `b13_read.py` (P = 0.0978 wu, as D149's 40k reading) and
+  the CPU momentum probe `tmp/b13/momentum_probe_cpu.py` on ON1 / ON2 (`m_ref_bunny40k_ON*.log`, run now: the 40k
+  reference had no probe); `output/gpu/b13/`).*
+  - Tests: the new tests 26 passed on the card. The default path's proof: SAME (frames12 arrays 4, metrics 37, history
+    fields 556). The full suite on 251d901: 431 passed, 2 skipped, exit 0. Its first run (2ba7e6d + B13) had 3 failures,
+    all in `test_runtime_ab`: its stub optimizer lacked `_zd` (B13's one-off unit measurement). 251d901 gives the stub
+    `_zd = None`.
+  - The tests' numbers (`numbers_gpu.log`, `mom_numbers_gpu.log`, CPU and CUDA alike):
+    - The projection at N = 300k: net / gross force 6.6e-11, torque / gross 3.3e-11 (before it: 0.37 and 6.7e-4).
+    - The increment's hand adjoints: largest relative error 4.8e-8.
+    - A window, finite differences against the adjoint: relative error 1.5e-6 to 1.6e-4 on the force, 9e-6 to 5e-5 on u.
+    - The grid's momentum over the gross impulse: the plain force 0.39 (linear) and 0.17 (angular). The projected force
+      at most 9.3e-9 (linear) and 1.5e-6 (angular, with the elastic stress, CUDA).
+
+  The 40k bunny, seed 97, one run per arm and scale. The reference is D149's ON1 / ON2 (the candidate's default path),
+  with OFF1 / OFF2 beside it. Geometry energy = `transport_energy` at the delivered last window. End kin = the last
+  committed window's record (D149's column). Centre of mass and net rotation are the probe's, on every kept frame.
+
+  | run | force scale | geometry energy | silhouette IoU | chamfer | thin | end kin | windows | attempts | s / attempt | com largest / end (P) | net rotation | apart 3–10 | unit ratio |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | ON1 | – | 5.94e-5 | 0.9746 | 0.1101 | 5.62 % | 3.29e-5 | 37 | 40 | 1.75 | 1.08e-5 / 1.07e-5 | 0.0030° | 16 | – |
+  | ON2 | – | 5.24e-5 | 0.9746 | 0.1099 | 4.06 % | 2.33e-5 | 37 | 43 | 1.74 | 1.06e-5 / 1.05e-5 | 0.0069° | 50 | – |
+  | OFF1 | – | 4.82e-5 | 0.9755 | 0.1098 | 4.06 % | 1.98e-5 | 45 | 50 | 1.72 | 1.24e-4 / 1.24e-4 | 0.0071° | 46 | – |
+  | OFF2 | – | 6.21e-5 | 0.9743 | 0.1100 | 5.47 % | 2.44e-5 | 32 | 40 | 1.74 | 1.44e-4 / 1.44e-4 | 0.0055° | 42 | – |
+  | F | 1 | 1.365e-4 | 0.9756 | 0.1104 | 4.69 % | 1.58e-5 | 54 | 58 | 1.77 | 0.425 / 2.35e-3 | 2.32° | 115 | 2.14 |
+  | Fq16 | 1/16 | 1.424e-4 | 0.9777 | 0.1101 | 4.38 % | 3.07e-6 | 249 | 264 | 1.86 | 0.974 / 6.3e-4 | 2.25° | 114 | 0.134 |
+  | Fq4 | 1/4 | 1.340e-4 | 0.9770 | 0.1102 | 5.31 % | 1.18e-5 | 96 | 104 | 1.83 | 0.685 / 4.6e-4 | 2.34° | 273 | 0.536 |
+  | Fx4 | 4 | 3.608e-4 | 0.9759 | 0.1124 | 5.78 % | 1.05e-4 | 19 | 22 | 1.83 | 0.433 / 1.52e-2 | 2.01° | 8 | 8.58 |
+  | FM | 1 | 1.409e-4 | 0.9760 | 0.1104 | 5.94 % | 1.10e-5 | 46 | 51 | 1.86 | 1.00e-5 / 9.7e-6 | 0.0078° | 97 | 2.14 |
+  | FMq16 | 1/16 | 1.698e-4 | 0.9781 | 0.1102 | 3.28 % | 3.24e-6 | 218 | 236 | 1.94 | 1.18e-5 / 1.17e-5 | 0.0015° | 105 | 0.134 |
+  | FMq4 | 1/4 | 1.352e-4 | 0.9773 | 0.1099 | 4.06 % | 7.79e-6 | 85 | 91 | 1.88 | 9.9e-6 / 9.9e-6 | 0.0016° | 229 | 0.536 |
+  | FMx4 | 4 | 2.228e-4 | 0.9749 | 0.1115 | 6.25 % | 6.61e-5 | 34 | 39 | 1.83 | 1.21e-5 / 1.21e-5 | 0.0069° | 17 | 8.58 |
+
+  *The scale for 300k, decided as written: the lowest geometry energy at the delivered last window; within 2 % of each
+  other, the scale nearer 1.*
+  - **force: scale 1.** The lowest is 1/4 (1.340e-4). Scale 1 (1.365e-4) is +1.9 %, inside 2 %, and nearer 1. 1/16 is
+    +6.3 %, 4 is +169 %.
+  - **force_mf: scale 1/4.** The lowest is 1/4 (1.352e-4). Scale 1 (1.409e-4) is +4.3 %, outside 2 %. 1/16 is +25.6 %,
+    4 is +64.8 %.
+  - The unit ratio scales with the scale as built (2.14 × scale; the same at both arms, measured at zero control).
+  - Observed, not gated: the default's own replay spread of this measure is 13 % (ON1 / ON2) and 29 % (OFF1 / OFF2). So
+    the 2 % rule decides inside one-run noise. The choice is the rule's, not a measured optimum.
+
+  *The hypothesis at 40k (one run an arm, read against ON1 / ON2 with OFF beside it; the gates are the 300k ranges).*
+  - (a) `force` pushes the body and puts momentum in. `force_dv` is nonzero in every committed window (54 of 54; the
+    smallest 6.4e-4 wu/s). The centre of mass's largest displacement is 0.43 P, 4 × 10^4 × ON's (3 × 10^3 × OFF's). The
+    net rotation is 2.32°, 330–770 × the default's. Both are over the predicted 100× and 10×. The objective pulls the
+    body back: the centre of mass ends 2.3e-3 P from its start, 0.5 % of its largest excursion. The same holds at every
+    scale: largest 0.43–0.97 P, rotation 2.0–2.3°.
+  - Not at rest at the end: **not seen at 40k**. F's end kin (1.58e-5) lies below ON's 2.33–3.29e-5 and OFF's
+    1.98–2.44e-5. F runs longer (54 windows against 37), as predicted. Its silhouette IoU (0.9756) is not behind ON's
+    (0.9746). Its chamfer is 0.0003–0.0005 behind ON's. Apart particles at windows 3–10 lie above the default's
+    (115 against 16–50), as predicted.
+  - (b) `force_mf` puts in no momentum. `force_dv` / gross is at most 3e-17 in every window, against the bound of 1e-9.
+    The centre of mass reaches 1.00e-5 P, at ON's 1.06–1.08e-5. The net rotation is 0.0078°, against ON's 0.0030° and
+    0.0069°. End kin 1.10e-5 (below the default's). Apart particles 97 (above). Windows 46 (against 37).
+  - Cost per attempt within ±10 %: F +1.4 %, FM +6.6 % against ON's 1.745 s. Over the other scales, +4.9 % to +11 %
+    (FMq16 1.94 s).
+  - Observed, not gated: every force run at scales 1/16–1 ends with 2.2–3.5 × the default's geometry energy
+    (1.34–1.70e-4 against 4.8–6.2e-5). Yet its own silhouette IoU is equal or higher (0.9756–0.9781 against
+    0.9743–0.9755). The smaller scales run 6–7 × the default's windows (1/16: 218–249) and score the highest silhouettes.
+    The objective's main term and the silhouette disagree here; the 300k yardstick against the independent sample is
+    the reading that decides.
+  - End kin, two conventions: the last committed window's record (above, D149's), and D145's `tab145.py` `kin_last`
+    (the history's last record, which the 300k harness reports). They differ by up to 2× on the same run (ON1 3.29e-5
+    against 1.63e-5). The 300k comparison uses `kin_last` for every arm.
+  *The 300k runs on the tag (launched 2026-10-15 18:59 CDT server clock).*
+  - Code: `repo_ts`, the tag `freeze-2026-10-15` (fc02a1a) with the kept-frames output patch (`patch_s.py`), as every
+    post-tag 300k run of D145.
+  - Checked before the launch: `repo_b13s` (251d901 + the kept-frames patch) and `repo_ts` have identical `physmorph/`
+    and `scripts/pipeline_run.py` (`diff -r`: no difference). The scripts differ only by the tag's three probe scripts
+    (`visible_apart.py`, `rgv_patch.py`, `rgv_patch2.py`). The tests trees are identical.
+  - Queue `tmp/b13/b13_300k.queue`: 6 meshes × {F at scale 1, FM at scale 1/4} × seeds 97 / 99 / 101 = 36 runs, seed 97
+    first. The kept frames are kept on seed 97 (the harness at matched progress, the volume routine) and removed after
+    the readings on 99 / 101 (`cleanup.log`).
+  - Chain `tmp/b13/b13_chain300k.sh` (pid 2801215), one card, outside D145's queue:
+    - It claims only a card with no lock, under 2000 MiB and under 10 % use for 10 minutes, and holds it for 3 items.
+    - It makes no claim while a D147 process waits without a lock, so D147's final scene goes first.
+    - After each run, `read300.sh` MODE end on the same card; its CPU part runs detached.
+  - The default arm is B1's L on the tag (`d145t_b1`, seeds 97 / 99 / 101 at all six meshes, in D145's post-tag queue).
+    B13 runs no L of its own.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
