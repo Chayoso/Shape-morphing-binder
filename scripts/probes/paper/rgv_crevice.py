@@ -10,7 +10,8 @@ Regions (outer-layer particles):
 Per region: the render's share s = |lambda g_r| / (|lambda g_r| + |g_p|) (the panel's quantity), |lambda g_r| and
 |g_p| (the window's first gradient on dF_c, summed over the driven steps), the render gradient's silhouette / shading
 split (the dump's gl_sil / gl_pbr, squared-norm shares), the cleanup's part of the physics gradient (gl_dt) when
-dumped. Visibility in the render loss's 18 views (6 azimuths x elevations 0, +-0.5; orthographic, 188 px, half-extent
+dumped. When VIZ_NPZ's physics is every non-render term (rgv_patch2 dumps), the share with the physics core alone
+(share_core_median) and the cleanup against the core (cleanup_over_core_median) are recorded beside it. Visibility in the render loss's 18 views (6 azimuths x elevations 0, +-0.5; orthographic, 188 px, half-extent
 1.25 max |target|, as physmorph.losses.silhouette): every layer particle splatted to its pixel, a z-buffer along the
 view's camera axis (right x up); a particle is seen when within 1.5 pitches of the pixel's front, at the silhouette
 edge when seen and within one pixel of an edge pixel (occupied, with an empty 4-neighbour) of the whole body's
@@ -34,6 +35,7 @@ lam = np.asarray(z["w_lam"])
 anim = np.asarray(z["w_anim"]).astype(int)
 t0, t1 = np.asarray(z["w_t0"]), np.asarray(z["w_t1"])
 R, P = z["g_rend"], z["g_phys"]
+PHYS_ALL = "physics_def" in z.files and str(z["physics_def"]) == "all"   # g_phys = every non-render term (rgv_patch2)
 extent = float(np.abs(tgt).max()) * 1.25
 RES = 188
 views = [(float(t + (i / 3) * (2 * np.pi / 6)), float(ph)) for i, ph in enumerate((0.0, 0.5, -0.5))
@@ -78,6 +80,7 @@ for w in range(W0 - 1, W1):
     gsil = lr * d["gl_sil_psum"].astype(np.float64) if "gl_sil_psum" in d.files else None
     gpbr = lr * d["gl_pbr_psum"].astype(np.float64) if "gl_pbr_psum" in d.files else None
     gdt = d["gl_dt_psum"].astype(np.float64) if "gl_dt_psum" in d.files else None
+    gcore = d["gl_phys_psum"].astype(np.float64)          # the physics core alone (the pre-tag panels' physics)
     # the 18 views: orthographic z-buffer of the layer, the body's occupancy and its silhouette edge
     th = np.array([v[0] for v in views])
     ph = np.array([v[1] for v in views])
@@ -146,10 +149,16 @@ for w in range(W0 - 1, W1):
             r["render_sil_share"] = float(ss / max(ss + sp, 1e-300))
         if gdt is not None:
             r["cleanup_over_physics_median"] = float(np.median(gdt[m] / np.maximum(gp[m], 1e-300)))
+            r["cleanup_over_core_median"] = float(np.median(gdt[m] / np.maximum(gcore[m], 1e-300)))
+        if PHYS_ALL:                                       # the panels count every non-render term; the core beside it
+            r["share_core_median"] = float(np.median(gr[m] / np.maximum(gr[m] + gcore[m], 1e-300)))
+            r["core_median"] = float(np.median(gcore[m]))
         row[name] = r
     res["windows"][w + 1] = row
-    print(w + 1, {k: (v["n"], round(v["share_median"], 3), round(v["views_seen_median"], 1), v["views_seeing_10pct"],
-                      round(v["seen_pairs_at_edge"], 3), round(v.get("render_sil_share", -1), 2))
+    print(w + 1, {k: (v["n"], round(v["share_median"], 3), round(v.get("share_core_median", -1), 3),
+                      round(v["views_seen_median"], 1), v["views_seeing_10pct"],
+                      round(v["seen_pairs_at_edge"], 3), round(v.get("render_sil_share", -1), 2),
+                      round(v.get("cleanup_over_core_median", -1), 2))
                   for k, v in row.items() if isinstance(v, dict)}, flush=True)
 json.dump(res, open(os.path.join(out, "crevice.json"), "w"), indent=1)
 print("written", out, flush=True)

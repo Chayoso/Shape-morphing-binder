@@ -1,5 +1,5 @@
 """render_gradient_viz.py VIZ_NPZ DENSE_NPZ[,DENSE_NPZ...] OUT_DIR [+viz=A,B,C,D,U] [+views=35,90] [+res=1080]
-[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+c_avg=1] [+d_avg=1] [+gridfull=1] [+mesh=bunny]
+[+grid=1] [+interp=1] [+frames=a-b] [+stride=1] [+field=zbs] [+el=18] [+dist=1.05] [+glyph_cell=5] [+arrow_px=46] [+c_avg=1] [+d_avg=1] [+gridfull=1] [+mesh=bunny] [+code=TAG]
 -- the render gradient's videos (RGV): four questions about the render loss and the stress control dF_c, one panel
 each, drawn on the deforming body in the deliverable's studio look (scripts/render_deliverable.py's base display,
 +fit=0: the exterior's discs of each kept frame's particles, their twice-averaged normals, the same camera, lights,
@@ -250,6 +250,7 @@ def main(argv=None):
     GNAME = "grid" if GB == "B" else "gridB2"
     GRID_FULL = opts.get("gridfull", "1") == "1"                            # 0: only the half-size 2 x 2 (4K panels)
     MESH = opts.get("mesh", Path(args[1]).name.split("300k")[0].split("_")[0])
+    CODE = f"code {opts['code']}" if "code" in opts else "deliverable code"   # the footer's code (+code=TAG)
     z = np.load(args[1], allow_pickle=False)
     out = Path(args[3])
     tgt = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
@@ -396,8 +397,13 @@ def main(argv=None):
             dr.line([(X(t), Y(v)) for t, v in zip(tt, vals)], fill=col, width=max(2, int(2 * sz)))
         dr.line([(X(t_now), y0), (X(t_now), y0 + h)], fill=WHITE, width=max(1, int(2 * sz)))
         dr.text((x0, y0 - f.size - 6 * sz), "total pull over the morph (log scale)", font=f, fill=INK)
-        dr.text((x0 + w + 8 * sz, Y(lr[-1]) - f.size / 2), "render", font=f, fill=(240, 147, 79))
-        dr.text((x0 + w + 8 * sz, Y(lp[-1]) - f.size / 2), "physics" if PHYS_ALL else "physics core", font=f,
+        yr, yp = Y(lr[-1]), Y(lp[-1])                  # the end labels at least one line apart (no overlap)
+        gap = f.size + 3 * sz
+        if abs(yr - yp) < gap:
+            mid, sgn = .5 * (yr + yp), (1 if yr >= yp else -1)
+            yr, yp = mid + sgn * gap / 2, mid - sgn * gap / 2
+        dr.text((x0 + w + 8 * sz, yr - f.size / 2), "render", font=f, fill=(240, 147, 79))
+        dr.text((x0 + w + 8 * sz, yp - f.size / 2), "physics" if PHYS_ALL else "physics core", font=f,
                 fill=(190, 196, 204))
         for tk in range(0, int(t_end) + 1, 2):
             dr.text((X(tk) - 4 * sz, y0 + h + 3 * sz), f"{tk}", font=f, fill=INK2)
@@ -588,11 +594,13 @@ def main(argv=None):
                                    + (f"; {D_AVG}-window mean, {D_AVG / 6:.2f} s)" if D_AVG > 1 else ")"), f_s)
                         hatch_legend(dr, cam, bx, int(Hd - 228 * sz), sz, Hd,
                                      "control negligible here (under 1 % of the largest)", f_s)
-                        ax, ay = bx, int(Hd - 318 * sz)
+                        # the arrows' legend under the bar's ticks (the strip the body never reaches; above the
+                        # hatch legend the tag's dragon ran its front foot under it, front view, 4.6 s on)
+                        ax, ay = bx, int(Hd - 64 * sz)
                         arrow(dr, (ax, ay + 12 * sz), (ax + 60 * sz, ay + 12 * sz), 1, sz)
                         dr.text((ax + 76 * sz, ay), "the render's change stretches along this line", font=f_s, fill=INK)
-                        arrow(dr, (ax, ay + 50 * sz), (ax + 60 * sz, ay + 50 * sz), -1, sz)
-                        dr.text((ax + 76 * sz, ay + 38 * sz), "it compresses along this line", font=f_s, fill=INK)
+                        arrow(dr, (ax, ay + 44 * sz), (ax + 60 * sz, ay + 44 * sz), -1, sz)
+                        dr.text((ax + 76 * sz, ay + 32 * sz), "it compresses along this line", font=f_s, fill=INK)
                         small = ["the same window optimised twice from the same start, with the render and with λ = 0; "
                                  "colour |ΔdFᴄ| / |dFᴄ(λ = 0)| of the 20-step means; arrows (only where the change "
                                  "is over 20 %): the principal axis of sym(ΔdFᴄ) along the surface; dFᴄ is added "
@@ -616,7 +624,7 @@ def main(argv=None):
                     dr.text((40 * sz, yb - 34 * sz), info, font=f_s, fill=INK)
                     for j2, s_ in enumerate(lines):
                         dr.text((40 * sz, yb + j2 * 22 * sz), s_, font=f_p, fill=INK2)
-                    dr.text((40 * sz, Hd - 28 * sz), f"{MESH} 300k, seed 97, deliverable code; 1 pitch = {a:.4f} wu",
+                    dr.text((40 * sz, Hd - 28 * sz), f"{MESH} 300k, seed 97, {CODE}; 1 pitch = {a:.4f} wu",
                             font=font(int(15 * sz)), fill=INK3)
                     img.save(dirs[(kd, az, r)] / f"{k:04d}.jpg", quality=93)
                     panels[kd] = img
