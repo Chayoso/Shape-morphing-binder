@@ -92,15 +92,20 @@ for tag in tags:
     Lscale = max((m_p * np.linalg.norm(r["L_split"][b]["pair"]["L_start"]) for r in sel for b in range(2)), default=1.0)
     land = t.get("landing_s") or [None, None]
     t_part = t.get("t_part")
-    own = []
+    own, own_raw = [], []
     for b in range(2):
         fs = [r for r in h if t_part is not None and land[b] is not None and t_part < r["t"] <= land[b] - win
               and r.get("L_split")]
-        Lg = m_p * np.sum([r["L_split"][b]["own"]["L_grid"] for r in fs], axis=0) if fs else np.zeros(3)
+        # less gravity's torque about the window's start centre (the body moves during the window), as for the pair
+        Lg = (m_p * np.sum([np.array(r["L_split"][b]["own"]["L_grid"]) - np.array(r["L_split"][b]["own"]["L_gravity"])
+                            for r in fs], axis=0) if fs else np.zeros(3))
+        Lg_raw = m_p * np.sum([r["L_split"][b]["own"]["L_grid"] for r in fs], axis=0) if fs else np.zeros(3)
         Ls = max((np.linalg.norm(r["bodies"][b]["L"]) for r in fs), default=1.0)
         own.append(float(np.linalg.norm(Lg) / max(Ls, 1.0)))
+        own_raw.append(float(np.linalg.norm(Lg_raw) / max(Ls, 1.0)))
     mom = {"flight_P_rel": float(flight), "contact_dP_pair_rel": float(dP_pair / max(np.linalg.norm(P0[0]), 1e-9)),
-           "contact_L_pair_rel": float(np.linalg.norm(Lp) / max(Lscale, 1.0)), "free_L_own_rel": own}
+           "contact_L_pair_rel": float(np.linalg.norm(Lp) / max(Lscale, 1.0)), "free_L_own_rel": own,
+           "free_L_own_rel_with_gravity": own_raw}
     mom_ok = mom["flight_P_rel"] <= 1e-4 and mom["contact_dP_pair_rel"] <= 1e-4 and mom["contact_L_pair_rel"] <= 1e-4 \
         and all(v <= 1e-3 for v in own)
     ok = (not caused) and hold_ok and clean_ok and bool(jd.get("pass")) and mom_ok
