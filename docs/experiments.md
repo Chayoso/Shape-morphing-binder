@@ -6501,6 +6501,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   not clean in at least one of the three (at 40k D146b and the twin kept 1–4 particles out to 3.75–4.0 spacings about
   3 s after body 1's landing); the twin's end error above the arm's (40k: 0.036 against 0.027–0.028), within or near
   the seed's spread.
+  *Amendment (19:15 CDT, before any run).* The first suite (gpu1, 19:06–19:10) exited 1: 434 passed, 2 skipped, one
+  failure, `test_settled_contracts.py::test_a_nonfinite_window_cost_cannot_commit` (its tiny cloud's first window made
+  no commit: accepted 0, rejected 0), the one test known to be nondeterministic on the single-body path (D144: 1 of 2
+  failed on a pristine settled-base; R-notes 11:42: a commit-replay null); the pinned digest (test_refreeze_reference)
+  and every scene test passed. The file is the tag's, as is every file it reaches. Rule, set now: when that test is
+  the only failure, it is repeated 5 times on this tree and 5 times on the pristine tag (`repo_freeze1015`, fc02a1a),
+  and the full suite is run again; the runs start only if the second suite exits 0
+  (`T20_suite_run1.log`, `T20_flaky_*.log`, `T20_suite2.log`; chain19.sh 3b44025).
+  The interim re-read over 0–16 s (cut.py, apart.py, clean.py; 19:06): 2 far frames before its cut at 15.3 s, one
+  particle each, at 7.35 s (3.54 spacings, before the 8–16 s window of its first reading) and at 12.5 s (3.18).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
