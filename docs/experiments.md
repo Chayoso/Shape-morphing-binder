@@ -6582,7 +6582,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   not the transport's leash); one body's non-finite term stops both bodies' controls (the scene's sum); and a
   commit-replay null in a landing window commits the uncontrolled continuation, which with `--assim 0` lets the bodies
   spring toward the sphere.
-  **The four fixes and their 40k gate, pre-registered (2026-10-16 11:25 CDT server clock, before any of the gate's runs;
+  **The four fixes and their 40k gate, pre-registered (2026-10-16 11:14 CDT server clock, before any of the gate's runs;
   the user's approval relayed by the coordinator ~11:00, "1–4 다 고쳐서 40k 확인"; scene code only, `wip/d147` fa0d091 +
   the gate's scripts, deployed `repo_d147fix`; `scripts/probes/d147/chain20.sh`, `output/gpu/d147/chain20.log`).**
   *The definitions as implemented.* (1) *Loss raster* (`scene/raster.py`): at each window start the window's persistent
