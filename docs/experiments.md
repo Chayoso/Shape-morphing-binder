@@ -6782,6 +6782,44 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   or below the references. (3) Clean of serious pieces. (4) All three pass; the collision and the floor bounce lose
   height to the damping (restitution below the 300k runs' 1.4–1.5; the pair still parts in the air before landing).
   (5) Smaller tumbles than 40k's 16–62°. (6) Within the bounds. (7) 12–13 min a run.
+  **The 40k gate's reading (runs 12:38–13:31 CDT on gpu1, read to 13:50; `runs/gate_40k.txt`, `judge_gate.txt`,
+  `head_gate.txt`, `read_gate.txt`): FAIL by the letter, on item 3 alone, in two of the three runs; the 300k is not
+  launched.** The tests: the first scene-test run failed only the new grown-target test, twice, on the test's own setup
+  (its solve's iteration count, then a target larger than its tiny base raster, which cut 4–10 % of the target's mass;
+  with a fitting target the energy is the same on every raster to 1e-7, a CPU check). After that the scene tests passed
+  (33) and the full suite exited 0 (446 passed, 2 skipped; the pinned single-body digest included). Two readings were
+  corrected after the runs, stated here. (a) read40k.py's main stopped at an old run whose archive was removed
+  (scene40k_L) before the gate's runs; `timeline.py` calls the same timeline function for the gate's runs alone.
+  (b) Item 6's free-flight reading took the body's grid share of L about the window's fixed start centre with gravity's
+  torque in it (0.09–0.61 of the spin: the body falls during the window). The pair's contact item takes gravity out,
+  and the reading now does the same for the free flight; both values are recorded.
+  | | fix s97 | fix twin | fix s99 | ref a (D135) | ref b (D135) |
+  |---|---|---|---|---|---|
+  | (1) zero-control windows (fix causes / other) | 0 / 0 | 0 / 0 | 0 / 0 | 3 replay nulls | — |
+  | raster grown / body left out / replay retries | none / none / 5 | none / none / 8 | none / none / 5 | — | — |
+  | (2) head recovery mean (max), spacings, b0; b1 | 0.72 (0.93); 0.72 (1.41) | 0.72 (0.86); 0.74 (1.59) | 0.61 (0.78); 0.65 (1.92) | 0.99; 1.57 | 0.93; 1.15 |
+  | (3) largest far piece before the cut (far frames) | **13** (16) | **10** (17) | 2 (7) | 13 to 12.4 sp, 46 frames | 2 |
+  | (4) judge: progress, end error, early rise | PASS 0.449, 0.028, 1.58 / 1.63 | PASS 0.445, 0.025, 1.60 / 1.76 | PASS 0.453, 0.025, 1.51 / 1.50 | 0.028 | 0.027 |
+  | (5) tumble b0 / b1 | 19.8° / 30.8° | 15.3° / 37.6° | 18.4° / 57.8° | 16.5° / 37.3° | 28.0° / 41.5° |
+  | (6) momentum: flight P, contact P, contact L, free L b0 / b1 | 7e-5, 2e-5, 2e-5, 1.3e-4 / 7e-5 | 7e-5, 2e-5, 2e-5, 1.4e-4 / 7e-5 | 8e-5, 3e-5, 5e-5, 5.7e-4 / 9e-5 | — | — |
+  | (7) minutes | 17.1 | 17.5 | 16.9 | 11.4 | 11.2 |
+  | cut, restitution, second contact | 14.15 s, 1.28, 14.17 s | 13.8 s, 1.30, 13.83 s | 15.65 s, 1.25, 15.67 s | 1.37 | 1.38 |
+  *The failing pieces.* All are body 1's ear tips (height 0.90–0.94 of the bunny), detached 2.2–3 s after body 1's
+  landing at 8.9 s, while it recovers from the squash, in the air 5–6 wu above the floor. s97: 13 particles at
+  11.4–11.95 s (5 kept frames), at most 3.35 spacings off. The twin: 10 particles at 11.15–12.0 s (16 frames), at most
+  4.0 spacings. The class is the one the 40k attributions found before the fixes (D146b and the twin 1–4 particles,
+  run a's 13–24 a draw), not removed by them. The other items hold in every run: no zero-control window at all, the
+  raster never had to grow (the damped bodies stayed inside the preparation's cube; at 40k the cube's margin is larger
+  than at 300k), no body left out, 5–8 replay retries a run all resolved at the first retry, the heads hold better than
+  both references, the judge passes with end errors 0.025–0.028, and momentum is kept within its bounds.
+  Against the predictions: (1) yes, but the raster did not grow (no landing rebound reached the cube); (2) yes;
+  (3) no for two runs; (4) yes; the restitution stays high (1.25–1.30 against 1.37); (5) about the same; (6) yes,
+  after (b); (7) no: 16.9–17.5 min, +50 %. The gradient time doubles (4.6 against 2.4 s a window) because the damping's
+  reductions are atomic adds to one address per body and step, and so are their generated adjoints. An exact speed-up
+  (block reductions, a hand adjoint of the damping) is possible and not done. *Render influence (s97 against its twin;
+  s99 the seed's scale):* the nominal share 1/3 (λ 0.0066 over the morph's windows), cosine 0.30. The twin ends better
+  on silhouette (0.9743 / 0.9748 against 0.9707 / 0.9734) and as well on the heads (0.72 / 0.74 against 0.72 / 0.72),
+  and both shed one piece of 10–13 particles. The render changes nothing measured here beyond the seed-to-seed spread.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
