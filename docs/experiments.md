@@ -7584,6 +7584,155 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   without the floating fix, as the user decided on 2026-10-15.
   Local copies: `output/results_2026-10-15/d151_gate/`, with the side-by-side videos (SL | NL, dragon and bunny) and the piece
   sheets.
+- **D152, why the render arm's end silhouette IoU is only +0.001–0.003 above its λ = 0 twin when the render holds a
+  third of every late step (a measurement on the tag freeze-2026-10-15, no pipeline run; opened 2026-10-16 11:10 CDT
+  server clock; the user: "Late in the run the render term drives the control heavily, so why is the end IoU difference
+  between the render arm and its λ = 0 twin only +0.001–0.003? Does the render gradient really have an effect?"; readers
+  `scripts/probes/paper/d152/` (server `tmp/d152/`, CPU unless named), results `output/gpu/d152/`, local
+  `output/results_2026-10-16/d152_render_effect/` with four figures and a Korean README).** Data: B1 on the tag
+  (`d145t_b1`, 44 runs: six meshes × L / P × seeds 97 / 99 / 101, bunny and dragon also 103 / 105; `tab_tx.jsonl`,
+  endgen, e3end, every committed window's record); B7 on the tag (`d145t_b7/{bunny,dragon}300k_RG97`, repo_tgf: the
+  gradient dump and the λ = 0 counterfactual of every window from the same start, 81 / 168 windows); the pre-tag
+  40k gallery (`d145_b3/gal_V_W.json`); D90's independent samples (IND). Every number is measured unless marked inferred.
+  Pitch = 0.708 × the target sample's median 8th-neighbour distance (D95); "late" = simulated t ≥ 3 s (bunny 62,
+  dragon 148 windows).
+  *H1, the metric: supported.* The gallery's silhouette IoU (`metrics.sil_iou`, reproduced in numpy to every digit of
+  endgen's values) is a binary 3 × 3-pixel point splat at 128 px over 24 views: one pixel is 1.81–1.88 pitches, the
+  footprint 5.4–5.6. Against IND, in error form (1 − IoU, median over seeds; floor = the run's own target sample
+  against IND): bunny floor 0.0107 / twin 0.0137 / arm 0.0128, dragon 0.0111 / 0.0126 / 0.0126, teapot
+  0.0091 / 0.0108 / 0.0101, bob 0.0082 / 0.0114 / 0.0106, armadilo 0.0118 / 0.0139 / 0.0136, homer
+  0.0089 / 0.0120 / 0.0118. The floor is 72–89 % of the twin's error. The arm removes 0.33 / 0.27 / 0.38 / 0.26 /
+  0.11 / −0.11 of the twin's excess over it (seed ranges −0.49 to 1.28). The 40k gallery reads the same way: relative
+  reduction median 5.4 % (0.2–8.7 %), floor-gap share 0.24, the twin's error 80 % floor. The same end states on the
+  measures that read the exterior surface tell a different story. Yardstick exterior silhouette L / P = 0.57 / 0.46 /
+  0.60 / 0.69 / 0.47 / 0.65 and shading 0.73 / 0.67 / 0.65 / 0.81 / 0.63 / 0.77 (−31…−54 % and −19…−37 %). Display
+  front 1 − IoU, floor / twin / arm: bunny 0.0096 / 0.0119 / 0.0093, dragon 0.0093 / 0.0127 / 0.0092, teapot
+  0.0084 / 0.0111 / 0.0085, armadilo 0.0118 / 0.0181 / 0.0121, homer 0.0076 / 0.0103 / 0.0076. That is 0.92–1.12 of
+  the twin's excess removed on five meshes; bob's twin is within 0.0002 of its floor (0.0075 against 0.0073), so its
+  share is unstable while its arm reads 0.0061. The back view removes 0.90–1.78 and the image difference 0.43–0.82 (bob 1.36)
+  (the runs are smoother than a noisy reference, D90). Chamfer cannot see the render: L / P 0.997–0.999, both below
+  the own-against-IND value (0.0555–0.0567), because the ends are more even than any sample. Why the IoU misses it
+  (bunny and dragon × 97 / 99 / 101):
+  - Pixels. Arm and twin differ in 560–801 pixels over the 24 views. 317–447 of them fix a twin error and 223–361 add
+    one, a net 74–157 of 76k–98k union pixels.
+  - Sensitivity. Moving the arm's outer layer uniformly 0.1 pitch along its outward normal changes 1 − IoU by
+    −0.0008…−0.0025 (inward +0.0019…+0.0031). The arm's whole lead is −0.0005…−0.0021.
+  - Resolution. A finer splat does not reveal more: the relative reduction stays 3–13 % at 256 / 512 px (bunny 97:
+    7.5 → 6.5 → 6.3 %) while the floor rises (0.0107 → 0.0116 → 0.0135). The splat's error is set by where the
+    sampled particles sit, not by the pixel.
+  - Pieces off the body. None at the end in either arm (radius 2 × the median nearest distance); the own sample has
+    133–243.
+  - Surface offset. The normal offset of the outer-layer particles from IND's outer layer is rms 0.214–0.239
+    (bunny), 0.265–0.292 (dragon), 0.267 / 0.189 / 0.266 / 0.221 (teapot, bob, armadilo, homer at 97) for the arm,
+    against 0.243–0.276, 0.291–0.324, 0.290 / 0.219 / 0.314 / 0.253 for the twin and 0.29–0.35 for a sample: the
+    arm's surface is 8–15 % nearer, a sub-pitch change.
+  So the measures disagree because they read different objects: the particle cloud through 1.8-pitch binary pixels
+  versus the exterior surface through soft 96 / 188-px pictures. The render changes the exterior by fractions of a
+  pitch, below what the binary splat resolves and below the noise of where its particles sit.
+  *H2, the floor: supported for the silhouette, partly for the shading.* The run's own render terms (188 px, 18 views,
+  the mean pictures of eight draws, every committed window's record; the twin records them as well) against their
+  floor. The floor is IND read as a state at rest by `own_terms_probe.py`, D114: bunny silhouette 7.78e-4, shading
+  5.50e-4; dragon 6.57e-4, 4.25e-4, seed 97. Its target pictures are built as the tag's: the same sample logs, 168279
+  / 175329 target discs, 188 px, zb r 3, 8 draws. The tag re-measurement for six meshes (`d152_own_floor.py`, and
+  the yardstick's own-sample floor `d152_yard_floor.py`) waits in `d152_gpu.sh` for a card idle for 10 minutes;
+  none was, see below. Results:
+  - The arm. L97's silhouette term crosses the floor at 3.67 s (window 22 of 95, bunny) and 10.84 s (69 of 164,
+    dragon) and stays below it in 78 % / 61 % of its committed windows. At the end it is 0.36 / 0.43 × the floor;
+    shading is 0.82 / 1.19 ×.
+  - The twin. P97 never reaches the floor: silhouette 1.53 / 1.98 ×, shading 1.28 / 1.98 ×.
+  - The share of the twin's excess removed is 2.2 / 1.6 for the silhouette (beyond the floor) and 1.6 / 0.8 for the
+    shading.
+  - On every mesh and seed, the end silhouette term, arm / twin medians: bunny 2.5e-4 / 1.19e-3 (−79 %), dragon
+    2.8e-4 / 1.26e-3 (−78 %), teapot 1.8e-4 / 1.22e-3 (−85 %), bob 1.1e-4 / 1.09e-3 (−90 %), armadilo
+    3.6e-4 / 1.37e-3 (−74 %), homer 1.1e-4 / 6.0e-4 (−82 %).
+  - Late in the run the twin's term creeps by −9e-6 / −1.2e-5 a window.
+
+  So from a quarter to two fifths of the run on, the third of the step the balancer gives the render works on a
+  silhouette term already below what an independent sample of the mesh scores. Inferred: what it buys there is
+  smaller than the difference between two samples of the same mesh, which IND-referenced measures can only partly
+  register.
+  *H3, undo: supported.* RG97, every window k: d_k = X_k − Y_k, the arm's committed end minus the λ = 0 counterfactual
+  of the same window from the same start (X_k is window k+1's start: checked, 0.0 difference, in 75 of 81 / 160 of
+  168 windows of the delivered runs).
+  - Size and place. Late, the median |d_k| is 0.0080 / 0.0078 pitch on the outer layer, 0.0101 / 0.0100 on B7's rim
+    (three axis views), 0.0073 / 0.0057 on thin parts, 0.0038 / 0.0043 in crevices and 0.0007 / 0.0014 in the bulk.
+    Its normal part has rms 0.021 / 0.023. In windows 0–9 it is 0.15 / 0.20.
+  - Where |d|² goes, late (end-state regions, Lagrangian): outer layer 75 / 77 % (5.7 / 8.9 % of the particles), rim
+    27 / 32 % (1.5 / 2.1 %), thin 76 / 87 % (9.0 / 17.6 %), crevices 0.3 / 0.5 % (0.14 / 0.29 %, concave layer
+    patches), bulk 10 / 9 % (83 / 74 %). Per particle that is 15–18 × the average on the rim and 5–8 × on thin parts,
+    but only about 2 × in crevices (RGV's dragon crevice: the render's share 4.6 %).
+  - Direction. Each window moves the outer layer +0.0017 / +0.0018 pitch nearer IND.
+  - Undo. A λ = 0 window started from X_k takes back a median 81 % (bunny, p10–p90 59–100 %) and 67 % (dragon,
+    39–86 %) of d_k on the outer layer (the projection −Σ (Y_{k+1} − X_k)·d_k / Σ |d_k|²). With the render on, the
+    arm's own motion along d_k over the next 1 / 5 / 10 windows is −5 / −11 / −2 % (bunny) and −9 / −12 / −2 %
+    (dragon): the displacement is held, not grown.
+  - Early it is the other way round (windows 0–9). The λ = 0 window carries the render's move further (−94 / −56 %)
+    and the arm's displacement grows to 1.4–1.5 × in five windows: early render pushes persist, late ones are maintained.
+  - The silhouette term from 3 s. The render lowers each window's term to 0.78 / 0.83 of the λ = 0 window's (median)
+    at +0.35 / +0.15 % on the transport term. The summed in-window gains are 6.9e-3 / 1.88e-2; λ = 0 windows from the
+    arm's starts give back 6.0e-3 / 1.51e-2 (87 / 80 %; per window median 94 %). The arm's net decrease is
+    7.9e-4 / 4.0e-3. The give-back, +1.0e-4 a window, is ten times the twin's own creep and of opposite sign, so it
+    is specific to the render-displaced state.
+  - Run sums. The gross late normal push Σ|d_k·n| per outer-layer particle is 0.73 / 2.14 pitch; the signed sum has
+    rms 0.97 / 2.26. The end shape (each arm outer-layer particle's normal offset from the twin's outer layer)
+    differs by rms 0.199 / 0.243 pitch, against 0.177 / 0.232 for the arm's own unhooked replicate L97. The
+    render-attributable part is about 0.09 / 0.07 pitch rms (inferred, as the quadrature difference). The regression
+    of the end-shape difference on the summed late normal push gives 0.027 / 0.003 (replicate −0.014 / −0.017), corr
+    0.16 / 0.06 (replicate −0.03 / −0.11): about 97–100 % of the summed late push leaves no shape difference.
+
+  The per-window effects do not add up, because the transport and physics pull each window's push back and the
+  render re-makes it.
+  *H4, reach: supported in part, not the limit.* Per window, from the dump: the cosine between the render's wanted
+  end move (−(∇x silhouette + ∇x shading) at the evaluation end) and the end move of one step along its own control
+  gradient (the norm of the window's accepted change; xT_rend − xT_base, xT_rend_u − xT_base_u0).
+  - dFc. Late 0.12 / 0.14 (early 0.18 / 0.23); the physics' own demand through dFc 0.05 / 0.08 late (0.5–0.7
+    early).
+  - u. 0.81 / 0.79 late; the physics through u 0.30 / 0.26.
+  - Cell scale. The render demand's share at the MPM cell scale (quadratic B-spline P2G then mass-normalised G2P on
+    the run's grid) is 5–9 % at every window. The physics' share is 68–96 % early and 4–8 % late. dFc's move aligns
+    with the cell-scale part of the render demand (cos 0.58 / 0.66) and not with the rest (0.04).
+  - The cap. 0 % of the particles have a step-mean |dFc| ≥ 0.95 × 0.02 late, in either pass; the layer's median is
+    5e-4. Early (windows 0–9, bunny) 13 % reach it with the render and 11 % without. The records' dfc_absmax reaches
+    the cap in 1–8 % of committed windows, all early.
+
+  So dFc cannot express 90 % of the render's demand, but u can and does, and the window does reach the render's own
+  aim (the term −17…−22 % per window). Reach is not what keeps the end difference small.
+  *H5, PCGrad: refuted.* B1's arms, every committed window: the cosine of the full gradients before PCGrad is
+  +0.08…+0.23 (median, windows 1–10) and −0.01…−0.10 (second half). PCGrad acts in 40–85 % of committed windows,
+  nearly all late, and removes |cos| of the render gradient's norm: a median 3–10 % in the windows it acts (cos²
+  0.1–1.0 % of the squared norm), at most 20 % (armadilo). λ is calibrated on the projected gradient, so the render's
+  share of the step stays 1/3. In RG97's dumps PCGrad changes the per-particle dFc step sums by a median of 0
+  (bunny) / 4 % (dragon late, p90 11 %).
+  *The balancer.* From the first committed window to the last ten, the physics gradient falls 150–1000 × (bunny
+  172–221, dragon 266–355, teapot 150–181, bob 795–1000, armadilo 235–263, homer 533–594), more than D73's 30 × at
+  window 30. The render gradient's norm ends at 0.6–3.7 × its first value. λ goes from 0.16–1.52 to
+  0.0004–0.0019. "Heavily" is the share (1/3 by construction); the late push itself is 0.008 pitch a window.
+  *Answer.* The render gradient has a large effect where it acts and where it is read:
+  - its own silhouette term −74…−90 %;
+  - the yardstick against IND −31…−54 % (silhouette) and −19…−37 % (shading);
+  - the display at its floor on five meshes;
+  - the outer layer 8–15 % nearer IND.
+
+  The end IoU barely registers it, for two reasons. The IoU's error is 72–89 % sampling floor, and its binary
+  1.8-pitch splat nets out the render's sub-pitch rim changes. Late in the run, the render's third of the step
+  maintains a state below its own floor against the transport, which takes back two thirds to four fifths of each
+  window's push, rather than accumulating change. Paper wording (proposed): "Weighted to a third of every step, the
+  render term changes the surface by sub-pitch amounts concentrated on silhouette rims and thin parts. Particle-level
+  metrics such as the binary silhouette IoU (1.8 pitches per pixel, 72–89 % of its error at the sampling floor) barely
+  register this (+0.0000–0.0009 at 300k, medians over seeds). On the rendered exterior surface, scored against an independent sample of
+  the target, it lowers the silhouette error by 31–54 % and the shading error by 19–37 % on all six meshes, and brings
+  the displayed silhouette to the sampling floor. Late in the run the term maintains this state rather than adding to
+  it: a counterfactual window without it gives back 67–81 % of the previous window's render-driven displacement."
+  *What would show it best (suggested, not run).*
+  (1) A mesh-referenced read of the display: exact silhouettes and normals of the mesh at the display's resolution in
+  place of IND's sample, so the referee has no sampling floor. Measurement only, no pipeline run.
+  (2) Render off late / on late: λ → 0 in the arm from t_s = 3 / 6 s, and λ on in the twin from t_s. H3 predicts the
+  lead goes and comes within 5–10 windows, the causal proof of the maintaining role. Bunny and dragon × 3 seeds.
+  (3) Crops of the rim and the thin parts (ears, horns, toes) at 4K, where the render's displacement lives.
+  *Operations.* No card was idle for 10 minutes from 11:23 CDT: D145's 40k pool held GPU 0 / 1 in turn,
+  `rmshell_isaac` ran without a lock on GPU 3, and another user's display is on GPU 2. `d152_gpu.sh` (agent D152,
+  one card, about 1 h: the tag's render-term floor on six meshes × three seeds and the yardstick's own-sample floor on
+  22 mesh-seeds) is still waiting.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
