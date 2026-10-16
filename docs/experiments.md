@@ -4796,6 +4796,88 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     09b-switch replays.
   - The 40k smoke and B13a run on the candidate now; the 300k runs wait for the tag.
   - The card chain that waited from 12:10 was stopped at 13:40 before it claimed a card; it had run nothing.
+  *The card checks, the 40k smoke and B13a, read (chain on GPU 2, 14:36–15:14 CDT, `tmp/b13/b13_chain40k.sh`; the
+  suite on 251d901 18:42–18:46; read 2026-10-15 19:05 CDT by `b13_read.py` (P = 0.0978 wu, as D149's 40k reading) and
+  the CPU momentum probe `tmp/b13/momentum_probe_cpu.py` on ON1 / ON2 (`m_ref_bunny40k_ON*.log`, run now: the 40k
+  reference had no probe); `output/gpu/b13/`).*
+  - Tests: the new tests 26 passed on the card. The default path's proof: SAME (frames12 arrays 4, metrics 37, history
+    fields 556). The full suite on 251d901: 431 passed, 2 skipped, exit 0. Its first run (2ba7e6d + B13) had 3 failures,
+    all in `test_runtime_ab`: its stub optimizer lacked `_zd` (B13's one-off unit measurement). 251d901 gives the stub
+    `_zd = None`.
+  - The tests' numbers (`numbers_gpu.log`, `mom_numbers_gpu.log`, CPU and CUDA alike):
+    - The projection at N = 300k: net / gross force 6.6e-11, torque / gross 3.3e-11 (before it: 0.37 and 6.7e-4).
+    - The increment's hand adjoints: largest relative error 4.8e-8.
+    - A window, finite differences against the adjoint: relative error 1.5e-6 to 1.6e-4 on the force, 9e-6 to 5e-5 on u.
+    - The grid's momentum over the gross impulse: the plain force 0.39 (linear) and 0.17 (angular). The projected force
+      at most 9.3e-9 (linear) and 1.5e-6 (angular, with the elastic stress, CUDA).
+
+  The 40k bunny, seed 97, one run per arm and scale. The reference is D149's ON1 / ON2 (the candidate's default path),
+  with OFF1 / OFF2 beside it. Geometry energy = `transport_energy` at the delivered last window. End kin = the last
+  committed window's record (D149's column). Centre of mass and net rotation are the probe's, on every kept frame.
+
+  | run | force scale | geometry energy | silhouette IoU | chamfer | thin | end kin | windows | attempts | s / attempt | com largest / end (P) | net rotation | apart 3–10 | unit ratio |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | ON1 | – | 5.94e-5 | 0.9746 | 0.1101 | 5.62 % | 3.29e-5 | 37 | 40 | 1.75 | 1.08e-5 / 1.07e-5 | 0.0030° | 16 | – |
+  | ON2 | – | 5.24e-5 | 0.9746 | 0.1099 | 4.06 % | 2.33e-5 | 37 | 43 | 1.74 | 1.06e-5 / 1.05e-5 | 0.0069° | 50 | – |
+  | OFF1 | – | 4.82e-5 | 0.9755 | 0.1098 | 4.06 % | 1.98e-5 | 45 | 50 | 1.72 | 1.24e-4 / 1.24e-4 | 0.0071° | 46 | – |
+  | OFF2 | – | 6.21e-5 | 0.9743 | 0.1100 | 5.47 % | 2.44e-5 | 32 | 40 | 1.74 | 1.44e-4 / 1.44e-4 | 0.0055° | 42 | – |
+  | F | 1 | 1.365e-4 | 0.9756 | 0.1104 | 4.69 % | 1.58e-5 | 54 | 58 | 1.77 | 0.425 / 2.35e-3 | 2.32° | 115 | 2.14 |
+  | Fq16 | 1/16 | 1.424e-4 | 0.9777 | 0.1101 | 4.38 % | 3.07e-6 | 249 | 264 | 1.86 | 0.974 / 6.3e-4 | 2.25° | 114 | 0.134 |
+  | Fq4 | 1/4 | 1.340e-4 | 0.9770 | 0.1102 | 5.31 % | 1.18e-5 | 96 | 104 | 1.83 | 0.685 / 4.6e-4 | 2.34° | 273 | 0.536 |
+  | Fx4 | 4 | 3.608e-4 | 0.9759 | 0.1124 | 5.78 % | 1.05e-4 | 19 | 22 | 1.83 | 0.433 / 1.52e-2 | 2.01° | 8 | 8.58 |
+  | FM | 1 | 1.409e-4 | 0.9760 | 0.1104 | 5.94 % | 1.10e-5 | 46 | 51 | 1.86 | 1.00e-5 / 9.7e-6 | 0.0078° | 97 | 2.14 |
+  | FMq16 | 1/16 | 1.698e-4 | 0.9781 | 0.1102 | 3.28 % | 3.24e-6 | 218 | 236 | 1.94 | 1.18e-5 / 1.17e-5 | 0.0015° | 105 | 0.134 |
+  | FMq4 | 1/4 | 1.352e-4 | 0.9773 | 0.1099 | 4.06 % | 7.79e-6 | 85 | 91 | 1.88 | 9.9e-6 / 9.9e-6 | 0.0016° | 229 | 0.536 |
+  | FMx4 | 4 | 2.228e-4 | 0.9749 | 0.1115 | 6.25 % | 6.61e-5 | 34 | 39 | 1.83 | 1.21e-5 / 1.21e-5 | 0.0069° | 17 | 8.58 |
+
+  *The scale for 300k, decided as written: the lowest geometry energy at the delivered last window; within 2 % of each
+  other, the scale nearer 1.*
+  - **force: scale 1.** The lowest is 1/4 (1.340e-4). Scale 1 (1.365e-4) is +1.9 %, inside 2 %, and nearer 1. 1/16 is
+    +6.3 %, 4 is +169 %.
+  - **force_mf: scale 1/4.** The lowest is 1/4 (1.352e-4). Scale 1 (1.409e-4) is +4.3 %, outside 2 %. 1/16 is +25.6 %,
+    4 is +64.8 %.
+  - The unit ratio scales with the scale as built (2.14 × scale; the same at both arms, measured at zero control).
+  - Observed, not gated: the default's own replay spread of this measure is 13 % (ON1 / ON2) and 29 % (OFF1 / OFF2). So
+    the 2 % rule decides inside one-run noise. The choice is the rule's, not a measured optimum.
+
+  *The hypothesis at 40k (one run an arm, read against ON1 / ON2 with OFF beside it; the gates are the 300k ranges).*
+  - (a) `force` pushes the body and puts momentum in. `force_dv` is nonzero in every committed window (54 of 54; the
+    smallest 6.4e-4 wu/s). The centre of mass's largest displacement is 0.43 P, 4 × 10^4 × ON's (3 × 10^3 × OFF's). The
+    net rotation is 2.32°, 330–770 × the default's. Both are over the predicted 100× and 10×. The objective pulls the
+    body back: the centre of mass ends 2.3e-3 P from its start, 0.5 % of its largest excursion. The same holds at every
+    scale: largest 0.43–0.97 P, rotation 2.0–2.3°.
+  - Not at rest at the end: **not seen at 40k**. F's end kin (1.58e-5) lies below ON's 2.33–3.29e-5 and OFF's
+    1.98–2.44e-5. F runs longer (54 windows against 37), as predicted. Its silhouette IoU (0.9756) is not behind ON's
+    (0.9746). Its chamfer is 0.0003–0.0005 behind ON's. Apart particles at windows 3–10 lie above the default's
+    (115 against 16–50), as predicted.
+  - (b) `force_mf` puts in no momentum. `force_dv` / gross is at most 3e-17 in every window, against the bound of 1e-9.
+    The centre of mass reaches 1.00e-5 P, at ON's 1.06–1.08e-5. The net rotation is 0.0078°, against ON's 0.0030° and
+    0.0069°. End kin 1.10e-5 (below the default's). Apart particles 97 (above). Windows 46 (against 37).
+  - Cost per attempt within ±10 %: F +1.4 %, FM +6.6 % against ON's 1.745 s. Over the other scales, +4.9 % to +11 %
+    (FMq16 1.94 s).
+  - Observed, not gated: every force run at scales 1/16–1 ends with 2.2–3.5 × the default's geometry energy
+    (1.34–1.70e-4 against 4.8–6.2e-5). Yet its own silhouette IoU is equal or higher (0.9756–0.9781 against
+    0.9743–0.9755). The smaller scales run 6–7 × the default's windows (1/16: 218–249) and score the highest silhouettes.
+    The objective's main term and the silhouette disagree here; the 300k yardstick against the independent sample is
+    the reading that decides.
+  - End kin, two conventions: the last committed window's record (above, D149's), and D145's `tab145.py` `kin_last`
+    (the history's last record, which the 300k harness reports). They differ by up to 2× on the same run (ON1 3.29e-5
+    against 1.63e-5). The 300k comparison uses `kin_last` for every arm.
+  *The 300k runs on the tag (launched 2026-10-15 18:59 CDT server clock).*
+  - Code: `repo_ts`, the tag `freeze-2026-10-15` (fc02a1a) with the kept-frames output patch (`patch_s.py`), as every
+    post-tag 300k run of D145.
+  - Checked before the launch: `repo_b13s` (251d901 + the kept-frames patch) and `repo_ts` have identical `physmorph/`
+    and `scripts/pipeline_run.py` (`diff -r`: no difference). The scripts differ only by the tag's three probe scripts
+    (`visible_apart.py`, `rgv_patch.py`, `rgv_patch2.py`). The tests trees are identical.
+  - Queue `tmp/b13/b13_300k.queue`: 6 meshes × {F at scale 1, FM at scale 1/4} × seeds 97 / 99 / 101 = 36 runs, seed 97
+    first. The kept frames are kept on seed 97 (the harness at matched progress, the volume routine) and removed after
+    the readings on 99 / 101 (`cleanup.log`).
+  - Chain `tmp/b13/b13_chain300k.sh` (pid 2801215), one card, outside D145's queue:
+    - It claims only a card with no lock, under 2000 MiB and under 10 % use for 10 minutes, and holds it for 3 items.
+    - It makes no claim while a D147 process waits without a lock, so D147's final scene goes first.
+    - After each run, `read300.sh` MODE end on the same card; its CPU part runs detached.
+  - The default arm is B1's L on the tag (`d145t_b1`, seeds 97 / 99 / 101 at all six meshes, in D145's post-tag queue).
+    B13 runs no L of its own.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
