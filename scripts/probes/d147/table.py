@@ -59,12 +59,16 @@ for tag in tags:
            "far": far, "metrics": [{k: round(v, 4) for k, v in m.items()} for m in j["metrics"]],
            "lambda_morph": mean("lambda", morph), "lambda_all": mean("lambda", h),
            "g_share_morph": mean("g_share", morph), "g_share_all": mean("g_share", h),
+           "g_cos_morph": mean("g_cos", morph), "g_cos_all": mean("g_cos", h),
+           "g_rend_over_phys_morph": mean("_ratio", [dict(r, _ratio=r["g_rend_norm"] / r["g_phys_norm"]) for r in morph
+                                                      if r.get("g_rend_norm") and r.get("g_phys_norm")]),
            "zero_commits": sum(1 for r in h if r.get("zero_commit")), "windows": len(h),
            "minutes": round(j["seconds"] / 60, 1)}
     rows.append(out)
     print(json.dumps(out), flush=True)
 cols = ("tag", "pass", "progress", "end_error", "tumble_deg", "t_contact", "t_part", "landing_s", "t_cut", "clean",
         "far_frames", "far_particle_frames", "far_largest", "far_max_sp", "lambda_morph", "g_share_morph", "g_share_all",
+        "g_cos_morph",
         "zero_commits", "minutes")
 print("\t".join(cols))
 for r in rows:
