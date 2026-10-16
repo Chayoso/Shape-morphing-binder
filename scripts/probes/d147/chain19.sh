@@ -60,7 +60,7 @@ cpu_read() {                                                    # TAG: the CPU r
 log "chain19 start, repo $REPO ($(cat $REPO/DEPLOYED_FROM))"
 # the interim s97 re-read over the whole run (its 2026-10-14 reading covered 8-16 s), CPU, detached
 mkdir -p $R/reread_interim
-( export CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 MKL_NUM_THREADS=4
+[ -s $R/reread_interim/clean_$I.txt ] || ( export CUDA_VISIBLE_DEVICES="" OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 MKL_NUM_THREADS=4
   nice -n 10 $PY $S/cut.py $R $I > $R/reread_interim/cut_$I.txt 2>&1
   nice -n 10 $PY $S/apart.py $R $I 0 16 > $R/reread_interim/apart_$I.txt 2>&1
   nice -n 10 $PY $S/clean.py $R/reread_interim $R/reread_interim/cut_$I.txt $I > $R/reread_interim/clean_$I.txt 2>&1
@@ -69,6 +69,21 @@ claim
 $PY -m pytest -q -p no:cacheprovider tests > $O/T20_suite.log 2>&1
 rc=$?
 log "suite exit $rc: $(tail -1 $O/T20_suite.log)"
+# the one known nondeterministic test (test_settled_contracts::test_a_nonfinite_window_cost_cannot_commit: its tiny
+# cloud's first window is sometimes a commit-replay null; docs D144, R-notes 11:42): when it is the only failure, it is
+# repeated 5 times here and 5 times on the pristine tag (repo_freeze1015), and the full suite is run again; the chain
+# goes on only if that second suite exits 0 (amendment 2026-10-15 19:20 CDT, before any run)
+FLAKY=tests/test_settled_contracts.py::test_a_nonfinite_window_cost_cannot_commit
+if [ $rc -ne 0 ] && [ "$(grep -c '^FAILED' $O/T20_suite.log)" = 1 ] && grep -q "^FAILED $FLAKY" $O/T20_suite.log; then
+  for rr in $REPO $B/repo_freeze1015; do
+    ( export PYTHONPATH="$GPU_DEPS:$rr"; cd $rr
+      p=0; for i in 1 2 3 4 5; do $PY -m pytest -q -p no:cacheprovider $FLAKY > $O/T20_flaky_$(basename $rr)_$i.log 2>&1 && p=$((p+1)); done
+      log "flaky test on $(basename $rr): $p of 5 passed" )
+  done
+  $PY -m pytest -q -p no:cacheprovider tests > $O/T20_suite2.log 2>&1
+  rc=$?
+  log "suite (second) exit $rc: $(tail -1 $O/T20_suite2.log)"
+fi
 [ $rc -eq 0 ] || { log "the suite failed: the chain stops before any run"; exit 1; }
 for spec in "final300k_s97 97" "final300k_s97_off 97 --render_weight_scale 0" "final300k_s99 99"; do
   set -- $spec
