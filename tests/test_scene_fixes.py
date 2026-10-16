@@ -67,18 +67,79 @@ def _deformation_ke(tr, t):
 
 
 # ---- (4) the deformation's drag ----------------------------------------------------------------------------------
+# The reference: fix 4 as first written (fa0d091), atomic sums to one address with Warp's generated adjoints; the block
+# sums with the hand adjoint (mpm/bodies.py) must give the same within float summation order.
 
-def _drag_once(x, v, m, kappa):
+@wp.kernel
+def _ref_sums(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
+              sx: wp.array(dtype=wp.vec3), sv: wp.array(dtype=wp.vec3), sm: wp.array(dtype=float)):
+    p = wp.tid()
+    wp.atomic_add(sx, 0, m[p] * x[p])
+    wp.atomic_add(sv, 0, m[p] * v[p])
+    wp.atomic_add(sm, 0, m[p])
+
+
+@wp.kernel
+def _ref_moments(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
+                 sx: wp.array(dtype=wp.vec3), sm: wp.array(dtype=float),
+                 sL: wp.array(dtype=wp.vec3), sI: wp.array(dtype=wp.mat33)):
+    p = wp.tid()
+    r = x[p] - sx[0] / sm[0]
+    wp.atomic_add(sL, 0, m[p] * wp.cross(r, v[p]))
+    wp.atomic_add(sI, 0, m[p] * (wp.dot(r, r) * wp.identity(n=3, dtype=float) - wp.outer(r, r)))
+
+
+@wp.kernel
+def _ref_apply(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
+               sx: wp.array(dtype=wp.vec3), sv: wp.array(dtype=wp.vec3), sm: wp.array(dtype=float),
+               sL: wp.array(dtype=wp.vec3), sI: wp.array(dtype=wp.mat33), kappa: float, vd: wp.array(dtype=wp.vec3)):
+    p = wp.tid()
+    c = sx[0] / sm[0]
+    w = wp.inverse(sI[0]) @ sL[0]
+    vd[p] = v[p] - kappa * (v[p] - sv[0] / sm[0] - wp.cross(w, x[p] - c))
+
+
+def _drag_ref(x, v, m, kappa):
     dev = "cuda"
     xa, va = wp.array(x, dtype=wp.vec3, device=dev), wp.array(v, dtype=wp.vec3, device=dev)
     ma = wp.array(m, dtype=float, device=dev)
     sx, sv, sL = (wp.zeros(1, dtype=wp.vec3, device=dev) for _ in range(3))
     sm, sI = wp.zeros(1, dtype=float, device=dev), wp.zeros(1, dtype=wp.mat33, device=dev)
     vd = wp.zeros(len(x), dtype=wp.vec3, device=dev)
-    wp.launch(BD.k_rigid_sums, dim=len(x), inputs=[xa, va, ma, sx, sv, sm], device=dev)
-    wp.launch(BD.k_rigid_moments, dim=len(x), inputs=[xa, va, ma, sx, sm, sL, sI], device=dev)
-    wp.launch(BD.k_deformation_drag, dim=len(x), inputs=[xa, va, sx, sv, sm, sL, sI, kappa, vd], device=dev)
+    wp.launch(_ref_sums, dim=len(x), inputs=[xa, va, ma, sx, sv, sm], device=dev)
+    wp.launch(_ref_moments, dim=len(x), inputs=[xa, va, ma, sx, sm, sL, sI], device=dev)
+    wp.launch(_ref_apply, dim=len(x), inputs=[xa, va, sx, sv, sm, sL, sI, kappa, vd], device=dev)
     return wp.to_torch(vd).double().cpu().numpy()
+
+
+def _drag_once(x, v, m, kappa, lam=None):
+    """mpm/bodies.py's forward (block sums), and with lam its hand adjoint: (vd, adj_x, adj_v) as numpy float64."""
+    dev, NT = "cuda", BD.DRAG_THREADS
+    n = len(x)
+    xa, va = wp.array(x, dtype=wp.vec3, device=dev), wp.array(v, dtype=wp.vec3, device=dev)
+    ma = wp.array(m, dtype=float, device=dev)
+    Z = lambda k, dt: wp.zeros(k, dtype=dt, device=dev)            # noqa: E731
+    c, vc, w, M, Ii = Z(1, wp.vec3), Z(1, wp.vec3), Z(1, wp.vec3), Z(1, float), Z(1, wp.mat33)
+    pa, pb, pm, pI = Z(NT, wp.vec3), Z(NT, wp.vec3), Z(NT, float), Z(NT, wp.mat33)
+    vd = Z(n, wp.vec3)
+    wp.launch(BD.k_drag_sums1, dim=NT, inputs=[xa, va, ma, n, pa, pb, pm], device=dev)
+    wp.launch(BD.k_drag_centre, dim=1, inputs=[pa, pb, pm, c, vc, M], device=dev)
+    wp.launch(BD.k_drag_sums2, dim=NT, inputs=[xa, va, ma, n, c, pa, pI], device=dev)
+    wp.launch(BD.k_drag_spin, dim=1, inputs=[pa, pI, w, Ii], device=dev)
+    wp.launch(BD.k_drag_apply, dim=n, inputs=[xa, va, c, vc, w, kappa, vd], device=dev)
+    out = wp.to_torch(vd).double().cpu().numpy()
+    if lam is None:
+        return out
+    la = wp.array(lam, dtype=wp.vec3, device=dev)
+    lam0, g, sA, A = Z(1, wp.vec3), Z(1, wp.vec3), Z(1, wp.vec3), Z(n, wp.vec3)
+    ax, av = Z(n, wp.vec3), Z(n, wp.vec3)
+    wp.launch(BD.k_drag_adj_sums, dim=NT, inputs=[la, xa, c, n, pa, pb], device=dev)
+    wp.launch(BD.k_drag_adj_spin, dim=1, inputs=[pa, pb, Ii, kappa, lam0, g], device=dev)
+    wp.launch(BD.k_drag_adj_v, dim=n, inputs=[la, xa, va, ma, c, w, M, lam0, g, kappa, av, A], device=dev)
+    wp.launch(BD.k_drag_adj_sumA, dim=NT, inputs=[A, n, pa], device=dev)
+    wp.launch(BD.k_drag_adj_total, dim=1, inputs=[pa, sA], device=dev)
+    wp.launch(BD.k_drag_adj_x, dim=n, inputs=[A, sA, ma, M, ax], device=dev)
+    return out, wp.to_torch(ax).double().cpu().numpy(), wp.to_torch(av).double().cpu().numpy()
 
 
 def test_deformation_drag_keeps_momentum_and_damps_only_the_deformation():
@@ -102,6 +163,44 @@ def test_deformation_drag_keeps_momentum_and_damps_only_the_deformation():
     # a rigid motion alone is not damped
     vr = (np.asarray([0.5, 0.1, -0.3]) + np.cross(np.asarray([0.2, 0.9, -0.4]), r)).astype(np.float32)
     np.testing.assert_allclose(_drag_once(x, vr, m, kappa), vr, atol=1e-5)
+
+
+def test_block_sums_give_the_atomic_damping():
+    """The block sums (a fixed order) against the first version's atomic sums: the same damped velocities within float
+    summation order, on a 40k-sized body far from the origin (the scene's coordinates)."""
+    rng = np.random.default_rng(3)
+    x = (rng.uniform(-2.5, 2.5, (40000, 3)) + np.array([4.0, -9.0, 2.0])).astype(np.float32)
+    m = np.full(len(x), 1.0, np.float32)
+    v = _spinning(x, (0.6, 3.0, -0.2), (0.4, -0.3, 0.9), 0.5, seed=4)
+    kappa = 0.9 / 240.0
+    a, b = _drag_once(x, v, m, kappa), _drag_ref(x, v, m, kappa)
+    scale = np.abs(v).max()
+    assert np.abs(a - b).max() <= 2e-6 * scale, np.abs(a - b).max()
+
+
+def test_the_damping_hand_adjoint_is_its_gradient():
+    """The hand adjoint against torch's float64 autograd of the same map, vd = v - k (v - v_c - w x r), with respect to
+    x and v, for a random cotangent."""
+    rng = np.random.default_rng(5)
+    x = (rng.uniform(-1.5, 1.5, (3000, 3)) + np.array([2.0, 1.0, -1.0])).astype(np.float32)
+    m = rng.uniform(0.5, 1.5, len(x)).astype(np.float32)
+    v = _spinning(x, (0.6, 3.0, -0.2), (0.4, -0.3, 0.9), 0.5, seed=6)
+    lam = rng.standard_normal(x.shape).astype(np.float32)
+    kappa = 0.05                                                    # large, so that every path counts
+    _, ax, av = _drag_once(x, v, m, kappa, lam)
+    X = torch.tensor(x, dtype=torch.float64, requires_grad=True)
+    V = torch.tensor(v, dtype=torch.float64, requires_grad=True)
+    mm = torch.tensor(m, dtype=torch.float64)[:, None]
+    c = (mm * X).sum(0) / mm.sum()
+    r = X - c
+    vc = (mm * V).sum(0) / mm.sum()
+    L = (mm * torch.linalg.cross(r, V, dim=1)).sum(0)
+    Iner = (mm[:, 0] * (r * r).sum(1)).sum() * torch.eye(3, dtype=torch.float64) - (mm * r).T @ r
+    w = torch.linalg.solve(Iner, L)
+    vd = V - kappa * (V - vc - torch.linalg.cross(w.expand_as(r), r, dim=1))
+    gx, gv = torch.autograd.grad((vd * torch.tensor(lam, dtype=torch.float64)).sum(), (X, V))
+    np.testing.assert_allclose(av, gv.numpy(), rtol=1e-4, atol=1e-4 * float(gv.abs().max()))
+    np.testing.assert_allclose(ax, gx.numpy(), rtol=1e-3, atol=1e-3 * float(gx.abs().max()))
 
 
 def test_deformation_drag_keeps_each_bodys_momentum_over_a_rollout():
