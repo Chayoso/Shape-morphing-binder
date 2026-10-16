@@ -5334,6 +5334,142 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - After each run, `read300.sh` MODE end on the same card; its CPU part runs detached.
   - The default arm is B1's L on the tag (`d145t_b1`, seeds 97 / 99 / 101 at all six meshes, in D145's post-tag queue).
     B13 runs no L of its own.
+  **D145 post-tag reading 1: B1 and amendment 6 on `freeze-2026-10-15` (read 2026-10-16 10:50–11:30 CDT server clock
+  by the post-tag reader, after the earlier reader died with a local restart; the runs from 2026-10-15 20:28 to
+  2026-10-16 08:29 on `repo_ts` (B1, A6 300k) and `repo_t` (A6 40k), every sim rc 0; CPU readers
+  `scripts/probes/paper/posttag/` (`tab145t.py` = tab145's rows plus the post-tag measures, `band145t.py` = band145 with
+  them, `pieces145.py`, `md145t.py`, `a6_40k.py`, drivers `read_t1016.sh`, `pieces_t1016.sh`, `tables_t1016.sh`) and one
+  card job (`endgen_t1016.sh`: B5's end check on every end frame, 11:03–11:04); `output/gpu/d145t_evidence/`; local
+  `output/results_2026-10-16/d145_posttag/`).**
+  *Operations.* (1) The pool's queue, logged in `d145_pool.log` (backups `main.queue.bak_1016_*`): at 10:51 the 57 B3
+  render-arm items (V97 / V99 / V101, 40k, about 3.5 min each) moved ahead of the remaining B2 items, so that amendment
+  6's 40k arms (all 57 done) are read against the tag's own V; at 10:55 the job `endgen_t1016` put ahead of them. Line
+  set unchanged, `max_cards` unchanged (2). (2) Slips, reported: one `python3 --version` on the local machine (the
+  user's rule allows no local Python, not even a no-op; nothing else ran locally); a 3-KB list file written to the
+  server's `/tmp` by a quoting error (removed at once); a `py_compile` check that ran after `hyde06_env.sh` had changed
+  the directory to `repo_settled`, so it compiled that copy's `conftest.py` and my cleanup removed
+  `repo_settled/__pycache__` (bytecode only, rebuilt on import). (3) The first piece pass was stopped and restarted
+  with the far-piece timeline (my own processes).
+  *Conventions.* D145's: an arm differs from another on a measure only when the seed ranges do not overlap ("apart");
+  changes are median against median, for an IoU the change of 1 − IoU. Added measures, all read from files the runs
+  and their readers wrote: silhouette IoU and chamfer of the end frame against the independent 300k sample
+  (`endgen145.py`, as in B5's methods table; the own-against-independent floor per run 0.9873–0.9919); visible pieces
+  (D148's `visible_apart.py`, written by `read300_cpu.sh` before the frames went: unique side-view blobs over the run at
+  every 4th kept frame, over windows 3–10, and in the last read window); pieces off the body (`pieces145.py`: the sets
+  at 1.5 pitches, pitch = 0.708 × the target sample's median 8th-neighbour distance, each set but the largest with its
+  size and its gap to the body; on the end frame of every run, and on every 4th kept frame where the frames were kept:
+  L97 of the four other meshes, bunny / dragon L and P at every seed, A6 seed 97, and the pre-tag L97 / P97 kept in
+  `d145_b1`); the record's sums by update (D149's
+  columns), |L| per unit mass at the window starts and Σ|ΔL| by update; the record's window-to-window reversal cosine
+  (D146 (6), medians over 7–15 s and after 15 s); `d116_pulse.py` on the last 30 % of the kept frames (bunny, dragon:
+  the in-window normal excursion, the returned share, the driven / released correlation); the centre of mass from
+  `mom.sh`'s full-precision rows (its printed summary rounds to 1e-4 pitches, which hid every difference in tab145).
+  **B1 on the tag (44 runs: bunny and dragon at seeds 97 / 99 / 101 / 103 / 105, teapot, bob, armadilo, homer at 97 / 99
+  / 101; render arm L against its λ = 0 twin P; `tables_t1016.md`).**
+  - Ahead, apart on all six meshes: the yardstick's exterior silhouette bunny −43 %, dragon −57 %, teapot −40 %, bob
+    −34 %, armadilo −49 %, homer −31 %; its shading −19 to −35 %; the display's 1 − IoU front −18 to −33 % and back −16
+    to −33 % (the dragon's crop overlaps, −23 %).
+  - Not moved by the render (overlap): silhouette IoU against the independent sample (L's medians 0.9864–0.9899; the
+    change of 1 − IoU 0 to −8 %, never apart), the independent chamfer (armadilo −0.3 %, apart, ahead), thin uncovered
+    (bunny +3 %, dragon +1 %, armadilo +8 %, the others −11 to −26 %), the centre of mass (largest 1.6–6.9e-5 pitches;
+    teapot −11 %, apart, ahead), the end kinetic record (0.04–13e-6; bob −59 %, apart, ahead), the spacing push's net
+    (6e-11 pitches in both: D149's float floor).
+  - Behind, apart (the user's every-metric requirement): bob's net rotation +389 % (0.0044° against 0.0009°) and its
+    angular net / gross +37 %; |L| at the window starts (largest) bunny +23 %, bob +68 %, homer +35 %, and Σ|ΔL_grid|
+    bunny +10 %, bob +37 %, armadilo +7 %, homer +13 % (D149's refinement: the frozen drag damps m v and not APIC's m C,
+    so angular momentum grows with the motion, and the render arm moves more; homer's record body rotation +47 %);
+    early visible side blobs on armadilo (windows 3–10: 14 against 6; whole run 42 against 27) and homer (11 against 2);
+    teapot's apart particles at windows 3–10 +18 %; the kinetic peak +1 to +7 % on bunny, teapot, bob and armadilo;
+    homer's run 34 % more windows and 31 % more minutes (197 against 147 windows, 29.0 against 22.2 min).
+  - The registered predictions: the bunny / dragon yardstick silhouette 35–55 % ahead — bunny −43 % in, dragon −57 %
+    just beyond; the display front 15–30 % — −22 / −28 %, in; shading 15–35 % — −27 / −34 %, in; silhouette IoU within
+    ±0.001 — met (the bunny's median +0.0010, at the edge); the four other meshes ≥ 10 % ahead on at least three — all
+    four, bob not the exception; the bunny's end kinetic above its twin's — not seen (−13 %, overlap); g_share 0.333 at
+    calibration in every window — met (every committed window of all 22 render arms and 18 A6 arms).
+  - Physical volume (Σ J V0 over the target's, `jv145.py` on B7's RG97: the render arm at seed 97 on the hook copy
+    `repo_tgf`, a replicate of L97 by the gate, not its trajectory: bunny 79 against 95 windows): bunny 0.9974–1.0126
+    over the run and 1.0040 at the end (per-particle J p01–p99 0.94–1.16 at the end); dragon 0.9919–1.0313 and 1.0010
+    (0.81–1.38). The pre-tag reading had 0.9976–1.0128 / 1.0067 and 0.9908–1.0314 / 1.0079; the paper's line becomes
+    "within −0.8 % … +3.1 % over the run, +0.1 … +0.4 % at the end".
+  - Floating material (the user's standing acceptance: small floaters are a known limitation; only serious ones —
+    persisting to the end, ≥ ~10 particles, ≥ ~5 spacings — are flagged). None is serious. At the end frame of all 44
+    runs every piece off the body lies 1.7–3.4 pitches from it (touching surface fragments, not floating); the largest
+    has 13 particles (dragon L103), and L has fewer end pieces than P on every mesh (−14 to −49 %, apart on teapot,
+    bob, armadilo, homer) and a smaller largest one on bunny (3 against 8) and bob (3 against 5), apart. Pieces at ≥ 5
+    pitches from the body (the 24 kept runs, every 4th kept frame) occur only at 1.6–5.8 s: none on the bunny (the
+    farthest 3.2–4.2 pitches) or the teapot; homer one frame (one particle); armadilo L97 6 of 75 read frames at 1.8–2.8
+    s (single particles, 6.6 pitches); bob L97 4 of 109 at 1.8–2.4 s (pieces of ≤ 2 particles, ≤ 14 particles in all,
+    12.6 pitches); dragon L 6–12 of 118–156 frames at 1.8–4.8 s, pieces of 2–5 particles, ≤ 11 particles a frame,
+    6.2–8.1 pitches, the longest continuous stretch 1.0–2.2 s; dragon P 8–13 frames at 1.8–5.8 s, of the same size
+    but one 13-particle piece in one frame of P99 (the only far piece of ≥ 10 particles, in a twin). visible_apart's
+    unique side-view blobs (L / P medians): over the run bunny 44 / 42, dragon 128 / 121, teapot 26 / 27, bob 15 / 21
+    (apart, L fewer), armadilo 42 / 27 (apart, L more), homer 43 / 33; in windows 3–10 armadilo 14 / 6 and homer 11 / 2
+    (apart, L more), the others overlap; in the last read window 0–5 a run.
+  - Cost: bunny 8.8–11.3 min (L) / 9.5–12.3 (P), dragon 23.3–28.7 / 23.0–28.6, teapot 12.6–13.7, bob 15.5–16.1, armadilo
+    12.3–14.8 / 11.0–13.2, homer 23.4–33.8 / 19.9–22.2 (the sim's own seconds); the largest card memory 19.3–23.9 GB
+    (homer L101 the largest).
+  **Tag against pre-tag (D135 code, `deliverable-2026-10-13`, the same seeds and readers; `pre_vs_tag.txt`; what D146b +
+  D149 changed together).**
+  - Better: thin uncovered −16 % (bunny) to −30 % (bob) for L, apart on all six (P −9 to −35 %, apart on four); the
+    centre of mass's largest displacement −53 to −82 % (L; apart on bunny, dragon, teapot, armadilo); the end kinetic
+    −29 to −52 % on five meshes (apart on bob; armadilo +34 %, overlap); shading −4 % (bunny), −11 % (teapot), −12 %
+    (homer), apart; homer's angular net / gross −18 %, apart.
+  - Same (overlap): the yardstick silhouette (−0 to −16 %), the display front and back, silhouette IoU and chamfer
+    against the independent sample, the net rotation on five meshes. The render's lead keeps its size: the yardstick
+    silhouette L against P −31 to −57 % now, −29 to −50 % before (bunny −43 against −47 %, dragon −57 against −49 %).
+  - Worse: windows +21 % (bunny, overlap) to +93 % (homer) and minutes +22 % to +85 %, apart on five meshes (dragon 27.3
+    against 18.3 min, homer 29.0 against 15.7); apart particles at windows 3–10 teapot ×3.1 (1698 against 553),
+    armadilo +39 %, homer +17 %, apart; the bunny's net rotation +63 % (0.0031° against 0.0019°) and angular net / gross
+    +20 %, armadilo's net / gross +7 %, apart. Visible pieces were read before the tag only on L97 of bunny and dragon
+    (one run each): bunny's whole-run side blobs 39 against the tag's 32–61 (five seeds), dragon's 168 against 118–133.
+  - Single-run spread is large (D145, the gallery note), so the five-seed ranges carry this comparison on bunny and
+    dragon, three seeds on the others.
+  **Amendment 6 at 300k (18 runs: NRD `--no-relax_driven`, NUC `--no-u_adam_carry`, NSS `--no-spacing_symmetric` × bunny,
+  dragon × seeds 97 / 99 / 101, against the tag's L at the same seeds).**
+  - NRD (the layer relaxation in every step again). The late wobble returns, as expected: the tail's in-window normal
+    excursion ×2.1 (bunny) / ×1.8 (dragon), its returned share 0.26 / 0.16 against 0.074 / 0.074, the driven-half
+    correlation 0.19 / 0.40 against 0.91 / 0.85, the particles' last-20 move +85 % / +57 %, all apart. Also worse
+    without it: thin +14 % / +30 %, shading +7 % / +13 %, the dragon's end kinetic +55 %, the bunny's own silhouette
+    IoU (apart). Better without it: the runs end sooner (73 against 87 windows, 131 against 165; the dragon 21 against
+    27 min, apart) and the bunny shows fewer visible pieces (whole-run side blobs 30 against 44, all blobs −36 %, last
+    window 2 against 3, apart). D146b's relaxation earns its place on the wobble it was made for and on thin and
+    shading; its costs are the longer run and, on the bunny, about half again as many visible blobs.
+  - NUC (u's Adam moments fresh every window again). The dither returns, as expected: the record's reversal cosine at
+    7–15 s −0.47 (bunny) / −0.31 (dragon) against −0.01 / +0.17, after 15 s −0.46 / −0.54 against +0.01 / −0.19; the
+    tail excursion ×1.9 / ×2.2 and its returned share ×3.1 / ×3.1, apart. Visible pieces double without it: whole-run
+    side blobs 89 against 44 and 289 against 128, last window 11 against 3 and 10 against 1, apart. Also worse
+    without it: the dragon's thin +20 %, the bunny's yardstick silhouette +7 %, apart. Better without it: the dragon ends
+    sooner (109 against 165 windows, 19 against 27 min, apart); the bunny's net rotation −23 % (apart). D146b's carried
+    moments earn their place on the dither, the visible pieces and the dragon's thin; the cost is the dragon's longer
+    run.
+  - NSS (each particle's own 16 nearest for the minimum spacing again). The centre-of-mass drift returns on the bunny,
+    as expected: largest 1.04–1.33e-4 pitches against 2.8–4.0e-5 (the prediction 1–2e-4 against about 3.5e-5), the
+    push's summed net 1.1e-4 pitches against 6e-11, its net rotation 8e-5° against 2.8e-5°, apart. On the dragon the
+    push's net returns (4.3e-5 against 7e-11 pitches, apart) but the body's centre of mass stays within the range
+    (0.9–1.5e-4 against 0.7–1.4e-4): the grid's floor dominates the dragon, as D149 measured. Shape is nearly neutral:
+    the bunny's thin is 7 % lower without it and its own silhouette IoU higher (apart), the dragon's shading 2 % lower
+    with it (apart) and its early side blobs fewer with it (11 against 18, apart). D149 earns its place on the momentum
+    claim (exact by construction; measured ×3.3 on the bunny); its shape cost is within a few percent.
+  - At 40k (57 runs, seed 97, all done; `d145t_a6/ind.log`): not read yet. The registered reading pairs each arm with the
+    tag's B3 V97 and, by D145's one-run convention, sets it against V's three-run range; V had not run on the tag
+    (8 of the 57 V items done at 11:22, about 2 h more). `a6_40k.py` reads it when they land.
+  **The render's influence (the user's standing rule; B1 and A6).** Weight: g_share 0.333 at every committed window of
+  every render arm (λ from the balancer at each window's first gradient: 0.16 teapot … 1.5 armadilo at window 1,
+  falling to a median 0.0007–0.0023 as the physics gradient decays); the twin is the same code and seed at λ = 0
+  (g_share 0). Direction: over windows 1–10 the render gradient agrees with the physics gradient (cos 0.11–0.26 a run,
+  median; 0–3 of the first 11 windows opposed), later it mostly opposes it (raw cos < 0 in 40–62 % of the committed
+  windows on bunny and dragon, 71–85 % on the four others; a run's median raw cos −0.08 … +0.04), and PCGrad removes
+  the opposing part there. L against P against the seed spread: ahead on the yardstick (silhouette and shading)
+  and the display on all six meshes, apart; not moved: silhouette IoU and chamfer against the independent sample,
+  thin, the centre of mass, the end at rest (two exceptions ahead: armadilo's chamfer, bob's end kinetic). Behind: bob's
+  rotation, the angular momentum through the drag (bunny, bob, armadilo, homer), armadilo's and homer's early visible
+  blobs, homer's cost. Path: the silhouette and shading terms on the exterior discs, their gradient on dFc and u (the
+  render arm's step is one third render), and from there only through the MPM body. The A6 arms keep g_share 0.333
+  and their yardstick silhouette within −6 … +15 % of L's, far below the tag's twins (no twin was run without D146b or
+  D149, so their own render lead is not measured). B7 (RG97's
+  per-window dumps and λ = 0 counterfactual, bunny and dragon) has landed and is read next.
+  **Pending.** A6 at 40k against the tag's V range (B3's V moved ahead, about 13:30); B2 (22 of 72 done), B7, B8, B9,
+  B10, B3 as they land.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
