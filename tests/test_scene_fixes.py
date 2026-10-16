@@ -263,7 +263,8 @@ def test_the_grown_target_is_the_base_target_on_a_larger_grid():
     assert (g.unit_ratio, g.ot_scale) == (b0.unit_ratio, b0.ot_scale) and target_for(body, 1) is g
 
     def energy(p, y):
-        ot = GridSinkhornLoss(p.grid, p.lgmin, p.ldx, p.ldims, eps=p.ldx ** 2, iters=200, tol=1e-4,
+        cfg = _cfg()                                               # the Objective's solver settings
+        ot = GridSinkhornLoss(p.grid, p.lgmin, p.ldx, p.ldims, eps=p.ldx ** 2, iters=cfg.ot_iters, tol=min(cfg.ot_tol, 1e-3),
                               mass_total=float(p.m.sum()), cuda_blocks=True, support=p.support)
         return float(ot.state_energy(y, p.m))
 
