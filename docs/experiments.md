@@ -7296,6 +7296,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   sum of the steps taken keeps a rigid part, and every step pushes the body by it.
   (5) Holds: 8.78 / 9.03 / 6.51 / 6.39 s an attempt against ≤ 9.64 / 9.94 / 6.87 / 6.89. Wall times are dragon 28.2 / 24.4 min
   and bunny 9.2 / 14.2 min.
+  *Complete reading (19:22 CDT, all four runs).*
+  - (1), the dragon twin NP against SP: unique side-view blob particles 53 against 137 (−61 %), but side blobs a window at
+    1.5–6 s 2.73 against 5.14 (−47 %; half is 2.57), so it FAILS. The detector confirms 5 pieces against 4.
+  - (1), the bunny: it passes by a wide margin, as the bunny's blobs nearly vanish.
+    - NL: 13 against 51.5 (−75 %); 1.5–6 s 0.18 against 4.30.
+    - NP: 11 against 35; 1.5–6 s 0.14 against 1.86.
+  - (3) The render lead holds on both meshes:
+    - dragon: yardstick silhouette 5.35e-4 against 1.31e-3; display front 0.0087 against 0.0126;
+    - bunny: 8.14e-4 against 1.52e-3; display front 0.0092 against 0.0131.
+  - (4) fails on all four runs.
+  So the link removes the bunny's blobs and the dragon's late ones. It does not remove the dragon's early crevice
+  beads (4–6 s), which are the pieces the user sees.
   **Verdict: not adopted.** It fails the main item (1) on the dragon and item (4) on every run. Rigid removal over the
   steps taken would close (4), but it does nothing for (1), so it was not tried. The re-freeze falls back to refreeze-cand
   without the floating fix, as the user decided on 2026-10-15.
