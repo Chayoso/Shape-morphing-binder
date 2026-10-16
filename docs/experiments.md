@@ -6511,6 +6511,77 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (`T20_suite_run1.log`, `T20_flaky_*.log`, `T20_suite2.log`; chain19.sh 3b44025).
   The interim re-read over 0–16 s (cut.py, apart.py, clean.py; 19:06): 2 far frames before its cut at 15.3 s, one
   particle each, at 7.35 s (3.54 spacings, before the 8–16 s window of its first reading) and at 12.5 s (3.18).
+  **The final scene's results (runs 19:20–21:34 CDT on gpu1, renders to 21:46; `output/gpu/d147/runs/final300k_*`,
+  `judge_final.txt`, `table_final.txt`; local `output/results_2026-10-15/d147_throw_final/`).** The suite step: the
+  second suite on the relaunch exited 0 at its first run (435 passed, 2 skipped; `T20_suite.log`), so the amendment's
+  repeats did not run. The runs: s97 42.6 min, twin 44.2, s99 43.6, all 96 windows; the re-freeze switches confirmed
+  in each config. *The judge:* overall **FAIL**. s97 passes (progress at the first contact 0.458, early rise 2.30 /
+  2.16× steady, parted in the air at 6.33 s, landed 11.05 / 8.85 s, end error 0.033), the twin passes (0.460, 2.30 /
+  2.24×, end error 0.042), s99 fails on the end error (0.093; progress 0.566). Tumble 24.7 / 119°, 25.5 / 82°, 23.3 /
+  49° (body 0 under the 30° bar in all three). *The cut:* s97 16.0 s (no second contact by either test), twin 15.0 s
+  (impulse; spacing 15.55), s99 13.8 s (impulse; spacing 15.65). *Clean:* none. s97 60 far frames (67 frame-body
+  pairs), 600 particle-frames, the largest piece 13 particles, 5.22 spacings, 6.4–15.35 s, mostly body 1's ears and
+  head 1.9–3.9 s after its landing and a 12-particle piece of body 0 at 13.85–14.85 s; twin 27 frames, 93
+  particle-frames, at most 23 particles (one frame at the 15.0 s re-contact), 5.84 spacings; s99 58 frames, 2688
+  particle-frames, up to 45 in a piece, 8.69 spacings, body 1's ears and head from 10.95 s to the cut. *Against the
+  interim (rule (5)): worse* (600 far particle-frames against the re-read interim's 2); side by side, end error 0.033
+  against 0.021, early rise 2.30 / 2.16 against 2.72 / 2.90 (smoother), progress 0.458 against 0.446. In the 4K frames
+  at 11.8–14.1 s the interim's bunnies keep their shape and the final s97's body 0 is a flattened lump with its ears
+  drawn sideways. *The render's influence (s97 against its twin; s99 against s97 is the seed's scale):* the render
+  gradient is about 93 times the physics gradient at each window's first gradient, λ sets its nominal share to exactly
+  1/3 (lambda_ema 1), cosine 0.32. It improved the end shape (0.033 against 0.042, mostly body 1: silhouette 0.9595
+  against 0.9411, thin 12.8 % against 17.4 %), kept the pair apart to 16 s (the twin re-touches at 15.0 s), and its body
+  1 tumbled more (119° against 82°). The arm shed more far material (600 against 93 particle-frames). The render did
+  not change the contact progress, the timings or the control drop-outs below. Every arm-twin difference is smaller
+  than the s97-s99 difference, so one pair does not separate the render from the draw. Predictions: all three pass,
+  no; progress 0.40–0.47, yes for s97 and the twin, no for s99 (0.566); end error 0.018–0.030, no (0.033, 0.042,
+  0.093); body 0 under 30° in at least one run, yes; not clean in at least one, yes (all three); the twin's end error
+  above the arm's, yes.
+  **Forensic of the final runs (the coordinator's request 22:00 CDT, "충돌 결과 저거 왜 저러냐"; from the records and
+  kept frames only, no new run; `scripts/probes/d147/forensic.py`, `runs/forensic/*.txt`).** *What the viewer sees:*
+  after each landing the ears and the head crumple, and in the final runs they do not come back (s99's body 0 stretches
+  tall and melts). *(a) The landing squash itself is the same in all four runs, the interim included.* Floor impulses
+  of body 1 at 9.33 s 41 900 (interim) and 48 200 / 48 800 / 52 800 (s97 / twin / s99), body 0 at 11.33–11.67 s 40 000–
+  61 000 in all. Deformation kinetic energy of body 1 at 9.33 s 81 900 in the interim against 55 000–58 600. The head
+  set (the top quarter of the body's height at the morph's end, about 7200 particles) starts to deform 0.3 s after each
+  landing in every run (body 1 at 9.15–9.2 s, body 0 at 11.3–11.4 s). The particles that move first sit at 0.76–0.95 of
+  the height (ear bases and ears; s97 body 1: 254563, 256763, 281960, 298842, ...); they are 2–6 spacings off at the
+  onset and 13–40 a second later, the interim's as far. *What moves them is the grid.* Their non-rigid step between kept
+  frames is the same in the intervals wholly inside the released steps (no u, and under D146b no relaxation) as in
+  those wholly inside the driven steps: s97 body 1 1.17 against 1.11 spacings, the interim 1.38 against 1.48, within
+  ±7 % in all eight bodies. u, the spacing push and the relaxation change each body's angular momentum by at most 40
+  units a window against 10³–3×10⁴ by the grid in the landing windows. The dF_c cap's saturation and u's magnitude are
+  not in the scene's window records. *(b) What separates the final runs from the interim is control drop-outs during
+  the recovery.* Zero-control windows: the interim 5 (4 in the pair's contact, 1 at 14.67 s), s97 13, the twin 15, s99
+  20. (i) A commit-replay null in body 0's landing window (11.33 s) in all three final runs (s99 also 11.17 s, the twin
+  also 10.0, 10.33 and 12.0 s) and in none of the interim's landing windows: the window commits the uncontrolled
+  continuation for both bodies, and body 1's deformation kinetic energy rises 16 800 → 27 600 (s97), 17 300 → 36 100 →
+  44 200 (twin), 17 900 → 23 300 (s99) where the interim's falls 6 100 → 5 000 → 4 400. (ii) The loss-raster trap:
+  body 0's rebound after its landing stretches it along its own vertical axis. Each body's loss raster is the
+  single-body domain (half-width 5.48 wu), and the CIC deposit loses mass from 5.28 wu, where the transport's mass check
+  returns inf and the window starts with a non-finite loss: zero control, no line search. The interim's controls held
+  body 0 at 4.96 → 5.03 → 4.92 wu (12.67–13.0 s); s97 went 4.94 → 5.24 → (inf) 5.52 → 5.75, the twin 4.27 → 5.00 →
+  (inf) 5.35 → 5.92, s99 4.87 → (a replay null) 5.31 → (inf) 5.96 → 7.06 with up to 1133 particles outside. Without
+  control the body goes on stretching, so it stays out: inf for 5 (s97), 6 (twin) and 13 (s99) consecutive windows.
+  In those windows both bodies run free with the sphere as their rest shape (`--assim 0`) and spring back: body 1's
+  transport 0.0025 → 0.077 (s97), 0.036 → 0.42 (twin), 0.008 → 0.42 (s99). (iii) Also before either drop-out, body 1's
+  controlled recovery stalls in all three final runs and not in the interim: its transport at 10.33 → 11.0 s goes
+  0.085 → 0.145 (s97), 0.13 → 0.30 (twin), 0.085 → 0.13 (s99), against the interim's 0.64 → 0.018 (its squash deeper,
+  transport 1.36 at 10.0 s). *(c) D146b's released half without relaxation:* not the driver of the visible motion (the
+  driven / released split above). Whether the re-freeze's switches make the replay nulls or the stall (iii) more
+  likely cannot be read from one run each. *Attribution:* not attributable from these runs. The scene is not
+  repeatable for the same input (40k: the tumble and the droplet were draws), and the decisive events are threshold
+  events (a replay null in a landing window, a rebound crossing 5.28 wu, which the interim missed by 0.25 wu).
+  Proposed (not launched; the coordinator decides): the tag against the 09b path (`--no-relax_driven
+  --no-u_adam_carry --no-spacing_symmetric`, the interim's recipe) at seed 97, two runs each, about 45 min a run:
+  2.9 card-hours on one card (about 3 h with the readings). Read per run: body 1's transport trend over 10.33–11.0 s,
+  the zero-control windows by reason in 8.8–16 s, body 0's largest body-frame extent and whether it crosses 5.28 wu,
+  end error, clean. Both 09b runs recovering and both tag runs stalling points at the switches (then one switch at a
+  time); a mix means the draw. Independent of that, three scene-path definitions are exposed, for the coordinator /
+  user: each body's loss raster is too small for the scene's loads (it should cover the body's reach under a landing,
+  not the transport's leash); one body's non-finite term stops both bodies' controls (the scene's sum); and a
+  commit-replay null in a landing window commits the uncontrolled continuation, which with `--assim 0` lets the bodies
+  spring toward the sphere.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
