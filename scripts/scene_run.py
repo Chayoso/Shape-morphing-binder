@@ -52,6 +52,8 @@ def main():
     ap.add_argument("--young", type=float, default=None, help="the material's Young modulus (default: the frozen one)")
     ap.add_argument("--flags", default="", help="further scripts/pipeline_run.py flags (diagnostics), e.g. \"--u_off\"")
     ap.add_argument("--gc_off", action="store_true", help="diagnostic: no garbage collection (a cycle would leak)")
+    ap.add_argument("--dump", default="", help="diagnostic: \"t0,t1,b[+b]\": a forensic record of the committed windows that "
+                    "start in [t0, t1) for those bodies (scene/dump.py), in OUT_dump/")
     a = ap.parse_args()
     if a.gc_off:
         import gc
@@ -98,8 +100,12 @@ def main():
     log(f"[scene] {json.dumps(info)}")
     t0 = time.time()
     schedule = MorphSchedule(bodies, prms, spec.morph_time) if spec.morph_time > 0 else None
+    dump = None
+    if a.dump:
+        d0, d1, db = a.dump.split(",")
+        dump = {"t0": float(d0), "t1": float(d1), "bodies": [int(v) for v in db.split("+")], "path": Path(f"{a.out}_dump")}
     res = run_scene(bodies, gpu.tensor(x0), gpu.tensor(v0), prm, cfg, windows, spec.mu, log=log, F_stride=cfg.T,
-                    assim_free=spec.assim_free, schedule=schedule)
+                    assim_free=spec.assim_free, schedule=schedule, dump=dump)
     seconds = time.time() - t0
     frames = res["frames"]
     n_frames = len(frames.x)

@@ -52,11 +52,12 @@ def cross_gap(x, bodies) -> dict:
 
 
 def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, windows: int, mu: float, log=print,
-              F_stride: int | None = None, assim_free: bool = True, schedule=None) -> dict:
+              F_stride: int | None = None, assim_free: bool = True, schedule=None, dump: dict | None = None) -> dict:
     """bodies: scene/window.Body per body (rows, the frame's reference, its built and calibrated TargetPack, the sample's
     volume per particle, the dynamics mass); x0, v0: the launch state in body order (CUDA tensors); schedule:
     scene/schedule.MorphSchedule (each window's target on the way, by the window's end time) or None (the final target
-    from the start)."""
+    from the start); dump: {"t0", "t1", "bodies", "path"} (scene/dump.py: a forensic record of the committed windows that
+    start in [t0, t1); None: none)."""
     gpu.require_cuda()
     N = x0.shape[0]
     tgt = SceneTarget(bodies, mu)
@@ -134,6 +135,9 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
                    "lambda": res.hist[-1]["lambda"] if res.hist else opt.lam_r, "loss": stats.get("commit_E_final"),
                    "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj, **device_memory(),
                    **{k: stats.get(k) for k in _STATS}, "morph_s": s, "replay_retries": retries}
+        if dump is not None and dump["t0"] <= a * 2 * cfg.T * prm.dt < dump["t1"]:
+            from .dump import window_dump
+            window_dump(dump["path"], a, a * 2 * cfg.T * prm.dt, opt, commit, dump["bodies"])
         res.commit = commit = None
         hist.append(rec)
         P = [sum(bp["P"][k] for bp in per) for k in range(3)]
