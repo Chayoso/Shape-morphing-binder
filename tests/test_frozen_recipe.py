@@ -46,7 +46,7 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # w_dt, each recorded there at the value that ran the frozen path; plus D140's exterior_field (added after; "zb" is the
 # field D135 ran with) and the A/B switches of D142, D143, D146, D146b and D149 (ot_warm_trials, cleanup_in_phys,
 # relax_driven, u_adam_carry, spacing_symmetric), off: the path D135 ran; and B13's force_scale, read only by the force
-# baselines (--baseline force, force_mf)
+# baselines (--baseline force, force_mf); and D154's diagnostic render switch (render_from_s, render_until_s), off (None)
 D135_RUN_ARGS = {
     "animations": 300, "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0, "cell_follows_n": False,
     "drag": None, "exterior_field": "zb", "exterior_radius": 3.0, "f_ext": None, "floor": False, "floor_friction": 0.0, "grad_dump": "",
@@ -56,7 +56,7 @@ D135_RUN_ARGS = {
     "reject_stop": 3, "render_exterior": True, "render_res_hi": None, "spacing_symmetric": False,
     "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
-    "young": None,
+    "young": None, "render_from_s": None, "render_until_s": None,
 }
 # the re-freeze: D135's configuration with D146's, D146b's and D149's switches on, nothing else changed
 REFREEZE_RUN_ARGS = {**D135_RUN_ARGS, "relax_driven": True, "u_adam_carry": True, "spacing_symmetric": True}
