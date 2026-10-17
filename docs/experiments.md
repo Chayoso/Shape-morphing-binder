@@ -7643,7 +7643,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   0.11 / −0.11 of the twin's excess over it (seed ranges −0.49 to 1.28). The 40k gallery reads the same way: relative
   reduction median 5.4 % (0.2–8.7 %), floor-gap share 0.24, the twin's error 80 % floor. The same end states on the
   measures that read the exterior surface tell a different story. Yardstick exterior silhouette L / P = 0.57 / 0.46 /
-  0.60 / 0.69 / 0.47 / 0.65 and shading 0.73 / 0.67 / 0.65 / 0.81 / 0.63 / 0.77 (−31…−54 % and −19…−37 %). Display
+  0.60 / 0.69 / 0.47 / 0.65 and shading 0.73 / 0.67 / 0.65 / 0.81 / 0.63 / 0.77 (−31…−54 % and −19…−37 %).
+  Against the yardstick's own floor (the run's own target sample read by the same operator against IND,
+  `d152_yard_floor.py`, 22 mesh-seeds, the t3end values reproduced to every digit), the arm removes this share of
+  the twin's excess (bunny / dragon / teapot / bob / armadilo / homer, median over seeds):
+  - exterior silhouette 1.17 / 1.15 / 0.91 / 1.58 / 1.02 / 0.75: at or below the floor on five meshes, and the arm is
+    below the own-sample floor in most runs (bunny 97 7.6e-4 against 9.0e-4);
+  - exterior shading 0.97 / 0.72 / 0.80 / 0.79 / 0.79 / 0.52;
+  - the yardstick's particle silhouette 0.54 / 0.08 / 0.80 / 0.58 / 0.16 / 0.30. Read on the particles, the same
+    operator sees less.
+
+  Display
   front 1 − IoU, floor / twin / arm: bunny 0.0096 / 0.0119 / 0.0093, dragon 0.0093 / 0.0127 / 0.0092, teapot
   0.0084 / 0.0111 / 0.0085, armadilo 0.0118 / 0.0181 / 0.0121, homer 0.0076 / 0.0103 / 0.0076. That is 0.92–1.12 of
   the twin's excess removed on five meshes; bob's twin is within 0.0002 of its floor (0.0075 against 0.0073), so its
@@ -7669,24 +7679,34 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pitch, below what the binary splat resolves and below the noise of where its particles sit.
   *H2, the floor: supported for the silhouette, partly for the shading.* The run's own render terms (188 px, 18 views,
   the mean pictures of eight draws, every committed window's record; the twin records them as well) against their
-  floor. The floor is IND read as a state at rest by `own_terms_probe.py`, D114: bunny silhouette 7.78e-4, shading
-  5.50e-4; dragon 6.57e-4, 4.25e-4, seed 97. Its target pictures are built as the tag's: the same sample logs, 168279
-  / 175329 target discs, 188 px, zb r 3, 8 draws. The tag re-measurement for six meshes (`d152_own_floor.py`, and
-  the yardstick's own-sample floor `d152_yard_floor.py`) waits in `d152_gpu.sh` for a card idle for 10 minutes;
-  none was, see below. Results:
-  - The arm. L97's silhouette term crosses the floor at 3.67 s (window 22 of 95, bunny) and 10.84 s (69 of 164,
-    dragon) and stays below it in 78 % / 61 % of its committed windows. At the end it is 0.36 / 0.43 × the floor;
-    shading is 0.82 / 1.19 ×.
-  - The twin. P97 never reaches the floor: silhouette 1.53 / 1.98 ×, shading 1.28 / 1.98 ×.
-  - The share of the twin's excess removed is 2.2 / 1.6 for the silhouette (beyond the floor) and 1.6 / 0.8 for the
-    shading.
+  floor. The floor is IND read as a state at rest against the run's own pictures. It is measured on the tag
+  (`d152_own_floor.py`, repo_t, each run's setup rebuilt from its JSON; GPU 3, 2026-10-16 12:09–12:24 CDT), six meshes
+  × seeds 97 / 99 / 101. The probe reproduces the delivered window's record within −0.4…+5.5 % on the silhouette and
+  −1.1…+0.5 % on the shading. At seed 97 it equals D114's values to four digits (bunny silhouette 7.78e-4, shading
+  5.50e-4; dragon 6.57e-4, 4.25e-4).
+  - The floor per seed. The silhouette floor (97 / 99 / 101) is: bunny 7.8 / 11.4 / 7.3e-4, dragon 6.6 / 10.1 / 6.5e-4,
+    teapot 5.7 / 7.8 / 5.1e-4, bob 4.8 / 8.1 / 4.5e-4, armadilo 5.8 / 7.9 / 5.3e-4, homer 2.9 / 4.9 / 2.9e-4. Seed
+    99's is 1.4–1.7 × on all six meshes, and IND's transport energy against seed 99's sample is 2–3 ×. The frames
+    agree (centroids within 0.014 pitch, chamfer to IND 1.154–1.160 pitches at every seed). The cause was not found;
+    recorded as found.
+  - The arm. Its silhouette term crosses its own seed's floor at bunny 3.0–3.7 s, dragon 7.3–12.0, teapot 2.2–2.8,
+    bob 2.5–2.8, armadilo 4.8–6.2 and homer 4.8–6.8 s. That is after 10–47 % of the committed windows (bunny 22–26 %,
+    dragon 28–42 %). It stays below in 56–90 % of the committed windows and ends at 0.14–0.61 × the floor (seed 97:
+    0.37 / 0.41 / 0.33 / 0.23 / 0.41 / 0.35). It also ends below the run's own target sample, one of the eight draws,
+    on every run (bunny 97: 2.9e-4 against 5.9e-4).
+  - The twin. It ends at 1.5–2.6 × the floor at seeds 97 / 101 and 1.0–1.85 × at seed 99. It touches the floor only
+    under seed 99's higher floor: bunny 99 in one window (13.5 s, end 1.00 ×), bob 99 in 10 % of its windows.
+  - The shading. The arm ends below its floor on bunny (0.77–0.83 ×), teapot (0.82–0.84) and bob (0.68–0.71), at it
+    on armadilo (0.94–1.08) and above it on dragon (1.09–1.18) and homer (1.17–1.31). The twin ends at 1.21–1.98 ×.
+  - The share of the twin's excess removed is 1.2–3.9 for the silhouette (beyond the floor; ill-defined for bunny 99,
+    whose twin sits at it) and 0.68–2.4 for the shading.
   - On every mesh and seed, the end silhouette term, arm / twin medians: bunny 2.5e-4 / 1.19e-3 (−79 %), dragon
     2.8e-4 / 1.26e-3 (−78 %), teapot 1.8e-4 / 1.22e-3 (−85 %), bob 1.1e-4 / 1.09e-3 (−90 %), armadilo
     3.6e-4 / 1.37e-3 (−74 %), homer 1.1e-4 / 6.0e-4 (−82 %).
   - Late in the run the twin's term creeps by −9e-6 / −1.2e-5 a window.
 
-  So from a quarter to two fifths of the run on, the third of the step the balancer gives the render works on a
-  silhouette term already below what an independent sample of the mesh scores. Inferred: what it buys there is
+  So after a tenth to a half of the run, the third of the step the balancer gives the render works on a silhouette
+  term already below what an independent sample of the mesh scores. Inferred: what it buys there is
   smaller than the difference between two samples of the same mesh, which IND-referenced measures can only partly
   register.
   *H3, undo: supported.* RG97, every window k: d_k = X_k − Y_k, the arm's committed end minus the λ = 0 counterfactual
@@ -7747,7 +7767,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   0.0004–0.0019. "Heavily" is the share (1/3 by construction); the late push itself is 0.008 pitch a window.
   *Answer.* The render gradient has a large effect where it acts and where it is read:
   - its own silhouette term −74…−90 %;
-  - the yardstick against IND −31…−54 % (silhouette) and −19…−37 % (shading);
+  - the yardstick against IND −31…−54 % (silhouette) and −19…−37 % (shading); its exterior silhouette is at or below
+    the own-sample floor on five meshes;
   - the display at its floor on five meshes;
   - the outer layer 8–15 % nearer IND.
 
@@ -7759,7 +7780,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   metrics such as the binary silhouette IoU (1.8 pitches per pixel, 72–89 % of its error at the sampling floor) barely
   register this (+0.0000–0.0009 at 300k, medians over seeds). On the rendered exterior surface, scored against an independent sample of
   the target, it lowers the silhouette error by 31–54 % and the shading error by 19–37 % on all six meshes, and brings
-  the displayed silhouette to the sampling floor. Late in the run the term maintains this state rather than adding to
+  the rendered and displayed silhouettes to the sampling floor on five of them. Late in the run the term maintains this state rather than adding to
   it: a counterfactual window without it gives back 67–81 % of the previous window's render-driven displacement."
   *What would show it best (suggested, not run).*
   (1) A mesh-referenced read of the display: exact silhouettes and normals of the mesh at the display's resolution in
@@ -7767,10 +7788,11 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (2) Render off late / on late: λ → 0 in the arm from t_s = 3 / 6 s, and λ on in the twin from t_s. H3 predicts the
   lead goes and comes within 5–10 windows, the causal proof of the maintaining role. Bunny and dragon × 3 seeds.
   (3) Crops of the rim and the thin parts (ears, horns, toes) at 4K, where the render's displacement lives.
-  *Operations.* No card was idle for 10 minutes from 11:23 CDT: D145's 40k pool held GPU 0 / 1 in turn,
-  `rmshell_isaac` ran without a lock on GPU 3, and another user's display is on GPU 2. `d152_gpu.sh` (agent D152,
-  one card, about 1 h: the tag's render-term floor on six meshes × three seeds and the yardstick's own-sample floor on
-  22 mesh-seeds) is still waiting.
+  *Operations.* From 11:23 CDT no card was idle for 10 minutes: D145's 40k pool held GPU 0 / 1 in turn,
+  `rmshell_isaac` ran without a lock on GPU 3, and another user's display is on GPU 2. `d152_gpu.sh` (agent D152)
+  claimed GPU 3 at 12:09 and ran to 12:24, all 19 items rc 0, lock released. That run gave the tag's render-term floor
+  on six meshes × three seeds and the yardstick's own-sample floor on 22 mesh-seeds. They replace the first write-up's
+  provisional seed-97 floor taken from D114. Re-read on 2026-10-17 (tables and figures redone): no verdict changed.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

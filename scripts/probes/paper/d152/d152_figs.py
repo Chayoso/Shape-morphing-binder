@@ -101,9 +101,9 @@ for ax, m in zip(axs.ravel(), MESHES):
     if not fl and m in D114:                     # D114's measurement (seed 97; the same target pictures as the tag's)
         fl = [D114[m]]
     if fl:
-        ax.axhspan(min(fl), max(fl) * 1.0001, color=INK2, alpha=0.25, lw=0)
+        ax.axhspan(min(fl), max(fl) * 1.0001, color=INK2, alpha=0.18, lw=0)
         ax.axhline(np.median(fl), color=INK, lw=1.2, ls="--")
-        ax.text(ax.get_xlim()[1] if False else 0.98, np.median(fl), "floor: an independent sample of the target",
+        ax.text(0.98, np.median(fl), "floor",
                 transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=7, color=INK)
     if ow:
         ax.axhline(np.median(ow), color=MUTED, lw=1.0, ls=":")
@@ -114,7 +114,7 @@ for ax, m in zip(axs.ravel(), MESHES):
     ax.set_ylabel("silhouette term (own pictures)")
 axs[0, 0].plot([], [], color=BLUE, label="render arm (all seeds)")
 axs[0, 0].plot([], [], color=ORANGE, label="lambda = 0 twin (all seeds)")
-axs[0, 0].plot([], [], color=INK, ls="--", label="floor (independent sample)")
+axs[0, 0].plot([], [], color=INK, ls="--", label="floor: an independent sample (median; band = seeds)")
 axs[0, 0].plot([], [], color=MUTED, ls=":", label="the run's own target sample")
 axs[0, 0].legend(loc="upper right")
 fig.suptitle("The run's own silhouette term at every committed window against what an independent sample of the target "
