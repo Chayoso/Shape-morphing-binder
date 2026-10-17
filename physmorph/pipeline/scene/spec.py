@@ -38,6 +38,12 @@ class SceneSpec:
     assim_free: bool = True      # the assimilation reads the controls' deformation without the loads (window.free_end_F)
     morph_time: float = 0.0      # s: each body's target on its way from the source over this time (scene/schedule.py,
                                  # the bodies meet mid-morph); 0: the target from the start
+    g: float = 0.0               # wu/s^2: the gravity given as an acceleration, as the single-body runs' --f_ext (B9b:
+                                 # B9's 0.65); 0: from G
+    rest: bool = False           # one body at rest on the floor from the start, as the single-body --floor runs (B9b):
+                                 # no throw (t_contact, vrel_c, offset and lift unused), the body about the origin and
+                                 # the floor's plane half a sample pitch below its lowest particle, where the floor's
+                                 # position constraint holds the centres (mpm/bodies.body_trajectory)
 
 
 def yaw_matrix(deg: float) -> np.ndarray:
@@ -56,12 +62,14 @@ def layout(spec: SceneSpec, sources: list, vps: list, young: float, poisson: flo
     rho = (mass_ref_n / len(X0)) / vps[0]
     lam, mu = lame(young, poisson)
     c = math.sqrt((lam + 2.0 * mu) / rho)
-    g = spec.G * young / (rho * H)
-    vh = 0.5 * spec.vrel_c * c
-    vy = g * spec.t_contact
+    g = spec.g if spec.g > 0.0 else spec.G * young / (rho * H)
+    if spec.rest and spec.bodies != 1:
+        raise ValueError("rest: one body at rest on the floor (B9b)")
+    tc = 0.0 if spec.rest else spec.t_contact                  # at rest: no throw, the body about the origin
+    vh = 0.0 if spec.rest else 0.5 * spec.vrel_c * c
+    vy = g * tc
     b = spec.offset * R
     dc = math.sqrt(max((2.0 * R) ** 2 - b ** 2, 0.0))
-    tc = spec.t_contact
     at_contact = [np.array([-0.5 * dc, 0.5 * b, 0.0]), np.array([0.5 * dc, -0.5 * b, 0.0])][:spec.bodies]
     vel = [np.array([vh, vy, 0.0]), np.array([-vh, vy, 0.0])][:spec.bodies]
     if spec.bodies == 1:                                       # one body: its apex at the origin
@@ -71,6 +79,8 @@ def layout(spec: SceneSpec, sources: list, vps: list, young: float, poisson: flo
     x0 = np.concatenate([s @ r.T + c0 for s, r, c0 in zip(sources, R0, start)]).astype(np.float32)
     v0 = np.concatenate([np.tile(v, (len(s), 1)) for s, v in zip(sources, vel)]).astype(np.float32)
     floor_y = float(min(c0[1] - R for c0 in start) - spec.lift) if spec.floor else -1.0e9
+    if spec.floor and spec.rest:          # the sample's surface (half a pitch below its lowest centre) on the floor
+        floor_y = float(x0[:, 1].min()) - 0.5 * float(vps[0]) ** (1.0 / 3.0)
     # the domain from the scene's extents: a body (its largest radius as source or target, Rb, in any orientation)
     # stays within a horizontal reach of its launch and contact centres, travelling at most at the throw's horizontal
     # speed after the contact and rolling no faster (the same reach in z, where friction and tumbling may carry it);
@@ -86,7 +96,8 @@ def layout(spec: SceneSpec, sources: list, vps: list, young: float, poisson: flo
     prm = MPMParams(dx=dx, dt=dt, drag=spec.drag, f_ext=(0.0, -g, 0.0), grid_min=tuple(float(v) for v in lo),
                     nx=n[0], ny=n[1], nz=n[2], floor_y=floor_y, floor_friction=spec.mu)
     windows = int(math.ceil(spec.seconds / (2 * T * dt)))
-    info = {"R": R, "H": H, "rho": rho, "c": c, "g": g, "v_h": vh, "v_y": vy, "offset_wu": b,
+    info = {"R": R, "H": H, "rho": rho, "c": c, "g": g, "G_of_g": g * rho * H / young, "v_h": vh, "v_y": vy,
+            "offset_wu": b,
             "centres_at_contact": [p.tolist() for p in at_contact], "centres_at_launch": [p.tolist() for p in start],
             "velocities": [v.tolist() for v in vel], "floor_y": floor_y, "grid": n, "windows": windows,
             "spec": dataclasses.asdict(spec)}
