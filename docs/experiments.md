@@ -7234,6 +7234,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   with an impulse and a gap at its end below the gap at its start: the second collision is an approach, which the
   300k interim's (15.33 s, 6 → 3.3 spacings) was, and which the stiff runs' tails (separating) are not. No constant.
   With it the three cuts are 16.0 s and the gate passes on every item.
+  **The cut amended after the stiff 40k gate, and the gate re-read (the user's go, 2026-10-17, "진행", relayed by the
+  coordinator; 13:50 CDT).** The amendment, made after seeing the stiff gate's data and stated as such: a grid contact
+  impulse counts as the second collision only while the bodies approach in its window (the gap at the window's end
+  below the gap at its start, the previous window's end). The reason: the stiff pair parts by the spacing test while
+  its first contact's grid tail still gives small impulses as it separates. The rule had taken that tail for a second
+  collision and cut s97 and s99 at 5.5 / 5.8 s, before any landing. `cut.py` (wip/d147 c05c409, deployed to the
+  server copy; the gate's earlier readings kept in `runs/stiff_v1/`). Re-cut: stiff s97 5.5 → 16.0 s, s99 5.8 → 16.0 s;
+  every earlier run's cut is unchanged (stiff twin 16.0, fix40k 14.15 / 13.8 / 15.65, throwY40k_a / _b 14.8 / 14.5).
+  The stiff 40k gate under it: **PASS** in all three runs. No fix-caused zero-control window; heads 0.535 / 0.524,
+  0.515 / 0.518, 0.534 / 0.521 against the references' 0.988 / 1.565; no far piece; the judge passes; momentum kept.
+  **The stiff 300k, pre-registered (2026-10-17 13:55 CDT server clock, before any of its runs; `repo_d147fast` =
+  wip/d147 8f2af48, the four fixes and the damping's speed-up, with the amended cut; `scripts/probes/d147/chain24.sh`,
+  `output/gpu/d147/chain24.log`).** *Runs* (one card idle for 3 minutes, released before the readings, claimed again
+  for the renders): `stiff300k_s97` (render arm), `stiff300k_s97_off` (its render-off twin), `stiff300k_s99`;
+  `specs/scene_throw_E7.json`, `--young 9.8e5`, 2 × 150k, `--assim 0`, every 12th step kept. *Items, per run*
+  (gate.py, suffix stiff300k; every run must pass 1–4 and 6): (1) no fix-caused zero-control window; (2) the heads'
+  recovery mean at or below the 300k interim's (the D135 scene, scene300k_scene_throw_s97: 1.546 / 1.042 spacings) per
+  body; (3) clean: no piece of 10 particles or more beyond 3 spacings before the amended cut (apart.py over the whole
+  run); (4) the judge; (5) the tumble; (6) momentum per body; (7) minutes. Reported against the frozen material's final
+  300k runs (final300k_s97 / _off / _s99): (8) the impacts' v/c, (9) the ear-tip stretch, (10) the bounce and the
+  parting, (11) rest at the end. *The delivered run:* s97 if it passes, else s99 if it passes, else s97 with its
+  failures stated. *Renders,* all three runs, after the readings: 4K and 1080p, the cut, the contact close-up (the
+  first contact − 0.5 s to the parting + 0.5 s) and the whole run at 1080p; the still camera; the studio look
+  (render_scene.py zbs). Delivered to `output/results_2026-10-17/d147_throw_fixed/` with a Korean README.
+  *Predictions:* as the 40k: no piece; heads at or below the interim's; the judge passes; the landings elastic (the
+  bodies spring off the floor), more tumble, not at rest at the end; the impacts at a third of the frozen material's
+  v/c; the tip stretch about 1.1 against the final runs' 2–3. 45–55 min a run.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
