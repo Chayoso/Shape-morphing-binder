@@ -5881,6 +5881,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - D: C on the scene's own grid; E: D with the floor. Both show the discretisation's difference; reported only.
     - Then the first optimised window (`w1_compare.py`): the frozen run twice (its run-to-run spread) against the
       scene once (`specs/b9b_g0.json`), the displacement fields compared in pitches; reported.
+    - *First check and its amendment (17:38–17:50 CDT, before any run).* The chain claimed GPU 3 at 17:38; the scene
+      tests passed (37). The check then stopped the chain by its letter: arm B "differed" under the zero control, on
+      the kinetic term lk (6.535e-11 against 6.525e-11, −0.16 %) and the stability term lstab (3.457e-13 against
+      3.458e-13, +0.03 %). These are the terms of a body at rest, whose velocities are rounding noise. Everything else
+      held: positions within 1.2e-6 wu (1.1e-5 pitches) under every control, and every term within 2.2e-5 relative
+      once the body is driven (1e-3: lk +2.2e-5, lstab +1.8e-5; 1e-2: 4e-7). My check had applied the 1e-4 relative
+      tolerance without the existing test's 1e-12 floor, and also to lk, which that test does not check. By that
+      test's own letter, the zero-control lstab still misses by 1.1e-16 against 1e-16. C was alike (zero control: lk
+      −19 %, lstab −22 % on the same 1e-11 / 1e-13 values; driven: within 8e-6). D and E (the scene's grid) moved
+      positions by 5e-5–1.3e-3 pitches.
+      Not measured: the frozen window's own replay spread (CUDA atomics sum in another order at every replay). The
+      amended check measures it, with no new constant. Each arm's window is replayed 8 times per control. B is the
+      same definition when its positions stay within 1e-5 wu of A's first replay, and each term either meets the
+      test's tolerance or has a replay range that overlaps A's (D145's convention). C is read the same way and
+      reported. The first check's files are kept as `one_equal_try1.*`; the chain starts again.
   - *Runs.* Bunny and dragon, 40k then 300k: the render arm L at seeds 97 / 99 / 101 and the twin P (render weight 0)
     at 97, eight runs at each N. One card under the lock protocol (agent B9b, a card idle for 10 min, so D147, D154 and
     D155 take a freed card first). The 300k runs only if the 40k gate passes (`chain40k.sh`, `chain300k.sh`).
