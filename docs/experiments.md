@@ -7947,6 +7947,129 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   claimed GPU 3 at 12:09 and ran to 12:24, all 19 items rc 0, lock released. That run gave the tag's render-term floor
   on six meshes × three seeds and the yardstick's own-sample floor on 22 mesh-seeds. They replace the first write-up's
   provisional seed-97 floor taken from D114. Re-read on 2026-10-17 (tables and figures redone): no verdict changed.
+- **D153, the runtime on the tag freeze-2026-10-15: where an attempt's time goes, two exact levers (merged as
+  freeze-2026-10-15-rt1), how much the late windows buy, and a fixed 5–6 s horizon (opened 2026-10-16 11:26 CDT server
+  clock; the user: "속도를 현재 더 줄일 수는 없을까"; at 11:35 the user's follow-up, relayed by the coordinator: "뒤로
+  갈수록 초반 1–2초에서 deformation이 심하지, 5초 이후로는 dramatic한 변화가 잘 모르겠어. 시간을 무조건 5–6초 이내로 잡고,
+  그 이내로 모든 최적화를 끝내야 할 거 같은데", answered here as measurement only; server `tmp/d153/` (scripts),
+  `output/gpu/d153/` (runs, readings), `repo_d153t` (the tag, git archive of fc02a1a), `repo_d153b` (the tag + the
+  levers), `repo_t1` / `repo_t1s` (the merge); branch `wip/rt-tag` e0321af, merged into refreeze-cand as 6c9b0e9; local
+  `output/results_2026-10-16/d153_runtime/` with a Korean README).** The levers are bit for bit; the pipeline's
+  definition does not change; every result-changing option is listed for the user, none is implemented.
+  *Cards.* hyde06 by the lock protocol (a card idle 10 min by the pool's shared first-free time, no other user's compute
+  process): GPU 2 from 12:01 to 13:22 (profile, benches, proofs, suite, floors; the card also carries another user's
+  desktop session, about 0.7 GB at 0 % load, and short contexts of the user's isaac project), GPU 3 13:38–13:52 (window-end
+  readers), GPU 1 2026-10-17 12:22–12:30 (the merge's checks). The yardstick and display readers of the B1 frames ran on
+  hyde01 GPU 1 (the user's render node, GPU 1 only): their values equal hyde06's to the last digit (dragon300k_L97's
+  yardstick and display), and gen153's end values equal the runs' own metrics exactly. *A slip:* at 11:42 a stray
+  `python -` reached the local shell inside a compound command; it waited on stdin and was stopped at once; no script
+  ran, no file changed (the edit it preceded was redone with the editor).
+  **1. The profile on the tag** (300k seed 97, defaults, `--profile`, `tmp/d153/rt_prof_t.py prof`; `rt_cat.py`'s
+  exclusive seconds; the window bench at dumped starts, `rt_prof_t.py bench`, which now restores u's carried Adam
+  moments; Warp's kernel times, `rt_prof_t.py kern`). Bunny 97 attempts, 6.49 s each (7.40 below window 30, 6.08 after),
+  10.7 min; dragon 207 attempts / 191 windows, 8.80 s (13.60 / 7.99), 30.5 min. The dragon's early attempt: the
+  Sinkhorn solves 4.34 s (32 %), the surface proximity 2.29 (17 %), the three adjoint sweeps 2.46 (18 %); late: Sinkhorn
+  1.71 (21 %), sweeps 2.24 (28 %), proximity 0.82 (10 %), eval rollouts 0.60, render terms 0.58, taped forwards 0.38,
+  u's gate transport 0.32. Bunny: sweeps 2.13 (33 %), Sinkhorn 0.66, proximity 0.62, rollouts 0.59, render 0.53. Against
+  D138: the seconds an attempt are batch 7's (bunny 6.51–6.91, dragon 9.38–9.99; B1 on the tag 6.56–6.66 and 8.83–9.25),
+  the window bench too (bunny w30 5.92 s against 5.82, dragon w140 7.54 against w100's 7.52), a rollout 41.7–47.6 ms
+  (40), a sweep 68.6–72.5 ms (69): the tag's extra wall is its window count (B1: bunny 76–106, dragon 139–186 committed
+  windows; amendment 6 put it on D146b's two parts). New inside an attempt: the minimum spacing's symmetric rows (D149)
+  are padded to the widest row, K' = 26 (bunny) and 33 (dragon) loop iterations for every particle where the plain lists
+  had 16 (degree mean 17.1–17.3, p99 21–22): k_update 8.6 / 10.0 ms a rollout (20–21 %), its adjoint 11.1 / 12.9 ms a
+  sweep (16–18 %); with the relaxation in the driven steps only (D146) the released steps still ran the layer's three
+  kernels at zero fraction and zero u, an identity on the positions: 3.4 / 5.0 ms a rollout (k_layer_relax's two
+  same-address atomics a particle are most of it) and 1.7 / 2.1 ms a sweep; u's carried moments cost nothing measurable.
+  **2. Exact levers.** (L2) `traj.SKIP_IDLE_LAYER`: a step in which neither the relaxation nor u acts leaves the
+  layer's three kernels and their adjoints out and k_update writes the positions (there s = −0 · (d − d̄ − ref), b = 0,
+  u = 0: x_out = xu + 0 n). (L3) At D47's repeat (the taped evaluation at the point of the latest solved call, where the
+  transport takes the potentials just solved) the surface proximity takes that call's 32-nearest candidate lists at the
+  same positions: one KD-tree build and query fewer an iteration; any other call searches and keeps its lists, a call
+  without the proximity or with escaped mass keeps none. Proof (e0321af, `repo_d153b`): CPU bit for bit
+  (`tests/test_runtime_d153.py`: the re-freeze window case, volume off and carried, outputs and dFc / u gradients against
+  every step's kernels; `test_refreeze_reference.py`'s pinned CPU reference unchanged); CUDA: the proximity's reuse bit
+  for bit a fresh search's, no new tree; Warp run-to-run deterministic (`tmp/rt/det_run.py`): 40k bunny four windows
+  against D145's tag run A (`d145t_detproof/A`): frames12 4 arrays, 37 metrics, 556 history fields SAME; 300k windows
+  from the same dumps (bunny 30, dragon 140), tag against levers: end-state hash and merit SAME (c4db2f0227cf73ad,
+  7.278764905237175e-05; c1ac5d42dfcb2c7b, 4.918359478280219e-05); targeted tests 63 passed; full suite 435 passed, 2
+  skipped, exit 0 (431 + the four new). Window bench (default atomics, two repetitions after a warm one, the same dumps):
+  bunny w30 5.92 → 5.63 s (−4.9 %), w75 6.07 → 5.78 (−4.8 %); dragon w40 9.22 → 8.81 (−4.4 %), w140 7.54 → 7.08
+  (−6.1 %); the proximity 0.50 → 0.32 s (bunny), 0.74–0.78 → 0.46–0.50 (dragon). Projected about −5 % a run (bunny ≈
+  10.3 → 9.8 min, dragon ≈ 26.6 → 25.2 min at today's window counts). Exact and not done (each under 2 % a window): (L1)
+  the spacing loop to each row's own length (trailing self entries only): 0.9–1.6 % an attempt, a new kernel argument at
+  five launch sites; D138's leftovers (G2P's adjoint with node lanes ≈ 2 %, hand-written stress / volume adjoints ≈
+  1 %). Not exact (the user's call and a pre-registered A/B first): k_layer_relax's atomics through bins (≈ 1.5–2 %, the
+  sum order changes); shorter proximity lists (k = 8) or D49's single nearest (up to the rest of the proximity, 5–17 %);
+  D142 / D143 failed; 6 iterations not approved. The exact path is at its end: ≈ 5 % here against the window count's
+  +21…+93 %.
+  **3. How much the late windows buy (analysis only; `stop153.py`, local `window_analysis.md`).** The end readers
+  (yardstick silhouette and shading, display front, silhouette IoU and chamfer against the independent sample, thin) on
+  every kept window end of the 20 bunny / dragon B1 runs (the end of every third window from the source, the display
+  every 2 s; `sel153.py`, `gen153.py`, `h1full2.sh`), the kinetic record of every window; seed noise = the sample sd of
+  the five seeds' end values per mesh and arm; a measure has settled at the first window end after which it stays within
+  one (two) seed sd of its own end. Within one sd the six measures settle at bunny 12.0–15.0 s (render arm; the runs end
+  at 12.3–16.0 s; 0.6–1.2 min before the end), dragon 22.5–27.5 s (ends 23.3–31.0 s; 1.2–4.2 min); with the end kinetic
+  record too, 0.2–0.8 min (bunny) and 0.5–0.9 min (dragon) before the end; within two sd the shape at bunny 9.0–12.5 s
+  (0.9–3.9 min), dragon 18.5–26.5 s (2.8–5.3 min), with the rest 0.2–2.2 min; the twins alike (bunny 0.1–1.2 min at one
+  sd, dragon 0.9–3.1). The silhouette IoU settles first (bunny 2.5–3.5 s, dragon 6–17 s), then the chamfer (8–10 /
+  20.5–26 s), the display (8–14 / 10–20 s), the yardstick (10–15 / 13–26.5 s) and thin (12–15 / 8–22.5 s); the end kinetic
+  record is the last on 16 of 20 runs. Two stop rules from the run's own noise, no new constant, on the records of all 44
+  B1 runs: (R-jitter) stop after the first window at which the mean of the last `patience` (5) rescored merit gains is
+  no larger than its own standard error: it fires at the last committed window or 1–5 windows before it (bunny and dragon
+  0.1–1.0 min saved; teapot 0.2–1.0, armadilo 0.3–2.9, homer 0.4–3.6, bob 2.5–6.0), the end measures there within ±1
+  seed sd but for the twins bunny P97 (yardstick silhouette / shading +2.1 / +2.5 sd) and P99 (+1.2 / +1.9): the merit
+  still gains 0.3–3 % a window late against replay noises of 1e-7–5e-6. (R-floor) stop when the geometry energy, the
+  exterior silhouette and the exterior shading records are all at or below what the run's own objective reads at an
+  independent 300k sample of the target (`floor153.py` on the tag, ten mesh-seeds; the reader matches the records at the
+  end within 0–4 %): the render arm's render terms cross their floors early (bunny silhouette 3.0–3.7 s, shading
+  4.3–5.8 s; dragon silhouette 7.3–12 s, shading never), the twins' never; the geometry energy stays above its floor on 8
+  of 10 render arms (bunny L99 crosses at 10.7 s, L103 at 15.3 s) and every twin: the rule cuts two runs by 0.8–1.4 min
+  and never fires otherwise. The run's own objective is still above its noise at the stop and the measures against an
+  independent sample still improve beyond the seed noise to the end: no stop rule from the run's own noise saves more
+  than about a minute a run on bunny and dragon; a shorter run is a quality trade-off for the user.
+  **4. A fixed horizon of 5–6 s (measurement only, no new run).** The same readers on the kept frames of B1 at t = 2, 3,
+  4, 5, 6, 8, 10 s and the delivered end (t = committed windows / 6; `hzsub153.py`, `h1read.sh`, `h1disp.sh` with the
+  reference's `target` state first as read300.sh, `gen153h.py`; `hzread153.py`, `hzsum153.py`; local `horizon_5_6s.md`).
+  Frames are kept for bunny and dragon (L, P, all seeds) and for the L97 run of the other four meshes; the rest have
+  records and the visible-piece readings. Mean at t over the end's mean, seeds 97 / 99 / 101:
+
+  | mesh, arm | yardstick sil. 5 / 6 s | shading 5 / 6 | display 5 / 6 | 1 − IoU 5 / 6 | chamfer 5 / 6 | thin 5 / 6 | end kinetic 5 / 6 |
+  |---|---|---|---|---|---|---|---|
+  | bunny L | 1.19 / 1.14 | 1.14 / 1.09 | 1.14 / 1.08 | 1.00 / 1.01 | 1.00 / 1.00 | 0.92 / 0.94 | 27 / 13 |
+  | bunny P | 1.13 / 1.09 | 1.12 / 1.08 | 1.18 / 1.13 | 0.96 / 0.96 | 1.00 / 1.00 | 0.97 / 0.95 | 7 / 5 |
+  | dragon L | 2.44 / 1.95 | 2.58 / 2.09 | 1.43 / 1.27 | 1.19 / 1.12 | 1.03 / 1.02 | 1.59 / 1.39 | 73 / 45 |
+  | dragon P | 1.65 / 1.38 | 2.05 / 1.68 | 1.53 / 1.34 | 1.15 / 1.06 | 1.03 / 1.02 | 1.62 / 1.44 | 43 / 29 |
+  | teapot L97 | 1.15 / 1.16 | 1.18 / 1.16 | 1.09 / 1.09 | 1.08 / 1.07 | 1.00 / 1.00 | 1.50 / 1.72 | 18 / 11 |
+  | bob L97 | 1.18 / 1.10 | 1.05 / 1.03 | 1.05 / 1.02 | 0.99 / 0.98 | 1.00 / 1.00 | 1.05 / 1.05 | 75 / 32 |
+  | armadilo L97 | 1.77 / 1.48 | 1.37 / 1.24 | 1.29 / 1.15 | 0.97 / 0.98 | 1.01 / 1.00 | 1.25 / 1.24 | 3 / 1 |
+  | homer L97 | 2.05 / 1.65 | 1.45 / 1.30 | 1.31 / 1.19 | 1.00 / 1.04 | 1.01 / 1.01 | 1.31 / 1.36 | 64 / 27 |
+
+  For bunny and dragon the yardstick, display, chamfer and kinetic record at 5 and 6 s lie outside the three seeds' end
+  range on the worse side (the dragon's IoU and thin too; the bunny's IoU and thin are at the end's level from 3–4 s);
+  the dragon's yardstick is still 1.44 / 1.23× at 8 / 10 s. The render lead (L against P, (P − L) / P, ranges apart):
+  bunny +39 / +25 / +25 % (yardstick silhouette / shading / display) at 5 s against +42 / +26 / +23 % at the end;
+  dragon +35 / +16 / +33 % at 5 s against +56 / +33 / +28 %; present from 3 s on both meshes and every measure. At rest:
+  no mesh is (the kinetic record at 5–6 s is 7–75× its end's; armadilo 1–3×); under the drag alone (0.9 / s on the
+  momentum, the kinetic energy × exp(−1.8 t)) the body would need 1.1–2.4 s of uncontrolled release after T to reach its
+  end's level, coasting ≤ 0.2 pitch (bunny, teapot, bob), 0.3 (homer), 0.5–0.6 (dragon); in the runs the record falls only
+  0.1–0.5 / s between 5 and 10 s (`kdec.txt`). A run that must be at rest at T therefore needs a 2–2.5 s release after
+  the shaping (at 3 s the dragon's yardstick is 4.6× its end) or a heavier end-of-run demand, a new definition. Far
+  pieces (≥ 5 pitches): none on the bunny; dragon L none from 5 s, the twin 0.7 a run at 5 s and none from 6 s. Minutes
+  to 5 / 6 s (the runs' own walls to window 30 / 36, setup included; the early windows are the expensive ones): bunny 4.0
+  / 4.6 (today 10.2–11.0), dragon 7.2 / 8.3 (25.0–26.8), teapot 3.5 / 4.1 (12.8–13.1), bob 4.7 / 5.3 (14.8–15.7),
+  armadilo 5.4 / 6.2 (11.9–13.7), homer 5.8 / 6.7 (21.4–28.7). The post-tag evidence at a fixed horizon (D145's B1, A6,
+  B2, B3, B7–B10 and B13's 36 300k runs; simulation only, `cardh153.py`): ≈ 67 card-hours at today's lengths, ≈ 24 at
+  5 s and 27 at 6 s. The fixed horizon, the end-at-rest definition it would need and the non-exact levers are the user's
+  decision (the coordinator presents them); nothing of them is implemented.
+  **5. The merge (2026-10-17; the coordinator's approval: exact, bit for bit, no evidence redo).** `wip/rt-tag` e0321af
+  merged into refreeze-cand with `--no-ff` as **6c9b0e9** (its tree equals e0321af's), tagged **freeze-2026-10-15-rt1**
+  (annotated; freeze-2026-10-15 unchanged at fc02a1a); both pushed. Deployed as `repo_t1` (git archive of 6c9b0e9, TAG
+  file) and `repo_t1s` (`cp -a` + `patch_s.py`: kept frames in place of the full archive; its runner equals repo_ts's);
+  repo_t / repo_ts / repo_tgf untouched. Checks on hyde06 GPU 1: full suite on repo_t1 435 passed, 2 skipped, exit 0;
+  the pinned re-freeze digest and references 3 passed, exit 0; Warp run-to-run deterministic 40k bunny four windows: the
+  tag's run A against repo_t1 SAME, repo_t1 against repo_t1s SAME (frames12 4 arrays, 37 metrics, 556 history fields).
+  Read bulk removed and logged (`output/gpu/cleanup.log`: the window-end frames 3.6 GB, the horizon subset 1.2 GB; the
+  hyde01 copies); kept: the four dumped window starts (1.1 GB, `output/gpu/d153/dump_*.pt`) for later window benches.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
