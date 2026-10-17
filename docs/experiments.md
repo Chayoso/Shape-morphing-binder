@@ -8289,6 +8289,161 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   tag's run A against repo_t1 SAME, repo_t1 against repo_t1s SAME (frames12 4 arrays, 37 metrics, 556 history fields).
   Read bulk removed and logged (`output/gpu/cleanup.log`: the window-end frames 3.6 GB, the horizon subset 1.2 GB; the
   hyde01 copies); kept: the four dumped window starts (1.1 GB, `output/gpu/d153/dump_*.pt`) for later window benches.
+- **D155, does the physics fall first and the render after? D113's picture measured again on the tag, and the
+  definition changes that would make both fall together (a measurement and an options study, no pipeline run; opened
+  2026-10-17 12:55 CDT server clock; the user: "슬슬 초반엔 물리 > 후반에 랜더가 아니라 좀 한 번에 같이 떨어지도록 하자.
+  후반에는 deform이 큰게 없고 걍 render가 조끔씩 조금씩 수정하는 거 같아서 좀 그런 거 같아"; readers
+  `scripts/probes/paper/d155/` (server `tmp/d155/`, CPU only, no card used), results `output/gpu/d155/`, local
+  `output/results_2026-10-17/d155_together/` with three figures, the tables and a Korean README).** Data: B1 on the tag
+  (`d145t_b1`, 44 runs: the window records, the logs' transport plan at every attempt start, the per-kept-frame move
+  `m_`, yardstick `t3_` and display `e3_` of the 20 bunny / dragon runs, the kept frames of the eight seed-97 runs that
+  still have them: bunny and dragon L / P, the other four meshes' L); B7 (`d145t_b7/{bunny,dragon}300k_RG97`: at every
+  window the committed end X_k and the λ = 0 counterfactual Y_k from the same start, and its kept frames). Every number
+  is measured unless marked inferred. Definitions as D113 (physics core Pc = ot_scale (geometry energy + end drift) +
+  released motion; render R = silhouette + shading, unweighted; progress c = (X0 − X) / (X0 − X_end), linear and log;
+  A = the mean |c_P − c_R| over the run, signed > 0 = physics ahead) with one difference: X0 is the first committed
+  record, because the source's terms are not recorded (D113's courses re-read with that X0 move A by ≤ 0.003 and P90 by
+  ≤ 0.011). ot_scale from D153's floors (bunny 0.600–0.607, dragon 0.345–0.347); the other four meshes take 0.6, and
+  0.3 / 1.2 move P90 by ≤ 0.003 and A by ≤ 0.002. The body's path done = 1 − |d|_k / |d|_0, the OT plan's mean |d| at
+  each attempt start (the log). Time is simulated seconds (240 frames, a window 1/6 s); pitch = 0.708 × the target
+  sample's median 8th-neighbour distance (D95); 4K pixels by render_deliverable's camera (3.6 R, 30° vertical field):
+  one pitch is 9–13 px.
+  **1. The order of the terms (records; render arms L, medians over seeds [range in the local tables]).**
+
+  | mesh (windows) | linear 90 %: physics / render (s) | A_lin | log 90 %: physics / render (s) | A_log (signed) | path 90 % (s) | movement 90 % (s) |
+  |---|---|---|---|---|---|---|
+  | bunny (86) | 0.80 / 1.20 | 0.015 | 4.5 / 3.9 | 0.017 (+0.003) | 1.00 | 1.60 |
+  | dragon (162) | 1.21 / 1.55 | 0.008 | 10.9 / 12.1 | 0.012 (−0.002) | 1.69 | 4.20 |
+  | teapot (121) | 0.58 / 0.72 | 0.005 | 5.0 / 4.2 | 0.018 (−0.018) | 0.70 | 1.80 |
+  | bob (129) | 1.01 / 1.07 | 0.002 | 6.4 / 3.2 | 0.053 (−0.053) | 1.31 | 1.50 |
+  | armadilo (88) | 1.14 / 1.49 | 0.013 | 4.4 / 4.7 | 0.009 (+0.001) | 1.54 | 1.80 |
+  | homer (195) | 1.27 / 1.35 | 0.002 | 7.6 / 6.2 | 0.028 (−0.028) | 1.67 | 2.25 |
+
+  In run fractions the linear 90 % crossings are 0.03–0.08 (physics) and 0.04–0.10 (render), the log ones 0.23–0.40 and
+  0.15–0.45. D105 under the same X0 (D113's courses): A_lin 0.010 / 0.005, A_log 0.036 / 0.068 (bunny / dragon LV); on
+  the tag the two log curves lie closer (0.017 / 0.012). The twins (render weight 0) have the same physics timing (linear
+  P90 0.80 / 1.19 s, path 90 % 1.00 / 1.67 s on bunny / dragon) and their never-optimised render term reaches its linear
+  90 % later than the arm's on all six meshes (bunny 1.31 against 1.20 s, dragon 1.66 / 1.55, armadilo 1.59 / 1.49, homer
+  1.57 / 1.35): the render's lag of 0.06–0.40 s (up to two and a half windows) behind the physics is the arriving
+  surface's, and the render weight pulls the render term earlier, not later. At 3 s ≤ 0.2 % of the physics core's
+  linear drop and ≤ 2.1 % of the render's is left; of the log drop 16–39 % (physics) and 11–36 % (render). There is no
+  "physics first, render after" in the terms on either scale (as D113 found on D105).
+  **2. Where the visible motion happens.** The summed particle movement (all particles, kept-frame pairs, all 44 runs;
+  render arms) falls 0–1 s / 1–2 s / 2–3 s / 3–6 s / 6 s–end: bunny 81 / 12 / 3 / 2 / 2 %, dragon 50 / 29 / 7 / 6 / 7,
+  teapot 86 / 5 / 1 / 2 / 5, bob 70 / 25 / 2 / 1 / 1, armadilo 61 / 32 / 4 / 2 / 2, homer 49 / 39 / 5 / 3 / 4; the twins
+  alike (±2 points). On the outer layer alone (kept frames, seed 97) the part after 3 s is larger: bunny 10 % (its
+  normal part 14 %), dragon 24 % (29 %), teapot 19 % (26 %), bob 6 % (8 %), armadilo 10 % (13 %), homer 16 % (22 %).
+  What is still to come: the outer layer's remaining normal displacement (rms over the end's outer layer of (x_t −
+  x_end) · n_end; Lagrangian, it also counts particles trading places within the layer) and the Eulerian distance of the
+  frame's outer layer from the end's (signed normal offset, less the end's own 0.13–0.22-pitch self-offset in quadrature;
+  it does not), in pitches [4K px], the range of the two (the Eulerian one is the smaller from 3 s on):
+
+  | seed 97, render arm | at 2 s | at 3 s | at 6 s | at 10 s | Lagrangian below 1 px from (s) / run end |
+  |---|---|---|---|---|---|
+  | bunny | 0.58–0.65 [6.5–7.3] | 0.24–0.30 [2.6–3.3] | 0.07–0.15 [0.8–1.6] | 0.05–0.09 [0.6–1.0] | 9.9 / 15.7 |
+  | dragon | 1.54–2.45 [17–26] | 0.85–1.25 [9–13] | 0.35–0.52 [3.7–5.6] | 0.19–0.30 [2.0–3.2] | 23.1 / 27.0 |
+  | teapot | 0.24–0.38 [3.2–5.0] | 0.19–0.32 [2.5–4.2] | 0.12–0.23 [1.6–3.1] | 0.09–0.18 [1.1–2.3] | 18.1 / 20.2 |
+  | bob | 0.53–0.69 [6.8–8.9] | 0.22–0.27 [2.7–3.4] | 0.10–0.16 [1.3–2.0] | 0.03–0.10 [0.4–1.3] | 13.9 / 21.5 |
+  | armadilo | 0.57–0.71 [5.3–6.5] | 0.24–0.36 [2.2–3.3] | 0.11–0.21 [1.0–2.0] | 0.08–0.15 [0.7–1.4] | 10.6 / 14.7 |
+  | homer | 0.79–1.05 [7.5–10] | 0.45–0.63 [4.3–6.0] | 0.22–0.34 [2.1–3.2] | 0.15–0.23 [1.4–2.2] | 25.4 / 32.5 |
+
+  The 95th percentile at 3 s is 0.54–0.74 pitch on four meshes, 1.2 on homer and 2.5 (27 px) on the dragon (its horns
+  and crevices). So the tail is not still: after 3 s the surface creeps by a few pixels at 4K (the dragon by about ten),
+  late at 0.03–0.05 pitch (0.3–0.5 px) a window (B7, section 3).
+  **3. Who moves the surface (B7, outer layer, every chained window; rms pitches a window: actual D = X_k − x0, the
+  same window without the render D0 = Y_k − x0, the render-caused part d = X_k − Y_k; the render's share of the actual
+  move as the projection Σ d·D / Σ |D|²).**
+
+  | phase | bunny D / D0 / d | share | dragon D / D0 / d | share | own silhouette, with / without the render (bunny, dragon) |
+  |---|---|---|---|---|---|
+  | 0–1 s | 4.14 / 4.01 / 0.47 | +3.8 % | 5.31 / 5.03 / 1.00 | +6.2 % | 0.94, 0.94 |
+  | 1–2 s | 0.98 / 0.97 / 0.19 | +3.0 % | 2.20 / 2.20 / 0.24 | +3.8 % | 0.86, 0.89 |
+  | 2–3 s | 0.21 / 0.21 / 0.05 | +0.2 % | 0.63 / 0.63 / 0.12 | +2.6 % | 0.86, 0.86 |
+  | 3–6 s | 0.055 / 0.063 / 0.029 | +6.8 % | 0.18 / 0.20 / 0.06 | +6.9 % | 0.80, 0.89 |
+  | 6 s–end | 0.030 / 0.034 / 0.022 | +10.0 % | 0.047 / 0.052 / 0.024 | +6.1 % | 0.76, 0.81 |
+
+  The normal part reads the same (projection −1…+9 %). |d|² / |D|² is 0.02–0.04 before 2 s and 0.24–0.49 after 6 s:
+  late the render's push is half the size of the window's move but nearly perpendicular to it, and the window without
+  the render moves the surface as much as the window with it. The late motion is the physics' own refit (the transport
+  toward its sample, the settling), and the render holds its sub-pitch offset against it (D152: 67–81 % of each push
+  taken back by a window without it). The render's share of the step is 1/3 in every window of all 44 runs by
+  construction (D120); its share of the merit λR / (Pc + λR) is 0.02–0.09 in the first tenth and 0.02–0.07 in each third.
+  **4. What the tail buys (value at 3 s / 6 s over the delivered end; render arms, medians over seeds).** Physics core
+  bunny 5.0 / 1.85, dragon 54 / 9.3, teapot 3.9 / 2.1, bob 14 / 3.6, armadilo 7.4 / 2.0, homer 24 / 4.4; the run's own
+  render term 2.8 / 1.27, 8.2 / 3.7, 1.95 / 1.37, 2.0 / 1.12, 3.1 / 1.49, 5.4 / 2.0 (silhouette 2.8–12.8 / 1.3–5.2,
+  shading 1.4–5.7 / 1.05–2.85); the kinetic energy at the window end 120 / 8.8, 546 / 46, 74 / 11, 1313 / 51, 23 /
+  0.8, 566 / 32; the yardstick against the independent sample 1.67 / 1.15 (bunny), 4.45 / 1.96 (dragon), the display
+  front 1 − IoU 1.50 / 1.10 and 2.20 / 1.25 (D153's 5 / 6 s table is the same reading). Read on the log scale every term
+  keeps falling to the end, the kinetic energy and the transport most; read as pixels it is the creep of section 2.
+  **Answer to the user's picture.** Measured: not "physics first, render after". Both terms do 90 % of their (linear)
+  drop in the first 0.6–1.6 s while the body travels, the render 0.06–0.40 s behind the physics because it reads the
+  arriving surface (its twin, never optimised, is later still). After 3 s comes a tail of 79–91 % of the delivered
+  frames carrying 2–13 % of the particle movement (6–24 % of the outer layer's), in which both terms keep falling on
+  the log scale. Late in it the surface moves 0.03–0.05 pitch a window, mostly by the physics' own refit; the render's
+  part is a sideways push of about 0.02 pitch that the physics takes back each window. The user's "late, the render only
+  nudges" is right about the size of the late motion and wrong about its author; the visible change after 3 s is 2–4 px
+  at 4K on four meshes, 4–6 on homer, 9–13 on the dragon. Root cause, by the definitions: (i) the front-loading is the
+  window's target: every window minimises the distance of its end to the FINAL target, a greedy descent (a minimising
+  movement in the sense of Jordan, Kinderlehrer and Otto 1998) that moves as fast as the step allows (path speed at most
+  0.77–1.89 of the path a second) and converges exponentially, so the log terms creep for the rest of the run; the render
+  weight does not set this timing (the twins have the same profile). (ii) The tail's length is the stop rule's notion of
+  progress (any relative merit gain above 0.3 %, D113, D153), which sub-pitch refits keep meeting.
+  **Papers (the standing rule; D113's list re-read, two added).** GradNorm, FAMO, DWA, Nash-MTL, MGDA (D113): each
+  balances which term gets the step, none sets when the body deforms. FAMO's quantity on the tag (`rates.txt`): the
+  render's per-window relative decrease is 0.4–0.9 of the physics core's in every phase on every mesh (0–1 s 0.52–0.90,
+  3–6 s 0.41–0.79), and the render falls 2.2–2.8 decades against the physics' 3.8–5.2, so equal relative decreases would
+  move weight to the render in every phase and cannot be met at the end. Liu, Feng, Stone and Liu, FAMO (NeurIPS 2023):
+  weights from the observed log-loss decreases with a rate and a decay (two constants). Added: Benamou and Brenier
+  (Numer. Math. 2000): over a fixed horizon the least-action path between two mass distributions is McCann's displacement
+  interpolation at constant speed, so a trajectory-level objective spreads the deformation evenly in time, where a greedy
+  per-step descent front-loads it (Jordan, Kinderlehrer and Otto, SIAM J. Math. Anal. 1998; exponential convergence of
+  such flows for convex energies, Ambrosio, Gigli and Savaré 2008). Sang, Canfes, Cao, Bernard and Cremers (ICLR 2025,
+  implicit surface deformation with explicit velocity fields; the runnable external baseline): a velocity field over
+  normalised time, endpoint losses, smooth volume-preserving regularisers, no intermediate supervision; its gradual
+  in-betweens come from parameterising the whole trajectory, not from balancing losses. D147's scene path already uses
+  the interpolation as the target (Z_s = Y + (1 − s) D_Y(Y), s on a smoothstep ramp; `scene/schedule.py`), measured at
+  40k: the body follows its moving target within a window, no plateau or snap with the target-side form.
+  **5. Options (none implemented).** (A) *The window's target is the geodesic point at the window's time, for the
+  transport and the render pictures alike* (D147's Z_s on the single-body path, s = 3u² − 2u³, u = t / T_e). Scale:
+  T_e = the body's elastic period that the discretisation already computes and prints (2 × the source's diagonal / c,
+  3.23–3.26 s on all six meshes): the time an elastic signal needs to cross the body and back, so the shape changes
+  quasi-statically instead of 0.3–0.5 periods (today's arrival). No weight or constant; the schedule is D147's, its
+  length an existing quantity; it is a schedule, which the method rule names, so it is the user's call (D113 left the
+  same idea, its option (a) "a slower arrival", open because its pace would be a new constant; T_e is that pace).
+  Predictions (inferred from the measured data): the deformation spread over 0–3.2 s with both terms reading the same in-between
+  shape (the render supervises the in-betweens); the bodies can follow (today's peak path speed is 1.7–4.1× the ramp's
+  peak of 0.46 path a second: bunny 2.9, dragon 1.8, teapot 4.1, bob 2.1, armadilo 1.9, homer 1.7); the kinetic peak
+  about (0.46 / today's peak speed)² = 0.06–0.36× of today's; fewer render-driven early floaters (D108 / D120: they form
+  in windows 3–4, the fastest part of today's arrival); the end within the seed spread (the same objective from s = 1,
+  where Z_1 is the run's own sample point for point). The tail after T_e stays (it is the refit of section 3), so A alone
+  makes the morph gradual and shared, not shorter. Risks: the in-between targets cost a target build a window during the
+  ramp (≤ the 8–10 s setup each, ≈ 19 windows: about +3 min a 300k run, plus ≈ 1.5–2 min of a longer arrival; inferred);
+  the render's eight picture draws each need the map (D_Y read at the draw's points); D147's lessons (the source-side
+  form's plateau and snap; mid-ramp shapes read as formed); momentum: the target's centroid stays where the source's and
+  target's coincide (inferred, to check). Evidence: a 40k gate first (bunny and dragon × L / P, then the gallery, ≈ 3
+  card-hours), then a re-freeze and the post-tag evidence again: ≈ 80–90 card-hours at today's tail lengths, ≈ 30–35
+  with B's horizon (inferred from D153's 67 / 27). (B) *The run ends when the visible shape is done, and the end is the
+  body's rest* (D114 with a definition that acts; D153's fixed horizon). Measured trade (section 2, D153): at 5–6 s the
+  bunny's yardstick is 1.14–1.19× its end and the surface 1–2 px from it, the dragon 1.95–2.44× and 4–7 px; nobody at
+  rest (bunny and dragon: kinetic 9–550× the end at 3–6 s); D153: a 1.1–2.4 s release under the drag alone would bring
+  the end's kinetic level (coasting ≤ 0.2–0.6 pitch). Every stop read from the run's own objective fails to act (D114 never, D153's two
+  rules ≤ 1.4 min) because the objective really keeps improving; only a horizon, or a stop read on the visible change
+  with the render's own resolution (the exterior re-finds its discs when a tenth moved half a lattice pitch, 0.27 pitch)
+  acts, and that one would cut at about 2.5 s (bunny) to 4 s (dragon) by the curves above (inferred), with the 3 s
+  qualities of section 4. Evidence ≈ 24 / 27 card-hours at 5 / 6 s (D153). (C) *The render's target follows the body's
+  own progress* (Z_s at s = the path done, render only): no timing change (the pace is the step's; the twins show the
+  same timing without any render), the render term would trail the physics more on the final-target reading; it may
+  reduce the early render-driven ejection (its early demand becomes the transport's own direction). Not for this goal.
+  (D) *Balanced relative descent (FAMO-type)*: from the rates above it moves weight to the render in every phase, toward
+  D120's early regime (render share 0.46–0.70 doubled the render's share of the early ejection) and D73 / D84's late
+  regime (render 0.80–0.96 of the step: transport 2–8× and kinetic energy 1.7× the twin's), adds FAMO's rate and decay,
+  and leaves the timing where the step puts it. Not recommended.
+  **Recommendation (for the user).** The terms already fall together; what the user sees is a fast shared arrival and a
+  long refit tail. If the wish is the look "physics and render shape it together, then it is done": A (the geodesic
+  target over one elastic period) for the shared, gradual morph, and B's end (a horizon after the ramp with the release
+  to rest) for the tail, as one re-freeze, A gated at 40k first. If only the tail matters: B alone (the D153 decision).
+  C and D are not proposed. Operations: CPU only on hyde06 (`chain1.sh`, `chain2.sh`; all cards were in other jobs:
+  B14's three baselines and D147); nothing deleted; B7's dumps untouched; the readers' outputs about 8 MB.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
