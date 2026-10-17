@@ -7161,7 +7161,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   against the old-to-old 0.078, transport 0.007 against 0.077, the end positions 0.68 against 0.86 spacings, linear
   momentum 1.3e-6 against 6.2e-7 relative). Seconds a window: 5.13 (new) against 7.75 (old damping) and 4.8 (no
   damping, the D135 references): about 11–12 min a 40k run against 17.
-  **The stiff material's 40k gate, pre-registered (2026-10-17 12:58 CDT server clock, before any of its runs; the
+  **The stiff material's 40k gate, pre-registered (2026-10-17 12:51 CDT server clock, before any of its runs; the
   user's decision of 2026-10-17, "재료 단단하게 해야 할 거 같아", relayed by the coordinator: B8's stiff material in the
   scene, a scene parameter; the frozen single-body path stays the tag's).** *The material:* `--young 9.8e5`, E × 7 of
   the frozen 1.4e5, B8's value (M1's stiffest the fixed step carries; CFL 0.49 at the 300k cell), no new constant.
