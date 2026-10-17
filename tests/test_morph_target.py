@@ -19,6 +19,17 @@ def test_the_ramp_is_a_smoothstep_over_the_morph_time():
     assert ramp(0.03, 3.0) < 1e-3 and 1.0 - ramp(2.97, 3.0) < 1e-3          # flat at both ends
 
 
+def test_the_ramp_length_is_the_bodys_elastic_period():
+    from types import SimpleNamespace
+    from scripts.pipeline_run import morph_time
+    prep = SimpleNamespace(elastic_period=1.19)
+    assert morph_time(SimpleNamespace(morph_ramp="off", morph_ref_n=0, n=40000), prep) == 0.0
+    assert morph_time(SimpleNamespace(morph_ramp="elastic", morph_ref_n=0, n=40000), prep) == 1.19
+    # the same body with 300k unit masses: the density 7.5x, the P-wave speed / sqrt(7.5), the period x sqrt(7.5)
+    assert morph_time(SimpleNamespace(morph_ramp="elastic", morph_ref_n=300000, n=40000), prep) == pytest.approx(
+        1.19 * 7.5 ** 0.5)
+
+
 def test_the_switch_is_off_by_default_and_checked():
     from physmorph.pipeline import PipelineConfig
     assert PipelineConfig().morph_time == 0.0

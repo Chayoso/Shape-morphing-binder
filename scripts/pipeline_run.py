@@ -127,6 +127,10 @@ def parse_args(argv=None):
                          "t over the body's elastic period from the discretisation), for the transport and the render "
                          "pictures alike (physmorph/pipeline/run/morph.py); off (the default) = the final target from "
                          "the first window, the frozen path")
+    ap.add_argument("--morph_ref_n", type=int, default=0,
+                    help="D155 diagnostic for --morph_ramp elastic: the elastic period of the same body sampled with this "
+                         "many particles (the unit particle mass makes the density, and so the period, grow as sqrt(N): "
+                         "1.19 s at 40k, 3.23 s at 300k); 0 (the default) = the run's own N")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
@@ -266,10 +270,20 @@ def run_config(args, cfg0, prep):
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale,
-                              morph_time=prep.elastic_period if args.morph_ramp == "elastic" else 0.0)
+                              morph_time=morph_time(args, prep))
     if args.baseline.startswith("xu"):     # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     return cfg
+
+
+def morph_time(args, prep) -> float:
+    """D155: the geodesic target's ramp length, the body's elastic period from the discretisation (2 x the source's
+    diagonal / the P-wave speed, prepare's [disc] line); with --morph_ref_n the period of the same body sampled with that
+    many particles (the density is N unit masses over the volume, so the period scales as sqrt(N)); 0 = off."""
+    if args.morph_ramp != "elastic":
+        return 0.0
+    k = (args.morph_ref_n / args.n) ** 0.5 if args.morph_ref_n > 0 else 1.0
+    return float(prep.elastic_period) * k
 
 
 def run_main(args, prep, src, tgt, prm, cfg):

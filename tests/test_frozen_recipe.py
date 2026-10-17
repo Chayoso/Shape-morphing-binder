@@ -55,7 +55,7 @@ D135_RUN_ARGS = {
     "gap_split": "off", "patience": 5, "poisson": None, "profile": False, "relax_driven": False, "u_adam_carry": False,
     "reject_stop": 3, "render_exterior": True, "render_res_hi": None, "spacing_symmetric": False,
     "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
-    "morph_ramp": "off",                # D155's A/B switch (added after), off: the final target from the first window
+    "morph_ramp": "off", "morph_ref_n": 0,   # D155's A/B switch (added after), off: the final target from the first window
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
     "young": None,
 }
