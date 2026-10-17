@@ -5,6 +5,8 @@ at the first kept frame after the first contact with no particle of one body wit
 second contact: the whole run. Amended (the coordinator, 2026-10-14 17:35; the user's intent "before the second
 collision", the spacing a proxy for contact): the earlier of that frame and the last kept frame at or before the start
 of the first window with a grid contact impulse after the parting (at 300k the MPM cell is wider than the spacing).
+Amended again (the user's go, 2026-10-17, after the stiff 40k gate): that impulse counts only while the bodies
+approach in its window (the gap shrinking): the stiff pair's first contact leaves a separating tail.
 Prints one JSON line per run (both cuts, kept-frame indices, simulated steps and seconds). Read-only, CPU (scipy)."""
 import json
 import sys
@@ -44,8 +46,13 @@ for tag in sys.argv[2].split(","):
     # at 300k the MPM cell is wider than the spacing, so the grid contact begins before the spacing test fires
     win = 2 * int(j["config"]["T"])
     hist = [r for r in j["history"] if "bodies" in r]
+    # amended again (the user's go, 2026-10-17, after the stiff 40k gate): the impulse counts only while the bodies
+    # approach in that window (the gap at its end below the gap at its start, the previous window's end): the second
+    # collision is an approach; the stiff pair parts by the spacing test while its first contact's grid tail still
+    # gives small impulses as it separates (5.5 / 5.8 s, the bodies 1.3-3.6 spacings apart and moving apart)
+    gap0 = {r["animation"]: g["gap_sp"] for r, g in zip(hist[1:], hist[:-1])}
     imp = next((r for r in hist if part is not None and np.linalg.norm(r["contact_impulse"]) > 0
-                and r["animation"] * win >= raws[part]), None)
+                and r["animation"] * win >= raws[part] and r["gap_sp"] < gap0.get(r["animation"], -1.0)), None)
     cut_imp = int(np.searchsorted(raws, imp["animation"] * win, side="right")) - 1 if imp is not None else len(fr) - 1
     cut = min(cut_sp, cut_imp)
     sec = lambda k: None if k is None else round(float(raws[k] * dt), 3)   # noqa: E731
