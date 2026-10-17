@@ -5334,6 +5334,148 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - After each run, `read300.sh` MODE end on the same card; its CPU part runs detached.
   - The default arm is B1's L on the tag (`d145t_b1`, seeds 97 / 99 / 101 at all six meshes, in D145's post-tag queue).
     B13 runs no L of its own.
+  *The 300k reading (read 2026-10-17 12:13–12:35 CDT server clock by the B13 reader, after the earlier B13 agent died with
+  a local restart; the 36 runs 2026-10-15 23:30 to 2026-10-16 18:00 on `repo_ts`, every sim rc 0, every chain reading
+  rc 0; CPU only, nice 10, no card; readers in `scripts/probes/paper/b13/`; `output/gpu/b13/ev1017/`; local
+  `output/results_2026-10-17/b13_force/`).*
+  - What the chain had read: the end against the independent sample (`endgen_b13.jsonl`, and B1's L from the same
+    frames as `endgen_L.jsonl`, identical to D145's `endgen_d145t_b1.jsonl` on all 18 L runs), `read300.sh` MODE end
+    (yardstick, display, arrangement, momentum on every kept frame, apart particles, the tail pulse on bunny / dragon)
+    and the harness at matched progress on seed 97 (L97 / F97 / FM97). Not read before: `read300_cpu.sh`'s visible-pieces
+    step reads `d145t_*` folders only, and `b13_cpu_reads.sh` (the volume routine, `rot145` / `angL145`) had not run.
+  - Run now (`b13_cpu1017.sh`): `pieces145.py` on the 36 end frames and on the 12 seed-97 archives (every 4th kept frame);
+    `visible_apart.py` on the 12 seed-97 archives (windows 3–10 and the whole run); `b13_cpu_reads.sh`; then D145's
+    post-tag tables: `tab145.py` rows, `tab145t.py` (a copy whose evidence folder is `b13/ev1017`), B1's own L rows at
+    seeds 97 / 99 / 101 from `d145t_evidence/tab_tx.jsonl` unchanged, `band145t.py` F / FM against L, the pre-registered
+    items by `b13_read300.py` (the previous agent's reader, run as written), tables by `b13_md1017.py`. The 99 / 101
+    archives had been removed after their readings, as pre-registered, so the visible pieces and the pieces over the run
+    are seed 97 only (one run an arm: observed, not gated). `b13_endsets.py` draws the end frame's connected sets (a
+    scatter of particle positions, not a render) for bob and dragon.
+  - Conventions: D145's. A cell is the median over seeds 97 / 99 / 101; the change is median against L's median (an
+    IoU: the change of 1 − IoU); * = the three-run ranges do not overlap. a = the display pitch (0.708 × the target
+    sample's median 8th-neighbour distance). End kin = `kin_last` (amendment's convention, every arm).
+
+  | mesh | arm | yard sil e-4 | shading e-4 | display front % | sil IoU ind | chamfer ind | thin % | geometry energy e-5 | CoM largest a | net rotation ° | end kin e-6 | end pieces | windows | min |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | bunny | L | 7.58 | 4.74 | 0.930 | 0.9873 | 0.05511 | 3.97 | 2.83 | 3.9e-5 | 0.0030 | 1.04 | 47 | 87 | 10.3 |
+  | bunny | F | 8.89 (+17 %*) | 5.45 (+15 %*) | 1.10 (+18 %*) | 0.9864 (+7 %) | 0.05534 (+0.4 %*) | 3.85 (−3 %*) | 10.4 (×3.7*) | 0.886* | 2.73* | 0.48 (−54 %) | 110 (×2.3*) | 113* | 13.2* |
+  | bunny | FM | 10.9 (+44 %*) | 6.29 (+33 %*) | 1.25 (+34 %*) | 0.9873 (−0 %) | 0.05538 (+0.5 %*) | 3.95 (−1 %) | 12.9 (×4.5*) | 2.8e-5 (−28 %) | 0.0013 (−57 %*) | 0.21 (−80 %*) | 168 (×3.6*) | 131* | 16.4* |
+  | dragon | L | 5.39 | 4.55 | 0.902 | 0.9874 | 0.05459 | 3.26 | 6.06 | 8.7e-5 | 0.0050 | 7.48 | 102 | 165 | 27.3 |
+  | dragon | F | 7.64 (+42 %*) | 6.05 (+33 %*) | 1.13 (+25 %*) | 0.9865 (+8 %) | 0.05515 (+1.0 %*) | 3.93 (+20 %) | 27.0 (×4.5*) | 1.18* | 3.78* | 1.68 (−78 %*) | 241 (×2.4*) | 205 | 30.7 |
+  | dragon | FM | 9.99 (+85 %*) | 6.54 (+44 %*) | 1.34 (+49 %*) | 0.9871 (+2 %) | 0.05524 (+1.2 %*) | 3.86 (+18 %*) | 29.3 (×4.8*) | 8.7e-5 (+1 %) | 0.0040 (−20 %) | 2.74 (−63 %) | 308 (×3.0*) | 263 | 41.7 |
+  | teapot | L | 7.02 | 4.15 | 0.851 | 0.9899 | 0.05455 | 2.42 | 1.70 | 1.6e-5 | 0.0006 | 0.35 | 52 | 123 | 12.9 |
+  | teapot | F | 12.0 (+71 %*) | 5.22 (+26 %*) | 0.972 (+14 %*) | 0.9893 (+6 %) | 0.05473 (+0.3 %*) | 3.92 (+62 %) | 6.65 (×3.9*) | 0.116* | 0.159* | 0.35 (−1 %) | 79 (×1.5*) | 118 | 12.3 |
+  | teapot | FM | 11.6 (+65 %*) | 5.64 (+36 %*) | 1.06 (+25 %*) | 0.9888 (+11 %) | 0.05481 (+0.5 %*) | 3.14 (+30 %) | 8.47 (×5.0*) | 1.9e-5 (+15 %*) | 0.0007 (+17 %) | 0.078 (−78 %*) | 145 (×2.8*) | 106 | 12.1 |
+  | bob | L | 4.39 | 3.20 | 0.610 | 0.9895 | 0.05459 | 3.83 | 0.711 | 4.3e-5 | 0.0044 | 0.043 | 22 | 130 | 15.7 |
+  | bob | F | 5.86 (+34 %*) | 3.89 (+22 %*) | 0.637 (+4 %) | 0.9888 (+6 %) | 0.05488 (+0.5 %*) | 5.49 (+43 %*) | 4.06 (×5.7*) | 0.410* | 1.50* | 0.146 (×3.4*) | 196 (×8.9*) | 153* | 17.7* |
+  | bob | FM | 5.99 (+36 %*) | 4.66 (+46 %*) | 0.843 (+38 %*) | 0.9900 (−5 %) | 0.05673 (+3.9 %*) | 7.38 (+93 %*) | 147 (×207*) | 2.8e-5 (−35 %) | 0.0009 (−80 %*) | 59.0 (×1387*) | 546 (×25*) | 53* | 9.2* |
+  | armadilo | L | 6.21 | 3.76 | 1.21 | 0.9864 | 0.05465 | 4.09 | 5.10 | 2.6e-5 | 0.0106 | 13.2 | 100 | 90 | 14.1 |
+  | armadilo | F | 9.37 (+51 %*) | 4.77 (+27 %*) | 1.56 (+29 %*) | 0.9857 (+5 %*) | 0.05494 (+0.5 %*) | 5.09 (+24 %*) | 15.9 (×3.1*) | 2.81* | 1.39* | 3.13 (−76 %*) | 273 (×2.7*) | 122* | 18.1* |
+  | armadilo | FM | 11.5 (+86 %*) | 5.36 (+43 %*) | 1.87 (+55 %*) | 0.9852 (+9 %*) | 0.05520 (+1.0 %*) | 4.71 (+15 %) | 22.7 (×4.5*) | 4.2e-5 (+63 %) | 0.0009 (−92 %*) | 0.57 (−96 %*) | 270 (×2.7*) | 162* | 27.4* |
+  | homer | L | 3.33 | 1.99 | 0.763 | 0.9882 | 0.05400 | 4.04 | 3.94 | 3.1e-5 | 0.0092 | 1.95 | 50 | 197 | 29.0 |
+  | homer | F | 3.92 (+18 %) | 2.41 (+21 %*) | 0.811 (+6 %) | 0.9881 (+1 %) | 0.05424 (+0.4 %*) | 5.52 (+37 %*) | 13.1 (×3.3*) | 0.536* | 2.56* | 0.50 (−74 %*) | 114 (×2.3*) | 142* | 20.5* |
+  | homer | FM | 6.57 (+97 %*) | 3.22 (+62 %*) | 1.13 (+48 %*) | 0.9886 (−3 %) | 0.05452 (+0.9 %*) | 5.06 (+25 %*) | 20.3 (×5.1*) | 3.4e-5 (+10 %) | 0.0020 (−78 %*) | 0.24 (−88 %*) | 207 (×4.1*) | 151* | 22.4* |
+
+  *The pre-registered items, as written (`b13_read300.txt`).*
+  - (a) `force_dv` nonzero in every committed window: **met** (0 zero windows in 89–208 a run, all 18 F runs; window
+    largest dv / gross 0.18–0.71).
+  - (a) Centre of mass's largest displacement ≥ 100× the default's: **met**. F 0.11–2.9 a against L's 1.3e-5–2.3e-4 a;
+    F's smallest over L's largest per mesh 2.3 × 10³ (homer) to 4.8 × 10⁴ (armadilo).
+  - (a) Net rotation ≥ 10×: **met**. F 0.077–3.9° against L's 0.0005–0.011°; 96× (teapot) to 776× (bunny).
+  - (a) Not at rest, the last kinetic record above L's range: **not seen**, as at 40k. Above only on bob (+244 %);
+    below, apart, on dragon (−78 %), armadilo (−76 %), homer (−74 %); overlap on bunny and teapot. No spring-back.
+  - (a) More windows: above L's range on bunny, bob, armadilo; below on homer (142 against 197); overlap on dragon,
+    teapot.
+  - (a) The end behind on silhouette IoU **and** chamfer against the independent sample on ≥ 4 of 6: **not met by the
+    letter** (both on armadilo only, 1 of 6). The chamfer is behind on all six (+0.3 to +1.0 %, apart); the silhouette
+    IoU overlaps on five (the binary 128-px splat's sampling floor, D152).
+  - (a) Apart particles in windows 3–10 above L's range: **met on 5 of 6** (bunny +109 %, dragon +10 %, bob +148 %,
+    armadilo +14 %, homer +188 %; teapot +7 %, overlap).
+  - (b) `force_dv` ≤ 1e-9 of the gross increment: **met** (≤ 2.1e-17 in every window of all 18 FM runs; the summed
+    |ΣdL| ≤ 6.5e-17).
+  - (b) The probe's centre of mass within the default's range: **met on 5 of 6**; teapot above (1.85–1.88e-5 a against
+    1.29–1.79e-5, +15 %, apart).
+  - (b) Otherwise like (a): end kin above L's range only on bob (×1387, the early stop below), below on bunny, teapot,
+    armadilo, homer (−78 to −96 %); windows above on bunny and armadilo, below on bob and homer; behind on silhouette
+    IoU and chamfer on armadilo only (chamfer behind on all six, +0.5 to +3.9 %); apart in windows 3–10 above on bunny,
+    teapot, bob and **below** on dragon, armadilo, homer (−69 to −100 %): FM starts slower, so windows 3–10 hold less of
+    its motion (at matched progress p = 0.75 it has more apart particles than L on five meshes, below).
+  - Cost per attempt within ±10 %: F **met** (−6 to −1 %); FM on 4 of 6 (armadilo +13 %, bob +43 %; FM97 against L97
+    per attempt: bob commit 1.95 against 0.55 s, gradient 3.4 against 2.8 s, line search 2.0 against 1.6 s; armadilo
+    commit 0.92 against 0.53 s).
+  - "If the force arms match the default on the end and the rest": they do not match on the end (below), so the case
+    for dFc does not rest on momentum alone.
+  *Observed, not gated.*
+  - The objective's main term: the geometry energy at the delivered last window is ×3.1–5.7 L's for F and ×4.5–5.1 for
+    FM (bob ×207), apart on all twelve, extending B13a's 40k observation (×2.2–3.5). The exterior agrees with it: the
+    yardstick silhouette +17 to +71 % (F; apart on five, homer overlap) and +36 to +97 % (FM, all six), shading +15 to
+    +33 % and +33 to +62 % (all twelve apart), the display front +4 to +29 % (F; apart on four) and +25 to +55 % (FM, all
+    six), back +14 to +47 % / +19 to +68 %. Thin: F behind on bob, armadilo, homer (+24 to +43 %, apart), ahead on the
+    bunny (−3 %, apart); FM behind on dragon, bob, homer (+18 to +93 %, apart). The run's own silhouette IoU overlaps
+    everywhere except FM bob, which is *ahead* (0.9906 against 0.9899, apart) while its every exterior measure is behind.
+  - What F puts in: summed over a run, the centre of mass's velocity increments are 0.62–1.97 wu/s against a gross
+    increment of 8.8–33.8 wu/s, but their vector sum is only 2.4e-5 – 1.0e-3 wu/s: the objective takes the net back
+    window by window, and the body still wanders 0.1–2.9 a and turns 0.08–3.9° on the way (end 4e-4 – 1e-2 a). The
+    angular momentum it carries: |L| largest ×77–158 L's, Σ|ΔL_grid| ×190–410; the angular net / gross 0.07–0.18 against
+    0.002–0.007 (it turns one way). F's kinetic peak is +9 to +32 % (apart on five; armadilo −2 %).
+  - FM moves less and more slowly: kinetic peak −71 to −85 %, and its |L| largest (−18 to −71 %) and Σ|ΔL_grid| (−12
+    to −51 %) are *below* L's on all six, its net rotation on four (−57 to −92 %, apart; dragon −20 %, teapot +17 %,
+    overlap); read as the drag's angular-momentum growth with the motion (D149) having less motion to act on (not
+    tested).
+  - Trajectory at matched progress (seed 97, the harness): F reaches p = 0.75 in 0.57–0.94 of L's time, FM in 1.6–2.4×
+    (dragon 1.90 s against 1.15, armadilo 2.05 against 0.85). Apart particles at p = 0.75: FM above L on five meshes
+    (bunny 1783 against 335, dragon 113 against 5, bob 1302 against 293, armadilo 1278 against 5, homer 274 against 129;
+    teapot 1227 against 2246), F on four (bunny 1137, dragon 15, teapot 2552, armadilo 536; bob 90, homer 11 below). The
+    occupied volume at p = 0.75 is higher with F on five meshes (1.013–1.074 against 1.021–1.038). The display at
+    p = 0.75: bunny FM 18 630 apart discs in 43 sets (L 346 in 7), bob FM 4055 in 18 (L 24 in 3), armadilo F 1092 in 9 /
+    FM 708 in 17 (L 0 in 1), homer FM 1352 in 9 (L 0). The volume routine (enclosed volume over the target's): at the end
+    L 1.004–1.017, F 1.009–1.024, FM 1.012–1.037; at τ = 0.25 FM reaches 1.094 (dragon) and 1.100 (bob) against
+    1.030 / 1.004.
+  - Floating material, all three seeds: pieces off the body at the end ×1.5–8.9 L's (F) and ×2.7–25 (FM), all apart;
+    their largest 6–20 (F) and 9–22 (FM) particles against 3–7 (medians); pieces of ≥ 10 particles at the end 0–4 a run
+    (F) and 0–13 (FM) against 0–1 (L: one in dragon L101, one in homer). Every end piece but two lies 1.5–3.84 a from
+    the body (surface fragments on every face, `endsets_dragon.png`); the two are bunny FM97's single particles at
+    6.7–6.9 a, off since 12.0 s.
+  - Over the run (seed 97, one run an arm): visible side blobs ×2.0–5.6 L's (F) and ×5.6–12 (FM), in the last read
+    window 0–9 / 5–18 against 0–4. Far pieces (≥ 5 a): F on the dragon in 32 of 155 read frames at 1.4–7.6 s (≤ 62
+    particles a frame, pieces ≤ 9) and on bob in 33 of 141 at 2.6–9.0 s (a 7-particle piece out to 18.4 a, back by 9 s);
+    FM on the dragon in 82 of 127 at 2.6–18.8 s (≤ 82 particles a frame; one 10-particle piece, one frame, 3.6 s), on the
+    bunny in 60 of 105 at 0.6–20.7 s (to the end: the two single particles), on armadilo in 22 at 2.4–13.2 s; L 0–10
+    frames at 1.6–4.8 s.
+  - **Serious (the user's marks): bob FM, all three seeds.** The runs stop early: FM99 and FM101 after three rejected
+    candidates in a row (windows 49, 53), FM97 by the physics stop at 56 ("converged … holding still"), against L's
+    130–133. The end is not at rest (kin 1.9–8.3e-5 against 2.9–4.6e-8), its geometry energy is ×207, thin ×1.9, and the
+    end display is broken: 16 / 28 / 31 display sets and 770–1268 apart discs (L: 1 set, 0 discs). The particles show a
+    lifted skin: 1182–1411 particles in 546–591 pieces 1.5–3.2 a off the body over the flat sides and the lower edges,
+    7–13 of them of ≥ 10 particles, the largest 84 at 1.53 a (`endsets_bob.png`). It persists to the delivered end, but
+    lies within 3.2 a, so it is a fragmented surface, not floating debris; judge-breaking is likely but unchecked (no
+    render was made).
+    Below the marks: the dragon FM97's far debris over 16 s (pieces ≤ 10, gone by the end; its end display 9–12 sets
+    against L's 5–8), the bunny FM97's two particles, bob F97's 7-particle piece.
+  - Cost: F minutes −29 % (homer) to +29 % (bunny, armadilo); FM −41 % (bob, the early stop) to +94 % (armadilo, 27.4
+    against 14.1 min).
+  - The scales: F at 1 and FM at 1/4 by B13a's 40k rule, which decided inside one-run noise (above); FM's slow start
+    may be partly its smaller scale. The step constants follow the measured unit ratio (2.1 × scale at 40k; 300k
+    F 1.8–2.5, FM 0.46–0.62).
+  *The render's influence (the user's standing rule).* The force arms carry the same render term: g_share 0.333 in
+  every committed window of all 36 runs (L the same); λ at window 1 F 0.32–2.9, FM 0.085–2.7, L 0.16–1.5, falling to a
+  median 2e-4 – 5e-3; cos(g_phys, g_render) over windows 1–10 F 0.11–0.25, FM 0.16–0.62, L 0.13–0.26. Path: the
+  silhouette and shading terms on the exterior discs, their gradient on the force leaf and u (in place of dFc and u),
+  and from there only through the MPM body. No λ = 0 twin of a force arm was run, so the render's own effect inside the
+  force arms is not measured; every difference above is the control variable's at an equal render share.
+  *Paper reading.* Driving the body with an optimised per-particle force puts net momentum in at every window: the
+  centre of mass wanders 0.1–2.9 display pitches and the body turns up to 3.9° (10³–10⁴× and 10²–10³× ours, which sits
+  at the float floor), with 77–158× the angular momentum, and the objective has to pull it back. Projecting the force
+  onto zero net force and torque removes that exactly and keeps the centre of mass in our range, but it does not recover
+  the end: both force arms finish with 3–6× our geometry energy on every mesh, 15–97 % more exterior silhouette and
+  shading error, a 0.3–4 % worse chamfer to an independent sample and 1.5–25× the surface fragments, at an equal render
+  share; the momentum-free force also morphs 1.6–2.4× slower and on bob stalls with a lifted skin. The binary silhouette
+  IoU does not separate them (D152's floor), and the force arms do not end less at rest (lower kinetic on 3–4 meshes;
+  bob excepted), so the spring-back argument is not supported. Claim the numbers support: the stress control gives
+  exact momentum conservation without a projection and a better end that a momentum-free force does not reach with the
+  same objective, render terms, u and optimiser; its advantage is not momentum alone.
+  *Disk.* The 300k seed-97 archives stay (pre-registered; 12 files, 18 GB, the material for a figure); the 40k smoke /
+  B13a archives and the proof's two archives (1.2 GB) were removed after their reading (`cleanup.log`).
   **D145 post-tag reading 1: B1 and amendment 6 on `freeze-2026-10-15` (read 2026-10-16 10:50–11:30 CDT server clock
   by the post-tag reader, after the earlier reader died with a local restart; the runs from 2026-10-15 20:28 to
   2026-10-16 08:29 on `repo_ts` (B1, A6 300k) and `repo_t` (A6 40k), every sim rc 0; CPU readers
