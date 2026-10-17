@@ -8578,6 +8578,62 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   to rest) for the tail, as one re-freeze, A gated at 40k first. If only the tail matters: B alone (the D153 decision).
   C and D are not proposed. Operations: CPU only on hyde06 (`chain1.sh`, `chain2.sh`; all cards were in other jobs:
   B14's three baselines and D147); nothing deleted; B7's dumps untouched; the readers' outputs about 8 MB.
+  **Option A at 40k, pre-registered (2026-10-17 14:10 CDT server clock, before any run of it; the user's approval relayed
+  by the coordinator: "testing option A at 40k first"; nothing at 300k, no re-freeze).** *Code.* Branch `wip/d155` from
+  freeze-2026-10-15-rt1 (6c9b0e9): 91ad29c + 1f1615f, deployed as `repo_d155` (git archive) and `repo_d155s` (+
+  `patch_s.py`, kept frames). `--morph_ramp elastic` (default off; `cfg.morph_time`): every window's target is Z_s =
+  Y + (1 − s) D_Y(Y), s = 3u² − 2u³, u = t_end / T_e, t_end the window's end time (`run/morph.py`, D147's schedule read
+  for one body). Each pack on the way is `build_target`'s from Z_s: its transport grid, proximity, cleanup grids and u
+  gate, and its render pictures exactly as the target's are made now, the mean over the same eight samples (the run's
+  and its seven draws, each moved by D_Y read at its own points; D_Y solved once per sample at the start). The packs
+  carry the run's calibrations (unit ratios; the transport scale measured once at the source on the final target, the
+  objective's own formula) and the run's state on the target (settled step, u's carried moments); no relief on the way
+  (D147). A new target opens a selection epoch (`Selection.new_epoch`, costs compared within one target); the window's
+  optimisation, its commit rollout and replay, its selection merit and its record all read the window's pack (the test
+  checks that the commit's transport energy and silhouette differ from the final target's). Records added only when
+  the switch is on: `morph_s`, `morph_build_s`, and on the ramp the final target's transport energy, silhouette and
+  shading at the committed state. Refresh: a pack a window (the target moves continuously; one window is the
+  objective's own time step); the build seconds are recorded and reported against the window's attempt time.
+  *A finding before the runs (measured, the logs):* the discretisation's elastic period 2 L / c depends on N, because
+  the density is N unit masses over the volume (c ∝ N^(−1/2)): 1.190–1.199 s on the five 40k meshes, 3.23–3.26 s at
+  300k. At 40k the run's own T_e is about today's arrival (path 90 % at 0.84–1.84 s, peak path speed 0.80–1.87 /s
+  against the ramp's 1.5 / T_e = 1.26 /s), so it can hardly change the 40k timing; at 300k it is 3.2 s. Two switched arms
+  therefore: **A1** = the definition as approved at the run's N (T_e 1.19 s); **A3** = the same body's period at the
+  evidence N (`--morph_ref_n 300000`, T_e = T_e(40k) × √7.5 = 3.26–3.28 s), the preview of what option A does at 300k
+  (a diagnostic flag of the run script; nothing else differs).
+  *Gates of the default path (before any reading):* the pinned references `tests/test_refreeze_reference.py` and the
+  full suite on a card (exit status recorded); Warp-deterministic 40k bunny seed 97, four windows, `repo_d155s` against
+  the tag's run A (`d145t_detproof/A`; `tmp/rt/det_run.py`, `tmp/d145/det_cmp12.py`): SAME required.
+  *Runs (one card, lock protocol, agent D155; seed 97 for the switched arms):* bunny, dragon, teapot, armadilo, homer at
+  40k × {A1, A3} × {L render arm, P twin `--render_weight_scale 0`} = 20 runs on `repo_d155s`; the tag re-run on
+  `repo_t1s` × {V = L, W = P} × seeds 97 / 99 / 101 = 30 runs (kept frames; the yardstick and display need them, B3's were
+  removed). The tag's range of a measure = its three re-run seeds (and B3's three where B3 has it: windows, records,
+  silhouette IoU against the independent sample, apart, visible pieces; run-to-run reported).
+  *Readers (per run):* the records (`d155_gate_read.py`): the share of the summed per-window move after 1 s and after 3
+  s, A_lin / A_log and P90 of the physics core and the render term against the FINAL target, the raw cosine of the
+  physics and render gradients and the render's share of the step and of the merit over [0, T_e], λ capped windows, the
+  largest and the delivered kinetic energy, the centre of mass's drift and |L| at the window starts (largest, mean),
+  minutes; the end frame against the independent 40k sample (`d92/ind_MESH.npz`): yardstick (render_terms_probe),
+  display front 1 − IoU (surface_layer_probe), silhouette IoU and chamfer (gallery_ind); thin uncovered (the run's
+  metrics); apart particles in windows 3–6 and 3–12 (d120_apart); visible pieces in windows 3–10 (visible_apart, apart /
+  blobs).
+  *Criteria (A3, render arm, five meshes; "the tag" = its three seeds):* (1) timing: the move after 1 s ≥ the tag's
+  largest + 0.15 on ≥ 4 of 5; (2) end quality not below the tag's worst seed (silhouette IoU against the independent
+  sample, yardstick silhouette and shading, display, thin) on ≥ 4 of 5 per measure, and the render lead kept (A3 L's
+  yardstick silhouette below A3 P's) on ≥ 4 of 5; (3) at rest: the delivered kinetic energy ≤ 1.25 × the tag's largest
+  on ≥ 4 of 5; (4) the peak kinetic energy ≤ 0.5 × the tag's smallest on ≥ 4 of 5. All four → "A passes the 40k gate"
+  (the 300k runs remain the user's decision). Reported, not judged: A_lin / A_log / P90, the ramp cosine and shares,
+  apart and visible pieces, momentum, minutes and build seconds, the twins, A1 throughout.
+  *Predictions (from D155's measurements; inferred).* A3: move after 1 s 0.65–0.85 (tag 0.14–0.60), after 3 s 0.04–0.15
+  (tag 0.02–0.07); physics P90 on the final target 2.0–2.8 s (tag 0.58–1.25), render P90 within 0.3 s of it, A_lin ≤ 0.03;
+  the ramp cosine above the tag's same-time value (tag 0.03–0.30) on ≥ 4 of 5; peak kinetic energy ≈ (0.46 / today's peak
+  path speed)² of today's: bunny ≈ 0.11, dragon ≈ 0.4, teapot ≈ 0.04, armadilo ≈ 0.4, homer ≈ 0.6 (tag 0.98 / 1.6 / 0.6 /
+  1.5 / 1.95); the end within the tag's range; at rest as the tag; apart in windows 3–12 at or below the tag's smallest
+  on ≥ 3 of 5 and fewer visible blobs; momentum within the tag's range; 13–20 more windows and +30–60 % minutes (tag
+  1.1–2.4 min). A1: the timing within ±0.1 of the tag on ≥ 4 of 5 (the ramp is about today's arrival), bunny's and
+  teapot's peak kinetic energy at most slightly lower, the rest as the tag. Risks: the render weight's cap is set at the
+  first window (20 × its raw ratio, at s ≈ 0.008 for A3), so a capped window on the ramp is flagged; a body that lags
+  its target at the ramp's end shows a late catch-up.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
