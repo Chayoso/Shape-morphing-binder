@@ -121,6 +121,12 @@ def parse_args(argv=None):
                          "per cell stay 40k's); the loss grid exactly as before, the u gate and the thin set on the shape's "
                          "cell. It opens gaps narrower than two of the shape's cells but lets the surface form features "
                          "ahead of the bulk early (D139); off (the default, or N <= 40k) = the shape's cell")
+    ap.add_argument("--morph_ramp", default="off", choices=["off", "elastic"],
+                    help="D155 A/B (option A): elastic = each window's target is the point of the geodesic between the "
+                         "source and the target at the window's end time (Z_s = Y + (1 - s) D_Y(Y), s the smoothstep of "
+                         "t over the body's elastic period from the discretisation), for the transport and the render "
+                         "pictures alike (physmorph/pipeline/run/morph.py); off (the default) = the final target from "
+                         "the first window, the frozen path")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
@@ -259,7 +265,8 @@ def run_config(args, cfg0, prep):
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
-                              force_scale=args.force_scale)
+                              force_scale=args.force_scale,
+                              morph_time=prep.elastic_period if args.morph_ramp == "elastic" else 0.0)
     if args.baseline.startswith("xu"):     # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     return cfg

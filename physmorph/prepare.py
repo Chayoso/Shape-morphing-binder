@@ -39,6 +39,8 @@ class Prepared:
     density: dict | None = None         # D132 (match_density): the two samples' fill volumes and the source's scale
     cell_shape: float | None = None     # D137 (cell_ref_n, above it): the shape's MPM cell (diag / cell_diag, as derived
                                         #   before), kept for the u gate and the thin set; None = prm.dx is the shape's cell
+    elastic_period: float | None = None  # the discretisation's 2 L / c (s; L the source's diagonal, c the P-wave speed): the
+                                         #   time an elastic signal needs to cross the body and back (D155's ramp length)
 
 
 def sampling_berth(target: np.ndarray) -> float:
@@ -150,4 +152,5 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
-                    tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape)
+                    tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape,
+                    elastic_period=float(disc.elastic_period))

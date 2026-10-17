@@ -157,6 +157,11 @@ class PipelineConfig:
                                     #   starts at zero), each coordinate's bias correction counting its own age; reset on an
                                     #   outer reject; dFc's stay per window; off = fresh moments every window (the frozen path)
     coh_k: int = 8                  # material bond neighbours (source kNN)
+    morph_time: float = 0.0         # D155 A/B (option A): > 0 = each window's target is the point of the geodesic between
+                                    #   the source and the target at the window's end time, s = smoothstep(t / morph_time),
+                                    #   for the transport and the render pictures alike (run/morph.py); the run script sets it
+                                    #   to the body's elastic period (--morph_ramp elastic); 0 = the final target from the
+                                    #   first window (the frozen path)
 
     # ---- outer acceptance ----
     outer_merit_tol: float = 1e-4   # a repeated rejected merit within this is a replay
@@ -205,3 +210,7 @@ class PipelineConfig:
                              "(use render_weight_scale 0 for the render-off twin)")
         if self.T < 1 or self.iters < 1 or self.animations < 1:
             raise ValueError("T, iters and animations must be positive")
+        if not (math.isfinite(self.morph_time) and self.morph_time >= 0):
+            raise ValueError("morph_time must be finite and nonnegative (0: off)")
+        if self.morph_time > 0 and (self.baseline or self.gap_split != "off"):
+            raise ValueError("the geodesic target (D155) runs on our objective, without a baseline or gap_split")

@@ -97,6 +97,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = {tgt.unit_ratio:.4g} "
         f"(weights), gradient ratio = {tgt.unit_grad_ratio:.4g} (eps/target_norm), "
         f"n_support={tgt.n_support} m_ref={tgt.m_ref:.3g}")
+    morph = None
+    if cfg.morph_time > 0:                           # D155 (option A): the window's target on the geodesic (run/morph.py)
+        from .morph import MorphTarget
+        morph = MorphTarget(tgt, src, draws, prm, cfg, log)
     # the relative cap: 20x the first raw ratio (the same meaning in any loss unit)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, None, cap_rel=20.0)
     lo, hi = domain_bounds(prm)
@@ -119,6 +123,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     clock = _AttemptClock(hist)
     for a in range(cfg.animations):
         clock.lap()                    # the last attempt's wall seconds (and, with --profile, the runner's sections)
+        if morph is not None and not frozen:
+            # D155: the target of the window ending at frame len(frames) - 1 + 2T; a new target opens a selection epoch
+            # (costs compare within one target, as for new render pictures)
+            tgt, s_morph, moved = morph.at((len(frames) - 1 + 2 * cfg.T) * prm.dt)
+            if moved:
+                sel.new_epoch()
         if not frozen and sel.plateau(a):
             log(f"[v2] delivery merit plateau at anim {a + 1}")
             frozen = True
@@ -179,6 +189,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             tgt.grid_ot.repeat = not (counts["clamped"] or counts["nan_x"])
         with timed("record"):
             rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
+            if morph is not None:                     # D155's records: s, the pack's build, the final target's terms
+                rec.update(morph_s=s_morph, morph_build_s=morph.build_s if moved else 0.0)
+                if s_morph < 1.0:
+                    rec.update(morph.final_terms(x))
             if cfg.assim_volume:                      # D135: the rest volume the assimilation has taken (a record)
                 with torch.no_grad():
                     jp = torch.linalg.det(Fp)
