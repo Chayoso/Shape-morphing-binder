@@ -7193,6 +7193,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the contact: the stiff material arrives faster early (B8: transport × 0.1–0.16 at 1 s), so near the band's top.
   (10) The pair still parts (the closing speed the same in wu/s, its share of c smaller) and the bodies bounce lower.
   (11) Not at rest by the end (B8's). (7) 11–13 min a run.
+  **The stiff material's 40k gate read (runs 12:54–13:36 CDT on gpu2; `runs/gate_stiff40k.txt`, `judge_stiff.txt`,
+  `head_stiff.txt`, `extra_stiff40k.txt`): FAIL by the letter, on item 2 in s97 and s99, because the cut fell before
+  any landing. Every physical item holds, the ear-tip pieces are gone, and the cut's letter misfires on the stiff
+  material's first contact.** The scene's numbers checked in the run log: gravity 0.7355, the throw 0.693 / 3.163
+  wu/s, the floor, the grid 129 × 78 × 95, all scene_throw's; the wave speed 36.7 wu/s against 13.9.
+  *The cut.* The amended rule cuts at the first window with a grid contact impulse that starts after the parting
+  (cut.py, the spacing test's parting). The stiff pair parts by the spacing test (5.5 / 5.75 s) one or two windows
+  before the grid's first contact ends. So the first contact's own tail is taken for the second collision: s97 an
+  impulse of 30 (the contact's peak 14 000) in the window that ends as the gap reaches 1.26 spacings; s99 0.65 at
+  5.5 s and a few thousandths at 6.0 s with the bodies 1.8 → 3.6 spacings apart and separating. The cuts are 5.5 s
+  and 5.8 s, and the head's window, landing + 1.5 s to the cut, is empty. The twin's tail fell before its parting and
+  its cut is 16.0 s. The spacing rule (a return within a spacing) finds no second contact in any of the three: 16.0 s.
+  The rule is left as written. Read to the spacing rule's 16.0 s as context, not as the gate's letter:
+  | | stiff s97 | stiff twin | stiff s99 | fix s97 | fix twin | fix s99 |
+  |---|---|---|---|---|---|---|
+  | (1) zero-control windows (fix causes / other); retries | 0 / 0; 5 | 0 / 0; 7 | 0 / 0; 6 | 0 / 0; 5 | 0 / 0; 8 | 0 / 0; 5 |
+  | (2) head recovery mean b0; b1 (to 16 s) | 0.54; 0.52 | 0.52; 0.52 | 0.53; 0.52 | 0.72; 0.72 | 0.72; 0.74 | 0.61; 0.65 |
+  | (3) far pieces before 16 s: frames, largest | 0, 0 | 0, 0 | 0, 0 | 16, 13 | 17, 10 | 7, 2 |
+  | (4) judge: progress, end error, early rise | PASS 0.440, 0.024, 1.88 / 1.54 | PASS 0.427, 0.026, 1.65 / 1.61 | PASS 0.458, 0.023, 1.56 / 1.52 | 0.449, 0.028 | 0.445, 0.025 | 0.453, 0.025 |
+  | end silhouette IoU b0 / b1 | 0.976 / 0.976 | | | 0.971 / 0.973 | | |
+  | (5) tumble b0 / b1 | 48° / 102° | 59° / 87° | 38° / 90° | 20° / 31° | 15° / 38° | 18° / 58° |
+  | (6) momentum (worst) | 1.9e-4 | 3.5e-4 | 7.5e-4 | 1.3e-4 | 1.4e-4 | 5.7e-4 |
+  | (7) minutes | 12.4 | 13.6 | 13.9 | 17.1 | 17.5 | 16.9 |
+  | (8) contact v/c; landing v/c b0, b1 | 0.034; 0.120, 0.104 | 0.034; 0.118, 0.104 | 0.034; 0.119, 0.102 | 0.090; 0.307, 0.280 | 0.089; 0.307, 0.280 | 0.089; 0.308, 0.279 |
+  | (9) ear-tip stretch, band mean (p95) b0; b1 | 1.15 (1.45); 1.07 (1.33) | 1.10 (1.39); 1.09 (1.38) | 1.16 (1.41); 1.08 (1.33) | 2.49 (5.33); 3.21 (10.1) | 2.09 (3.73); 2.69 (7.95) | 2.03 (3.87); 3.18 (9.14) |
+  | (10) parted in air; restitution; bounce within 2 s b0, b1 (sp) | yes; 1.07; 13.2, 19.8 | yes; 1.02; 11.1, 19.7 | yes; 0.85; 14.9, 18.0 | yes; 1.28; 0.8, 0.6 | yes; 1.30; 0.6, 0.6 | yes; 1.25; 0.8, 0.6 |
+  | (11) end centre speed b0, b1; deformation KE / mass ×1e-4 | 1.34, 1.95; 1.5, 3.2 | 1.40, 1.88; 2.2, 1.4 | 1.30, 2.05; 1.1, 1.6 | 0.91, 1.41; 19, 33 | 0.91, 1.61; 8.3, 6.9 | 0.94, 1.62; 2.0, 1.4 |
+  *Read:* the impacts land at a third of the wave speed they had (√7, as predicted). The ear tips stretch 7–16 %
+  (95th percentile 33–45 %) where the frozen material's were drawn out 2–3× (to 10× at the tail). No piece leaves a body
+  beyond 3 spacings in any of the three runs, the heads hold better than every earlier run, and the judge passes with
+  end errors 0.023–0.026. The landing is elastic: the bodies spring off the floor within the 2 s the frozen material
+  spent squashed on it (11–20 spacings high), tumble more (38–59° / 87–102°), and are not at rest at the end (their
+  centres move at 1.3–2.0 wu/s, B8's "not at rest"). Their deformation is quieter (its kinetic energy at or below the
+  frozen material's). The progress at the contact is lower (0.427–0.458, in the band); the restitution of the pair
+  is 0.85–1.07. The damping's speed-up gives 12.4–13.9 min a run (17 with the atomic sums, 11.4 for the D135
+  references). Predictions: (8) yes; (9) yes; (3) yes; (2) yes; (4) yes, the progress lower than predicted; (10) yes,
+  the bounce far higher than predicted; (11) yes; (7) about. *Proposed (not applied; the coordinator decides):* the
+  impulse cut counts the grid's contact only once the bodies approach again. The first window after the parting
+  with an impulse and a gap at its end below the gap at its start: the second collision is an approach, which the
+  300k interim's (15.33 s, 6 → 3.3 spacings) was, and which the stiff runs' tails (separating) are not. No constant.
+  With it the three cuts are 16.0 s and the gate passes on every item.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
