@@ -405,9 +405,12 @@ def main(argv=None):
         dr.text((x0 + w + 8 * sz, yr - f.size / 2), "render", font=f, fill=(240, 147, 79))
         dr.text((x0 + w + 8 * sz, yp - f.size / 2), "physics" if PHYS_ALL else "physics core", font=f,
                 fill=(190, 196, 204))
+        s_x = x0 + w - 10 * sz                         # the unit; a tick label that would touch it is left out
         for tk in range(0, int(t_end) + 1, 2):
+            if X(tk) - 4 * sz + dr.textlength(f"{tk}", font=f) > s_x - 6 * sz:
+                continue
             dr.text((X(tk) - 4 * sz, y0 + h + 3 * sz), f"{tk}", font=f, fill=INK2)
-        dr.text((x0 + w - 10 * sz, y0 + h + 3 * sz), "s", font=f, fill=INK2)
+        dr.text((s_x, y0 + h + 3 * sz), "s", font=f, fill=INK2)
 
     def body_arrows(img, cam, key, p, n, cov, op, sites, sz):
         """D's arrows on the body, composited over it: at the subsample's sites facing the camera and not hidden (the
@@ -577,15 +580,14 @@ def main(argv=None):
                                     "do the render and the physics pull\nthis particle's control the same way?"), f_s)
                         hatch_legend(dr, cam, bx, int(Hd - 228 * sz), sz, Hd,
                                      "render barely acts here (share under 5 %)", f_s)
+                        # six lines with the physics note (the tag's dragon ran its front foot into an eight-line block)
                         small = ["cosine at this particle between λ ∂L_render/∂dFᴄ (before PCGrad) and ∂L_phys/∂dFᴄ, "
-                                 "9 components, summed over the window's 20 driven steps",
-                                 "PCGrad acts on all controls at once: it removes the conflicting part of the render "
-                                 "gradient only in windows where the two disagree overall (this window: "
-                                 f"{'yes' if pcg < 0 else 'no'})"] + small
+                                 "9 components summed over the window's 20 driven steps"
+                                 + (f"; averaged over {C_AVG} windows ({C_AVG / 6:.2f} s), as per particle it changes "
+                                    f"much from one window to the next" if C_AVG > 1 else ""),
+                                 "PCGrad removes the render's conflicting part only when the two disagree over all "
+                                 f"controls (this window: {'yes' if pcg < 0 else 'no'})"] + small
                         small = [phys_note(wn)] + small
-                        if C_AVG > 1:
-                            small = [f"the cosine is a running mean over {C_AVG} windows ({C_AVG / 6:.2f} s): per particle it changes "
-                                     f"much from one window to the next"] + small
                     elif kd == "D":
                         title = "What did the render do to dFᴄ?"
                         colour_bar(dr, cam, bx, by, bw, int(20 * sz), RAMP_D,
