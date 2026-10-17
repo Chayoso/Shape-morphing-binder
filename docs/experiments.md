@@ -5829,6 +5829,103 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   closer to rest (end kinetic × 4.7 / × 4.0 → × 3.5 / × 2.2). B9: the bunny's gravity failures 1 → 2 of 3 render arms;
   the dragon the same. A6, B1-every-frame and B10 have no pre-tag reading.
   **Pending.** B7 (RG97's dumps and λ = 0 counterfactual); the external baselines (B14 seeds 2–3 run now).
+  **B9b, gravity with the floor through the scene path with one body (pre-registered 2026-10-17 17:10 CDT server
+  clock, before any run; the user approved the rerun on 2026-10-17; code `wip/b9b` f0a26d5 = `wip/d147` 5dbcf6e + two
+  scene-spec fields and the probes, server copy `repo_b9b`; `scripts/probes/b9b/`; `output/gpu/b9b/runs/`; local
+  `output/results_2026-10-17/b9b_gravity_scene/`).** Why: B9 (above) ran gravity and the floor through the frozen
+  single-body path, and the bunny failed on two of three seeds and on its twin. The selection's brake (`selection.py`:
+  a merit rise of more than 5 % is a runaway) rejects the landing window, the restarted window falls the same way, and
+  three rejections stop the run at window 7. The scene path (D147) commits every window and has no selection or stop
+  rule; its line search keeps each window no worse than the uncontrolled continuation; it reads the body in its own
+  frame; and it damps only the deformation velocity.
+  - *The one-body spec* (`specs/b9b_bunny.json`, `b9b_dragon.json`):
+    - B9's gravity, g = 0.65 wu/s², as B9's `--f_ext 0 -0.65 0`. A new field `SceneSpec.g` passes the acceleration as
+      B9 passed it: the scene's own G = ρgH/E would give g = 0.72–0.74 for "G 0.02".
+    - B9's frictionless floor (μ 0; B9's G2 runs had no `--floor_friction`).
+    - The body at rest, standing on the floor from the start (a new field `SceneSpec.rest`): no throw, the body about
+      the origin and unturned (yaw 0). The floor's plane sits half a sample pitch below the lowest centre, where the
+      scene floor's position constraint holds the centres.
+    - Everything else is the frozen recipe: `scene_run.py` prepares the body with `pipeline_run.py`'s defaults (E, ν,
+      assimilation 0.5, the same target, objective and render weight, N and seeds).
+    - Length: V0's one-body lengths, bunny 8.33 s (50 windows) and dragon 12.5 s (75). Every B9 G2 run of the mesh
+      is shorter (bunny ≤ 6.0 s, dragon ≤ 9.5 s), so each B9 end time lies inside the scene run.
+    - Every 12th frame kept, as B9's frames12.
+  - *What differs from B9's single-body runs, and why.* Each item is the scene path's own definition; nothing is
+    tuned.
+    1. Every window is committed. There is no selection merit, brake, rejection, truncation or stop rule: under a
+       load, time must advance, and the brake is what stopped B9's bunny.
+    2. The objective is the frozen one, read in the body's Buckens frame y = (x − c)R. Rigid motion is free, and the
+       velocity terms read the deformation velocity v − (v_c + ω × r), so the fall is not charged (B9's world-fixed
+       objective charged the fall and the drift). As a result, nothing in the objective holds the body upright or at
+       a height; both are read as items.
+    3. No drag on m v (the world drag is 0). The deformation velocity alone is damped at 0.9 /s (D147 fix 4); this
+       keeps P and L, so neither the fall nor the support is slowed.
+    4. The assimilation share is the recipe's 0.5, but it reads the window's load-free end F (`assim_free`), so the
+       weight's sag stays elastic. B9's rule made half the sag rest shape at every commit.
+    5. The gated floor, with the position constraint holding the centres half a pitch above its plane, replaces the
+       frozen grid floor (which let the lowest particles sink up to 1.6 spacings, D147 P8).
+    6. The domain comes from the scene's extents, not the single-body cube, so the grid sits elsewhere.
+    7. The scene's fixes 1–3: the loss raster grows to cover the body, a non-finite body is left out, and a replay
+       mismatch is solved again.
+    No new constant: the length is V0's, g and μ are B9's, and the bars below already exist.
+  - *Where the two paths must agree* (`one_equal.py`, on the card before the runs; 40k bunny, seed 97, no gravity).
+    One window's rollout and terms under the same controls (zero, and random leaves of 1e-3 and 1e-2 a step), from the
+    same start:
+    - A: the frozen window.
+    - B: the scene's one-body window, in the frame fixed at the start, on A's grid with A's drag. This is the same
+      definition, so it must equal A to the tolerance of the existing test
+      `test_one_body_in_a_fixed_frame_is_the_frozen_objective` (positions 1e-5 wu, terms 1e-4 relative). That test
+      covers a 300-particle body, not a 40k bunny. If B differs, the chain stops.
+    - C: B9b's definition without loads (the Buckens frame, world drag 0, deformation damping) on A's grid. Predicted
+      equal to A to rounding: a body without loads has no rigid motion.
+    - D: C on the scene's own grid; E: D with the floor. Both show the discretisation's difference; reported only.
+    - Then the first optimised window (`w1_compare.py`): the frozen run twice (its run-to-run spread) against the
+      scene once (`specs/b9b_g0.json`), the displacement fields compared in pitches; reported.
+  - *Runs.* Bunny and dragon, 40k then 300k: the render arm L at seeds 97 / 99 / 101 and the twin P (render weight 0)
+    at 97, eight runs at each N. One card under the lock protocol (agent B9b, a card idle for 10 min, so D147, D154 and
+    D155 take a freed card first). The 300k runs only if the 40k gate passes (`chain40k.sh`, `chain300k.sh`).
+  - *Items and bars* (`read_b9b.py`). The scene's ends go to the single-body readers as body-frame archives
+    (`tobody.py`).
+    1. Reaches. Silhouette IoU against the independent sample (40k `d92/ind_MESH`, 300k `d90/MESH_ind300k`), with the
+       end in the body frame (B9's world floor runs were read against the lifted sample). The bar: at least the
+       no-gravity tag runs' lowest seed − 0.01 (D147's E4 margin). At 40k, V: bunny 0.9631, dragon 0.9655. At 300k,
+       L 97 / 99 / 101: bunny 0.9760, dragon 0.9767. Chamfer and thin are reported, and at 300k also the yardstick
+       (exterior silhouette and shading) and the display front, as in B9.
+    2. Lands at the target's height, upright. The end centroid's height above the floor's centre plane, against the
+       standing target's (its centroid above its lowest point), within one pitch; and the tilt of the body frame's up
+       axis below 3° (V0's turn bar). The largest drop over the run is reported.
+    3. At rest at the end. D147 V1's bar: the last window's |v_c| and |ω|R below 0.01 wu/s, and the lowest centre
+       within one pitch of the plane. The deformation speed and the last second's mean particle move are reported
+       beside B9's.
+    4. Momentum. Gravity is vertical and the floor frictionless, and the controls inject none, so P_x, P_z and L_y
+       (about the centroid) must stay zero. The bar: the centroid's horizontal drift below one pitch over the run.
+       P_xz against one window of gravity's momentum, L_y against the largest horizontal L the floor gives, and the
+       turn about the vertical are reported.
+    5. Visible pieces. No serious piece (≥ 10 particles, ≥ 5 pitches from the body; D145's) at the end (`apart.py` on
+       every kept frame); the pieces over the run are reported.
+    6. The render lead, L97 against P97: the body-frame silhouette and shading terms over the windows and the
+       silhouette IoU, and at 300k the yardstick and the display; λ and g_share.
+    7. Minutes, and seconds per window.
+    *The 40k gate:* every render arm reaches, ends at the target's height upright, has no serious piece at the end,
+    and commits all its windows. Rest and momentum are read but do not gate (B9's dragon was not at rest by its own
+    record either).
+  - *Against B9's single-body dragon* (which passed). The scene's three seeds against B9 G2L's three on silhouette IoU
+    and chamfer against the independent sample, thin, yardstick and display; the paths "agree" when the seed ranges
+    overlap (D145's convention). Also read at each B9 run's own end time (the scene's kept frame nearest it). B9's
+    G2L97 ends are read in their own Buckens frame against the unlifted sample (`b9body.py`), to show what the frame
+    alone changes.
+  - *Predictions.*
+    - The bunny reaches on 3 of 3 seeds at 40k and 300k (B9: 1 of 3 at 300k), and so does its twin.
+    - The dragon reaches and agrees with B9 G2L (the ranges overlap on silhouette IoU, chamfer and thin).
+    - Every body ends upright, within one pitch of the target's height, and at rest by V1's bar.
+    - The drift stays below one pitch; no serious piece at the end.
+    - The render arm leads its twin on the body-frame silhouette term at the end, and at 300k on the yardstick
+      silhouette and shading.
+    - one_equal: B equal; C equal to about 1e-6 relative.
+    - Minutes: 40k bunny about 2–3, dragon 4–5; 300k bunny 8–12, dragon 14–20 (the single-body path's 8–11 s a window,
+      plus the load-free rollout).
+  - *Renders.* The 300k L97 bunny and dragon from the side (az 90, el 18), in the studio look with the floor, at
+    1080p, one still camera over the whole run.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
