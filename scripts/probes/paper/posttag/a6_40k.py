@@ -1,5 +1,7 @@
-"""a6_40k.py [OUT_MD] -- D145 post-tag, amendment 6 at 40k: each ablation arm (NRD, NUC, NSS; seed 97, d145t_a6) against
-the tag's B3 render arm V (d145t_b3, seeds 97 / 99 / 101; CPU only, gallery_ind.py's ind.log and the runs' own files).
+"""a6_40k.py [OUT_MD] [--arms NRD,NUC,NSS] [--adir d145t_a6] [--vdir d145t_b3] [--title A6] -- D145 post-tag, a one-seed
+40k arm against the render arm V's three seeds (CPU only, gallery_ind.py's ind.log and the runs' own files). Default:
+amendment 6's ablations (NRD, NUC, NSS; seed 97, d145t_a6) against the tag's B3 V (d145t_b3, seeds 97 / 99 / 101);
+B3's own ablations with --arms U,R,X,V0 --adir d145t_b3, the pre-tag ones with --adir d145_b3 --vdir d145_b3.
 
 Per arm and mesh: the independent-sample silhouette IoU, V's min / median / max, where the arm lies (below / inside /
 above V's three-run range: D145's reading of a one-run arm), arm - V97 (the pre-registered pairing) and arm - V median;
@@ -14,7 +16,16 @@ from pathlib import Path
 import numpy as np
 
 G = Path("/data/relcfd/chayo/physmorph_v2/output/gpu")
-DA, DV = G / "d145t_a6", G / "d145t_b3"
+ARGS = sys.argv[1:]
+OPT = {}
+for k in ("--arms", "--adir", "--vdir", "--title"):
+    if k in ARGS:
+        i = ARGS.index(k)
+        OPT[k] = ARGS[i + 1]
+        del ARGS[i:i + 2]
+ARMS = OPT.get("--arms", "NRD,NUC,NSS").split(",")
+TITLE = OPT.get("--title", "A6")
+DA, DV = G / OPT.get("--adir", "d145t_a6"), G / OPT.get("--vdir", "d145t_b3")
 SEEDS = (97, 99, 101)
 MESHES = "A armadilo beast bimba bob bunny C cheburashka cow dragon fandisk heart homer maxplanck nefertiti ogre spot teapot V".split()
 
@@ -57,8 +68,8 @@ def extra(d, tag):
 
 ia, iv = ind(DA), ind(DV)
 lines, summary = [], {}
-for arm in ("NRD", "NUC", "NSS"):
-    lines += [f"### A6 at 40k: {arm} (seed 97) against the tag's V (seeds 97 / 99 / 101)", "",
+for arm in ARMS:
+    lines += [f"### {TITLE} at 40k: {arm} (seed 97, {DA.name}) against V (seeds 97 / 99 / 101, {DV.name})", "",
               "| mesh | arm sil IoU ind | V min / med / max | position | arm - V97 | arm - V med | chamfer arm / V97 | "
               "apart w3-10 arm / V97 | side blobs w3-10 arm / V97 | side blobs run arm / V97 | end kin arm / V97 | "
               "windows arm / V97 |", "|---|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -100,6 +111,6 @@ for arm in ("NRD", "NUC", "NSS"):
               f"side blobs w3-10 above V97 on {len(more_sb)}.", ""]
 text = "\n".join(lines)
 print(text)
-if len(sys.argv) > 1:
-    Path(sys.argv[1]).write_text(text + "\n")
-    Path(sys.argv[1]).with_suffix(".json").write_text(json.dumps(summary, indent=1))
+if ARGS:
+    Path(ARGS[0]).write_text(text + "\n")
+    Path(ARGS[0]).with_suffix(".json").write_text(json.dumps(summary, indent=1))

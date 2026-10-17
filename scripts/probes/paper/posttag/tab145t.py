@@ -14,6 +14,9 @@ Added per run (missing pieces stay null):
                                     cos(g_phys, g_render) median over windows 1-10, after PCGrad (g_cos) and
                                     before it (g_raw_cos)
   kin_peak                          the largest kinetic record
+  detF_min, rec_Jx_min / _max       the run's smallest det F (metrics) and the record's J range over committed windows
+  rec_com_y_end, rec_com_end_wu     the record's centre of mass at the last committed window (wu, from the start): its
+  rec_com_y_min                     height change, its distance, the lowest height change over the windows
   rec_*_net_P, rec_*_rot_deg        the record's per-update vectors summed over committed windows (D149's columns): net
                                     translation of the spacing push / grid / body / u / relaxation in pitches (the
                                     pieces' or visible_apart's pitch), net rotation of the push and the body in degrees
@@ -91,7 +94,9 @@ for r in rows:
                          pc_far_particles_max=p["far_particles_max"], pc_far10_frames=p["far10_frames"],
                          pc_far_first_s=p["far_first_s"], pc_far_last_s=p["far_last_s"])
     try:
-        hist = json.loads((D / f"{name}.json").read_text())["arms"]["render_full_dt_iso_nn"]["history"]
+        arm_js = json.loads((D / f"{name}.json").read_text())["arms"]["render_full_dt_iso_nn"]
+        hist = arm_js["history"]
+        r["detF_min"] = arm_js.get("metrics", {}).get("detF_min")
         com = [h for h in hist if h.get("outer_accepted")]
         sh = sorted(h["g_share"] for h in com if h.get("g_share") is not None)
         lam = [h["lambda"] for h in com if h.get("lambda") is not None]
@@ -123,6 +128,14 @@ for r in rows:
                 v = net(key)
                 if v is not None:
                     r[col] = float(np.degrees(v))
+        jmin = [h["Jx_min"] for h in com if h.get("Jx_min") is not None]
+        jmax = [h["Jx_max"] for h in com if h.get("Jx_max") is not None]
+        if jmin:
+            r.update(rec_Jx_min=min(jmin), rec_Jx_max=max(jmax) if jmax else None)
+        cv = [h["com"] for h in com if isinstance(h.get("com"), list)]
+        if cv:                                      # the record's centre of mass (wu, from the start), last window
+            r.update(rec_com_y_end=float(cv[-1][1]), rec_com_end_wu=float(np.linalg.norm(cv[-1])),
+                     rec_com_y_min=float(min(c[1] for c in cv)))
         Ls = [float(np.linalg.norm(h["L_start"])) for h in com if isinstance(h.get("L_start"), list)]
         if Ls:
             r.update(Lstart_max=max(Ls), Lstart_median=sorted(Ls)[len(Ls) // 2])

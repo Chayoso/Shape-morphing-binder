@@ -5470,6 +5470,160 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   per-window dumps and λ = 0 counterfactual, bunny and dragon) has landed and is read next.
   **Pending.** A6 at 40k against the tag's V range (B3's V moved ahead, about 13:30); B2 (22 of 72 done), B7, B8, B9,
   B10, B3 as they land.
+  **D145 post-tag reading 2: A6 at 40k, B3, B2, B8, B9, B10 and B1's every-frame readings on `freeze-2026-10-15`
+  (read 2026-10-17 12:05–12:40 CDT server clock by the post-tag reader after a local restart; the pool finished
+  d145t_b2 72 / 72, b3 190 / 190, b8 20, b9 20, b10 4 and B1's 19 every-frame jobs overnight, every sim rc 0; CPU
+  readers `scripts/probes/paper/posttag/` (new: `gal145t.py`, `b10sum.py`, `lead145.py`, `md145m.py`, `b9_40k.py`,
+  `endgen145t.py`; `a6_40k.py` takes `--arms / --adir / --vdir`; drivers `read_t1017.sh`, `tables_t1017.sh`); one card
+  job, `endgen_t1017.sh` (B5's end check on B2 / B8 / B9 and their pre-tag runs, B9's floor runs against their lifted
+  sample), 12:10–12:12 on GPU 1 under the lock protocol (agent D145r, the card free for 10 min, released by its trap);
+  no queue edit; `output/gpu/d145t_evidence/r2/`; local `output/results_2026-10-17/d145_posttag2/`).** Conventions as
+  reading 1 ("apart" = the seed ranges do not overlap; median against median; for an IoU the change of 1 − IoU). The
+  pre-tag runs (D135 code, `deliverable-2026-10-13`) are read by the same readers.
+  **A correction to the pre-tag reading (2026-10-15).** "V0 (volume body off) has no measure apart at 300k" was a
+  naming artifact: the arm's runs are named `V097 / V099 / V0101`, `read_1015.sh`'s seed filter (a letter before
+  97 / 99 / 101) dropped them, and band145 read V with n = 0 (`band_1015.txt`). Read now (renamed VO), the volume body
+  off is apart on both codes (below).
+  **B1, every kept frame (bunny and dragon × five seeds; the yardstick and the display against the independent sample on
+  every kept frame; `lead145.py`, a 0.1-s grid to the shortest run).** The render arm is never behind its twin on any
+  of the three measures at any time. Bunny: ahead, ranges apart, at 100 % of 0.1–12.3 s on the exterior silhouette and
+  shading, 98 % on the display front (from 1.6 s); the medians' ratio falls from 0.88 at 0.5 s to 0.78 (1 s), 0.65 (4 s)
+  and 0.56 at the end. Dragon: ahead at 90 % of 0.1–23.0 s, without a break from 2.8 s; the ratio 0.59 at 1 s, 0.99 at
+  2 s (the twin catches up while the body spreads), 0.68 at 4 s, 0.44 at the end; shading and display the same shape
+  (0.68–0.70 at the end).
+  **B10, how far the loss falls (the records of B1 on the tag, five seeds on bunny / dragon and three on the others;
+  `b10sum.py`; the four telemetry runs TL / TP for the local split).** The render arm's own terms fall further: the
+  silhouette term ends at 0.10 (bob) to 0.26 (armadilo) × the twin's (recorded at weight zero there), its fall from
+  window 1 3.8–10 × the twin's; shading ends at 0.52–0.66 ×; both apart on all six meshes, the silhouette from 1 s on
+  bunny, teapot, bob, armadilo and homer (0.50–0.78 × there) and from 4 s on the dragon (0.71 ×; 0.60 at 1 s and 0.96 at
+  2 s inside the twin's range). The physics objective does not pay for it at the
+  end: transport, released motion and end drift end inside the twin's range on five meshes and below it on the teapot
+  (transport −6 %, apart); in mid-run the render arm's transport is higher on bob (+33 % at 2 s, +14 % at 8 s) and
+  armadilo (+16 % at 8 s), apart. Not readable from the records: the local terms as "the physics part less transport
+  and settling" (the pre-registered form) — `selection.py` records the physics part relative to the epoch's first
+  window and the transport absolute, so they do not subtract (the earlier `fig145.py loss` panel did; not used). The
+  telemetry split (one run an arm): the proximity ends 0.63 × (bunny) / 1.15 × (dragon) the twin's, the near band is
+  zero from 4 s (bunny) and at the end (dragon) in both.
+  **B3, the 40k gallery on the tag (19 meshes × V / W × 97 / 99 / 101; `gal145t.py`, the independent samples of `d92`;
+  `b3_gallery.md`).** V ahead at the three-seed mean on 18 of 19 (bob −0.0000: −0.0004 / +0.0003 / +0.0000), all three
+  seeds agreeing on 10; paired Wilcoxon over the means p = 1.1e-5; median V − W +0.0007; median share of the floor gap
+  0.24. The registered prediction (≥ 17 of 19) holds; beast is ahead (+0.0004). Against the pre-tag gallery (19 of 19,
+  17 agreeing, p = 3.8e-6, median +0.0016, share 0.24): the lead is about half. The tag lifted both arms — V's range
+  lies above the pre-tag V's on 10 meshes and W's above the pre-tag W's on 14, none below — and the twin more: the
+  lead shrank most on A (+0.0020 → +0.0002), V (+0.0017 → +0.0004), cheburashka (+0.0015 → +0.0003), homer (+0.0008
+  → +0.0000) and bob (+0.0005 → −0.0000). g_share 0.333 at every committed window of every V run.
+  *B3's ablations at 40k (seed 97 against V's three-run range).* `--u_off`: below 9, inside 1, above 9, median +0.0001
+  (pre-tag 10 / 1 / 8, −0.0023); `--no-layer_relief`: below 15, inside 4, median −0.0015 (17 / 2, −0.0031); the cloud
+  read `--no-render_exterior`: above 17, inside 2, median +0.0011 (13 above, +0.0008); the volume body off: below 8,
+  inside 7, above 4, median −0.0001 (12 / 7 / 0, −0.0007), its early apart particles (windows 3–10) 5–90 × V97's on 18 of
+  19 (teapot 0.3 ×; pre-tag 1.5–186 ×).
+  **A6 at 40k (57 runs, seed 97, against the tag's V; `a6_40k.py`).** NRD (`--no-relax_driven`): below V's range on 13,
+  inside 5, above 1, median −0.0014; early apart above V97's on 15. NUC (`--no-u_adam_carry`): below 3, inside 9, above
+  7, median +0.0002. NSS (`--no-spacing_symmetric`): below 1, inside 11, above 7, median +0.0002; early apart above V97's
+  on 12. So at 40k the driven-only relaxation earns its place on the silhouette; the carried moments and the symmetric
+  push are neutral there (their 300k effects, the dither and the centre of mass, are what they were made for).
+  **B2 on the tag (300k, bunny and dragon × 97 / 99 / 101 against L of the same seeds; C also on the four other meshes;
+  `tables_r2.md`).**
+  - X, the render read on the particle cloud: behind the exterior on the yardstick silhouette +28 % (bunny) / +44 %
+    (dragon), shading +21 / +19 %, display front +27 / +20 %, back +20 / +26 %, all apart; silhouette IoU against the
+    independent sample and thin overlap (−10 % / −4…−6 %). As before the tag (+32 / +29 %, +19 / +22 %): the exterior
+    holds at 300k, so amendment 3's user decision does not arise. At 40k the cloud read is ahead on the particle
+    silhouette (above), the measure the exterior does not optimise.
+  - U, u off: the shape lever — yardstick silhouette × 3.0 / × 7.7, shading × 2.2 / × 4.0, display × 2.0 / × 3.4, thin
+    +26 % / × 3.0, the dragon's silhouette IoU −0.0031 and chamfer +5 %, never at rest (end kinetic × 54 / × 53), runs
+    2.6–2.9 × shorter — and the source of the early floating material: apart particles in windows 3–10 −99 / −98 %,
+    visible side blobs over the run −82 / −86 %. The same picture before the tag.
+  - R, relief off: dragon yardstick +16 %, shading +20 % (apart); the bunny's thin −23 % (apart, lower without the
+    relief; pre-tag +9 %, overlap).
+  - VO, the volume body off (`--volume_exact off --no-match_density --no-assim_volume`): apart particles in windows 3–10
+    × 5.0 / × 3.4, end kinetic +79 / +69 %, the kinetic peak +10 / +21 %, the dragon's net rotation × 2.0, all apart; the
+    end's shape the same but thin −25 / −21 % (lower without the body, apart). The dragon's kept run (V097) has pieces
+    ≥ 5 pitches off the body in 17 of 111 read frames at 0.4–3.6 s, up to 42 particles a piece and 515 in one frame, 20.5
+    pitches out at 2.8 s: D145's predicted flakes. Before the tag: apart × 3.9 / × 4.3, thin −18 / −32 %, the bunny's
+    yardstick −13 % (apart).
+  - The volume switches alone: VJ (`--volume_exact off`) carries the apart rise (× 5.1 / × 3.5) and the dragon's
+    rotation × 2.3; VD (`--no-match_density`) is near the default; VA (`--no-assim_volume`) leaves the end held by the
+    control, end kinetic × 36 (bunny) / × 23 (dragon), as predicted (≥ 10 ×), and ends 32–38 % sooner.
+  - E, `--lambda_ema 0.3`: render share 0.42–0.80 in windows 3–11 (predicted 0.46–0.70); the end within spread except
+    the bunny's thin −18 % and shading −5 % (lower) and the dragon's shading +5 % (apart).
+  - M, `--min_spacing 0`: the surface roughness (`surf_rough`) × 2.1 (1.30–1.37 against 0.62–0.64; predicted 2–4 ×),
+    thin × 2.9 / × 3.8, yardstick +37 / +41 %, shading +52 / +68 %, chamfer +5 / +6 %, visible side blobs × 6.9 / × 7.6,
+    the largest end piece 16 / 30 particles (L 3 / 7), all apart.
+  - C, `--cell_follows_n`, mixed as before the tag: bunny thin −27 %, apart −71 %, but end kinetic × 3.8; dragon
+    yardstick −8 %, shading −13 %, net rotation −42 %, but thin +22 %; teapot shading −13 %, apart −41 %; bob worse
+    (yardstick +34 %, display +15 %, thin +54 %, end kinetic × 7.5); armadilo display −9 %, end kinetic −85 %, rotation
+    −50 % but side blobs +64 %; homer thin +58 %, end kinetic −86 %, rotation −75 %, 43 % fewer windows. Consistent
+    with keeping D135's cell.
+  - Thin lower without a part, observed, not gated: on the bunny VO, VJ, VD, VA, R and E all end with 13–25 % less thin
+    uncovered than L (apart); on the dragon VO and VJ (−21 / −13 %).
+  **B8, materials (300k; soft E × 0.1, stiff E × 7 at three seeds against L; ν 0.45 at seed 97; each material's render
+  arm against its twin at seed 97).**
+  - Every material reaches: silhouette IoU against the independent sample 0.9863–0.9876 (L 0.986–0.989).
+  - Soft: yardstick +11 % (bunny) / +66 % (dragon), shading +10 / +56 %, display +10 / +23 %, apart; thin −18 / +22 %;
+    det F's minimum 0.65 / 0.41 (L 0.80 / 0.33) and J up to 3.3 / 8.7 (L 1.8 / 3.4); the kinetic peak −87 / −90 %; the
+    arrival slower (the record's transport energy at 2 s × 178 / × 55 L's, at the end × 2.1 / × 5.8); the bunny's end
+    kinetic −95 %, the dragon's +161 %; early apart particles +51 % / −100 % but visible side blobs over the run × 4.9 /
+    × 3.4, and the soft dragon (ESL97) carries pieces ≥ 5 pitches off in 35 of 91 read frames over 3.8–11.0 s (up to 12
+    particles, 9.6 pitches), gone by the end.
+  - Stiff: yardstick −2 / −0 % (overlap), shading +3 / +13 %, thin +8 / +21 %, apart; the arrival faster early (transport
+    × 0.10 / × 0.16 at 1 s), the end's transport × 1.3 / × 1.4; the kinetic peak × 3.1 / × 2.2 and not at rest (end
+    kinetic × 3.5 / × 2.2); early apart −85 / −81 %, side blobs −82 / −73 %; the stiff dragon (EHL97) has far pieces in 9
+    of 140 frames at 1.4–3.0 s (up to 15 particles, 13.5 pitches).
+  - ν 0.45: yardstick +9 % (bunny), shading +18 % (dragon), thin +5 / +21 %; transport at the end × 1.5 / × 1.8; 118
+    against 87 windows on the bunny.
+  - The render lead holds in every material (L vs its twin, one run each): yardstick silhouette −29 to −57 %, shading
+    −20 to −30 %, display front −24 to −33 %; silhouette IoU ahead on all six (pre-tag −38 to −51 %, −15 to −30 %, −18
+    to −33 %). g_share 0.333 in every window; λ at window 1 rises with E (soft 0.04 / 0.49, default 0.31 / 1.08, stiff
+    0.94 / 1.81) but not in proportion to it.
+  - The registered predictions: reaches — yes; softer = lower det F minimum — on the bunny (0.65 against 0.80), not on
+    the dragon (0.41 against 0.33); more thin uncovered — dragon yes, bunny no; lower kinetic peak and slower arrival —
+    yes; stiffer = fewer thin uncovered — no (+8 / +21 %); a kinetic peak several × — yes (× 2.2–3.1); ν 0.45 more
+    windows — bunny yes, dragon no (163 against 165); render lead in every material — yes.
+  - Before the tag the same pattern: soft yardstick +15 / +21 %, stiff end kinetic × 4.7 / × 4.0 (now × 3.5 / × 2.2).
+  **B9, external forces (300k; the floor and G = 0.02 at three seeds, the twin, friction 0.5, drag 0; 40k G 0.02 and
+  0.05 on four meshes; floor runs read against the independent sample lifted as the target was: −0.194 wu bunny,
+  −0.078 dragon).**
+  - Dragon, gravity with the floor: all three render arms and the twin reach (silhouette IoU against the lifted sample
+    0.9870–0.9887, the twin 0.9875); against L
+    without gravity the yardstick silhouette +54 %, shading +57 %, display +37 %, thin +17 %, apart; not at rest (end
+    kinetic 4e-4 to 1e-3). The centre of mass falls to −0.20 wu during the drop and ends at −0.072 … −0.085, the
+    floor-standing target's −0.078. The render lead under gravity (seed 97): yardstick −71 %, shading −41 %, display
+    −38 %.
+  - **Bunny, gravity with the floor: fails on two of three seeds.** G2L99, G2L101 and the twin G2P97 stop at window 7
+    (silhouette IoU 0.943 / 0.944, the twin 0.929; thin 29–30 %; end kinetic 0.045–0.048); G2L97 reaches (0.9863,
+    38 windows) and lands at
+    −0.203 wu (the target −0.194) after overshooting to −0.301. The mechanism, from G2L99's record: in window 7 the body
+    lands (centre of mass −0.27 → −0.29 wu) and the selection merit rises by 7.2 %; the brake (`selection.py`: a rise of
+    more than 5 % is "a runaway, never a trade") rejects it, the restored state falls the same way, the retries rise by
+    8.8 % and 8.3 %, and three consecutive rejections stop the run at its best commit. G2L97's landing window rose 3.1 %
+    and passed. Before the tag one render arm of three (G2L99) and the twin stopped this way; the tag adds G2L101.
+    Recorded as found: the brake reads an external force's landing as a runaway; no change is made (frozen).
+  - Friction 0.5 (one run each): bunny yardstick +23 %, dragon −4 % against G2L97; the landing the same (−0.207 /
+    −0.080 wu). Drag 0: the yardstick within L's range on the bunny, −2 % on the dragon; end kinetic × 2.3 / × 1.3 L's
+    range, apart.
+  - 40k (`b9_40k.py`): G 0.02 reaches on bunny (0.9735, inside V's range) and dragon (0.9757) and bob (0.9792, below
+    its V 0.9811), fails on armadilo (0.5933, end kinetic 0.39); G 0.05 reaches only on the dragon (0.9761) and fails on
+    bunny (5 windows, 0.8797), armadilo (3, 0.3732) and bob (10, 0.9291). The prediction (G 0.05 fails on ≥ 2 of 4)
+    holds; everything within 0.003 of the pre-tag values.
+  **Floating material, B2 / B8 / B9 (the end frame of every run, the kept runs every 4th frame; `pieces_r2.md`).** No
+  end piece lies farther than 3.6 pitches from the body in any of the 104 runs. Serious far pieces (≥ 10 particles at ≥ 5
+  pitches) occur only in arms that are not the default: the volume body off (dragon, 0.4–3.6 s), the stiff dragon
+  (1.4–3.0 s) and the soft dragon's longer-lived small pieces (3.8–11.0 s); none persists to the end.
+  **The render's influence (standing rule).** Weight: g_share 0.333 at every committed window of every render arm read
+  here (B3 V 57 runs, B2, B8, B9) but E, whose slower weight average gives 0.42–0.80 in windows 3–11 by design; λ
+  follows the physics gradient (B8: 0.04 at E × 0.1 to 1.81 at E × 7 at window 1).
+  Against its λ = 0 twin it leads on every kept frame of bunny and dragon (never behind; bunny from 0.1 s, dragon
+  continuously from 2.8 s), ends its own silhouette term 4–10 × lower, and costs nothing at the end on transport,
+  released motion and end drift (teapot better). What it does not change: silhouette IoU and chamfer of the particle
+  cloud at 300k; at 40k the particle-silhouette lead is now +0.0007 (median, a quarter of the floor gap), half the
+  pre-tag's. Which path: the exterior's silhouette and shading terms → dFc and u → the MPM body; the cloud-read variant
+  (X) loses 20–44 % of the exterior measures, and without u (U) the lead's carrier is gone (yardstick × 3–8).
+  **What changed against the pre-tag tables.** B3: both arms higher, the lead halved (above). B2: the same ranking of
+  the parts; u off and the cloud read as before; the cell arm as before; the volume body off apart on both codes once
+  read (the correction above). B8: the soft dragon's yardstick deficit against L grew (+21 % → +66 %), the stiff solid
+  closer to rest (end kinetic × 4.7 / × 4.0 → × 3.5 / × 2.2). B9: the bunny's gravity failures 1 → 2 of 3 render arms;
+  the dragon the same. A6, B1-every-frame and B10 have no pre-tag reading.
+  **Pending.** B7 (RG97's dumps and λ = 0 counterfactual); the external baselines (B14 seeds 2–3 run now).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
