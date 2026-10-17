@@ -14,7 +14,10 @@ the frozen recipe's 40k bunny (seed 97): one window's rollout and terms under th
 
 Per arm and control: the end positions against A (largest and RMS, in sample pitches), the end velocities' RMS against
 A's RMS, each term (transport lv, kinetic lk, silhouette lr, shading lpbr, d_sil, stability lstab) and its relative
-difference to A. CUDA; run on hyde06."""
+difference to A; and (amended 2026-10-17 17:50 CDT, after the first check stopped on the zero control's kinetic terms
+of a body at rest, 6.5e-11 and 3.5e-13) every arm's window replayed REPLAYS times per control: the arm's own replay
+range of each term (CUDA atomics sum in another order at every replay) and its positions' largest difference from A's
+first replay over all replays. CUDA; run on hyde06."""
 from __future__ import annotations
 
 import dataclasses
@@ -41,6 +44,7 @@ from physmorph.pipeline.window.setup import StartState, Window  # noqa: E402
 from scripts.pipeline_run import parse_args as run_args, prepared, run_config  # noqa: E402
 
 TERMS = ("lv", "lk", "lr", "lpbr", "d_sil", "lstab")
+REPLAYS = 8                 # each arm's window evaluated 8 times per control: its own replay range (the amended check)
 
 
 def main():
@@ -111,11 +115,22 @@ def main():
                 ref[cname] = (xT, vT, terms)
             xa, va, ta = ref[cname]
             dxT = (xT - xa).norm(dim=1)
+            # the same window replayed (CUDA atomics: each replay sums in another order): the arm's own replay spread
+            # of every term, and its positions' largest difference from A's first replay over all replays
+            reps = {k: [v] for k, v in terms.items()}
+            dx_all = float(dxT.max())
+            for _ in range(REPLAYS - 1):
+                e2 = eval_terms(win, obj, leaf.to(x.device), u)
+                for k in reps:
+                    reps[k].append(float(getattr(e2, k)))
+                dx_all = max(dx_all, float((e2.xT - xa).norm(dim=1).max()))
+                e2 = None
             row[cname] = {"moved_rms_sp": float((xT - x).norm(dim=1).square().mean().sqrt()) / sp,
                           "dx_max_sp": float(dxT.max()) / sp, "dx_rms_sp": float(dxT.square().mean().sqrt()) / sp,
+                          "dx_max_sp_all": dx_all / sp,
                           "dv_rms_rel": float((vT - va).norm(dim=1).square().mean().sqrt())
                           / max(float(va.norm(dim=1).square().mean().sqrt()), 1e-30),
-                          "terms": terms,
+                          "terms": terms, "replays": reps,
                           "terms_rel": {k: (v - ta[k]) / max(abs(ta[k]), 1e-30) for k, v in terms.items() if k in ta},
                           "in_domain": bool(e.in_domain), "jt": e.jt}
             print(f"[{name}] {cname}: moved {row[cname]['moved_rms_sp']:.4g} sp; vs A max {row[cname]['dx_max_sp']:.3g} "

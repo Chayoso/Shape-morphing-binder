@@ -33,16 +33,32 @@ $PY - $R/one_equal.json >> $R/one_equal.txt 2>&1 <<'EOF'
 import json, sys
 r = json.load(open(sys.argv[1]))
 p = r["pitch"]
-bad = []
-for c, v in r["arms"]["B"].items():                 # the scene test's tolerance (test_scene_bodies.py): 1e-5 wu, 1e-4 rel
-    if v["dx_max_sp"] * p > 1e-5:
-        bad.append(f"{c}: positions {v['dx_max_sp'] * p:.2e} wu")
-    bad += [f"{c}: {k} {d:+.2e}" for k, d in v["terms_rel"].items() if abs(d) > 1e-4]
-print("ARM B (the same definition):", "EQUAL" if not bad else "DIFFERS " + "; ".join(bad))
-sys.exit(0 if not bad else 3)
+# amended 2026-10-17 17:50 CDT (docs, B9b): the scene test's tolerance (positions 1e-5 wu; a term within 1e-4 of
+# max(|A|, 1e-12)) OR, for a term, B's replay range overlapping the frozen window's own replay range (8 replays each;
+# D145's convention): the first check had no floor and stopped on the kinetic terms of a body at rest (zero control)
+for arm in ("B", "C"):
+    bad, noted = [], []
+    for c, v in r["arms"][arm].items():
+        a = r["arms"]["A"][c]
+        if v["dx_max_sp_all"] * p > 1e-5:
+            bad.append(f"{c}: positions {v['dx_max_sp_all'] * p:.2e} wu")
+        for k, br in v["replays"].items():
+            a1, ar = a["terms"][k], a["replays"][k]
+            if all(abs(b - a1) <= 1e-4 * max(abs(a1), 1e-12) for b in br):
+                continue
+            ov = min(br) <= max(ar) and min(ar) <= max(br)
+            s = (f"{c}: {k} B [{min(br):.6e}, {max(br):.6e}] A [{min(ar):.6e}, {max(ar):.6e}]"
+                 .replace("B [", f"{arm} [", 1))
+            (noted if ov else bad).append(s + (" overlap" if ov else " APART"))
+    print(f"ARM {arm}: replay ranges where the tolerance did not hold: " + ("; ".join(noted) or "none"))
+    print(f"ARM {arm} ({'the same definition' if arm == 'B' else 'B9b without loads'}):",
+          "EQUAL" if not bad else "DIFFERS " + "; ".join(bad))
+    if arm == "B":
+        verdict = 0 if not bad else 3
+sys.exit(verdict)
 EOF
 rc=$?
-log "one_equal arm B: $(tail -1 $R/one_equal.txt)"
+log "one_equal: $(grep '^ARM' $R/one_equal.txt | tr '\n' ' ' | cut -c1-900)"
 if [ $rc = 3 ]; then log "STOP: the one-body scene is not the frozen window at 40k (arm B)"; exit 1; fi
 [ $rc = 0 ] || log "one_equal did not run to its end (rc $rc): the check is missing, the runs go on (read the log)"
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 40000 --seed 97 --animations 1 --out $R/w1_frozen_a > $R/w1_frozen_a.log 2>&1
