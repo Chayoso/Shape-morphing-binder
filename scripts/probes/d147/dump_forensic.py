@@ -28,6 +28,7 @@ from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+import physmorph  # noqa: E402,F401  (before torch: CuPy's CUDA 12 compiler must load first)
 
 runs, tag, b = Path(sys.argv[1]), sys.argv[2], int(sys.argv[3])
 if sys.argv[4] == "auto":                       # the largest piece beyond 3 spacings in apart_<tag>.txt (else the largest)
