@@ -1,4 +1,4 @@
-"""gate.py RUNS_DIR TAGS REFS -- D147, the fixes' 40k gate (pre-registered in docs/experiments.md, D147, 2026-10-16):
+"""gate.py RUNS_DIR TAGS REFS [SUFFIX] -- D147, the fixes' 40k gate (pre-registered in docs/experiments.md, D147, 2026-10-16):
 per run, (1) the zero-control windows by their reason (nonfinite_loss, commit_replay, commit_jt after the patience:
 the causes the fixes remove; the others reported), the windows with a grown raster, a body left out, the replay
 retries; (2) the head's hold after each landing (head.py's recovery mean per body) against the reference runs REFS (the
@@ -35,7 +35,8 @@ def lines(path):
 
 runs = Path(sys.argv[1])
 tags, refs = sys.argv[2].split(","), sys.argv[3].split(",")
-judge, head, tl = lines(runs / "judge_gate.txt"), lines(runs / "head_gate.txt"), lines(runs / "read_gate.txt")
+sfx = sys.argv[4] if len(sys.argv) > 4 else "gate"          # the readings' file suffix (judge_<sfx>.txt, ...)
+judge, head, tl = lines(runs / f"judge_{sfx}.txt"), lines(runs / f"head_{sfx}.txt"), lines(runs / f"read_{sfx}.txt")
 ref_head = [max((b["recovery_mean"] for r in refs for b in head.get(r, {}).get("bodies", []) if b["body"] == k
                  and b.get("recovery_mean") is not None), default=None) for k in range(2)]
 print(json.dumps({"refs": refs, "ref_head_recovery_mean_max": ref_head}))
