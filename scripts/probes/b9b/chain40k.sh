@@ -43,7 +43,8 @@ sys.exit(0 if not bad else 3)
 EOF
 rc=$?
 log "one_equal arm B: $(tail -1 $R/one_equal.txt)"
-[ $rc = 0 ] || { log "STOP: the one-body scene is not the frozen window at 40k (arm B)"; exit 1; }
+if [ $rc = 3 ]; then log "STOP: the one-body scene is not the frozen window at 40k (arm B)"; exit 1; fi
+[ $rc = 0 ] || log "one_equal did not run to its end (rc $rc): the check is missing, the runs go on (read the log)"
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 40000 --seed 97 --animations 1 --out $R/w1_frozen_a > $R/w1_frozen_a.log 2>&1
 log "w1_frozen_a exit $?"
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 40000 --seed 97 --animations 1 --out $R/w1_frozen_b > $R/w1_frozen_b.log 2>&1

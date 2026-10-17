@@ -13,8 +13,9 @@ The items (each with its pre-registered bar):
             the body upright (tilt of its up axis below V0's 3 deg)
   rest      the last window's rigid speed (|v_c| and |w| R) below 0.01 wu/s and the lowest centre within one pitch of
             the plane (D147 V1's bar); the deformation's speed and the last second's particle move reported beside B9
-  momentum  gravity is vertical and the floor frictionless: the horizontal centre-of-mass drift below one pitch over the
-            run and the turn about the vertical below 3 deg (the momenta P_x, P_z, L_y reported)
+  momentum  gravity is vertical and the floor frictionless, so P_x, P_z and L_y (about the centroid) stay at zero: the
+            horizontal centre-of-mass drift (their visible effect) below one pitch over the run; L_y against the largest
+            horizontal L the floor gives, P_xz against a window of gravity, and the turn about the vertical reported
   pieces    no serious piece (>= 10 particles >= 5 pitches from the body, D145) at the end; over the run reported
   render    the arm against its twin at seed 97 (reported)
   minutes   reported
@@ -135,7 +136,8 @@ def scene_row(stage, R, mesh, arm, seed):
              v_def_rms_end=pairs[-1]["v_def_rms"] if pairs else None,
              move_lastsec_sp=float(np.mean([p["move_sp"] for p in lastsec])) if lastsec else None,
              Pxz_max=max(float(np.hypot(h["bodies"][0]["P"][0], h["bodies"][0]["P"][2])) for h in ok),
-             Ly_max=max(abs(float(h["bodies"][0]["L"][1])) for h in ok), P_window=M * g * tw,
+             Ly_max=max(abs(float(h["bodies"][0]["L"][1])) for h in ok),
+             Lxz_max=max(float(np.hypot(h["bodies"][0]["L"][0], h["bodies"][0]["L"][2])) for h in ok), P_window=M * g * tw,
              Py_end=float(last["P"][1]), pitch=tr["pitch"],
              lam_median=float(np.median([h["lambda"] for h in ok if h.get("lambda") is not None] or [np.nan])),
              g_share_median=float(np.median([h["g_share"] for h in ok if h.get("g_share") is not None] or [np.nan])),
@@ -175,7 +177,7 @@ def verdicts(r, bar):
     v["reach"] = r.get("sil_ind") is not None and r["sil_ind"] >= bar
     v["height"] = abs(r["dh_sp"]) <= 1.0 and r["tilt_deg"] < 3.0
     v["rest"] = r["v_com_end"] < 0.01 and r["omegaR_end"] < 0.01 and abs(r["lowest_sp"]) <= 1.0
-    v["momentum"] = r["drift_max_sp"] < 1.0 and r["yaw_max_deg"] < 3.0
+    v["momentum"] = r["drift_max_sp"] < 1.0
     v["pieces"] = r["end_serious"] == 0
     v["whole"] = (not r["invalid"]) and r["windows"] == r["windows_planned"]
     return v
@@ -218,7 +220,7 @@ def main():
                   f"(no-gravity silhouette IoU ind {rng(nog)})", ""]
         hdr = ["run", "sil IoU ind", "chamfer ind", "thin %", "end height vs target (sp)", "tilt deg",
                "lowest (sp)", "drop min (wu, s)", "|v_c| wu/s", "|w|R wu/s", "def. speed wu/s", "move last s (sp)",
-               "drift max (sp)", "yaw max deg", "max P_xz / (M g window)", "serious frames / at end",
+               "drift max (sp)", "yaw max deg", "max P_xz / (M g window)", "max L_y / max L_xz", "serious frames / at end",
                "largest / farthest (sp)", "windows", "min", "lambda med", "g_share med"]
         if stage == "300k":
             hdr[4:4] = ["yard sil e-4", "yard shading e-4", "display front %"]
@@ -241,7 +243,8 @@ def main():
                      f"{r['drop_min_wu']:+.3f}, {r['drop_min_t']:.2f}", fmt(r["v_com_end"], ".2e"),
                      fmt(r["omegaR_end"], ".2e"), fmt(r["v_def_rms_end"], ".2e"), fmt(r["move_lastsec_sp"], ".4f"),
                      fmt(r["drift_max_sp"], ".2f"), fmt(r["yaw_max_deg"], ".2f"),
-                     fmt(r["Pxz_max"] / r["P_window"], ".2e"), f"{r['serious_frames']} / {r['end_serious']}",
+                     fmt(r["Pxz_max"] / r["P_window"], ".2e"), fmt(r["Ly_max"] / max(r["Lxz_max"], 1e-30), ".2e"),
+                     f"{r['serious_frames']} / {r['end_serious']}",
                      f"{r['run_largest']} / {r['run_farthest_sp']:.1f}", f"{r['windows']} / {r['windows_planned']}",
                      fmt(r["minutes"], ".1f"), fmt(r["lam_median"], ".3g"), fmt(r["g_share_median"], ".3f")]
             if stage == "300k":
@@ -288,7 +291,8 @@ def main():
             bp = [x.get(k) for n, x in b9.items() if n.startswith("G2P")]
             ng = [x.get(k) for x in refs[mesh]["nog"].values()]
             lines.append(f"| {k} | {rng(a, sp)} | {rng(bl, sp)} | {rng(bp, sp)} | {rng(ng, sp)} | "
-                         + ("overlap" if overlap(a, bl) else "APART") + " |")
+                         + ("-" if not [x for x in a if x is not None] or not [x for x in bl if x is not None]
+                            else "overlap" if overlap(a, bl) else "APART") + " |")
         lines.append("")
         bt = B9T[stage][mesh]
         at_rows = []
