@@ -5941,6 +5941,54 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       plus the load-free rollout).
   - *Renders.* The 300k L97 bunny and dragon from the side (az 90, el 18), in the studio look with the floor, at
     1080p, one still camera over the whole run.
+  - **The 40k stage (chain 17:48–18:52 CDT on GPU 3; `runs/read_40k.md`). GATE 40k: FAIL. By the rule, no 300k.**
+    - *The equality check (amended).* B equals A: positions within 1.2e-6 wu, and the two zero-control kinetic terms
+      lie inside the frozen window's own replay range (lk 6.51–6.59e-11 against 6.53–6.58e-11, lstab 3.45–3.49e-13
+      against 3.46–3.47e-13). C (the deformation damping in place of the drag) equals A whenever the body is driven
+      (within 8e-6). At rest under the zero control its kinetic terms sit 19–22 % below A's, ranges apart, on values
+      of 1e-11 and 1e-13. The first optimised window lies within the frozen run's own run-to-run spread: the scene
+      against frozen A differs by an RMS 0.009 pitches, frozen A against frozen B by 0.012; displacement cosine
+      0.99991; merits 0.22842 / 0.22840 / 0.22839.
+    - *Every run commits all its windows* (50 / 75): no stop, no zero-control window, at most one replay retry. The
+      brake that ended B9's bunny is gone.
+    - *Reaches: no, on every run.* Silhouette IoU against the independent sample in the body frame: bunny L
+      0.9539 / 0.9594 / 0.9558 (bar 0.9631; B9 G2L97 0.9735 in the world; no-gravity V 0.9731–0.9734), twin 0.9516.
+      Dragon L 0.9546 / 0.9553 / 0.9555 (bar 0.9655; B9 G2L97 0.9757), twin 0.9531. Thin 14–20 % (bunny) and
+      15.5–17 % (dragon), against B9's 5.0 / 4.7 %. At B9's own end time the scene is behind too: bunny 0.9566 at
+      5.33 s (B9 0.9735), dragon 0.9634 at 8.17 s (B9 0.9757).
+    - *Height and upright: no, on every run.* The bunny tilts: 20.3 / 5.2 / 16.1° at the end (s99 rocked to 11.5° at
+      4.3 s and back), the twin 22.6°. It ends 1.5–2.1 pitches (the twin 1.2) below the standing height. Every dragon,
+      the twin included, topples: the tilt grows with an accelerating angular speed (0.03 rad/s at 1.2 s, 0.09 at
+      3 s, 0.24 at 6 s, 0.50 at 8 s) and the body falls onto its side at about 9 s (tilt 92° to the end), 10.7–10.8 pitches below
+      the standing height.
+    - *At rest: no.* The rigid rotation at the end: |ω|R 0.03–0.17 wu/s against the bar 0.01.
+    - *Momentum: yes.* Horizontal drift 0.00 pitches; P_xz at most 7e-5 of one window of gravity's momentum; L_y at
+      most 4e-4 of the horizontal L. The tilt's angular momentum comes from the grid's steps, as the floor's reaction
+      (L_split in the windows read: L_grid ≫ u, the spacing and the relaxation).
+    - *Pieces: none serious* (the largest apart set is 2 particles, 2.4 pitches away).
+    - *The render's influence.* Weight: g_share 0.333 at every window; λ median 0.0064–0.0081. The arm's
+      body-frame silhouette term is lower than its twin's in 100 % of the windows (×0.78 bunny, ×0.82 dragon, median;
+      ×0.89 / ×0.84 at the end), and its silhouette IoU is +0.0023 / +0.0015 higher. The render does not cause the
+      tilt (the twin tilts and topples alike) and does not prevent it.
+    - *Minutes:* bunny 3.0–3.4 (twin 4.2), dragon 6.0–7.0 (twin 6.7), about 3.6 / 4.9 s a window (B9's single-body
+      40k: 1.2 / 1.9 min for 34 / 51 windows).
+    - *Read so far.* The centre of mass stays 8–15 pitches inside the support (the convex hull of the centres
+      within a pitch of the lowest) while the bunny tilts; the dragon's stays inside until 7 s (3 pitches at 6.5 s, 0.3 at 7.0 s, tilt 48°). Both standing targets
+      are statically stable (centroid 7.0 / 11.2 pitches inside their support). So the tilt is not a standing shape
+      falling over. Nothing in the scene path resists a turn: the objective is blind to it, and the damping leaves
+      rigid motion free. B9's world-fixed objective and its drag on m v held the body upright.
+  - **Forensic, pre-registered 18:58 CDT before its runs** (`chainfx.sh`, one card idle 10 min, 40k, seed 97): what
+    turns the body?
+    - Z1 `fx_sphere0`: the source sphere on the floor under gravity with no controls (`zero_scene.py`: every window
+      commits the zero control's rollout).
+    - Z4 `fx_bunny0` and Z2 `fx_dragon0`: the target's own shape as the source, standing on the floor, no controls.
+    - Z3 `fx_dragonC`: that dragon with the optimiser (source = target).
+    - Read (`fx_read.py`): tilt, height and angular speed every 0.5 s; the first time past 3°; the angular momentum's
+      change by update.
+    - In place of the 300k renders, which were not run: the 40k L97 bunny and dragon from the side at 1080p.
+    - Predictions: Z1 stays upright (below 3°); Z2 and Z4 sag elastically and stay upright; Z3 tilts (the controls,
+      in a frame blind to the turn, pump rotation through the floor's reaction). If Z2 topples, the elastic dragon is
+      not stable on the frictionless floor at this g, whatever the controls do.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
