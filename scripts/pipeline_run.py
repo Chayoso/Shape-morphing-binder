@@ -51,6 +51,12 @@ def parse_args(argv=None):
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
+    ap.add_argument("--render_from_s", type=float, default=None,
+                    help="D154 diagnostic (off by default): windows that start before this simulated time (s) run as the "
+                         "render-off twin (scale 0), later ones with --render_weight_scale")
+    ap.add_argument("--render_until_s", type=float, default=None,
+                    help="D154 diagnostic (off by default): windows that start at or after this simulated time (s) run "
+                         "as the render-off twin (scale 0), earlier ones with --render_weight_scale")
     # the defaults below are the frozen recipe (tag freeze-2026-10-09b, D139; it supersedes freeze-2026-10-09): D105's,
     # whose render arm is ahead of its physics-only twin on every display measure read against an independent sample
     # (D91, D92; the minimum spacing D70/D72, the exterior D62, the layer relief D105), with the render weight at the
@@ -242,6 +248,7 @@ def run_config(args, cfg0, prep):
     res = args.render_res_hi or int(np.ceil(cfg0.render_res * per_dx))
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
+                              render_from_s=args.render_from_s, render_until_s=args.render_until_s,
                               lambda_ema=args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res,
                               min_spacing=args.min_spacing, spacing_symmetric=args.spacing_symmetric,

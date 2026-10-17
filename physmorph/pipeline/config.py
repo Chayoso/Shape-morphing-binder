@@ -119,6 +119,12 @@ class PipelineConfig:
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration
     lambda_ema: float = 0.3
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
+    render_from_s: float | None = None   # D154 diagnostic (None = off, the frozen path): a window whose first step is
+                                         #   before this simulated time (s) runs with the render weight's scale 0 (the
+                                         #   twin), from it on with render_weight_scale
+    render_until_s: float | None = None  # D154 diagnostic (None = off): a window whose first step is at or after this
+                                         #   simulated time (s) runs with the render weight's scale 0, before it with
+                                         #   render_weight_scale
     render_exterior: bool = False   # the render terms read on the exterior (surface discs on the particles' zero set,
                                     #   render/exterior.py) in place of the particle cloud (D62)
     exterior_radius: float = 3.0    # D123 A/B: the exterior field's kernel radius in pitches (D59's 3 = the old path bit
@@ -200,6 +206,9 @@ class PipelineConfig:
             raise ValueError("the anisotropic field (D140) has its own reach: exterior_radius must stay 3")
         if not math.isfinite(self.render_weight_scale) or self.render_weight_scale < 0:
             raise ValueError("render_weight_scale must be finite and nonnegative")
+        for t in (self.render_from_s, self.render_until_s):
+            if t is not None and not (math.isfinite(t) and t >= 0):
+                raise ValueError("render_from_s and render_until_s must be None or finite and nonnegative")
         if self.lambda_auto <= 0:
             raise ValueError("settled transport calibrates the render weight: lambda_auto > 0 "
                              "(use render_weight_scale 0 for the render-off twin)")

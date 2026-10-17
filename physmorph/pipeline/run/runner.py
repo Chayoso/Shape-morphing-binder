@@ -138,7 +138,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             n_frag = int(frag.sum())
         if a % 10 == 0 or n_frag:
             log(f"[v2] anim {a + 1}: fragments {n_frag} particles")
-        res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer,
+        cfg_w, render_on = render_switch(cfg, len(frames) - 1, prm.dt)
+        res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg_w, tgt, balancer,
                               vol0, (coh_nbr, bond_rest, frag.float()), dfc_init=dfc_prev,
                               alpha_scale=sel.anneal, on_iter=on_iter, log=lambda *_: None)
         stats = res.stats
@@ -179,6 +180,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             tgt.grid_ot.repeat = not (counts["clamped"] or counts["nan_x"])
         with timed("record"):
             rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
+            if render_on is not None:                 # D154: the switch's state in this window (a record)
+                rec["render_switch_on"] = int(render_on)
             if cfg.assim_volume:                      # D135: the rest volume the assimilation has taken (a record)
                 with torch.no_grad():
                     jp = torch.linalg.det(Fp)
@@ -244,6 +247,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     return {"truncation": trunc, "deliver_n": deliver_n, "frames": frames, "history": hist,
             "guards": guards, "Fp": _host(Fp), "n_held": 0, "converged": frozen,
             "balancer": {"cap": balancer.cap, "cap_rel": balancer.cap_rel, "alpha_lam": balancer.alpha_lam}}
+
+
+def render_switch(cfg: PipelineConfig, step: int, dt: float):
+    """D154 (a diagnostic, off by default): (the window's configuration, whether its render weight is on) for a window
+    whose first simulated step is `step` (time step x dt). With neither render_from_s nor render_until_s set it is
+    (cfg, None), the frozen path. Otherwise the render weight's scale is render_weight_scale in a window that starts
+    at or after render_from_s and before render_until_s, and 0 (the twin's) in any other; the times are compared
+    as step counts, round(T / dt). The window's optimiser reads the scale wherever it sets lambda, so the gradient,
+    the line search, the commit rollout's merit and the window's records all take it."""
+    if cfg.render_from_s is None and cfg.render_until_s is None:
+        return cfg, None
+    on = ((cfg.render_from_s is None or step >= round(cfg.render_from_s / dt))
+          and (cfg.render_until_s is None or step < round(cfg.render_until_s / dt)))
+    return (cfg if on else dataclasses.replace(cfg, render_weight_scale=0.0)), on
 
 
 def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, J=None) -> dict:
