@@ -111,6 +111,7 @@ class GridSinkhornLoss:
         self.target_potential, _ = self.solve(self.b, self.b)
         self.cuda_blocks = cuda_blocks
         self._solved = None             # the potentials of the latest solved call
+        self._sup_idx = None            # D153: the surface proximity's candidate lists at that call's positions
         self.repeat = False             # set by the caller: the next call is at the point of the latest solved one
         self.warm = False               # set by the caller (D142): the next call's solves start from the latest solved potentials
 
@@ -254,7 +255,7 @@ class GridSinkhornLoss:
         total = current.sum()
         if self.mass_total is not None and abs(float(total.detach()) - self.mass_total) > 1e-6 * self.mass_total:
             # Never reward disappearance beyond the raster boundary.
-            self._solved = None
+            self._solved = self._sup_idx = None
             return total * 0. + float('inf')
         if not float(total.detach()) > 0:
             raise ValueError('grid transport requires nonempty measures')
@@ -269,7 +270,7 @@ class GridSinkhornLoss:
             count("ot_repeats")
         else:
             prior = self._solved if warm else None      # D142: the latest solved potentials, the trial's start
-            self._solved = None
+            self._solved = self._sup_idx = None
             try:
                 with timed("ot_solve"):
                     f, g = self._solve_from(a, self.b, None if prior is None else prior[:2])
@@ -304,11 +305,19 @@ class GridSinkhornLoss:
             if abs(float(actual.sum().detach()) - self.mass_total) > 1e-6 * self.mass_total:
                 return actual.sum() * 0. + float('inf')       # escaped mass is never concealed
         current = rasterize_mass(x, mass, self.grid_min, self.dx, self.dims)
+        # D153 (exact): at D47's repeat (the point of the latest solved call evaluated once more, with the tape) the
+        # surface proximity reads the candidate lists that call searched at the same positions, as the transport takes
+        # its potentials; any other call searches its own and keeps them for a repeat
+        reuse = self._sup_idx if (self.repeat and self._solved is not None) else None
         value = self(current)
         if self.support is None:
+            self._sup_idx = None
             return value
         with timed("surf"):
-            return self.support(value, x)
+            self.support.last_idx = None
+            out = self.support(value, x, reuse)
+            self._sup_idx = self.support.last_idx
+            return out
 
 
 @torch.no_grad()

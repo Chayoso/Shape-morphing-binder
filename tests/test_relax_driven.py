@@ -8,6 +8,7 @@ import pytest
 import torch
 import warp as wp
 
+import physmorph.mpm.traj as TR
 from physmorph.mpm.function import RolloutSpec, warp_mpm_ext
 from physmorph.mpm.state import MPMParams
 from physmorph.mpm.traj import Trajectory, compute_rest_volumes
@@ -46,7 +47,10 @@ def _rollout(x, sp, layer, T=8, Tc=4, lam=0.0, mu=0.0):
     return tr
 
 
-def test_the_released_steps_leave_the_layer_where_the_grid_puts_it():
+def test_the_released_steps_leave_the_layer_where_the_grid_puts_it(monkeypatch):
+    # the layer's kernels run in every step here (D153 leaves them out where they are the identity; xu is then not
+    # written in those steps, and tests/test_runtime_d153.py compares the two paths bit for bit)
+    monkeypatch.setattr(TR, "SKIP_IDLE_LAYER", False)
     x, sp = _slab()
     mask, nrm, nbr, w = _layer(x, sp, k=8, h_sp=2.0)
     T, Tc = 8, 4

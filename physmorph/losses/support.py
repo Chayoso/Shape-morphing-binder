@@ -42,25 +42,29 @@ class SurfaceProximity:
         self.floor = .5 * math.exp(-self.spacing ** 2 / (2 * self.h * self.h))   # K(sp) / 2
         outer = outer_mask(target.float(), self.spacing)
         self.y = target[outer]                                                   # (M, 3) float64
+        self.last_idx = None                    # the candidate lists of the latest nearest_kernel call (D153)
 
-    def nearest_kernel(self, x):
+    def nearest_kernel(self, x, idx=None):
         """K(d_min(y)) at every outer target point, over its k nearest body particles (indices detached, the
-        distance differentiable in x)."""
+        distance differentiable in x). idx: the candidate lists of the same positions, found by an earlier call
+        (D153: the transport's D47 repeat; None = searched here). The lists used are kept as last_idx."""
         k = min(self.k, len(x))
-        idx = gpu.KNN(x.detach()).query(self.y, k)[1].to(x.device)
+        if idx is None:
+            idx = gpu.KNN(x.detach()).query(self.y, k)[1].to(x.device)
+        self.last_idx = idx
         y = self.y.to(device=x.device, dtype=x.dtype)
         d2 = (x[idx] - y[:, None]).square().sum(2).min(1).values
         return torch.exp(-d2 / (2 * self.h * self.h))
 
-    def penalty_per_point(self, x):
-        return self.radius ** 2 * torch.relu(1.0 - self.nearest_kernel(x) / self.floor).square()
+    def penalty_per_point(self, x, idx=None):
+        return self.radius ** 2 * torch.relu(1.0 - self.nearest_kernel(x, idx) / self.floor).square()
 
-    def penalty(self, x):
+    def penalty(self, x, idx=None):
         if x.ndim != 2 or x.shape[1] != 3 or len(x) < 2:
             raise ValueError('proximity positions must have shape (N,3), N >= 2')
-        return self.penalty_per_point(x).mean()
+        return self.penalty_per_point(x, idx).mean()
 
-    def __call__(self, energy, x):
+    def __call__(self, energy, x, idx=None):
         if not bool(torch.isfinite(energy)) or float(energy.detach()) < 0:
             return energy                                    # containment / failed-solve sentinels stay intact
-        return energy + self.penalty(x).to(energy.dtype)
+        return energy + self.penalty(x, idx).to(energy.dtype)
