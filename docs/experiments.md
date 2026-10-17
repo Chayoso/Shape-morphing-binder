@@ -7421,6 +7421,42 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Predictions:* as the 40k: no piece; heads at or below the interim's; the judge passes; the landings elastic (the
   bodies spring off the floor), more tumble, not at rest at the end; the impacts at a third of the frozen material's
   v/c; the tip stretch about 1.1 against the final runs' 2–3. 45–55 min a run.
+  **The stiff 300k read (runs 14:08–16:44 CDT on gpu3, read and rendered to 17:26; `runs/gate_stiff300k.txt`,
+  `judge_stiff300k.txt`, `head_stiff300k.txt`, `extra_stiff300k.txt`, `table_stiff300k.txt`; local
+  `output/results_2026-10-17/d147_throw_fixed/`): the gate FAILS overall, in s99 alone (items 2 and 6, both narrowly);
+  s97 passes every item and is the delivered run by the rule; the twin passes.**
+  | | stiff s97 | stiff twin | stiff s99 | final s97 (frozen material) | final twin | final s99 |
+  |---|---|---|---|---|---|---|
+  | (1) fix-caused zero-control windows; retries | 0; 4 | 0; 7 | 0; 4 | 13 | 15 | 20 |
+  | (2) head recovery mean b0; b1 (bar 1.443; 1.007) | 0.524; 0.519 | 0.518; 0.588 | 0.534; **1.203** | 2.22; 1.68 | 3.62; 2.41 | 6.12; 2.99 |
+  | (3) far pieces before the cut: frames, largest | 0, 0 | 9, 4 | 0, 0 | 60, 13 | 27, 23 | 58, 45 |
+  | (4) judge: progress, end error | PASS 0.425, 0.015 | PASS 0.423, 0.017 | PASS 0.433, 0.015 | 0.458, 0.033 | 0.460, 0.042 | 0.566, 0.093 |
+  | end silhouette IoU b0 / b1 | 0.985 / 0.984 | 0.983 / 0.984 | 0.984 / 0.986 | 0.975 / 0.960 | 0.974 / 0.941 | 0.937 / 0.877 |
+  | end thin uncovered b0 / b1 | 4.9 / 3.3 % | 5.6 / 3.6 % | 5.0 / 3.2 % | 7.5 / 12.8 % | 8.3 / 17.4 % | 25.7 / 34.5 % |
+  | (5) tumble b0 / b1 | 68° / 127° | 75° / 117° | 76° / 73° | 25° / 119° | 26° / 82° | 23° / 49° |
+  | (6) momentum, worst | 2.7e-4 | 3.1e-4 | **1.05e-3** (bound 1e-3) | | | |
+  | (7) minutes; cut | 50.5; 16.0 s | 55.4; 16.0 s | 43.4; 16.0 s | 42.6; 16.0 s | 44.2; 15.0 s | 43.6; 13.8 s |
+  | (8) contact v/c; landing v/c | 0.034; 0.118, 0.103 | 0.034; 0.118, 0.104 | 0.034; 0.118, 0.105 | 0.090; 0.312, 0.283 | 0.090; 0.309, 0.286 | 0.089; 0.311, 0.281 |
+  | (9) ear-tip stretch mean (p95) b0; b1 | 1.23 (1.64); 1.15 (1.49) | 1.45 (3.42); 1.39 (1.92) | 1.20 (1.68); 1.10 (1.24) | 3.04 (4.7); 4.83 (16.8) | 2.90 (4.9); 3.63 (10.3) | 2.25 (4.0); 5.82 (20.0) |
+  | (10) parted; restitution; bounce within 2 s (sp) | yes; 0.95; 16, 34 | yes; 1.01; 16, 36 | yes; 0.91; 16, 13 | yes; 1.48; 0.5, 0.5 | yes; 1.56; 0.5, 0.5 | yes; 1.41; 0.5, 0.8 |
+  | (11) end centre speed (wu/s); deformation KE / mass ×1e-4 | 1.59, 1.95; 1.5, 1.5 | 1.15, 1.79; 2.2, 2.0 | 1.09, 1.98; 1.7, 0.5 | 0.74, 1.40; 71, 179 | 0.60, 1.24; 217, 2421 | 0.82, 1.38; 2157, 4138 |
+  *s99's failures, read frame by frame.* Body 1 lands at 9.0 s on its head. The head band deforms to 8.8–9.4 spacings
+  at 9.75–10.25 s, recovers by 11.75 s (0.53) and holds at 0.51 to the end. The recovery window, landing + 1.5 s to the
+  cut, starts at 10.5 s and still holds the squash's tail (7.3 → 0.7): mean 1.20 against the bar's 1.007. The other
+  runs' bodies did not land on their heads. Body 0's grid share of its own angular momentum in free flight is 1.05e-3
+  of its spin against the 1e-3 bound (the 40k runs 1.3e-4–7.5e-4). Both are recorded as failures.
+  *The renders* (15 videos: per run the cut, which is the whole 16 s in all three, and the contact close-up at 4K and
+  1080p, the whole run at 1080p; the still camera; the studio look): in s97 the spheres meet half-formed, part, and land
+  as bunnies that keep their shape, spring off the floor and tumble. In the 4K frames at 9.5, 11.5, 14.0 and 16.0 s
+  both bunnies have their ears and no piece is apart; the frozen material's final s97 flattened at the landing
+  (`before_after_s97_sheets.jpg`). *The render's influence (s97 against its twin; s99 the seed's scale):* the nominal
+  share 1/3 (the render gradient about 50× the physics gradient, cosine 0.30). The arm ends a little ahead (silhouette
+  0.985 / 0.984 against 0.983 / 0.984, thin 4.9 / 3.3 % against 5.6 / 3.6 %, body 1's head 0.52 against 0.59), and the
+  twin alone sheds a 4-particle piece (3.7 spacings, 6.6–6.7 s, just after the parting). Timings, progress, bounce and
+  tumble are unchanged by the render. The arm's lead is about the size of the seed's spread.
+  *Against the predictions:* no piece, yes (one 4-particle piece in the twin); heads below the bar, yes but s99's body 1;
+  judge passes, yes; elastic landings, yes (16–36 spacings); more tumble, yes; not at rest, yes; v/c a third, yes;
+  tip stretch about 1.1, yes (1.1–1.45); 45–55 min, yes (43–55).
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
