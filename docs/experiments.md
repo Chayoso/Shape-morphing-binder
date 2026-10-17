@@ -4830,6 +4830,69 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   moves the layer's control by 54 % (window 1) → 9 % (windows 11–20) → 20–25 % (later) of its size and u by 50–72 %, and
   the window's silhouette term is 50–79 % lower late in the run; iterations equal in 70 of 71 windows. 4K and the dragon
   wait for the user.
+  **RGV on the tag freeze-2026-10-15 (2026-10-16 and 17; the design unchanged: A · B2 · C · D as 5-window means, and U).**
+  *Data.* D145's post-tag B7, RG97 bunny and dragon on `repo_tgf` (the tag + D121's hooks + `rgv_patch.py` +
+  `rgv_patch2.py`; dump and λ = 0 counterfactual at every window; the post-tag gate read `repo_tgf` with the hooks on
+  at every window SAME as the tag). Values by `rgv_values.py` (CPU) into `output/gpu/rgv_tag/`. Every window carries
+  rgv_patch2's records, so A and C now count EVERY non-render term as the physics (the core and the cleanup sweep:
+  spray cleanup, near band; `physics_def` "all"), and the small print and B2's inset say so. On the layer the exact
+  non-render pull is 0.96–1.25 × the core's (median 1.03) on the bunny and 0.81–1.55 × (median 1.16) on the dragon.
+  *Code* (wip/rgv e85b429, a1a2df1). Renderer `repo_rgvtag` = `repo_tgf` + wip/rgv's renderer diff (studio albedo,
+  `+viz`; its two tests 5 passed, exit 0), with `+code=TAG` (the footer names the tag) and four layout fixes found on
+  the tag's frames: B2's inset end labels kept a line apart (on the tag's bunny the two totals end 13 px apart and the
+  labels touched), B2's inset leaves out a tick label that would touch the unit (the dragon's 27.5 s axis printed
+  "26s"), D's arrow legend under the colour bar (the tag's dragon ran its right front foot under it in the front view
+  from 4.6 s on), and C's small print in six lines instead of eight (the 5-window mean folded into the cosine's
+  definition, PCGrad in one line; the dragon's front foot ran into the eight-line block in the front view, 6.85 s).
+  `rgv_idle.sh` takes RGV_OUT / RGV_REPO / RGV_IDLE_MIB / RGV_IDLE_SEC and claims only a card with no compute process
+  on it; on the tag it waits 15 min (the agents with priority claim after 10) and allows 1000 MiB (GPU 2 keeps ~835 MiB
+  with no process after each job; an Isaac job of another project ran on GPU 3 without a lock and held a small context
+  on every card). `rgv_render_tag.sh`: the mp4s, the half-size 2 × 2 also at half speed (10 fps), four stills per
+  folder, each frame folder deleted once every mp4 made from it holds all its frames (logged in cleanup.log).
+  `rgv_tag_check.py`: the panels' numbers against the pre-tag values, the core-only definition beside the all-terms
+  one. `rgv_crevice.py` also records the core-only share and cleanup / core.
+  *Proof* (`rgv_proof.py` against the tag's L97, d145t_b1). Bunny: window-1 relative merit / transport / silhouette
+  4.8e-6 / 1.1e-5 / 5.6e-6, matched-time layer / bulk at most 0.62 / 0.23 pitches (the pre-tag replay pair L97–G97:
+  0.75 / 0.27); 79 windows against L97's 95 (the stop rule's spread; pre-tag 71 / 77 / 55). Dragon: window 1 alike
+  (4e-6 / 6e-5 / 1e-4), but RG97 accepted 7 line-search iterations in window 1 where L97 accepted 8, and the runs go
+  apart from there (merit 0.66 / 0.69 at window 2, 0.21 / 0.35 at window 5; layer / bulk 6.3 / 5.0 pitches at 1.1 s,
+  3.1 / 1.6 from 2.2 s to the end; pre-tag replay pair 1.18 / 0.43) and end alike (chamfer 0.05452 / 0.05454; 165 /
+  164 windows, 27.5 s against the pre-tag dragon's 108 windows, 18.0 s). A nondeterministic branch at window 1, not the
+  hooks (the gate); the panels show RG97's own run, consistent within itself.
+  *Panel numbers, tag against pre-tag* (`rgv_tag_check.py`, outer layer, per window, medians over windows 1 / 2–5 /
+  6–10 / 11–20 / 21–40 / 41–end). The balancer's share is exactly 1/3 in every window of both runs, tag and pre-tag.
+  A, the per-particle share (median): bunny 20 / 19 / 9 / 10 / 12 / 18 % (pre-tag, core only: 25 / 20 / 13 / 10 / 13 /
+  15 %), p90 37–44 % early, 23–37 % later; dragon 35 / 38 / 16 / 8 / 7 / 9 % (38 / 37 / 13 / 10 / 8 / 9 %). The layer's
+  aggregate share Σ|λg_r| / Σ(|λg_r| + |g_p|) is 0.11–0.28 (bunny, median 0.20) and 0.09–0.42 (dragon, 0.13): no jump.
+  Counting the cleanup lowers A by 0–2 points (bunny core-only 22 / 20 / 11 / 11 / 12 / 20 %; dragon late 11 → 9 %).
+  C, where the render acts (share ≥ 5 %), the per-window cosine above +0.2 / below −0.2: bunny 63/16, 50/27, 85/4,
+  66/14, 49/26, 41/32 % (pre-tag 61/15, 61/19, 84/4, 76/11, 40/31, 37/35); dragon 56/22, 44/32, 52/25, 70/13, 75/8,
+  54/21 (56/21, 49/28, 65/16, 78/8, 74/10, 56/19). The cleanup's direction is what raises the early conflict (bunny
+  windows 2–5 core-only 64/15, dragon 6–10 60/15). PCGrad: bunny 29 of 79 windows from window 34 (pre-tag 29 of 71 from
+  24); dragon 99 of 165 from window 5 (42 of 108). D, |ΔdF_c| / |dF_c(λ = 0)| (median; share over 20 %): bunny 34 / 23 /
+  15 / 11 / 13 / 20 % (39 / 22 / 12 / 8 / 14 / 17 %), over 20 % on 68 → 27 → 49 %; dragon 60 / 47 / 13 / 8 / 9 / 14 %
+  (59 / 49 / 13 / 8 / 8 / 12 %). U: the gate opens alike (bunny 5 / 33 / 94 / 100 % of the layer), but g Δu is 2–6 ×
+  smaller from windows 6–10 (bunny) and 11–20 (dragon) on (bunny rms 0.86 / 0.47 / 0.11 / 0.04 / 0.03 / 0.02 pitches
+  against 0.93 / 0.55 / 0.22 / 0.17 / 0.15 / 0.12; dragon 0.31 at windows 6–10 down to 0.03 late against 0.32 → 0.14),
+  so the run's U scale is ±0.25 (bunny) and ±0.19 (dragon) pitches against ±0.59 / ±0.62, and U's pictures are pale
+  with sparse spots after the first second. The likely cause is D146b's carried u-Adam moments (`--u_adam_carry`: with
+  fresh moments each window, Adam's first u steps are full size whatever the gradient); not isolated here (the tag's
+  NUC ablation, d145t_a6, has no counterfactual).
+  *Crevice (`rgv_crevice.py`, dragon windows 18–35, 2.8–5.8 s).* The render's share: crevice 4.0 % (core only 4.3 %;
+  pre-tag 4.6 %), flank 2.2 % (2.0 %), horns 19 % (25 %; 24 %), toes 8.7 % (7.6 %); the crevice is seen in a median 4 of
+  the 18 loss views and sits on the silhouette's edge in 16 % of the seen pairs (horns 62 %); 92 % of its render pull is
+  the silhouette term; the cleanup's pull there is 1.10 × the core's (pre-tag 0.91). The reading holds: C hatches the
+  crevice because the render barely acts inside the silhouette, not because physics wins a conflict there.
+  *Renders.* hyde06, one card at a time under the 15-minute idle rule (the first claim waited 13:03 → 18:24 on
+  10-16): 1080p front and side for both meshes (A, B2, C, D, U, the 2 × 2 at 3840 × 2160, its half-size copy and the
+  half-size copy at half speed; 18:24–19:00, 258 / 551 kept frames), then 4K panels per view and the half-size 2 × 2
+  at 3840 × 2160 (bunny 19:27–19:49, dragon 20:04–20:55); every ffmpeg exit 0, every frame folder deleted once its mp4s
+  held all its frames (52 entries in cleanup.log; the previews too). Looking at the stills found C's eight-line block
+  under the dragon's front foot (front, 6.85 s) and the "26s" tick; fixed (a1a2df1) and A, B2, C, D and the 2 × 2s
+  queued again into `render2_*` as one claim (`tmp/rgv_tag/rgv_queue_r2.sh`, ~1.5 h of card; waiting for a card since
+  10-17 12:10, all four held by D145, D147, D153 / D154); U is unchanged. Local: `output/results_2026-10-16/
+  render_gradient_viz_tag/` (1080p/, 4K/ 2 × 2s, data/, crevice_dragon/, README_ko.md), at present the first render;
+  its A, B2, C, D and 2 × 2 files are replaced when render2 lands.
   **Amendment 5, B14 (renamed from B12 to avoid a clash with the render-only B12, 2026-10-15 11:48): the ICLR 2025
   method and 4Deform with the authors' own code (pre-registered 2026-10-15 11:34 CDT server clock, before any B14 run; the user via the coordinator: "the ICLR 2025 method and the other morphing methods
   compared, with a discussion in the paper").** This reverses amendment 1's "4Deform dropped" and its "the released ICLR
