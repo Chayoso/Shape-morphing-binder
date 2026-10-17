@@ -7116,6 +7116,51 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   s99 the seed's scale):* the nominal share 1/3 (λ 0.0066 over the morph's windows), cosine 0.30. The twin ends better
   on silhouette (0.9743 / 0.9748 against 0.9707 / 0.9734) and as well on the heads (0.72 / 0.74 against 0.72 / 0.72),
   and both shed one piece of 10–13 particles. The render changes nothing measured here beyond the seed-to-seed spread.
+  **The ear-tip forensic and the damping's speed-up (the user's request 2026-10-16, "끝 조각을 먼저 없애는 거랑 속도
+  개선을 한 번에 같이 해 줘"; runs 2026-10-16 14:38–15:36, read 2026-10-17 12:14 CDT; `scene/dump.py`,
+  `scripts/probes/d147/{piece,dump_forensic,drag_equal}.py`, `runs/dumpfx_*.txt`, `runs/drag_equal.txt`).**
+  *The dump runs.* fix40k_s97's and its twin's inputs again (`dump40k_s97`, `_off`), with every step of body 1's
+  committed rollouts recorded for the windows starting 10.0–12.5 s (15 windows, 2.7 GB each). The scene does not repeat
+  for the same input: here the largest far pieces are 6 and 4 particles. The class and the particles are the same:
+  body 1's ear tip (height fraction 0.89–0.95), with particles 300, 23414 and 37974 in the fix runs' 13-particle piece
+  and again here. Read: s97's 10-particle piece (300, 12808, 18708, 20868, 21202, 22506, 23414, 34182, 37974,
+  39850), its 6-particle far part, the twin's 4-particle piece (12124, 13843, 35516, 39180) and its single particle
+  31874.
+  *What the steps show, the same for every piece.* (1) Body 1 lands at 8.9 s and rests squashed on the floor (its
+  lowest particle half a spacing above it) until it springs off at 11.0 s; the ear tip sits 3.5–7 wu above the
+  floor, never in contact. (2) Over those two seconds the grid's own velocity field draws the tip out. The stretch the
+  particles went through (1 + dt C integrated from 10.0 s) reaches 3–5× along one axis by 11.0 s and 8–16× by
+  11.5–12.3 s, with 0.1–0.3 across. Their stored elastic F stays within 0.95–1.13 (the body's median 1.03), and J
+  within 0.9–1.12. The material keeps about a twentieth of the deformation as elastic strain: the frozen F smoothing,
+  F ← (1 − s) F_new + s F with s = 0.955, keeps 4.5 % of each step's increment (log strain 2.7 against 0.08 at the
+  members). So nothing pulls the stretched tip back elastically. (3) The controls are at their cap (dfc_clip 0.02 a
+  step) at every member in every driven step, and over the whole body (mean |dFc| 0.0199) from 10.0 to about 11.5 s,
+  so they cannot hold it either; u's gate is zero there until 11.5 s. (4) What opens the link: the grid (G2P's
+  velocity) opens it by 0.3–1.8 spacings a window at 10.5–11.2 s. The position edits together (spacing push, bonds,
+  relaxation, u) add 0.0–0.2 then and later act mostly to pull the piece back: rejoining at 12.0–12.3 s with u
+  0.7–0.9 spacings. (The split between the update kernel and the layer step is not readable: the persistent rollout
+  keeps one buffer for the positions between them.) (5) The deformation's damping removes 0.1–0.6 % of the members'
+  speed a step, as designed. (6) The transport pulls the members 2–20× the body's median, outward in s97's pieces
+  (+0.2 to +0.4 of the pull along the link before the separation) and inward in the twin's. (7) The separation itself
+  comes as the body springs off the floor (11.0–11.5 s): the drawn-out tip goes on with the grid's motion and drifts
+  3–4 spacings off. The archived kept frames of the fix runs' 13- and 10-particle pieces show the same sequence: the
+  material lines at the tip stretched 2.4× by 9.8 s and 3.5× by 10.4 s with the link held at 0.7–0.9 spacings, then
+  opened at 2–11 spacings / s from 10.5 s, the step between kept frames the same in wholly driven and wholly released
+  intervals.
+  *The root cause:* the frozen material's F smoothing (s = 0.955, the single-body algorithm's eq. 9) turns the
+  landing's squash into a flow that the elastic stress does not resist. The frozen control cap (dfc_clip 0.02) is
+  saturated over the whole body during the recovery, so the controls do not resist it either. Both are definitions of
+  the frozen single-body path, not of the scene's code. By the coordinator's rule nothing is changed: the
+  finding goes to the user.
+  *The damping's speed-up (done; not adopted into a run until the user's decision).* Block sums (1024 threads over
+  strided slices in a fixed order, one thread adding the partials) and a hand-written adjoint (`mpm/bodies.py`,
+  8f2af48). Tests: the scene tests 35 passed; the suite 448 passed, 2 skipped, exit 0 (the pinned digest included);
+  the block sums against the first version's atomic sums on a 40k body within 2e-6 of the speeds; the hand adjoint
+  against float64 autograd; the pair's tape against central differences. On a 40k window (6 windows, seed 97; the old
+  code twice for the run-to-run scale): the new damping against the old within the old's own spread (merit 0.003
+  against the old-to-old 0.078, transport 0.007 against 0.077, the end positions 0.68 against 0.86 spacings, linear
+  momentum 1.3e-6 against 6.2e-7 relative). Seconds a window: 5.13 (new) against 7.75 (old damping) and 4.8 (no
+  damping, the D135 references): about 11–12 min a 40k run against 17.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
