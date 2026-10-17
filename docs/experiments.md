@@ -7161,6 +7161,38 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   against the old-to-old 0.078, transport 0.007 against 0.077, the end positions 0.68 against 0.86 spacings, linear
   momentum 1.3e-6 against 6.2e-7 relative). Seconds a window: 5.13 (new) against 7.75 (old damping) and 4.8 (no
   damping, the D135 references): about 11–12 min a 40k run against 17.
+  **The stiff material's 40k gate, pre-registered (2026-10-17 12:58 CDT server clock, before any of its runs; the
+  user's decision of 2026-10-17, "재료 단단하게 해야 할 거 같아", relayed by the coordinator: B8's stiff material in the
+  scene, a scene parameter; the frozen single-body path stays the tag's).** *The material:* `--young 9.8e5`, E × 7 of
+  the frozen 1.4e5, B8's value (M1's stiffest the fixed step carries; CFL 0.49 at the 300k cell), no new constant.
+  *The scene kept as now:* the scene's layout derives gravity, g = G E / (ρ H), and the throw, ½ (v_rel / c) c, from
+  E. So `--young` alone would make the same dimensionless event 7× the gravity and 2.65× the throw: a 42 wu apex, and
+  the landing at about 0.57 of the wave speed instead of 0.3, harder rather than gentler. `specs/scene_throw_E7.json`
+  is scene_throw.json with its two dimensionless groups re-expressed exactly for E × 7 (G 0.02 / 7, v_rel / c 0.1 / √7),
+  so that gravity, the throw, the positions and the timings are scene_throw's in world units. Only the material is
+  stiffer, and the impacts' speeds against the wave speed drop by √7. Everything else is as the last gate: the four
+  fixes and the damping's speed-up (`repo_d147fast`, 8f2af48: scene tests 35 passed, suite 448 passed, 2 skipped, exit
+  0), the deformation's drag 0.9 / s, `--assim 0`, drag 0, 2 × 40k, every 12th step kept.
+  *Runs (chain 23, one card idle for 3 minutes):* `stiff40k_s97`, its render-off twin `stiff40k_s97_off`,
+  `stiff40k_s99`. *Items* (gate.py, suffix stiff; every run must pass 1–4 and 6, as the last gate): (1) no
+  zero-control window from the fixes' causes; (2) the heads' recovery mean at or below the larger of the D135
+  references' (throwY40k_a/_b) per body; (3) clean: no piece of 10 particles or more beyond 3 spacings before the cut;
+  (4) the judge; (5) the tumble, reported; (6) momentum per body (flight P, contact P and L, free-flight L less gravity's
+  torque); (7) minutes. Reported, against the last gate's fix40k runs (`stiff_extra.py`): (8) the impacts' speed over
+  the wave speed (the pair's closing speed before the first contact, each body's downward speed before its landing);
+  (9) the ear tips' stretch through the squash (each body's top tenth at the morph's end, the material-line stretch to
+  its 8 nearest of then, mean and 95th percentile, the largest over landing + 2.1–3.4 s: 11.0–12.3 s for body 1);
+  (10) the bounce, the tumble and the parting (parted in the air, each body's lowest point's highest within 2 s after
+  its landing); (11) rest at the end (each body's centre and angular speed at the last window, the deformation's
+  kinetic energy over the last second), reported against the scene's judge, which has no rest item (B8 saw the stiff
+  material not at rest, end kinetic × 2.2–3.5). Pass → the 300k (s97, twin, s99) and the renders, pre-registered
+  first; fail → stop and report.
+  *Predictions:* (8) the contact and the landings at a third of the wave speed they had (√7). (9) The tip stretch
+  well below the fix runs' (the stored strain is still 4.5 % of each step's increment, but the deformation the
+  landing makes is about 7× smaller). (3) Clean. (2) The heads at or below the references. (4) Passes. The progress at
+  the contact: the stiff material arrives faster early (B8: transport × 0.1–0.16 at 1 s), so near the band's top.
+  (10) The pair still parts (the closing speed the same in wu/s, its share of c smaller) and the bodies bounce lower.
+  (11) Not at rest by the end (B8's). (7) 11–13 min a run.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
