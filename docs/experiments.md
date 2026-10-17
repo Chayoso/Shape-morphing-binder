@@ -8166,6 +8166,72 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   claimed GPU 3 at 12:09 and ran to 12:24, all 19 items rc 0, lock released. That run gave the tag's render-term floor
   on six meshes × three seeds and the yardstick's own-sample floor on 22 mesh-seeds. They replace the first write-up's
   provisional seed-97 floor taken from D114. Re-read on 2026-10-17 (tables and figures redone): no verdict changed.
+- **D154, two pieces of evidence for the render loss's effect, D152's follow-ups (1) and (2): a floor-free reading
+  against the target mesh, and the render switched off / on at 6 s (opened 2026-10-17 12:55 CDT server clock; the user
+  approved both on 2026-10-17; code: branch `wip/d154` 3178d18 = freeze-2026-10-15-rt1 + a diagnostic switch, default
+  off; server `repo_d154` (git archive) / `repo_d154s` (+ `patch_s.py`, kept frames), `tmp/d154/`, `output/gpu/d154/`;
+  readers `scripts/probes/paper/d154/`; local `output/results_2026-10-17/d154_render_evidence/` with a Korean README).**
+  *(1) The floor-free reading (no pipeline run; CPU, `d154_mesh_read.py`, started 13:30 on the end frames).* The referee
+  is the target mesh in each run's own frame (`mesh_frames.py`: `load_normalized` on the tag reproduces each run's own
+  target sample, 20 of 22 mesh-seeds bit for bit and the rest within 4.8e-7 wu, a float32 rounding of the volume
+  match), read by exact ray casting (open3d / Embree) and exact distances; no sample is drawn for it. The state's
+  exterior is the yardstick's (Zhu and Bridson's zero set, radius 3 / offset 0.8 pitches, the pitch, views and box
+  from the independent sample, as `render_terms_probe.py`; its CPU port equals the GPU yardstick to 3e-7 relative on
+  bunny L97 at 6 s). Measures: (A) the yardstick's exterior silhouette and shading at 96 px against discs of the exact
+  mesh on the yardstick's own lattice (and against the independent sample, as before); (B) both surfaces ray-cast
+  through every pixel centre at 96 / 384 / 1024 px, 18 views: 1 − IoU of the binary silhouettes, the outline offsets
+  (each outline read on the other's signed distance: the mean is a uniform dilation, the spread the outline's shape),
+  the normal angle, the headlight shading error; (C) the visible surfaces' distances to each other (signed mean,
+  spread) and the normal angle at the nearest mesh point. States: the end frame of B1's 44 runs, each mesh-seed's own
+  target sample (a perfect placement of the particles) and D90's independent sample, and the kept frames at
+  t = 1, 2, 3, 4, 5, 6, 8, 10 s of bunny and dragon L97 / P97 (the only B1 runs whose two arms' frames are left).
+  Reported per mesh: arm and twin in error form with seed ranges, (P − L) / P, and the share of the twin's excess over
+  the own sample's value that the arm removes, (P − L) / (P − own). Seen in the reader's test (bunny 97, teapot 97,
+  13:25): the exterior of every state, the perfect sample included, lies 0.83–0.86 pitch outside the mesh (silhouettes
+  dilated, none missing; the offset 0.8 of the field's definition); against the mesh this shared dilation is most of
+  every raw error, so the offset-free measures (outline and distance spreads, normals, shading) carry the shape.
+  *(2) Pre-registration of the causal test (written 13:33 CDT, before any run of it).* Prediction (D152 H3): if the
+  late render maintains the lead, turning it off at 6 s in the render arm loses most of the lead within 5–10 windows,
+  and turning it on at 6 s in the twin builds a lead within 5–10 windows.
+  - The switch (`--render_from_s T` / `--render_until_s T`, `run.runner.render_switch`): a window whose first step is
+    before T (from) or at / after T (until) runs with the render weight's scale 0, the twin's; every other window
+    with the configuration itself; with neither set the runner passes the configuration itself to every window (the
+    rt1 path). The optimiser reads the scale wherever it sets λ (the gradient, the line search, the commit rollout's
+    merit, the records); the selection rescales its references when λ moves (as at every window); each record of a
+    switched run carries `render_switch_on`. A diagnostic: no constant, no weight.
+  - Gates, on the run card before any run (`d154_chain.sh` V; any failure stops the chain): the full suite on
+    repo_d154 (exit status recorded); the pinned digest and reference (`test_refreeze_reference.py`) exit 0; under
+    Warp's run-to-run deterministic mode (`tmp/rt/det_run.py`, 40k bunny seed 97, four windows) repo_d154s at the
+    defaults against rt1's run S1 (`output/gpu/d153/rt1/S1`): `det_cmp12.py` SAME; `--render_until_s 0.5` against that
+    S1 and `--render_from_s 0.5` against a deterministic twin (`--render_weight_scale 0`), both repo_d154s:
+    `det_switch_cmp.py` SAME-BEFORE (every kept frame up to 0.5 s and every history field of the windows that start
+    before it bit for bit) and λ = 0 / > 0 in the windows after.
+  - Runs (repo_d154s, kept frames, one card by the lock protocol): bunny and dragon 300k, seeds 97 and 99; arm
+    L→off@6s (`--render_until_s 6`: the render arm to the window that starts at 6.0 s, the twin after) and arm
+    P→on@6s (`--render_from_s 6`: the twin to 6.0 s, the render arm after); eight runs, each to its own stop. Then, if
+    the card is still free, the replicates L99 / P99 of bunny and dragon at the defaults (B1's seed-99 frames were
+    removed after D153 read them; the replicates give the floor-free reference at seed 99).
+  - References: B1's L and P of the same seed: every window's record; the yardstick and the display read on every
+    kept frame (`t3_*.log`, `e3_*.log`); kept frames for seed 97. Production atomics are not run-to-run deterministic:
+    before 6 s each switched run is a replicate of L (off) or of P (on), and its difference from B1's run there is
+    reported as the replicate spread.
+  - Readers: the yardstick (exterior silhouette and shading against the independent sample, 96 px; the CPU port) on
+    every kept frame from 4 to 12 s and every second outside; the floor-free measures of (1) every 0.5 s; the display
+    (`surface_layer_probe.py` measure against the independent sample, GPU, after the runs) every 0.5 s; momentum
+    (`momentum_probe.py`'s definitions) on every kept frame; the records (d_sil, d_pbr, λ, g_share) every window.
+  - Reading: on each error measure, lead(t) = (P(t) − X(t)) / P(t), P = B1's twin of the same seed at the same raw
+    frame, against B1's own lead_LP(t) = (P(t) − L(t)) / P(t); per committed window n after 6 s (t = 6 + n / 6 s), the
+    mean over its kept frames. Arm L→off: lost share f_lost(n) = 1 − lead_X / lead_LP. Arm P→on: built share
+    f_built(n) = lead_Y / lead_LP. Primary measures: the yardstick's exterior silhouette and shading against the
+    independent sample (where D152 found the lead). An arm confirms H3 if on both primary measures, on at least 3 of
+    its 4 mesh-seeds, its share reaches 0.5 within 10 committed windows after 6 s and is still at least 0.5 at 20; it
+    refutes H3 if the share stays below 0.25 at 10 windows on at least 3 of 4; otherwise partial. The floor-free
+    measures and the records are read the same way as support, the display as secondary. Also reported: the windows
+    to 0.5, what part of the lead L→off keeps (D152 H3: early pushes persist), each run's own end against L and P, and
+    momentum (the switch is a weight; nothing in it acts on the momentum; expected within B1's range; not a criterion).
+  - Expected from D152 H3 (a λ = 0 window takes back 67–81 % of the previous window's render displacement; the arm's
+    own motion along it −2…−12 % over 1–10 windows; the render term −17…−22 % a window): f_lost ≥ 0.5 within 3–5
+    windows on the silhouette, f_built ≥ 0.5 within 5–10.
 - **D153, the runtime on the tag freeze-2026-10-15: where an attempt's time goes, two exact levers (merged as
   freeze-2026-10-15-rt1), how much the late windows buy, and a fixed 5–6 s horizon (opened 2026-10-16 11:26 CDT server
   clock; the user: "속도를 현재 더 줄일 수는 없을까"; at 11:35 the user's follow-up, relayed by the coordinator: "뒤로
