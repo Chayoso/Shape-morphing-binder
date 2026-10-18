@@ -5989,6 +5989,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Predictions: Z1 stays upright (below 3°); Z2 and Z4 sag elastically and stay upright; Z3 tilts (the controls,
       in a frame blind to the turn, pump rotation through the floor's reaction). If Z2 topples, the elastic dragon is
       not stable on the frictionless floor at this g, whatever the controls do.
+    - *First two read (19:11 CDT), and a split added before its runs.* Without controls, the body does not stand
+      elastically. Z1's sphere sinks: its centroid falls 1.62 wu (two thirds of its radius) in 8.33 s, still going at
+      0.034 wu/s, det F at least 0.92, a spreading pancake; the tilt stays below 1°. Z4's bunny sinks 1.31 wu, tilts
+      20° (from 1.8 s on) and loses its shape: the silhouette term goes from 0.001 to 0.23. So under a sustained load
+      the frozen material creeps. The controls must hold the shape against that creep in every window; B9's
+      world-fixed objective also held the body's height and orientation, but the body-frame objective lets the frame
+      turn. Two frozen definitions can make a creep:
+      - the assimilation (0.5 of the window's load-free end F: one window, 1/6 s, is far shorter than the elastic
+        period, 1.19 s at 40k (D155), so the load-free rollout cannot relax the sag before half of it becomes rest
+        shape);
+      - the F smoothing (s 0.955: the stored F keeps 4.5 % of each step's increment, D147's forensic).
+      Z5 `fx_sphere0_na` and Z6 `fx_bunny0_na` repeat Z1 / Z4 with `--assim 0`. Prediction: without the
+      assimilation the sphere does not sink (its height oscillates about the elastic sag, within a few pitches), so
+      the creep is the assimilation's. If it still sinks, the F smoothing creeps.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
