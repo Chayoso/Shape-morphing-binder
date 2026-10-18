@@ -10,8 +10,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 import physmorph  # noqa: E402,F401  (before torch)
 import scripts.scene_run as SR  # noqa: E402
+from physmorph.pipeline.config import PipelineConfig  # noqa: E402
 
 _run_config = SR.run_config
+_post_init = PipelineConfig.__post_init__
+
+
+def _post_init_zero(self):
+    """The config's checks with iters 0 let through: the loss raster's growth (scene/raster.py) copies the config with
+    dataclasses.replace, which runs the checks again (the first fx_dragon0 ended there at 6.33 s)."""
+    if self.iters == 0:
+        object.__setattr__(self, "iters", 1)
+        _post_init(self)
+        object.__setattr__(self, "iters", 0)
+    else:
+        _post_init(self)
+
+
+PipelineConfig.__post_init__ = _post_init_zero
 
 
 def run_config_zero(args, cfg0, prep):
