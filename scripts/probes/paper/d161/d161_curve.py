@@ -34,6 +34,7 @@ Per wavelength w:
 One JSON line per (w, dt), plus a head line (constants, units, lambda, the step of the tag's late windows)."""
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -43,6 +44,28 @@ import physmorph  # noqa: E402,F401  (before torch: CuPy's CUDA 12 compiler load
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 from physmorph import gpu  # noqa: E402
+
+if os.environ.get("D161_CPU") == "1":
+    # the same operators on the CPU (torch), for when no card is free: the device helpers' three CuPy pieces (the KD-tree,
+    # the distance transform, the layer's hash-grid kNN) by scipy (PHYSMORPH_KNN=cpu for the last); float rounding only
+    from scipy.ndimage import distance_transform_edt as _edt
+    from scipy.spatial import cKDTree as _Tree
+    assert os.environ.get("PHYSMORPH_KNN") == "cpu", "set PHYSMORPH_KNN=cpu"
+    gpu.DEVICE = "cpu"
+
+    class _KNN:
+        def __init__(self, points):
+            self.n = int(points.shape[0])
+            self.tree = _Tree(points.detach().double().cpu().numpy())
+
+        def query(self, queries, k=1):
+            k = int(min(k, self.n))
+            d, i = self.tree.query(queries.detach().double().cpu().numpy(), k=k, workers=int(os.environ.get("OMP_NUM_THREADS", "8")))
+            return (torch.as_tensor(d, dtype=torch.float64).reshape(-1, k),
+                    torch.as_tensor(i, dtype=torch.int64).reshape(-1, k))
+
+    gpu.KNN = _KNN
+    gpu.edt = lambda outside: torch.as_tensor(_edt(outside.cpu().numpy())).double()
 from physmorph.losses.grid_ot import GridSinkhornLoss  # noqa: E402
 from physmorph.losses.volumetric import d_nn_band_current, d_vol_density, d_w1, isolation_gate  # noqa: E402
 from physmorph.pipeline.render_loss import d_exterior  # noqa: E402
@@ -62,7 +85,7 @@ SEED = 97
 TGT = {"sphere": "assets/isosphere.obj", "bunny": "assets/bunny.obj"}[mesh]
 WS = [4, 6, 8, 11, 16, 22, 32, 45] if mesh == "sphere" else [4, 6, 8, 11, 16, 22]
 DS = [-1.0, -0.5, 0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
-DT = [0.5, 1.0, 2.0]
+DT = [0.25, 0.5, 1.0, 2.0]
 out = open(out_path, "a")
 
 
