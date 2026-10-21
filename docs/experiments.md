@@ -6003,6 +6003,80 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       Z5 `fx_sphere0_na` and Z6 `fx_bunny0_na` repeat Z1 / Z4 with `--assim 0`. Prediction: without the
       assimilation the sphere does not sink (its height oscillates about the elastic sag, within a few pitches), so
       the creep is the assimilation's. If it still sinks, the F smoothing creeps.
+  - **The forensic read and the mechanism (read 2026-10-20 22:50 CDT server clock, after a stop on an API limit;
+    no new run; the chains ended 2026-10-17 19:29 and hold no card; `runs/fx_read.txt`, `fx_read2.txt`; B9's own
+    G2L97 tilt from its kept frames, `tmp/b9b/b9tilt.py`, CPU, niced).** A timing note: the equality amendment was
+    written at 17:44–17:48 and the chain restarted at 17:48:34, before any run (the runs started at 18:02); the code
+    comments say 17:50.
+    - *Without controls the body sags far more than its elastic strain, and the assimilation turns the sag into a
+      creep.* Z1, the sphere with the assimilation: its centroid sinks 1.62 wu (15 pitches) in 8.33 s, still falling.
+      Z5, the same without the assimilation: it sinks 0.95 wu by 2.5 s, rebounds to 0.58 wu at 5 s and oscillates
+      about 0.75 wu. The sag is bounded, but it is about twenty times the elastic sag that G = ρgH/E = 0.018 implies
+      (of order G·H/2 ≈ 0.04 wu). The assimilation makes the creep; what makes the material this soft is not
+      isolated here (the F smoothing is the candidate D147 found for the ear tips).
+    - *Without controls the body leans and stops; it does not topple.* Z4 / Z6, the bunny from its own shape, lean
+      19.8° / 17.5° (the angular speed peaks at 0.13 rad/s near 2.5 s and decays to 0.001–0.015 rad/s), with or
+      without the assimilation: the asymmetric shape sags into a lean. Z2, the dragon from its own shape, leans 32.5°
+      by 9.83 s, its angular speed decaying from 0.115 to 0.005 rad/s; it then spreads out of the domain (window 60,
+      "no valid rollout"). The sphere (Z1) stays within 0.8°.
+    - *With the controls the lean grows and the dragon falls over, without any morph.* Z3, the dragon started as
+      the dragon (source = target) with the optimiser: past 3° at 1.5 s, angular speed 0.085 → 0.18 → 0.39 →
+      0.57 rad/s at 1.5 / 4 / 6 / 7 s, on its side from 7.5 s (93.4° at the end), as the morph runs fall
+      (past 3° at 1.8–1.9 s, 97.7–98.9° at 8.95–9.25 s). The floor's reaction carries the angular momentum (the
+      grid's share of the horizontal change: 0.45 in Z3, 0.72–0.90 in the dragon morph runs, 0.97–0.99 in the bunny
+      runs).
+    - *B9's single-body runs turn their material frame too, but their shape stands.* Read as the scene reads its
+      body (the Buckens frame against the kept source frame), B9 G2L97 turns 5.2° (dragon, 3.5° by 2 s, then slowly)
+      and 8.3° (bunny) by its end. Yet the shape stands in the world: its centroid sits within 0.06 / 0.17 pitches of
+      the standing target's height, and its silhouette IoU against the upright lifted sample is 0.9887 / 0.9863. A
+      0.8° frame turn alone costs the dragon 0.005–0.009 of IoU (V0), so B9's 5° is material turning inside an upright
+      shape. Without gravity the scene's frame turns only 0.1° / 0.8° (V0).
+    - *Mechanism, as measured.* Under gravity the controls rebuild the body against a large sag in every window, and
+      that steady flow turns the material (Buckens) frame. B9's world-fixed target holds the shape's pose against the
+      vertical whatever the material does. The scene's objective draws the target in the material frame, so the
+      shape follows the frame's turn: nothing in the objective is tied to the vertical, and the deformation damping
+      leaves rigid rotation undamped. The turn feeds itself: the dragon's angular speed grows from 0.03 to 0.5 rad/s
+      between 1.2 and 8.2 s (L97) while the centroid is still inside the support. Near 48° the centroid reaches the
+      support's edge (0.3 pitches inside
+      at 7 s) and the dragon falls. Without controls the same lean stops (Z2, Z4, Z6); with controls it grows even
+      from the finished shape (Z3). The render plays no part: the twins tilt and topple alike.
+    - So yes: the toppling comes from the scene path's rotation-invariant objective, which gives no reason to stay
+      upright, while the single-body path's world-frame target held the dragon up. The drive is the controls'
+      rebuilding of the sagging body in a frame that turns with the material.
+  - **Against B9's single-body dragon (which passed).** At 40k: silhouette IoU against the independent sample
+    0.9546–0.9555 (scene, body frame) against 0.9757 (B9 G2L97, world); chamfer 0.1155–0.1161 against 0.1121; thin
+    15.5–15.9 % against 4.7 %; the scene ends on its side (92°, 10.7–10.8 pitches below the standing height), B9
+    upright at the target's height; 6.0–7.0 min for 75 windows against 1.9 min for 51. At 300k, B9's three seeds
+    reached (0.9870–0.9887) with the centroid at the standing target's height (−0.072 … −0.085 wu against −0.078);
+    the scene's 300k was not run (the gate). The paths do not agree on the dragon: B9's stands and reaches, the
+    scene's falls over and misses the reach bar on every seed and in its twin. On the bunny the scene removes B9's
+    failure mode (every window committed on 4 of 4 runs; B9 stopped at window 7 on 3 of 4), but it does not reach
+    either (0.954–0.959 against the bar 0.963 at 40k).
+  - **Definition options (none implemented; the user decides).**
+    1. *The scene path with a world-frame target for a body whose target stands on the floor.* Commit every window
+       (no brake), with the target's pose fixed in the world as B9's: V0's existing "fixed" frame, with its origin at
+       the standing target's centroid (prepare's lift). The velocity terms read the velocities as they are, as in
+       V0's fixed arm and B9. Predicted: upright and at the target's height as B9 (material frame turned 5–8°, shape
+       standing within 0.2 pitches); the dragon reaches as B9's (0.9757 at 40k, 0.987–0.989 at 300k); the bunny
+       reaches on every seed, since the landing window is committed (B9's one run past the brake reached 0.9735 at
+       40k and 0.9863 at 300k). The creep still costs windows. Cost: about 3–7 min at 40k, as the scene runs.
+    2. *The scene path with an upright frame:* the rotation held to the world vertical, the translation free (the
+       target's centroid follows the body's). Predicted: upright (no turn to feed), the height set by the standing
+       shape and its sag; the horizontal position stays free (it drifted 0 pitches anyway). It cannot serve a
+       tumbling body (the throw scene needs the rotation-invariant frame), so it is a choice per body at rest on a
+       floor: a third frame beside "body" and "fixed".
+    3. *The frozen single-body path with a brake that reads the load:* a window's merit rise counts as a runaway
+       only beyond the rise of its own uncontrolled continuation (a landing raises both). Predicted: B9's bunny
+       passes its landing window (7.2–8.8 % against its uncontrolled rise) and reaches as G2L97 did (0.9863 at 300k);
+       no-load runs change only where their uncontrolled continuation's merit rises. It changes the frozen
+       algorithm, so the gallery gate first; one more rollout per braked window.
+    All three keep the material's sag and creep under gravity (Z1 / Z5). The throw scene ran with `--assim 0`; any
+    gravity scene inherits the soft response.
+  - **Deliverables.** `output/results_2026-10-17/b9b_gravity_scene/` (README_ko.md, read_40k.md / .jsonl, the
+    equality and first-window checks, fx_read*.txt, b9tilt.txt, the 40k side renders `bunny40k_L97_side1080.mp4` and
+    `dragon40k_L97_side1080.mp4` in the studio look with the floor; the 300k renders were not made because the 300k
+    did not run). Server: `output/gpu/b9b/runs/` (the runs' kept frames, every 12th, about 1.3 GB). Code: `wip/b9b`
+    12c7e34 (scene-spec fields `g` / `rest`, default off; the single-body path untouched).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
