@@ -61,6 +61,27 @@ def shape_rotation(xc, tc, tree_t, R, iters=40, sub=20000):
     return R
 
 
+def shape_fit(xc, tc, tree_t, starts, iters=400, sub=20000):
+    """The shape's best alignment (corrected 2026-10-21 after option 1's 40k gate): shape_rotation from every start
+    (the identity = the target's own orientation, the Buckens rotation, the previous frame's fit), each run to its end
+    (iters 400; 40 from the Buckens start stopped partway when the material had turned: bunny L99 3.50 deg at a mean
+    nearest distance 0.6717 pitches against 0.37-0.41 deg at 0.6596 once converged, B9's bunny 3.10 against 0.22), and
+    the one with the lowest symmetric residual (the mean nearest distance both ways). Returns (R, residual)."""
+    from scipy.spatial import cKDTree
+    rng = np.random.default_rng(1)
+    xs = xc[rng.choice(len(xc), min(sub, len(xc)), replace=False)]
+    tq = tc[::max(1, len(tc) // sub)]
+    best = None
+    for R0 in starts:
+        R = shape_rotation(xc, tc, tree_t, R0, iters=iters, sub=sub)
+        y = xs @ R
+        y = y + (tc[tree_t.query(y)[1]].mean(0) - y.mean(0))
+        r = 0.5 * (tree_t.query(y)[0].mean() + cKDTree(y).query(tq)[0].mean())
+        if best is None or r < best[1]:
+            best = (R, float(r))
+    return best
+
+
 def rigid(x, v):
     c = x.mean(0)
     r = x - c
@@ -96,7 +117,7 @@ def main():
     tc = np.asarray(tgt, np.float64) - np.asarray(tgt, np.float64).mean(0)
     tree_t = cKDTree(tc)
     shape_every = int(sys.argv[sys.argv.index("--shape_every") + 1]) if "--shape_every" in sys.argv else 4
-    ys, track = [], []
+    ys, track, Rs_prev = [], [], None
     for k in range(len(fr)):
         x = np.asarray(fr[k], np.float64)
         c = x.mean(0)
@@ -110,10 +131,11 @@ def main():
                "lowest_sp": float((x[:, 1].min() - floor_c) / pitch), "turn_deg": angle(R),
                "tilt_deg": float(np.degrees(np.arccos(np.clip(up[1], -1.0, 1.0)))), "yaw_deg": yaw,
                "drift_xz_sp": float(np.hypot(c[0] - fr[0][:, 0].mean(), c[2] - fr[0][:, 2].mean()) / pitch)}
-        if k % shape_every == 0 or k == len(fr) - 1:      # the shape's own tilt (shape_rotation), from the Buckens one
-            Rs = shape_rotation(x - c, tc, tree_t, R)
+        if k % shape_every == 0 or k == len(fr) - 1:      # the shape's own tilt (shape_fit: converged, the best start)
+            Rs, res = shape_fit(x - c, tc, tree_t, [np.eye(3), R] + ([Rs_prev] if Rs_prev is not None else []))
+            Rs_prev = Rs
             rec.update(shape_tilt_deg=float(np.degrees(np.arccos(np.clip(Rs[1, 1], -1.0, 1.0)))),
-                       shape_turn_deg=angle(Rs))
+                       shape_turn_deg=angle(Rs), shape_resid_wu=res)
         if k + 1 < len(fr):
             x1 = np.asarray(fr[k + 1], np.float64)
             tau = float(raws[k + 1] - raws[k]) * dt

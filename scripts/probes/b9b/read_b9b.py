@@ -178,7 +178,8 @@ def scene_row(stage, R, mesh, arm, seed):
 
 # the upright bar on the shape's tilt (tobody.shape_rotation; option 1's pre-registration, 2026-10-20): V0's 3 deg, or the
 # single-body path's own reading of an upright end where larger (B9 G2L97 at 300k: dragon 0.75, bunny 3.10 deg)
-UPRIGHT = {"bunny": 3.10, "dragon": 3.0}
+UPRIGHT = {"bunny": 3.0, "dragon": 3.0}       # corrected 2026-10-21: B9 G2L97 converged reads 0.22 / 0.17 deg (the
+                                              # 3.10 / 0.75 were the unconverged measure's), so V0's 3 deg for both
 
 
 def verdicts(r, bar):
