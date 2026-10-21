@@ -1,14 +1,15 @@
 #!/bin/bash
 # sc_chain.sh ID QUEUE -- SHOWCASE (2026-10-21): one of at most two chains, each on one card by the lock protocol
-# (gpu_locks/gpuN.lock, agent SHOWCASE; a card with no lock, no compute process of anyone, under 2000 MiB, for 10
-# minutes; at most two SHOWCASE locks at a time; the card released after HOLD items (default 3) and claimed again only
-# after 10 idle minutes, and released whenever the queue has nothing left for this chain).
+# (gpu_locks/gpuN.lock, agent SHOWCASE; a card with no lock, no compute process of anyone, under 2000 MiB, for IDLE_S
+# seconds (default 900: five minutes behind the other agents' 10, so a queued agent takes a freed card first; the
+# coordinator, 2026-10-21 17:10); at most two SHOWCASE locks at a time; the card released after HOLD items (default 3) and claimed again only
+# after IDLE_S idle seconds seen anew, and released whenever the queue has nothing left for this chain).
 # The queue is read again before every item (lines may be appended while it runs); an item is taken by mkdir of its
 # claim in output/gpu/showcase/claims/. Lines ('#' comments):
 #   run NAME SRC TGT AZ EL [pipeline_run args]   SRC -> TGT at 300k, seed 97, on repo_t1s (freeze-2026-10-15-rt1, kept
 #                                                frames only), the defaults plus the args; AZ = - : no render (a twin);
-#                                                a line "NAME AZ EL" in tmp/showcase/cams.txt overrides the camera
-#   render NAME AZ EL VIEW                       another camera for a run already done
+#                                                a line "NAME AZ EL [DIST]" in tmp/showcase/cams.txt overrides the camera
+#   render NAME AZ EL VIEW [DIST]                another camera for a run already done (DIST x 3.6 radii)
 # Per run, on the card: the run; the end readings of read300.sh MODE end against the independent sample of the run's
 # own frame (ind/SRC_TGT_ind300k.npz): the yardstick (render_terms_probe, t3end_), the display (surface_layer_probe
 # measure, whole picture, e3end_), the arrangement (a_), momentum on every kept frame (m_), the end check (endgen145t.py
@@ -21,7 +22,7 @@
 # end (pieces145.py); a twin's kept frames are removed after them (cleanup.log). STOP: touch showcase/STOP_ID (after the
 # current item); END: touch showcase/END (the chain exits once the queue is empty).
 B=/data/relcfd/chayo/physmorph_v2; G=$B/output/gpu; D=$G/showcase; T=$B/tmp/showcase; L=$B/gpu_locks
-ID=$1; Q=$2; HOLD=${HOLD:-3}; PYB=/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python
+ID=$1; Q=$2; HOLD=${HOLD:-3}; IDLE_S=${IDLE_S:-900}; PYB=/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python
 S=$D/status.txt; R=$D/render; V=$D/video
 mkdir -p $D/claims $D/ind $R $V $D/sheets $D/stills $D/mid
 source $B/tmp/d146/cache_env.sh
@@ -34,7 +35,8 @@ claim_card() {
   while [ -z "$CARD" ]; do
     [ -e $D/STOP_$ID ] && return 1
     local now=$(date +%s)
-    local held=$(grep -l "^agent SHOWCASE" $L/gpu*.lock/info 2>/dev/null | wc -l)
+    local held=$(grep -l "^agent SHOWCASE" $L/gpu*.lock/info 2>/dev/null | wc -l) maxc=2
+    grep -q "^agent DEMO" $L/gpu*.lock/info 2>/dev/null && maxc=1   # the coordinator, 2026-10-21: one card while DEMO renders
     for g in 3 1 0 2; do
       local used=$(nvidia-smi -i $g --query-gpu=memory.used --format=csv,noheader,nounits)
       local uuid=$(nvidia-smi -i $g --query-gpu=uuid --format=csv,noheader)
@@ -42,7 +44,7 @@ claim_card() {
       if [ -d $L/gpu$g.lock ] || [ "$used" -gt 2000 ] || [ "$apps" -gt 0 ]; then since[$g]=""; continue; fi
       [ -n "${since[$g]}" ] || since[$g]=$now
       local fs=$(cat $B/tmp/d145/free_since/gpu$g 2>/dev/null); [ -n "$fs" ] && [ "$fs" -lt "${since[$g]}" ] && since[$g]=$fs
-      if [ "$held" -lt 2 ] && [ $((now - ${since[$g]})) -ge 600 ] && mkdir $L/gpu$g.lock 2>/dev/null; then
+      if [ "$held" -lt "$maxc" ] && [ $((now - ${since[$g]})) -ge $IDLE_S ] && mkdir $L/gpu$g.lock 2>/dev/null; then
         CARD=$g; NDONE=0
         printf "agent SHOWCASE\nrun showcase/%s: 300k showcase runs, readings and renders (%s items, then released)\npid %s\nstart %s\n" \
           "$ID" "$HOLD" "$$" "$(date "+%Y-%m-%d %H:%M:%S %Z")" > $L/gpu$g.lock/info
@@ -52,24 +54,25 @@ claim_card() {
     done
     [ -z "$CARD" ] && sleep 60
   done
+  return 0
 }
-release_card() { [ -n "$CARD" ] && rm -rf $L/gpu$CARD.lock && log "released gpu$CARD"; CARD=""; }
+release_card() { [ -n "$CARD" ] && rm -rf $L/gpu$CARD.lock && log "released gpu$CARD"; CARD=""; since=(); }   # a card is claimed only after 10 idle minutes seen anew
 trap 'release_card' EXIT
 trap 'exit 1' INT TERM HUP
 wait_file() { until [ -e "$1" ]; do sleep 60; done; }
 cpu_slot() { while true; do for k in 1 2; do mkdir $T/cpu_slot_$k 2>/dev/null && { echo $k; return; }; done; sleep 60; done; }
 
-render_one() {   # NAME AZ EL VIEW
-  local name=$1 az=$2 el=$3 view=$4 F=$D/${1}_frames12.npz
+render_one() {   # NAME AZ EL VIEW [DIST]
+  local name=$1 az=$2 el=$3 view=$4 dist=${5:-1} F=$D/${1}_frames12.npz
   local pair=$(cat $D/pair_$name) out=$R/${1}_$4
   local dense=$D/ind/${pair}_dense15.npz
   wait_file $dense
   ( export PHYSMORPH_RUN_REPO=$B/repo_t1s; source $B/repo_t1s/scripts/ops/hyde06_env.sh > /dev/null 2>&1
     source $B/tmp/d146/cache_env.sh; rm -rf $out; t0=$(date +%s)
     CUDA_VISIBLE_DEVICES=$CARD $PY scripts/render_deliverable.py $F $dense $out +stride=1 +video=1 +fit=0 +field=zbs \
-      +az=$az +el=$el > $out.log 2>&1 < /dev/null
+      +az=$az +el=$el +dist=$dist > $out.log 2>&1 < /dev/null
     echo "$? $(( $(date +%s) - t0 ))" > $R/rc_${name}_$view )
-  log "render ${name}_$view az $az el $el rc/wall $(cat $R/rc_${name}_$view)"
+  log "render ${name}_$view az $az el $el dist $dist rc/wall $(cat $R/rc_${name}_$view)"
   [ "$(cut -d' ' -f1 $R/rc_${name}_$view)" = 0 ] || return
   ffmpeg -loglevel error -y -framerate 20 -i $out/frames/%04d.jpg -c:v libx264 -crf 18 -pix_fmt yuv420p \
     $V/${name}_${view}_4k.mp4 < /dev/null
@@ -94,7 +97,7 @@ render_one() {   # NAME AZ EL VIEW
 
 run_one() {   # NAME SRC TGT AZ EL ARGS...
   local name=$1 src=$2 tgt=$3 az=$4 el=$5; shift 5; local args="$*"
-  local pair=${src}_${tgt} F=$D/${1}_frames12.npz
+  local pair=${src}_${tgt} F=$D/${name}_frames12.npz
   local ind=$D/ind/${pair}_ind300k.npz
   echo $pair > $D/pair_$name
   if [ "$src" = isosphere ]; then echo "sphere -> $tgt, 300k" > $D/title_$name; else echo "$src -> $tgt, 300k" > $D/title_$name; fi
@@ -110,7 +113,7 @@ run_one() {   # NAME SRC TGT AZ EL ARGS...
       local rc=$?
       kill $mem
       echo "$rc $(( $(date +%s) - t0 )) $(sort -k2 -n $D/$name.mem | tail -1 | cut -d' ' -f2)" > $D/rc_$name )
-    log "run $name rc/wall/peak_mib $(cat $D/rc_$name)"
+    log "run $name rc/wall/peak_mib $(cat $D/rc_$name); kept frames $F"
   fi
   [ "$(cut -d' ' -f1 $D/rc_$name)" = 0 ] && [ -e $F ] || { log "$name FAILED or no kept frames"; return; }
   if [ ! -e $D/m_$name.log ]; then
@@ -129,8 +132,9 @@ run_one() {   # NAME SRC TGT AZ EL ARGS...
     log "read gpu $name"
   fi
   local cam=$(grep "^$name " $T/cams.txt 2>/dev/null | tail -1)   # a camera chosen after the queue line was written
-  [ "$az" != "-" ] && [ -n "$cam" ] && { set -- $cam; az=$2; el=$3; }
-  [ "$az" != "-" ] && [ ! -e $V/${name}_main_4k.mp4 ] && render_one $name $az $el main
+  local dist=1
+  [ "$az" != "-" ] && [ -n "$cam" ] && { set -- $cam; az=$2; el=$3; dist=${4:-1}; }
+  [ "$az" != "-" ] && [ ! -e $V/${name}_main_4k.mp4 ] && render_one $name $az $el main $dist
   # the CPU part, detached, at most two at a time
   ( trap - EXIT INT TERM HUP; k=$(cpu_slot)
     source $B/repo_r77/scripts/ops/hyde06_env.sh > /dev/null 2>&1; source $B/tmp/d146/cache_env.sh
@@ -175,7 +179,7 @@ while true; do
   set -- $line
   case $1 in
     run) shift; run_one "$@";;
-    render) render_one $2 $3 $4 $5;;
+    render) render_one $2 $3 $4 $5 ${6:-1};;
   esac
   NDONE=$((NDONE + 1))
   [ $NDONE -ge $HOLD ] && release_card

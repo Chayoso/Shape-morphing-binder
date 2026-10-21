@@ -1,0 +1,34 @@
+nefertiti300k_L97 35 12
+maxplanck300k_L97 145 10
+spot300k_L97 35 18
+cow300k_L97 50 15
+fandisk300k_L97 150 25
+bimba300k_L97 40 8
+heart300k_L97 65 15
+cheburashka300k_L97 20 12
+ogre300k_L97 25 12
+beast300k_L97 30 15
+heart300k_L97 70 15
+A300k_L97 70 12
+C300k_L97 70 12
+V300k_L97 70 12
+bunny2dragon300k_L97 35 18 1
+teapot2bob300k_L97 310 28 1
+spot2cow300k_L97 50 15 1
+armadilo2homer300k_L97 25 12 1.12
+bunny2happy300k_L97 15 10 1.12
+happy300k_L97 15 10 1.12
+bunny2dragon300k_L97 70 15 1
+cow300k_L97 50 15 1.06
+fandisk300k_L97 150 25 1.06
+bimba300k_L97 40 8 1.08
+heart300k_L97 70 15 1.06
+cheburashka300k_L97 20 12 1.08
+ogre300k_L97 25 12 1.08
+beast300k_L97 30 15 1.06
+A300k_L97 70 12 1.08
+C300k_L97 70 12 1.08
+V300k_L97 70 12 1.08
+bunny2dragon300k_L97 70 15 1.06
+teapot2bob300k_L97 310 28 1.06
+spot2cow300k_L97 50 15 1.06

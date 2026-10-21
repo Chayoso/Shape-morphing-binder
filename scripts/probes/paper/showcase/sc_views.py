@@ -6,6 +6,7 @@ import sys
 
 import numpy as np
 from PIL import Image, ImageDraw
+from scipy import ndimage
 
 out, path = sys.argv[1], sys.argv[2]
 azs = [float(a) for a in (sys.argv[3] if len(sys.argv) > 3 else "0,35,90,145,180,270").split(",")]
@@ -33,9 +34,13 @@ for az in azs:
     idx = py[ok].astype(int) * W + px[ok].astype(int)
     depth = np.full(W * H, np.inf)
     np.minimum.at(depth, idx, zc[ok])
+    d0 = depth.reshape(H, W)
+    d0 = ndimage.grey_erosion(np.where(np.isfinite(d0), d0, 1e9), size=3)   # close the gaps between points
+    depth = np.where(d0 < 1e8, d0, np.inf).ravel()
     d = depth.reshape(H, W)
     m = np.isfinite(d)
     dd = np.where(m, d, np.nanmax(np.where(m, d, np.nan)) if m.any() else 0)
+    dd = ndimage.gaussian_filter(dd, 2.0)
     gy, gx = np.gradient(dd)
     n = np.stack([-gx * W / (2 * tx * dd.clip(1e-6)), gy * H / (2 * ty * dd.clip(1e-6)), np.ones_like(dd)], -1)
     n /= np.linalg.norm(n, axis=-1, keepdims=True)

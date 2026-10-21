@@ -1,5 +1,7 @@
 # SHOWCASE queue (sc_chain.sh): run NAME SRC TGT AZ EL [args] | render NAME AZ EL VIEW
 # A: the gallery at 300k, sphere -> mesh, render arm, seed 97
+# the coordinator, 13:15 CDT: one shape-to-shape morph ahead of the gallery for the 17:00 demo (no studio render now; DEMO renders it)
+run bunny2dragon300k_L97 bunny dragon 35 18
 run nefertiti300k_L97 isosphere nefertiti 35 18
 run maxplanck300k_L97 isosphere maxplanck 35 18
 run spot300k_L97 isosphere spot 35 18
@@ -16,3 +18,23 @@ run V300k_L97 isosphere V 35 18
 # A: the twins
 run maxplanck300k_P97 isosphere maxplanck - - --render_weight_scale 0
 run fandisk300k_P97 isosphere fandisk - - --render_weight_scale 0
+# B: shape to shape, render arm, seed 97
+run teapot2bob300k_L97 teapot bob 35 18
+run spot2cow300k_L97 spot cow 35 18
+run armadilo2homer300k_L97 armadilo homer 35 18
+run bunny2happy300k_L97 bunny happy 35 18
+run bunny2dragon300k_P97 bunny dragon - - --render_weight_scale 0
+run teapot2bob300k_P97 teapot bob - - --render_weight_scale 0
+# C: the optional genus-high target the gallery lacks
+run happy300k_L97 isosphere happy 35 18
+# the existing B1 render arms (d145t_b1, the tag), rendered for the montage
+render fandisk300k_L97 150 25 main 1.06
+render cow300k_L97 50 15 main 0.75
+render maxplanck300k_L97 145 10 main 1.12
+render b1_bunny300k_L97 35 18 main 1.06
+render b1_dragon300k_L97 70 15 main 1.06
+render b1_teapot300k_L97 60 20 main 1.06
+render b1_bob300k_L97 310 28 main 1.06
+render b1_armadilo300k_L97 25 12 main 1.08
+render b1_homer300k_L97 25 12 main 1.12
+render bunny2dragon300k_L97 70 15 main 1.06
