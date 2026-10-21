@@ -56,6 +56,7 @@ D135_RUN_ARGS = {
     "reject_stop": 3, "render_exterior": True, "render_res_hi": None, "spacing_symmetric": False,
     "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
     "morph_ramp": "off", "morph_ref_n": 0, "morph_u_gate": "window", "morph_density_match": False,   # D155 / b / c, off
+    "morph_assim": "always", "record_elastic": False,                                                 # D155d, off
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
     "young": None,
 }

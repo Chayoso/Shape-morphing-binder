@@ -176,9 +176,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         Fp_pre = Fp                                     # the plastic state the committing window ran with
         if cfg.assim > 0:
             # isochoric: the elastic stretch's det-free part; assim_volume (D135): the volume too, so the volume the committed state keeps becomes the rest volume
+            # D155d (morph_assim_final): on the way (the window read a target with s < 1) isochoric, the volume from the
+            # final target on
+            on_way = cfg.morph_assim_final and morph is not None and s_morph < 1.0
             with timed("assim"):
                 Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                        isochoric=not cfg.assim_volume)
+                                        isochoric=not cfg.assim_volume or on_way)
         with timed("frames"):
             frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F,
                               Js=commit.J[1:-1] if J is not None else None, J_end=J)
@@ -199,6 +202,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     q = torch.quantile(jp, torch.tensor([.01, .5, .99], device=jp.device, dtype=jp.dtype))
                 rec.update(Jp_min=float(jp.min()), Jp_p01=float(q[0]), Jp_p50=float(q[1]), Jp_p99=float(q[2]),
                            Jp_max=float(jp.max()))
+            if cfg.record_elastic:                    # D155d: the elastic energy carried into the next window (a record)
+                rec.update(elastic_energy(F, Fp, vol0, cfg))
         if cfg.term_dump and stats.get("term_grads") is not None:
             write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one
@@ -258,6 +263,23 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     return {"truncation": trunc, "deliver_n": deliver_n, "frames": frames, "history": hist,
             "guards": guards, "Fp": _host(Fp), "n_held": 0, "converged": frozen,
             "balancer": {"cap": balancer.cap, "cap_rel": balancer.cap_rel, "alpha_lam": balancer.alpha_lam}}
+
+
+def elastic_energy(F, Fp, vol0, cfg) -> dict:
+    """D155d record: the elastic energy the body carries into the next window, sum_p V0_p psi(F_e), F_e = F Fp^-1, psi the
+    fixed-corotated density of the stress (mpm/constitutive.psi_fixed_corotated: mu sum (sigma - 1)^2 + lam/2 (J_e - 1)^2,
+    the window's lame(young, poisson)); its volumetric part; J_e's p01 / p99."""
+    from ...mpm.constitutive import lame
+    lam, mu = lame(cfg.young, cfg.poisson)
+    with torch.no_grad():
+        Fe = F.reshape(-1, 3, 3).double() @ torch.linalg.inv(Fp.reshape(-1, 3, 3).double())
+        sig = torch.linalg.svdvals(Fe)
+        je = torch.linalg.det(Fe)
+        v0 = torch.as_tensor(vol0, device=Fe.device).double().reshape(-1)
+        dev = (v0 * mu * ((sig - 1.0) ** 2).sum(1)).sum()
+        vol = (v0 * 0.5 * lam * (je - 1.0) ** 2).sum()
+        q = torch.quantile(je, torch.tensor([.01, .99], device=je.device, dtype=je.dtype))
+    return {"E_el": float(dev + vol), "E_el_vol": float(vol), "Je_p01": float(q[0]), "Je_p99": float(q[1])}
 
 
 def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, J=None) -> dict:

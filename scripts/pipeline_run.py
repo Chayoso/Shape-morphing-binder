@@ -135,6 +135,14 @@ def parse_args(argv=None):
                     help="D155c A/B, read with --morph_ramp elastic: each target on the way is rescaled about its centroid "
                          "by sp(Y) / sp(Z_s), the median 8th-neighbour spacing, so it holds the body's volume (D132's "
                          "density match applied on the way); off (the default) = Z_s as interpolated")
+    ap.add_argument("--morph_assim", default="always", choices=["always", "final"],
+                    help="D155d A/B, read with --morph_ramp elastic and --assim_volume: final = the plastic assimilation "
+                         "stays isochoric in a window whose target is one on the way (s < 1) and takes the volume from the "
+                         "final target on, so the in-between targets' volume is held elastically, not made rest volume; "
+                         "always (the default) = every window as D135")
+    ap.add_argument("--record_elastic", action=argparse.BooleanOptionalAction, default=False,
+                    help="D155d record, not read by the run: per committed window the elastic energy the body carries "
+                         "(sum V0 psi(F Fp^-1), its volumetric part, J_e's p01 / p99)")
     ap.add_argument("--morph_ref_n", type=int, default=0,
                     help="D155 diagnostic for --morph_ramp elastic: the elastic period of the same body sampled with this "
                          "many particles (the unit particle mass makes the density, and so the period, grow as sqrt(N): "
@@ -280,7 +288,9 @@ def run_config(args, cfg0, prep):
                               force_scale=args.force_scale,
                               morph_time=morph_time(args, prep),
                               morph_u_final=args.morph_ramp == "elastic" and args.morph_u_gate == "final",
-                              morph_density_match=args.morph_ramp == "elastic" and args.morph_density_match)
+                              morph_density_match=args.morph_ramp == "elastic" and args.morph_density_match,
+                              morph_assim_final=args.morph_ramp == "elastic" and args.morph_assim == "final",
+                              record_elastic=args.record_elastic)
     if args.baseline.startswith("xu"):     # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     return cfg

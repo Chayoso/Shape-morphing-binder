@@ -1,5 +1,5 @@
 """D155 (option A, `morph_time`, off by default; D155b `morph_u_final` and the exact pack without the particle pictures;
-D155c `morph_density_match`):
+D155c `morph_density_match`; D155d `morph_assim_final` and the `record_elastic` records):
 the window's target is the point of the geodesic between the source and
 the target at the window's end time (physmorph/pipeline/run/morph.py). The ramp (CPU): zero at the start, one from the
 ramp's end, monotone, flat at both ends. The run (CUDA): every window of the ramp reads a pack built from Z_s with the
@@ -226,3 +226,57 @@ def test_d155c_targets_on_the_way_hold_the_bodys_density(monkeypatch):
             assert all(h["morph_k"] == 1.0 for h in wins)
         else:
             assert any(abs(h["morph_k"] - 1.0) > 1e-3 for h in wins)
+
+
+def test_d155d_switch_is_off_by_default_and_checked():
+    from physmorph.pipeline import PipelineConfig
+    assert PipelineConfig().morph_assim_final is False and PipelineConfig().record_elastic is False
+    with pytest.raises(ValueError):                    # it reads the moving target
+        PipelineConfig(morph_assim_final=True, assim_volume=True)
+    with pytest.raises(ValueError):                    # and the volume assimilation
+        PipelineConfig(morph_assim_final=True, morph_time=1.0)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="the pipeline runs on CUDA")
+def test_d155d_the_volume_is_assimilated_from_the_final_target_on(monkeypatch):
+    """morph_assim_final: every window that read a target on the way (s < 1) assimilates isochorically (det Fp stays 1),
+    every window on the final target takes the volume too; off, every window takes it (D135). record_elastic adds the
+    elastic energy records (nonnegative, the volumetric part within the total)."""
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import PipelineConfig, run_pipeline
+    from physmorph.pipeline.run import runner
+    from physmorph.pipeline.run.morph import MorphTarget
+    calls, last_s = [], []
+    assim, at = runner.assimilate_elastic, MorphTarget.at
+
+    def recording_assim(F, Fp, **kw):
+        calls.append((last_s[-1], kw["isochoric"]))
+        return assim(F, Fp, **kw)
+
+    def recording_at(self, t):
+        out = at(self, t)
+        last_s.append(out[1])
+        return out
+
+    monkeypatch.setattr(runner, "assimilate_elastic", recording_assim)
+    monkeypatch.setattr(MorphTarget, "at", recording_at)
+    rng = np.random.default_rng(7)
+    src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
+    tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    base = dict(T=3, iters=2, animations=5, loss_res=12, render_views=2, render_elevs=(0.0, 0.5), render_res=24,
+                dt_res=32, patience=5, reject_stop=0, morph_time=1.5 * 2 * 3 * prm.dt, morph_u_final=True,
+                assim_volume=True, record_elastic=True)
+    for on in (False, True):
+        calls.clear()
+        last_s.clear()
+        res = run_pipeline(src, tgt, prm, PipelineConfig(**base, morph_assim_final=on), log=lambda *_: None)
+        assert calls
+        for s, iso in calls:
+            assert iso is (on and s < 1.0)
+        wins = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")]
+        assert wins and all({"E_el", "E_el_vol", "Je_p01", "Je_p99"} <= set(h) for h in wins)
+        assert all(0.0 <= h["E_el_vol"] <= h["E_el"] + 1e-9 and h["Je_p01"] <= h["Je_p99"] for h in wins)
+        if on:                                         # the rest volume stays the source's on the way
+            assert all(abs(h["Jp_p01"] - 1.0) < 1e-4 and abs(h["Jp_p99"] - 1.0) < 1e-4 for h in wins
+                       if h.get("morph_s", 1.0) < 1.0)

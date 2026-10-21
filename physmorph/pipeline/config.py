@@ -167,6 +167,14 @@ class PipelineConfig:
     morph_density_match: bool = False  # D155c A/B: with morph_time > 0, each target on the way rescaled about its centroid by
                                     #   sp(Y) / sp(Z_s) (the median 8th-neighbour spacing), so it holds the body's volume (D132's
                                     #   density match on the way); False = Z_s as interpolated
+    morph_assim_final: bool = False  # D155d A/B: with morph_time > 0 and assim_volume, the plastic assimilation stays isochoric
+                                    #   in a window whose target is one on the way (s < 1) and takes the volume from the final
+                                    #   target on (s = 1): the volume the in-between targets ask is held elastically, not made
+                                    #   rest volume (D135's rule read on the end state it was made for); False = every window
+                                    #   as D135 (the volume too)
+    record_elastic: bool = False    # D155d record, not read by the run: per committed window the elastic energy the body
+                                    #   carries into the next window, sum over particles of V0 psi(F Fp^-1) (fixed corotated),
+                                    #   its volumetric part sum V0 lam/2 (J_e - 1)^2, and J_e's p01 / p99
 
     # ---- outer acceptance ----
     outer_merit_tol: float = 1e-4   # a repeated rejected merit within this is a replay
@@ -219,3 +227,6 @@ class PipelineConfig:
             raise ValueError("morph_time must be finite and nonnegative (0: off)")
         if self.morph_time > 0 and (self.baseline or self.gap_split != "off"):
             raise ValueError("the geodesic target (D155) runs on our objective, without a baseline or gap_split")
+        if self.morph_assim_final and not (self.morph_time > 0 and self.assim_volume):
+            raise ValueError("morph_assim_final (D155d) reads the moving target and the volume assimilation: it needs "
+                             "morph_time > 0 and assim_volume")
