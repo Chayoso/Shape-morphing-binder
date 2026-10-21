@@ -1,4 +1,5 @@
-"""D155 (option A, `morph_time`, off by default; D155b `morph_u_final` and the exact pack without the particle pictures):
+"""D155 (option A, `morph_time`, off by default; D155b `morph_u_final` and the exact pack without the particle pictures;
+D155c `morph_density_match`):
 the window's target is the point of the geodesic between the source and
 the target at the window's end time (physmorph/pipeline/run/morph.py). The ramp (CPU): zero at the start, one from the
 ramp's end, monotone, flat at both ends. The run (CUDA): every window of the ramp reads a pack built from Z_s with the
@@ -172,3 +173,44 @@ def test_d155b_a_pack_without_the_particle_pictures_is_the_same_pack():
     assert (a.extent, a.pdx, a.pblur, a.nn_spacing, a.m_ref, a.n_support) == (b.extent, b.pdx, b.pblur, b.nn_spacing,
                                                                               b.m_ref, b.n_support)
     assert a.ext.pitch == b.ext.pitch and a.ext.h == b.ext.h
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="the pipeline runs on CUDA")
+def test_d155c_targets_on_the_way_hold_the_bodys_density(monkeypatch):
+    """morph_density_match: every pack on the way has the final target's median 8th-neighbour spacing (its points
+    rescaled about their centroid by sp(Y) / sp(Z_s)); the records carry k and the local volume quantiles; off, k = 1."""
+    from physmorph import gpu
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import PipelineConfig, run_pipeline
+    from physmorph.pipeline.window import solve
+    seen = []
+    init = solve.WindowOptimizer.__init__
+
+    def recording(self, *a, **kw):
+        init(self, *a, **kw)
+        seen.append(self.tgt)
+
+    monkeypatch.setattr(solve.WindowOptimizer, "__init__", recording)
+    rng = np.random.default_rng(7)
+    src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
+    tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    base = dict(T=3, iters=2, animations=4, loss_res=12, render_views=2, render_elevs=(0.0, 0.5), render_res=24,
+                dt_res=32, patience=5, reject_stop=0, morph_time=3.5 * 2 * 3 * prm.dt, morph_u_final=True)
+    for on in (False, True):
+        seen.clear()
+        res = run_pipeline(src, tgt, prm, PipelineConfig(**base, morph_density_match=on), log=lambda *_: None)
+        wins = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")
+                and (h.get("morph_s") or 1) < 1]
+        assert wins and all("morph_k" in h and len(h["morph_vol_q"]) == 3 for h in wins)
+        sp_y = gpu.median_kth_spacing(seen[0].pts.new_tensor(tgt), 8, subsample=20000)
+        on_way = [t for t in seen if not torch.equal(t.pts, torch.as_tensor(tgt, device=t.pts.device))]
+        assert on_way
+        for t in on_way:
+            sp = gpu.median_kth_spacing(t.pts, 8, subsample=20000)
+            if on:
+                assert sp == pytest.approx(sp_y, rel=1e-4)
+        if not on:
+            assert all(h["morph_k"] == 1.0 for h in wins)
+        else:
+            assert any(abs(h["morph_k"] - 1.0) > 1e-3 for h in wins)

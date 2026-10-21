@@ -164,6 +164,9 @@ class PipelineConfig:
                                     #   first window (the frozen path)
     morph_u_final: bool = False     # D155b A/B: with morph_time > 0, u's gate reads the arrival at the FINAL target (as without
                                     #   the ramp), not at the moving one; False = the window's own target (D155's option A as run)
+    morph_density_match: bool = False  # D155c A/B: with morph_time > 0, each target on the way rescaled about its centroid by
+                                    #   sp(Y) / sp(Z_s) (the median 8th-neighbour spacing), so it holds the body's volume (D132's
+                                    #   density match on the way); False = Z_s as interpolated
 
     # ---- outer acceptance ----
     outer_merit_tol: float = 1e-4   # a repeated rejected merit within this is a replay

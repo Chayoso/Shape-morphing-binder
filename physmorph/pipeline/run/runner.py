@@ -190,7 +190,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         with timed("record"):
             rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
             if morph is not None:                     # D155's records: s, the pack's build, the final target's terms
-                rec.update(morph_s=s_morph, morph_build_s=morph.build_s if moved else 0.0)
+                rec.update(morph_s=s_morph, morph_build_s=morph.build_s if moved else 0.0, **morph.pack_record)
                 if s_morph < 1.0:
                     rec.update(morph.final_terms(x))
             if cfg.assim_volume:                      # D135: the rest volume the assimilation has taken (a record)

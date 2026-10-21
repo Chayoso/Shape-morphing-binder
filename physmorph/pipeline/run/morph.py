@@ -57,6 +57,22 @@ def ramp(t: float, t_m: float) -> float:
     return u * u * (3.0 - 2.0 * u)
 
 
+def local_volume_quantiles(points: torch.Tensor, sp_ref: float, subsample: int = 20000, seed: int = 0) -> list:
+    """D155c, a record: the local volume per point over the reference's, (d8 / sp_ref)^3 with d8 each point's 8th-neighbour
+    distance on the seeded subsample median_kth_spacing uses (rescaled to the full density as it does), quantiles p05 /
+    p50 / p95: how far a target's density varies from place to place."""
+    import numpy as np
+    n = int(points.shape[0])
+    sub, scale = points, 1.0
+    if n > subsample:
+        idx = torch.as_tensor(np.random.default_rng(seed).choice(n, subsample, replace=False), device=points.device)
+        sub, scale = points[idx], (subsample / n) ** (1.0 / 3.0)
+    d = gpu.knn(sub, 9)[0][:, 8].double() * scale
+    v = (d / sp_ref) ** 3
+    q = torch.quantile(v, torch.tensor([0.05, 0.5, 0.95], device=v.device, dtype=v.dtype))
+    return [round(float(x), 4) for x in q]
+
+
 def transport_ruler(pack, cfg) -> GridSinkhornLoss:
     """A transport loss on the pack's grid, built as window/objective.Objective builds the run's at its first window."""
     return GridSinkhornLoss(pack.grid, pack.lgmin, pack.ldx, pack.ldims, eps=float(pack.ldx) ** 2,
@@ -99,6 +115,14 @@ class MorphTarget:
             f"from the target to the source |D_Y| mean {float(dn.mean()):.4f}, max {float(dn.max()):.4f} wu, at "
             f"{len(self.samples)} sample(s) in {time.perf_counter() - t0:.2f} s; transport scale {final.ot_scale:.6g}")
         self.cur, self.s, self.build_s = final, None, 0.0
+        self.pack_record = {}
+        # D155c: the final target's own spacing (build_target's estimator: the median 8th-neighbour distance on its seeded
+        # 20k subsample) and its local volumes, the reference every pack on the way is matched to and read against
+        self.sp_y = gpu.median_kth_spacing(final.pts, 8, subsample=20000)
+        self.vol_y = local_volume_quantiles(final.pts, self.sp_y)
+        if cfg.morph_density_match:
+            log(f"[morph] D155c: each target on the way at the body's density (spacing {self.sp_y:.5f} wu); the final "
+                f"target's local volume quantiles p05 / p50 / p95 {self.vol_y}")
 
     def at(self, t: float):
         """(the pack of the window ending at time t, its s, whether the pack changed)."""
@@ -108,9 +132,18 @@ class MorphTarget:
         t0 = time.perf_counter()
         if s >= 1.0:
             new = self.final
+            self.pack_record = {}
         else:
             with torch.no_grad():
                 Z = [(Y + (1.0 - s) * D).contiguous() for Y, D in zip(self.samples, self.D)]
+                sp_z = gpu.median_kth_spacing(Z[0], 8, subsample=20000)
+                k = 1.0
+                if self.cfg.morph_density_match:     # D155c: the target on the way at the body's density (D132's match)
+                    k = self.sp_y / sp_z
+                    c = Z[0].mean(0)
+                    Z = [((z - c) * k + c).contiguous() for z in Z]
+                self.pack_record = {"morph_k": k, "morph_vol_ratio": (sp_z / self.sp_y) ** 3,
+                                    "morph_vol_q": local_volume_quantiles(Z[0], self.sp_y)}
                 new = build_target(Z[0], self.prm, self.cfg, draws=Z[1:] or None,
                                    particle_pictures=not (SKIP_UNUSED_PICTURES and self.cfg.render_exterior))
             for k in CALIBRATED:
