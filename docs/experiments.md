@@ -15356,6 +15356,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Cards.* One card by the lock protocol (agent D158; a card idle 10 minutes; released when the fits end; nothing held
   while reading files), bunny and dragon in parallel on it; about 30–40 min. Dumps deleted after the reading
   (`cleanup.log`).
+  *Follow-up (pre-registered 16:48 CDT, after the bunny's first reading and before this computation; the dragon's fit
+  still running).* The fit draws its discs with D115's display normals (the field's, averaged twice over the base
+  reach), while the loop's discs and every target picture carry the field's own normal at the disc (Tracked.read): a
+  shading gain of the relief may only undo that averaging. The dumps at t = 4 s and the end are drawn again with the
+  field's own normals, tilted by the slope of the drawn height as before (`tmp/d158/d158_raw.py`, on D158's card beside
+  the dragon's fit): the run's surface (h = 0), the relief alone (h_rel), its held parts (P_W h_rel, P_F h_rel), the
+  smooth part and the whole layer, against the four pictures. Reading: T is confirmed with the loop's own normals if,
+  against the loop's own targets, the relief alone changes silhouette + shading by less than 5 % either way at both
+  pixels, while against the dense pictures the relief on top of h_low still lowers it by more than 30 %.
 
 ## To run next, in order
 
