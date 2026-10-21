@@ -90,15 +90,17 @@ def test_an_impacts_compression_is_not_assimilated():
 def test_the_uncontrolled_continuation_is_the_windows_own_zero_control_rollout():
     """B9b, assim_share: zero_end_F rolls the window's start out with zero control and zero u under the same loads
     (gravity, the floor with its position constraint): the window's own rollout of the zero control, to the rounding."""
-    cfg = PipelineConfig(T=6, young=1.0e4, min_spacing=0.9, volume_exact="carried")
+    cfg = PipelineConfig(T=20, young=1.0e4, min_spacing=0.9, volume_exact="carried")
     x = _ball((0.0, 0.0, 0.0))
-    prm = MPMParams(dx=1.0, dt=1.0 / 240.0, drag=0.0, f_ext=(0.0, -3.0, 0.0), grid_min=(-16.0, -10.0, -10.0),
+    prm = MPMParams(dx=1.0, dt=1.0 / 240.0, drag=0.0, f_ext=(0.0, -50.0, 0.0), grid_min=(-16.0, -10.0, -10.0),
                     nx=32, ny=20, nz=20, floor_y=float(x[:, 1].min()) - 0.5 * 0.125 ** (1.0 / 3.0))
     win = _window([x], [np.zeros_like(x)], prm, cfg)
     win.load(torch.zeros(cfg.T, len(x), 3, 3, device="cuda"), None)
     F_loaded = _loaded_end_F(win)
-    assert float((F_loaded - torch.eye(3, device="cuda")).abs().max()) > 1e-6       # the loads deform it
-    assert float((F_loaded - win.zero_end_F()).abs().max()) < 1e-5
+    assert float((F_loaded - torch.eye(3, device="cuda")).abs().max()) > 1e-5       # the loads deform it (40 steps,
+                                                                                    # pressed into the floor)
+    dev = float((F_loaded - torch.eye(3, device="cuda")).abs().max())
+    assert float((F_loaded - win.zero_end_F()).abs().max()) < max(1e-5, 1e-3 * dev)        # the atomics' rounding
 
 
 def test_the_controls_share_cancels_the_loads_and_their_rotation():
