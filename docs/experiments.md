@@ -10449,6 +10449,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   No gate or run has started.
   - Slip against a hard rule, recorded: at about 12:12 CDT I started a local `python -` with an empty heredoc (meant as
     a no-op). It executed no code, but it broke the never-run-python-locally rule.
+  *Resumed 12:47 (the user re-added the key).* repo_d156 / repo_d156s were redeployed from cf5b8b2. That commit
+  changes only the new test: GPU grids built from atomic sums are compared with tolerances. The chain started at 12:47
+  and waits for a card.
+  - The coordinator accepted the frame call: the hull is centred on its own sample, as every target; the true mesh is
+    placed in the hull's frame, at the hull sample's number density. Reason: the controls carry no net force, so the
+    body's centre of mass stays at the hull's centroid, which lies 0.05–2.7 pitches from the mesh's.
+  - The chain claimed no card in 28 minutes, although GPU 0 looked free from 12:47 to 13:11. At 13:17 I stopped the
+    chain by its own PID and restarted it with the wait reasons logged every 15 minutes. From 13:11, DEMO held GPUs 0
+    and 3, D155 GPU 1 and SHOWCASE GPU 2.
+  - The reader was tested and the references were read before any D156 run: the tag's V / W at seeds 97 / 99 with
+    H, M and Mp in their frames (90 states, two CPU readers at nice 10). The perfect references behave as designed.
+    Mp's shares are 0.93–1.04 (volume, held-out silhouettes, studio views, own pictures).
+  - The pictures carry the excess. The run's own render terms score the hull's perfect sample 3.4–11 × above the
+    independent mesh sample on the silhouette (bunny 5.2e-3 against 1.5e-3, cow 1.04e-2 against 0.93e-3) and 3.4–8 ×
+    on the shading, although the hull's binary silhouettes match the mesh's to half a pixel in the training views.
+  *Amendment (13:59 CDT, before any D156 run; nothing of L or P exists yet).* The surface share's pre-registered
+  all-points form cannot score even a run that has the mesh itself as its target on the shallow meshes. V's share is
+  −0.31 / −0.17 (homer), 0.37 / 0.34 (armadilo) and 0.41 / 0.33 (cow), against 0.72–0.96 elsewhere. The cause is the
+  points less than half a pitch below the hull: 57–78 % of the image-visible surface. There the hull and the mesh
+  differ by less than the 0.1-pitch outward offset of any morph's end from a perfect sample, so that depth bin's share
+  reads −28…+10 for V and W. On the points at least half a pitch below the hull (the pre-registered bins 0.5–1, 1–2 and
+  ≥ 2, pooled), V scores 0.70–1.01, W 0.75–1.01 and Mp 0.97–1.04 on all nine meshes.
+  - The decision's surface measure is therefore that pooled share (`surf_deep`). The thresholds and the rest of the
+    rule are unchanged, and the all-points form is reported alongside with its own count.
+  - V's pooled share per mesh (0.70–1.01) is reported as what a 3D target gives (the ceiling).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

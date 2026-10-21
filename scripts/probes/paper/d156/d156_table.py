@@ -9,7 +9,8 @@ independent draw of the mesh:
   share_img(X)  = (q_H - q_X) / (q_H - q_Mp)         q = the held-out studio views' MSE (shaded, normal map) and LPIPS
                                                      against M's display surface
 Delta = share(L) - share(P) per mesh-seed; per mesh the mean over the seeds. The decision (the pre-registration):
-PASS if Delta_surf >= 0.15 and Delta_vol >= 0.10 on >= 6 of 9 meshes with the same sign at both seeds on each and the
+PASS if Delta_surf (amended 13:59, before any D156 run: the share on the points at least half a pitch below the hull,
+surf_deep; the all-points form alongside) >= 0.15 and Delta_vol >= 0.10 on >= 6 of 9 meshes with the same sign at both seeds on each and the
 median Delta_surf >= 0.15; STRONG if Delta_surf >= 0.5 on >= 6 of 9; FAIL if Delta_surf < 0.05 on >= 6 of 9; else PARTIAL.
 The runs' records (RUNS_DIR/MESH40k_ARM_SEED.json, _frames12.npz): minutes, committed windows, gates, the body's volume,
 the render terms at the end, the centre-of-mass drift (pitches) and the net rotation (the polar part of the best affine
@@ -38,6 +39,8 @@ def shares(c, lab):
                surf=share(-H["surf"]["S"], -M["surf"]["S"], -X["surf"]["S"]),
                surf_bins=[share(-h["S"], -m["S"], -x["S"]) for h, m, x in
                           zip(H["surf"]["bins"], M["surf"]["bins"], X["surf"]["bins"])],
+               surf_deep=share(-sum(b["S"] for b in H["surf"]["bins"][1:]), -sum(b["S"] for b in M["surf"]["bins"][1:]),
+                               -sum(b["S"] for b in X["surf"]["bins"][1:])),
                sil_held=share(H["sil"]["held"], Mp["sil"]["held"], X["sil"]["held"]),
                sil_train=share(H["sil"]["train"], Mp["sil"]["train"], X["sil"]["train"]))
     for kind in ("shaded", "normal"):
@@ -97,7 +100,7 @@ for (mesh, seed, frame), c in sorted(ctx.items()):
                 t["raw"][lab]["record"] = rec
         if "L" in t and "P" in t:
             deltas[mesh][seed] = {k: (t["L"][k] - t["P"][k]) if isinstance(t["L"][k], float) and isinstance(t["P"][k], float)
-                                  else None for k in ("vol", "surf", "sil_held", "img_shaded_mse", "img_normal_mse",
+                                  else None for k in ("vol", "surf", "surf_deep", "sil_held", "img_shaded_mse", "img_normal_mse",
                                                       "img_shaded_lpips", "pic_sil", "pic_pbr")}
     table[f"{mesh}_{seed}_{frame}"] = t
 
@@ -108,9 +111,10 @@ for mesh, by_seed in deltas.items():
                               if any(v[k] is not None for v in by_seed.values()) else None,
                               seeds={str(s): v[k] for s, v in by_seed.items()}) for k in ks}
 n = len(per_mesh)
-ds = {m: v["surf"]["mean"] for m, v in per_mesh.items()}
+ds = {m: v["surf_deep"]["mean"] for m, v in per_mesh.items()}           # the amended primary (13:59 entry)
+ds_all = {m: v["surf"]["mean"] for m, v in per_mesh.items()}          # the pre-registered all-points form, alongside
 dv = {m: v["vol"]["mean"] for m, v in per_mesh.items()}
-both_seeds = {m: all(np.sign(x) == np.sign(ds[m]) for x in per_mesh[m]["surf"]["seeds"].values() if x is not None) and
+both_seeds = {m: all(np.sign(x) == np.sign(ds[m]) for x in per_mesh[m]["surf_deep"]["seeds"].values() if x is not None) and
               all(np.sign(x) == np.sign(dv[m]) for x in per_mesh[m]["vol"]["seeds"].values() if x is not None)
               for m in per_mesh}
 k_pass = sum(1 for m in per_mesh if ds[m] >= 0.15 and dv[m] >= 0.10 and both_seeds[m])
@@ -120,11 +124,15 @@ med = float(np.median(list(ds.values()))) if ds else None
 need = int(np.ceil(6 * n / 9)) if n else 0
 verdict = ("STRONG" if n and k_strong >= need else "PASS" if n and k_pass >= need and med >= 0.15 else
            "FAIL" if n and k_fail >= need else "PARTIAL")
-summary = dict(meshes=n, need=need, k_pass=k_pass, k_strong=k_strong, k_fail=k_fail, median_delta_surf=med,
+k_pass_all = sum(1 for m in per_mesh if ds_all[m] >= 0.15 and dv[m] >= 0.10)
+k_fail_all = sum(1 for m in per_mesh if ds_all[m] < 0.05)
+summary = dict(all_points=dict(delta_surf=ds_all, k_pass=k_pass_all, k_fail=k_fail_all,
+                               median=float(np.median(list(ds_all.values()))) if ds_all else None),
+               meshes=n, need=need, k_pass=k_pass, k_strong=k_strong, k_fail=k_fail, median_delta_surf=med,
                verdict=verdict, delta_surf=ds, delta_vol=dv, same_sign_both_seeds=both_seeds)
 json.dump(dict(summary=summary, per_mesh=per_mesh, table=table), open(out_path, "w"), indent=1)
 print(json.dumps(summary, indent=1))
 for m in sorted(per_mesh):
     v = per_mesh[m]
-    print(f"{m:12s} d_vol {v['vol']['mean']:+.3f} {v['vol']['seeds']}  d_surf {v['surf']['mean']:+.3f} {v['surf']['seeds']}  "
+    print(f"{m:12s} d_vol {v['vol']['mean']:+.3f} {v['vol']['seeds']}  d_surf_deep {v['surf_deep']['mean']:+.3f} {v['surf_deep']['seeds']}  d_surf_all {v['surf']['mean']:+.3f}  "
           f"d_sil {v['sil_held']['mean'] if v['sil_held']['mean'] is not None else float('nan'):+.3f}")

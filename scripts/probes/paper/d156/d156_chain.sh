@@ -23,15 +23,21 @@ MESHES=${D156_MESHES:-"bunny dragon armadilo homer cow bob cheburashka C A"}
 CARD=""
 claim_card() {
   local what=$1; declare -A since
+  local last_report=0
   while [ -z "$CARD" ]; do
-    local now=$(date +%s)
+    local now=$(date +%s) reasons=""
     for g in 3 1 0; do
       local used=$(nvidia-smi -i $g --query-gpu=memory.used --format=csv,noheader,nounits)
       local uuid=$(nvidia-smi -i $g --query-gpu=uuid --format=csv,noheader)
       local other=$(nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader | grep "$uuid" | while IFS=', ' read -r u p; do
                     o=$(ps -o user= -p $p 2>/dev/null); [ -n "$o" ] && [ "$o" != chayo ] && echo x; done | wc -l)
       local mine=$(nvidia-smi --query-compute-apps=gpu_uuid --format=csv,noheader | grep -c "$uuid")
-      if [ -d $L/gpu$g.lock ] || [ "$used" -gt 2000 ] || [ "$other" -gt 0 ] || [ "$mine" -gt 0 ]; then since[$g]=""; continue; fi
+      local why=""
+      [ -d $L/gpu$g.lock ] && why="lock($(grep -m1 agent $L/gpu$g.lock/info 2>/dev/null))"
+      [ "$used" -gt 2000 ] && why="$why used=${used}MiB"
+      [ "$other" -gt 0 ] && why="$why other-user"
+      [ "$mine" -gt 0 ] && why="$why apps=$mine"
+      if [ -n "$why" ]; then [ -n "${since[$g]}" ] && log "gpu$g busy again: $why"; since[$g]=""; reasons="$reasons gpu$g:$why;"; continue; fi
       [ -n "${since[$g]}" ] || since[$g]=$now
       local fs=$(cat $B/tmp/d145/free_since/gpu$g 2>/dev/null); [ -n "$fs" ] && [ "$fs" -lt "${since[$g]}" ] && since[$g]=$fs
       if [ $((now - ${since[$g]})) -ge 600 ] && mkdir $L/gpu$g.lock 2>/dev/null; then
@@ -40,6 +46,10 @@ claim_card() {
         break
       fi
     done
+    if [ -z "$CARD" ] && [ $((now - last_report)) -ge 900 ]; then
+      log "waiting:$reasons free:$(for k in "${!since[@]}"; do [ -n "${since[$k]}" ] && echo -n " gpu$k since $(date -d @${since[$k]} +%H:%M:%S)"; done)"
+      last_report=$now
+    fi
     [ -z "$CARD" ] && sleep 60
   done
   export CUDA_VISIBLE_DEVICES=$CARD
