@@ -6365,7 +6365,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
         (the scene already rolls it out for the line search). The weight's sag then never becomes rest shape. B9b's
         Z1 / Z5 show the assimilation turns the sag into an unbounded sinking, and here the turn grows with the sag's
         depth. This is D147's earlier proposal, now with the data that call for it. No new constant.
-  - **Option 1, the 300k stage, pre-registered 2026-10-21 10:20 CDT server clock, before any run** (the 40k gate PASSED
+  - **Option 1, the 300k stage, pre-registered 2026-10-21 10:17 CDT server clock (committed before the chain's launch
+    at 10:18:34), before any run** (the 40k gate PASSED
     on the corrected measure, as the coordinator's go asks: "if it passes, go on to the pre-registered 300k").
     - *Code:* `wip/b9b` with `tobody.shape_fit` (deployed to `repo_b9w`; chain `chain300kw.sh`).
     - *Runs:* bunny and dragon at 300k, L97 / L99 / L101 and P97, `specs/b9w_MESH.json`. One card idle 10 min.
