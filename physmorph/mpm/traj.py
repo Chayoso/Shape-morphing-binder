@@ -23,6 +23,10 @@ from .step import cell_counts
 # products to float rounding, a fraction of the generated ones' cost); False records the generated adjoints (tests)
 HAND_ADJOINTS = True
 ORDERED_TRANSFERS = True       # D138 batch 4: P2G and G2P's adjoint in cell order on CUDA (tests switch it to compare)
+# D153: a step in which neither the layer relaxation nor u acts (with relax_driven, D146: the released steps) leaves the
+# layer's three kernels and their adjoints out; the positions and gradients are the same bit for bit (tests switch it
+# to compare)
+SKIP_IDLE_LAYER = True
 
 
 _WARMED: set = set()          # devices whose kernels were launched once outside a capture
@@ -365,7 +369,11 @@ class Trajectory:
                 ADJ.record_g2p(tape, self, t, dfc, N)
         if self.carries:
             wp.launch(K.k_volume_update_motion, dim=N, inputs=[self.C[t + 1], self.J[t], self.J[t + 1], prm.dt], device=dev)
-        x_next = self.xu[t + 1] if self.layer else self._x_out(t)
+        # D153 (exact): in a step where neither the relaxation (relax_driven, D146: the driven steps) nor u (the driven
+        # steps) acts, the layer's three kernels leave the positions as they are (s = -0 (d - dbar - ref), so b = 0 and
+        # x_out = xu + 0 n): k_update writes the step's positions itself, and the kernels and their adjoints are left out
+        layer_step = bool(self.layer) and (not SKIP_IDLE_LAYER or t < self.relax_steps or t < self.control_steps)
+        x_next = self.xu[t + 1] if layer_step else self._x_out(t)
         F_next = self.Fs[t + 1] if self.carries else self.F[t + 1]
         snbr = self.space_nbr if self.space_K > 0 else self.nbr0
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
@@ -376,7 +384,7 @@ class Trajectory:
             ADJ.record_update(tape, self, t, x_next, F_next, bnb, brest, bnc, bK, snbr, N)
         if self.carries:
             wp.launch(K.k_volume_carry, dim=N, inputs=[self.Fs[t + 1], self.J[t + 1], self.F[t + 1]], device=dev)
-        if self.layer:
+        if layer_step:
             layer_u = self.layer_u if t < self.control_steps else self.release_u
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
