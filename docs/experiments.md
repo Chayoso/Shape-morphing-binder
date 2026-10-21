@@ -9799,6 +9799,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     Prediction (inferred): the bias is outward at both N and about the same in pitches (both N have about 1.2 pitches
     a render pixel), so in world units, and as a share of the silhouette's area, twice as large at 40k; at 300k the
     shading term and the symmetric part pull the arm inward (L / P offset 0.93–0.98), at 40k they do not.
+  *Amendments before any reading (10:35 CDT; seen: the reader's test on the 40k bunny seed 97, its three states).*
+  (1) The five open meshes (bunny, dragon, beast, maxplanck, ogre) are closed for the referee by a fan from each
+  boundary loop's centroid (the volume the sampler fills; bunny 5 loops, watertight after). (2) The corrected referee's
+  marching cubes at a / 2, not a / 4 (a full a / 4 grid is 3.4 GB at 300k); on the test its points sit 0.801 pitch
+  outside the mesh against c = 0.804 (sd 0.014). (3) The gate reads D154's pooled 1 − IoU (Σ xor / Σ union over the 18
+  views); on the test it is 1.7–1.9e-6 from D154's, the fan-closed holes (D154 read the open mesh), so the 1e-6 gate is
+  read on the watertight meshes. (4) (4a): the one-pixel rim covers 90 % of a 40k surface (15 distinct training lines;
+  head-on 10 %, crevice 0.2–0.3 %), so the offset is also read in bins of the distance to the nearest training outline
+  (|n · d| < 0.5; run's render pixels 0 / 0.1 / 0.25 / 0.5 / 1 / 2 / ∞). (5) (4b)'s half and double resolutions on seed
+  97 only. Runs: three CPU slots (`d157_queue.sh`, nice 10, 6 threads each) from 10:32:53.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

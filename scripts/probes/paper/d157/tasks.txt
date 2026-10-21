@@ -1,0 +1,14 @@
+$PY d157_bias.py $D157_OUT/bias40_bd.jsonl bunny:97:40k:V:W bunny:99:40k:V:W bunny:101:40k:V:W dragon:97:40k:V:W dragon:99:40k:V:W dragon:101:40k:V:W > $D157_OUT/logs/bias40_bd.log 2>&1
+$PY d157_read.py $D157_OUT/read300_00_15.jsonl jobs300.txt 0 15 > $D157_OUT/logs/read300_00_15.log 2>&1
+$PY d157_read.py $D157_OUT/read300_15_30.jsonl jobs300.txt 15 30 > $D157_OUT/logs/read300_15_30.log 2>&1
+$PY d157_read.py $D157_OUT/read40_000_030.jsonl jobs40.txt 0 30 > $D157_OUT/logs/read40_000_030.log 2>&1
+$PY d157_bias.py $D157_OUT/bias300_bd.jsonl bunny:97:300k:L:P dragon:97:300k:L:P bunny:99:300k:L:P dragon:99:300k:L:P bunny:101:300k:L:P dragon:101:300k:L:P bunny:103:300k:L:P dragon:103:300k:L:P bunny:105:300k:L:P dragon:105:300k:L:P > $D157_OUT/logs/bias300_bd.log 2>&1
+$PY d157_read.py $D157_OUT/read300_30_48.jsonl jobs300.txt 30 48 > $D157_OUT/logs/read300_30_48.log 2>&1
+$PY d157_read.py $D157_OUT/read300_48_66.jsonl jobs300.txt 48 66 > $D157_OUT/logs/read300_48_66.log 2>&1
+$PY d157_read.py $D157_OUT/read40_030_060.jsonl jobs40.txt 30 60 > $D157_OUT/logs/read40_030_060.log 2>&1
+$PY d157_read.py $D157_OUT/read40_060_090.jsonl jobs40.txt 60 90 > $D157_OUT/logs/read40_060_090.log 2>&1
+$PY d157_read.py $D157_OUT/read40_090_120.jsonl jobs40.txt 90 120 > $D157_OUT/logs/read40_090_120.log 2>&1
+$PY d157_read.py $D157_OUT/read40_120_150.jsonl jobs40.txt 120 150 > $D157_OUT/logs/read40_120_150.log 2>&1
+$PY d157_read.py $D157_OUT/read40_150_171.jsonl jobs40.txt 150 171 > $D157_OUT/logs/read40_150_171.log 2>&1
+$PY d157_bias.py $D157_OUT/bias40_rest.jsonl $(for m in A C V armadilo beast bimba bob cheburashka cow fandisk heart homer maxplanck nefertiti ogre spot teapot; do for s in 97 99 101; do echo -n "$m:$s:40k:V:W "; done; done) > $D157_OUT/logs/bias40_rest.log 2>&1
+$PY d157_bias.py $D157_OUT/bias300_rest.jsonl $(for m in teapot bob armadilo homer; do for s in 97 99 101; do echo -n "$m:$s:300k:L:P "; done; done) > $D157_OUT/logs/bias300_rest.log 2>&1
