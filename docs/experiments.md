@@ -8775,6 +8775,34 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     replicates removed after every frame was read (12.4 GB; their end frames kept as `*_end1.npz`), and the deploy
     tarball. Kept: the four seed-97 switched archives (6.0 GB, as B1 keeps seed 97), every reading. output/gpu/d154
     is 5.9 GB.
+  **Follow-up (3), the 40k gallery read against the exact mesh (the coordinator, 2026-10-20: the 40k gallery's binary
+  IoU lead on the tag is small, median V − W +0.0007, 18 / 19, p 1.1e-5; is the 40k lead small, or is only the
+  binary IoU blind to it? CPU only, at most 2–3 readers, niced). Pre-registered 2026-10-20 22:55 CDT server clock,
+  before any reading.**
+  - Data. B3's kept frames (`d145t_b3`, 19 meshes × V / W × 97 / 99 / 101) were removed on 10-16 after D145 read them
+    (`cleanup.log`); only their JSON and logs are left. The only tag-equivalent 40k V / W frames left are D155's gate
+    re-runs (`output/gpu/d155/gate/`, repo_d155s, its default path SAME as the tag in the deterministic 40k proof, full
+    suite 439 passed): armadilo, bunny, dragon, homer and teapot × seeds 97 / 99 / 101 × V / W (30 runs), replicates of
+    B3's. The other 14 meshes need their 40k runs again (84 runs at B3's mean 114 s ≈ 2.7 card-hours); not done here
+    (CPU only), the coordinator's decision.
+  - Reader: `d154_mesh_read.py`. With no 40k independent sample, the run's own target sample sets the constants:
+    pitch 0.708 × its median 8th-neighbour distance, box 1.25 × its largest |x|, lattice h = min(box / 96, 0.92 pitch).
+    V and W of one seed share that sample. The referee is the exact mesh in the run's frame (`mesh_frames.py` at
+    N = 40000, checked against the run's own target sample to 1e-6 wu).
+  - States: the last kept frame of each run, and each mesh-seed's own target sample (the perfect sample).
+  - Measures (as in (1)): the outline-shape error (outline offset spread, 1024 px); exact 1 − IoU at 1024 px; the
+    normal angle at the nearest mesh point; the yardstick (96 px) against discs of the exact mesh, silhouette and
+    shading.
+  - Reported per mesh: V / W (median over seeds, range) and the share of W's excess over the perfect sample that V
+    removes, (W − V) / (W − own). Paired tests (two-sided): the sign count and Wilcoxon signed-rank over the 15
+    mesh-seed pairs, and over the 5 per-mesh medians.
+  - Reading.
+    - "Only the binary IoU is blind": the outline-shape V / W ≤ 0.90 on at least 4 of 5 meshes with p < 0.01 over the
+      15 pairs.
+    - "The 40k lead is small": the outline-shape V / W > 0.95 on at least 3 of 5 meshes.
+    - Otherwise in between. The other measures are reported alongside.
+  - Prediction: 300k gave an outline V / W of 0.68–0.86 on six meshes. At 40k the pitch is twice as coarse and the
+    render pictures are 96 px; inferred 0.75–0.92.
 - **D153, the runtime on the tag freeze-2026-10-15: where an attempt's time goes, two exact levers (merged as
   freeze-2026-10-15-rt1), how much the late windows buy, and a fixed 5–6 s horizon (opened 2026-10-16 11:26 CDT server
   clock; the user: "속도를 현재 더 줄일 수는 없을까"; at 11:35 the user's follow-up, relayed by the coordinator: "뒤로
