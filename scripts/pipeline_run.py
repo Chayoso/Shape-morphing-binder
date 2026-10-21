@@ -51,6 +51,10 @@ def parse_args(argv=None):
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
+    ap.add_argument("--render_tgt", default=None,
+                    help="D156 (off by default): the mesh the render's target pictures are drawn from (and the frame, the "
+                         "cameras'), in place of --tgt's; --tgt is then the transport's and the body's target, sampled in "
+                         "that frame (prepare.prepare)")
     # the defaults below are the frozen recipe (tag freeze-2026-10-09b, D139; it supersedes freeze-2026-10-09): D105's,
     # whose render arm is ahead of its physics-only twin on every display measure read against an independent sample
     # (D91, D92; the minimum spacing D70/D72, the exterior D62, the layer relief D105), with the render weight at the
@@ -212,7 +216,8 @@ def prepared(args, seed: int):
                    surface=args.n // 4 if args.layer_relief and not args.baseline.startswith("xu") else 0,
                    draws=args.render_target_draws,
                    match_density=args.match_density,
-                   cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0)
+                   cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0,
+                   render_tgt=getattr(args, "render_tgt", None))
     return cfg0, prep
 
 
@@ -284,7 +289,8 @@ def run_main(args, prep, src, tgt, prm, cfg):
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws)
+                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
+                       render_x=prep.render_x)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

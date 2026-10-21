@@ -105,14 +105,20 @@ def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
     return relief
 
 
-def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> TargetPack:
+def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, render_x=None) -> TargetPack:
     """draws: further independent samples of the target in its frame. The render term's target pictures are then the
     mean of the pictures the operator draws of every sample: what it draws of the mesh in expectation. Drawn from
     the one sample, a render arm fitted that sample's noise as well, and half its measured lead over the
-    physics-only twin was that fit (D90, D91)."""
+    physics-only twin was that fit (D90, D91).
+    render_x (D156; None = the frozen path): the render's own target sample in the target's frame (prepare's
+    render_tgt); the pictures, and the constants they are drawn with (the orthographic box, the pitch, the
+    exterior's lattice), are then those of render_x and the draws (its further draws), and everything else (the
+    transport, the u gate, the cleanups, the surface proximity, the W1 cleanup's grid on the target's own box) is
+    target_x's. With render_x = target_x every field is the frozen path's."""
     set_kernel("cic")
     tgt_t = gpu.tensor(target_x)
-    samples = [tgt_t] + [gpu.tensor(d) for d in (draws or [])]
+    rnd_t = tgt_t if render_x is None else gpu.tensor(render_x)       # the first sample of the render's pictures
+    samples = [rnd_t] + [gpu.tensor(d) for d in (draws or [])]
     mean = lambda per: [torch.stack(v).mean(0) for v in zip(*per)]   # noqa: E731  (per sample, a list over views)
     N = tgt_t.shape[0]
     m = m_t = torch.ones(N, device=gpu.DEVICE)                # the unit loss-side masses: the body's (tgt.m) and the target's
@@ -136,13 +142,13 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
         gdx, gdims = float((dmax - dmin).max() / prm.nx), (prm.nx,) * 3
         gate = (target_mass_grid(tgt_t, m_t, lgmin, gdx, gdims), gdx, gdims)
     views = make_views(cfg.render_views, cfg.render_elevs)
-    geom = tgt_t
+    geom = rnd_t
     extent = float(geom.abs().max()) * 1.25
     sils = mean([target_silhouettes(s, views, cfg.render_res, extent, cfg.sil_k) for s in samples])
     # shading: the morph's normals on a render-pixel grid blurred by the renderer's 1.5 target
     # spacings; the target image is drawn by the same operator at the target (matched), so
     # the loss compares the operator with itself and no target/operator bias enters
-    sp_t = gpu.median_kth_spacing(tgt_t, 8, subsample=20000)
+    sp_t = gpu.median_kth_spacing(rnd_t, 8, subsample=20000)
     pdx = 2.0 * extent / cfg.render_res
     pdims = tuple(int(np.ceil((dmax - dmin).max() / pdx)) for _ in range(3))
     pblur = 1.5 * sp_t / pdx
@@ -176,12 +182,14 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
               f"pitch {pitch:.4f} wu, kernel {radius:g} pitches, offset {offset:.3f}, lattice {h / pitch:.2f} pitches = "
               f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target"
               + (f"; the pictures are the mean over {len(samples)} samples" if len(samples) > 1 else ""), flush=True)
-    # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range)
+    # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range), on the target's own box
+    # (D156: the render's box when the pictures are drawn from another sample)
+    ext_t = extent if render_x is None else float(tgt_t.abs().max()) * 1.25
     dtdims = (cfg.dt_res,) * 3
-    dtdx = 3.0 * extent / cfg.dt_res
-    dtgmin = torch.tensor([-1.5 * extent] * 3, device=gpu.DEVICE)
+    dtdx = 3.0 * ext_t / cfg.dt_res
+    dtgmin = torch.tensor([-1.5 * ext_t] * 3, device=gpu.DEVICE)
     dt3 = target_dt_grid(target_mass_grid(tgt_t, m_t, dtgmin, dtdx, dtdims), dtdx, dtdims,
-                         clamp=cfg.dt_clamp_frac * extent)
+                         clamp=cfg.dt_clamp_frac * ext_t)
     knn = gpu.KNN(tgt_t)
     d1 = knn.query(tgt_t, 2)[0][:, 1]
     nn_sp = gpu.median(d1)

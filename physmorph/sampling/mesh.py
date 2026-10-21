@@ -228,43 +228,7 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
         x, w = sample_volume_shell(mesh, n, thick_wu / (s0 * k0), ratio, seed=seed)
         x = x.astype(np.float32)
     else:
-        # 2026-09-23 (speed): the stratified sample and the filled volume are deterministic in
-        # (mesh file, n, seed, sampler, fill mode, orientation) and cost 90 s at 300k (trimesh
-        # voxelise / subdivide); cached under output/cache (PHYSMORPH_CACHE overrides the
-        # directory, PHYSMORPH_SAMPLE_CACHE=0 disables). The fill reports are restored on a hit.
-        import hashlib
-        import os
-        cache_on = os.environ.get("PHYSMORPH_SAMPLE_CACHE", "1") != "0"
-        key = hashlib.sha1((f"{os.path.abspath(path)}|{os.path.getmtime(path)}|{os.path.getsize(path)}|{n}|{seed}|"
-                            f"{sample}|{FILL_MODE}|{_o}|v1").encode()).hexdigest()[:16]
-        cdir = os.environ.get("PHYSMORPH_CACHE",
-                              os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                                           "output", "cache"))
-        cpath = os.path.join(cdir, f"sample_{os.path.splitext(os.path.basename(path))[0]}_{n}_{key}.npz")
-        hit = None
-        if cache_on and os.path.exists(cpath):
-            try:
-                z = np.load(cpath, allow_pickle=True)
-                hit = (np.asarray(z["x"], np.float32), float(z["vol_mesh"]),
-                       {"stripped": int(z["streak_stripped"]), "method": (str(z["streak_method"]) if str(z["streak_method"]) != "None" else None)},
-                       {"filled": int(z["pocket_filled"]), "iters": int(z["pocket_iters"])})
-            except Exception:
-                hit = None
-        if hit is not None:
-            x, vol_mesh, sr, pr = hit
-            STREAK_REPORT.update(sr); POCKET_REPORT.update(pr)
-        else:
-            x = (stratified_draws(mesh, n, [seed])[0] if sample == "stratified"
-                 else sample_volume(mesh, n, seed=seed)).astype(np.float32)
-            vol_mesh = float(filled_volume(mesh))
-            if cache_on:
-                try:
-                    os.makedirs(cdir, exist_ok=True)
-                    np.savez(cpath, x=x, vol_mesh=vol_mesh, streak_stripped=STREAK_REPORT.get("stripped", 0),
-                             streak_method=str(STREAK_REPORT.get("method")), pocket_filled=POCKET_REPORT.get("filled", 0),
-                             pocket_iters=POCKET_REPORT.get("iters", 0))
-                except Exception:
-                    pass
+        x, vol_mesh = _cached_sample(mesh, path, n, seed, sample, _o)
         w = None
     offset = x.mean(0).astype(np.float64)
     x -= x.mean(0)
@@ -272,17 +236,95 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
     x = (x * s).astype(np.float32)
     vol = (vol_mesh if w is None and shell is None else filled_volume(mesh)) * float(s) ** 3
     k = 1.0
-    if match_volume is not None and vol > 0:
+    matched = match_volume is not None and vol > 0
+    if matched:
         k = float((match_volume / vol) ** (1.0 / 3.0))
         x = (x * k).astype(np.float32)
         vol = vol * k ** 3
     if frame is not None:                    # where the cloud was put: world = (mesh - offset) * scale
-        frame.update(offset=offset, scale=float(s) * k)
+        # (s, k, matched: the two scale steps as they were applied, so sample_in_frame can put another mesh's
+        # sample in this frame by the same operations, D156)
+        frame.update(offset=offset, scale=float(s) * k, s=s, k=k, matched=matched)
     if fill is not None:
         fill["volume"] = _fill_volume_cached(mesh, path, n, _o) * (float(s) * k) ** 3
     if shell is not None:
         return (x, vol, w) if return_volume else (x, w)
     return (x, vol) if return_volume else x
+
+
+def _cached_sample(mesh: trimesh.Trimesh, path: str, n: int, seed: int, sample: str, orient: str):
+    """(x, vol_mesh) of load_normalized before its normalisation: the raw sample of the (oriented) mesh and its filled
+    volume at a 110^3 fill, in mesh units.
+
+    2026-09-23 (speed): the stratified sample and the filled volume are deterministic in
+    (mesh file, n, seed, sampler, fill mode, orientation) and cost 90 s at 300k (trimesh
+    voxelise / subdivide); cached under output/cache (PHYSMORPH_CACHE overrides the
+    directory, PHYSMORPH_SAMPLE_CACHE=0 disables). The fill reports are restored on a hit."""
+    import hashlib
+    import os
+    _o = orient
+    cache_on = os.environ.get("PHYSMORPH_SAMPLE_CACHE", "1") != "0"
+    key = hashlib.sha1((f"{os.path.abspath(path)}|{os.path.getmtime(path)}|{os.path.getsize(path)}|{n}|{seed}|"
+                        f"{sample}|{FILL_MODE}|{_o}|v1").encode()).hexdigest()[:16]
+    cdir = os.environ.get("PHYSMORPH_CACHE",
+                          os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                       "output", "cache"))
+    cpath = os.path.join(cdir, f"sample_{os.path.splitext(os.path.basename(path))[0]}_{n}_{key}.npz")
+    hit = None
+    if cache_on and os.path.exists(cpath):
+        try:
+            z = np.load(cpath, allow_pickle=True)
+            hit = (np.asarray(z["x"], np.float32), float(z["vol_mesh"]),
+                   {"stripped": int(z["streak_stripped"]), "method": (str(z["streak_method"]) if str(z["streak_method"]) != "None" else None)},
+                   {"filled": int(z["pocket_filled"]), "iters": int(z["pocket_iters"])})
+        except Exception:
+            hit = None
+    if hit is not None:
+        x, vol_mesh, sr, pr = hit
+        STREAK_REPORT.update(sr); POCKET_REPORT.update(pr)
+    else:
+        x = (stratified_draws(mesh, n, [seed])[0] if sample == "stratified"
+             else sample_volume(mesh, n, seed=seed)).astype(np.float32)
+        vol_mesh = float(filled_volume(mesh))
+        if cache_on:
+            try:
+                os.makedirs(cdir, exist_ok=True)
+                np.savez(cpath, x=x, vol_mesh=vol_mesh, streak_stripped=STREAK_REPORT.get("stripped", 0),
+                         streak_method=str(STREAK_REPORT.get("method")), pocket_filled=POCKET_REPORT.get("filled", 0),
+                         pocket_iters=POCKET_REPORT.get("iters", 0))
+            except Exception:
+                pass
+    return x, vol_mesh
+
+
+def sample_in_frame(path: str, frame: dict, n: int, seed: int, fill: dict | None = None):
+    """D156: (x, vol) of the stratified sample of n particles of the mesh at `path` (seed `seed`, the cached sampler of
+    load_normalized), put in the frame load_normalized put another mesh's cloud in (`frame`, as it filled it) by the
+    same operations in the same order: for the mesh load_normalized sampled itself (the same path, n and seed) x and
+    vol are its own bit for bit. The cloud is not centred or scaled by itself: it stays where the frame's mesh puts
+    it. vol: its filled volume (110^3 fill) in world units^3; fill receives `volume`, the volume its sample represents
+    (D132), as load_normalized's."""
+    from .orientation import orient_name
+    mesh = _oriented(path)
+    o = orient_name(path)
+    x, vol_mesh = _cached_sample(mesh, path, n, seed, "stratified", o)
+    x = x - frame["offset"].astype(np.float32)        # load_normalized's x -= x.mean(0), that mean as float32
+    s, k = frame["s"], frame["k"]
+    x = (x * s).astype(np.float32)
+    vol = vol_mesh * float(s) ** 3
+    if frame["matched"]:
+        x = (x * k).astype(np.float32)
+        vol = vol * k ** 3
+    if fill is not None:
+        fill["volume"] = _fill_volume_cached(mesh, path, n, o) * (float(s) * k) ** 3
+    return x, vol
+
+
+def fill_volume_in_frame(path: str, frame: dict, n: int) -> float:
+    """D156: the volume a stratified sample of n particles of the mesh at `path` represents (D132's fill volume), in
+    the frame load_normalized put a cloud in (`frame`), as load_normalized's `fill` would give it there."""
+    from .orientation import orient_name
+    return _fill_volume_cached(_oriented(path), path, n, orient_name(path)) * frame["scale"] ** 3
 
 
 def _oriented(path: str) -> trimesh.Trimesh:
