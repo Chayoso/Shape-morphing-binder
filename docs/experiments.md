@@ -9198,6 +9198,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   2026-10-17 at about 13:55 CDT a local `python3 --version` ran in a compound command (it printed the version; nothing
   else ran). Readers: `scripts/probes/paper/d155/` (`d155_gate_read.py`, `d155_gate_sum.py`, `chain_gate.sh`,
   `chain_gate3.sh`, `chain_cpu.sh`, `cpu3.sh`); disk 3.8 GB of kept 40k frames, kept for the user's look.
+  **D155b, u reads its arrival at the final target on the moving target (pre-registered 2026-10-20 22:58 CDT server
+  clock, before any run of it; the user's go relayed by the coordinator, with the standing rule: no "limitation" before
+  the next method is tried).** *Definition:* with option A on, u's transport gate reads the body's arrival at the FINAL
+  target, the tag's gate itself (a layer particle within `layer_gate_ot_cells` MPM cells of its transport image on the
+  final target, the final pack's gate grid), not at the moving target: u acts only where the final shape is reached. No
+  new constant. Code `wip/d155` ceb06ac (`--morph_ramp elastic --morph_u_gate final`, `cfg.morph_u_final`;
+  `TargetPack.gate_ref` = the final pack's gate on every pack on the way, read by the objective in place of the pack's
+  own; `--morph_u_gate window`, the default, is D155's A as run), deployed as `repo_d155b` / `repo_d155bs`.
+  *The cheaper build, exact:* Z_s is linear in s, but every field of a pack (the CIC mass grids, the distance transform,
+  the KD-trees, the exterior field, its discs and pictures) is a nonlinear function of the points, so no incremental
+  update of a pack gives the same target. What is exact is not drawing what the run never reads: with the render terms
+  on the exterior the objective reads `tgt.ext`'s pictures and never the particle cloud's (`tgt.sils`, `tgt.shade`, read
+  only when `tgt.ext` is None), so the packs on the way skip them (`build_target(particle_pictures=False)`,
+  `run/morph.SKIP_UNUSED_PICTURES`; the final pack is built as before). Proof: Warp-deterministic 40k bunny, A3 ramp with
+  the final gate, four windows, the skip on against off: SAME required; the saving read from the runs' `morph_build_s`
+  against D155's 3.2–3.7 s a build.
+  *Gates of the default path:* deterministic 40k bunny four windows on `repo_d155bs` against the tag's run A: SAME;
+  pinned references; full suite on a card (exit status).
+  *Runs:* A3G = A3 + `--morph_u_gate final`: bunny, dragon, teapot, armadilo, homer at 40k, seed 97, render arm L and twin
+  P = 10 runs on `repo_d155bs` (one card, lock protocol, agent D155); the readers of D155's gate; the tag's V / W (three
+  re-run seeds and B3's) and D155's A3 as read are the references.
+  *Criteria (A3G render arm, five meshes):* (1)–(4) as D155's gate (timing ≥ the tag's largest + 0.15 after 1 s; the end
+  not below the tag's worst seed on IoU against the independent sample, yardstick silhouette and shading, display and
+  thin, each on ≥ 4 of 5, and the render lead over A3G's twin on ≥ 4 of 5; at rest ≤ 1.25 × the tag's largest; peak
+  kinetic energy ≤ 0.5 × the tag's smallest); (5) new: the particles apart in windows 3–12 (largest) and the visible
+  bumps in windows 3–10 (visible_apart, largest per window) not above the tag's largest, each on ≥ 4 of 5. All five →
+  pass. Reported: the share of the layer u's gate opens per window, the ramp's cosine, A_lin / A_log / P90, momentum,
+  minutes, the build seconds.
+  *Predictions:* (5) holds on 5 of 5 (with u off the A3 ramp had 5 / 19 apart in windows 3–12; here u's gate opens only
+  as the body reaches the final shape, about 2.3–3.3 s, after window 12); u's gate below 0.15 of the layer in the first
+  second; (1), (3), (4) as A3 (u acts below a cell: A3 without u kept 0.84 / 0.88 of the movement after 1 s); the ramp's
+  cosine as A3's (0.25–0.38); (2) back within the tag's range on ≥ 4 of 5 if A3's few per cent came from u's work on the
+  in-between surfaces (inferred, the uncertain item); the skip SAME; a build without the particle pictures 30–50 %
+  cheaper (inferred). If (2) or (5) fails: a frame-level forensic (which particles, which update) and the next
+  definition, before any "limitation".
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
