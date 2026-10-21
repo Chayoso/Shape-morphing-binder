@@ -9610,6 +9610,95 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   mean on ≥ 4 of 5, J's p99 on 3–4 of 5 (the global match leaves the local variation, measured by `morph_vol_q`); (2)
   within the tag's range on ≥ 4 of 5 per measure (from D155b's ordering of the misses with the volume excess); (1), (3),
   (4), (5) as D155b. If it fails: the next root cause from the frames and the next definition, with numbers.
+- **D157, standard metrics that see the render, or a plain statement that none does: boundary-sensitive silhouette
+  metrics, 3D F-score / normal consistency / Chamfer and novel-view PSNR / SSIM / LPIPS against the exact mesh, on the
+  existing end states (a measurement; no pipeline change, no run; opened 2026-10-21 10:16 CDT server clock; the
+  coordinator, relaying the user 2026-10-21: if a metric cannot see the effect, find another way; readers
+  `scripts/probes/paper/d157/` (server `tmp/d157/`, CPU only, nice 10, at most 3 at a time; no card), results
+  `output/gpu/d157/`, local `output/results_2026-10-21/d157_metrics/` with a Korean README).**
+  *Why.* The render's effect is causal (D152, D154's switch) but the gallery's binary silhouette IoU barely sees it: at
+  128 px a pixel is 1.8 pitches and 72–89 % of the twin's IoU error is the sampling floor; the changes are sub-pitch,
+  on rims and thin parts; 560–801 pixels differ between arm and twin but net to 74–157; at 40k even the exact 1024-px
+  IoU shows no lead (D154 (3b): the outline's shape changes, not its area).
+  *Pre-registration (written before any metric is computed).*
+  - States. 300k: B1's end frames (`d145t_b1/*_end1.npz`), armadilo, bob, bunny, dragon, homer, teapot × L / P × seeds
+    97 / 99 / 101 (+ 103 / 105 on bunny and dragon): 22 pairs. 40k: the tag's gallery, 19 meshes × V / W × 97 / 99 / 101
+    (`d154/g40runs/*_end1.npz`; for armadilo, bunny, dragon, homer and teapot the last kept frame of D155's gate re-runs,
+    `d155/gate/*_frames12.npz`, as D154 (3)): 57 pairs. Each mesh-seed's own target sample (the perfect placement) read
+    alike, as context (the share of the twin's gap to it that the arm closes).
+  - Referee: the exact target mesh in the run's own frame (`d154/meshes`, `d154/meshes40`; mesh_frames.py reproduces
+    each run's target sample to ≤ 4.8e-7 wu). Constants from the run's own target sample: pitch a = 0.708 × its median
+    8th-neighbour distance, orthographic box 1.25 × its largest |x| (the loss's).
+  - Surfaces of a state: the exterior (Zhu–Bridson zero set, radius 3, offset 0.8 a: what the loss and every metric
+    read) and the display surface (the same field with Solenthaler et al.'s correction, `zbs`: what the images show;
+    its discs are a splat of this surface), each as a marching-cubes mesh at a / 2 with exact field values near the
+    zero set (D154's zb_mesh), normals the field's gradient.
+  - The offset. Every particle exterior lies about 0.8 pitch outside the mesh by its definition (D154: a perfect
+    sample's 0.69–0.90). Two referees: raw (the mesh) and offset-corrected (the mesh grown by c: the iso-surface at
+    signed distance +c of the mesh, marching cubes at a / 4 of exact distances; c = the mesh-seed's own sample's mean
+    exterior offset, one constant for arm, twin and own). The corrected referee is the fair one for every thresholded
+    or boundary metric (the offset is a constant of the surface's definition, carried by the target pictures too);
+    raw is reported alongside. A metric sees the render only if it does so against the corrected referee.
+  - Views. Training: the loss's 18 (6 azimuths × elevations 0, ±0.5 rad). Held-out: a 64-point Fibonacci sphere minus
+    the points within 12° of a training direction or its antipode (an orthographic silhouette is the same from both):
+    46 views; "far": the 13 of them more than 25° from every training line (mostly near the poles).
+  - (1) Silhouettes (orthographic, ray-cast through pixel centres at 256 / 512 / 1024 px, per view, then the mean over
+    a view set): Boundary IoU (Cheng et al., CVPR 2021) at their default d = 2 % of the image diagonal and at d = 1
+    pitch; the boundary F-score (contour precision and recall within d; DAVIS's d = 0.008 × the diagonal, Perazzi et
+    al. 2016, and d = 0.5 / 1 pitch); the 2D contour Chamfer (mean of the two directed mean distances, pitches), the
+    Hausdorff distance and HD95; 1 − mask IoU for comparison.
+  - (2) 3D, on both surfaces: the visible exterior (faces hit first in any of the 64 views at 1024 px), 200k
+    area-uniform points on the state's and on the referee's, exact distances to the other triangle mesh: F-score at
+    τ = 0.25 / 0.5 / 1 / 2 pitches (Tatarchenko et al., CVPR 2019), Chamfer-L1 (½ (accuracy + completeness), pitches)
+    and normal consistency (½ of the two directions' mean |n · n'| at the closest point; Mescheder et al., CVPR 2019).
+    Thin: the run's own `thin_uncovered` (its JSON, the existing measure) and the recall at τ = 1 pitch on the mesh's
+    thin part (shape diameter along −n below two MPM cells, thin.py's threshold).
+  - (3) Novel-view images: the 46 held-out directions as studio cameras (perspective 30°, 3.6 radii, the deliverable's
+    camera) with the studio's shading model applied to ray-cast normals (`render/studio.py`: ambient, three GGX lights
+    fixed to the camera, the backdrop, the tone map, sRGB; 2 × 2 supersampled to 512 px): each state's display surface
+    and the referee (the mesh with crease-aware vertex normals, 30°). Shaded images and camera-space normal maps:
+    PSNR, SSIM (Wang et al. 2004, Gaussian σ 1.5) and LPIPS (Zhang et al., CVPR 2018, AlexNet, v0.1; the `lpips`
+    package installed with `pip --target` into `deps/d157_lpips`, the env untouched); the mean angular error where
+    both are hit.
+  - Gate before reading: the reader's 1 − IoU at 1024 px on the training views against the raw mesh equals D154's
+    `exact_1024` on the 40k states both read (the same constants) to 1e-6, and within 1 % at 300k (D154 took the
+    box from the independent sample there).
+  - Reading. Error form e: 1 − score (IoU, BIoU, F, NC, SSIM), the MSE for PSNR, the value otherwise (Chamfer, HD,
+    LPIPS). Per pair r = (e_twin − e_arm) / e_twin (> 0: the arm better). Two-sided Wilcoxon signed-rank and sign test
+    over the mesh-seed pairs (22 at 300k, 57 at 40k) and the sign count over per-mesh medians. A metric **sees the
+    render** at an N if (a) Wilcoxon p < 0.01 over the pairs, (b) the per-mesh median r has one sign on ≥ 5 of 6 meshes
+    (300k) / ≥ 16 of 19 (40k), and (c) |median r| ≥ 0.05 (5 % of the twin's error: meaningful). The direction is
+    reported (a gain or a loss); Holm-adjusted p alongside. The decision set: held-out views at 1024 px against the
+    corrected referee: BIoU (2 % diagonal), boundary F (DAVIS), contour Chamfer, HD95; 3D on the exterior: F@0.5,
+    F@1, NC, Chamfer-L1; images: PSNR, SSIM, LPIPS, shaded and normal maps. Everything else secondary.
+  - Predictions (inferred from D152 / D154). 300k: the contour metrics see it (outline shape −14…−33 %: contour
+    Chamfer −10…−25 %, boundary F and BIoU at 1 pitch up); BIoU at 2 % of the diagonal (≈ 6.5 pitches at 1024 px)
+    less, < 5 %; 3D F@0.5 / F@1 and NC (3–8 %) on the corrected referee, F@2 not; the images small (< 5 %) and
+    uncertain. 40k: the contour metrics at about half 300k's, 3D small, the images neutral.
+  - (4) Added by the coordinator 2026-10-21 (hypothesis, unmeasured): the silhouette term is asymmetric (`d_render`,
+    w_hole 2 for a deficit inside the target, w_spray 1 for an excess outside), so its optimum leans outward; at 40k's
+    coarser pictures that shows as the arm's exterior sitting farther out than the twin's (D154 (3b): 45 / 57) and its
+    exact 1 − IoU about 1 % higher.
+    (a) The signed normal offset (state surface points to the exact mesh, + outside, pitches) per region, each point
+    by its nearest mesh point: crevice (a ray out along the mesh's normal meets the mesh again within 2 R = 6 pitches,
+    a gap the field's kernel spans), rim (within one render pixel of the run's own resolution, 2 × box / res, of the
+    mesh's silhouette outline in one of the 18 training views, with |n · d| < 0.5 there; not crevice), head-on (the
+    rest). Arm, twin, own; 300k (188 px) and 40k (96 px); reported in pitches and in render pixels.
+    (b) The bias the 2 : 1 asymmetry produces, from data: the run's own exterior target pictures rebuilt (the mean over
+    its 8 draws, prepare's seeds seed + 1 + 100 k, the run's lattice h = min(box / res, 0.92 a) and resolution; the
+    loss's operators), the state's exterior discs moved uniformly along their normals by δ (−0.6…+0.6 pitch, steps of
+    0.01, parabolic refinement), the silhouette term at weights (2, 1) and at (1, 1): bias = argmin(2,1) − argmin(1,1);
+    argmin(2,1) on the twin's state (the move the term asks of the twin) against the observed arm − twin mean offset;
+    at the run's resolution and at half and double it (bunny, dragon); the target pictures' edge width (pixels with
+    0.1 < α < 0.9 over the outline length, pitches), for the 8-draw mean and a single draw. Bunny and dragon at both N
+    first; the other meshes if time allows.
+    Reading: **confirmed** if (i) the bias is outward at both N, (ii) at 40k argmin(2,1) on the twin is outward and
+    within a factor 2 of the observed V − W mean offset, and (iii) the 40k arm − twin offset difference is larger on
+    rims than head-on (p < 0.01 over the pairs, ≥ 2/3 of them); **refuted** if the bias is ≤ 0 at 40k or below a
+    quarter of the observed V − W difference, or the extra offset is not larger on rims; otherwise undecided.
+    Prediction (inferred): the bias is outward at both N and about the same in pitches (both N have about 1.2 pitches
+    a render pixel), so in world units, and as a share of the silhouette's area, twice as large at 40k; at 300k the
+    shading term and the symmetric part pull the arm inward (L / P offset 0.93–0.98), at 40k they do not.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
