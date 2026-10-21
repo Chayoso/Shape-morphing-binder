@@ -60,8 +60,6 @@ from physmorph.sampling.orientation import orient_name                          
 
 torch.set_grad_enabled(False)
 NT = D7.NT
-out_dir, N, RES, meshes = Path(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), sys.argv[4:]
-out_dir.mkdir(parents=True, exist_ok=True)
 cfg = PipelineConfig()
 set_kernel("cic")
 views = make_views(cfg.render_views, cfg.render_elevs)
@@ -164,7 +162,14 @@ def surface(occ):
     return np.argwhere(occ & emp)
 
 
-for mesh in meshes:
+def main():
+    out_dir, N, RES, meshes = Path(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), sys.argv[4:]
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for mesh in meshes:
+        carve_one(out_dir, N, RES, mesh)
+
+
+def carve_one(out_dir, N, RES, mesh):
     t0 = time.time()
     path = f"assets/{mesh}.obj"
     _, v_src = load_normalized("assets/isosphere.obj", N, SEED, return_volume=True, sample="stratified")
@@ -302,3 +307,7 @@ for mesh in meshes:
     print(json.dumps(row), flush=True)
     with open(out_dir / f"photo_r{RES}.jsonl", "a") as fo:
         fo.write(json.dumps(row) + "\n")
+
+
+if __name__ == "__main__":
+    main()
