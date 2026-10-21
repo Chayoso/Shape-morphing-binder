@@ -1,0 +1,6 @@
+{"bunny": [[0, 0.0, 0.40, 0.0, 0.50, "ears (side)"],
+           [1, 0.0, 0.40, 0.0, 0.55, "ears (three-quarter)"],
+           [0, 0.78, 1.0, 0.0, 0.40, "front foot (side)"]],
+ "dragon": [[0, 0.0, 0.40, 0.0, 0.50, "head and horns (side)"],
+            [0, 0.12, 0.45, 0.36, 0.62, "front claws (side)"],
+            [0, 0.15, 0.48, 0.78, 1.0, "tail tip (side)"]]}

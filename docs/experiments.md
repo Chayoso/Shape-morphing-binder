@@ -10414,6 +10414,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     weights in the /data torch cache); the env untouched. **A slip:** at 10:35 one status check listed my queue's
     child processes with `pgrep -f` (read-only, nothing stopped); the rule forbids pgrep -f entirely. Every later check
     used the recorded slot PIDs (1525265–1525267) only. Disk: `output/gpu/d157` 17 MB.
+  - Demo figures (the coordinator, 2026-10-21 for the 17:00 demo; the user: render on / off look alike in the videos).
+    Measurement only, CPU, 14:55–15:05, `demo_views.py` / `demo_compute.py` / `demo_render.py` /
+    `demo_crops.json`. The views were chosen from the exact mesh's silhouettes before any state was drawn. The
+    figures are in local `output/results_2026-10-21/demo_studio/render_effect/` with a Korean README.
+    - Silhouette overlays on bunny / dragon 300k seed 97, three held-out views each, against the grown mesh and the
+      raw mesh. Mismatched pixels, OFF → ON: bunny 3,155 → 2,569, 3,522 → 2,531, 2,665 → 2,136; dragon 5,862 →
+      4,903, 4,803 → 3,915, 3,830 → 3,415.
+    - Zooms: dragon tail tip 642 → 461, claws 1,186 → 1,061, head 2,975 → 2,559; bunny ears 1,893 → 1,370, front
+      foot 426 → 413.
+    - Distance heatmaps of the displayed surface, one fixed scale of ±0.5 pitch, both arms.
+    - A time strip at 0.5 / 1 / 2 / 4 s and the end. The bunny's arm leads from 0.5 s. The dragon's arm is behind at
+      1–4 s (2 s: 32,719 against 28,230) and ahead only at the end, as D154 found.
 - **D156, a target given only by images: the visual hull of the 18 training silhouettes as the transport's and the
   body's target, the true mesh's pictures as the render's (pre-registered 2026-10-21 12:45 CDT, before any run of it;
   the user approved it on 2026-10-21: "1 & 2도 다 해야지. SIGGRAPH에 내야 하는 거야"; code: branch `wip/d156` 3270b5f =
