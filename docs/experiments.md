@@ -6078,7 +6078,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     did not run). Server: `output/gpu/b9b/runs/` (the runs' kept frames, every 12th, about 1.3 GB). Code: `wip/b9b`
     12c7e34 (scene-spec fields `g` / `rest`, default off; the single-body path untouched).
   - **Option 1, the scene path with a world-fixed standing target: the user's choice (2026-10-20); the 40k gate
-    pre-registered 2026-10-20 23:05 CDT server clock, before any run** (code `wip/b9b` d3de5a5; server copy
+    pre-registered 2026-10-20 23:01 CDT server clock, before any run; the chain launched at 23:02 and waits for a
+    card before its suite and runs** (code `wip/b9b` d3de5a5; server copy
     `repo_b9w`; `output/gpu/b9b/world/`; chain `chain40kw.sh`).
     - *The definition* (`SceneSpec.frame = "standing"`, off by default, scene code only). It applies to one body at
       rest whose target stands on the floor.
