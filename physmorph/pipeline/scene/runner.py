@@ -52,7 +52,8 @@ def cross_gap(x, bodies) -> dict:
 
 
 def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, windows: int, mu: float, log=print,
-              F_stride: int | None = None, assim_free: bool = True, schedule=None, dump: dict | None = None) -> dict:
+              F_stride: int | None = None, assim_free: bool = True, schedule=None, dump: dict | None = None,
+              assim_share: bool = False) -> dict:
     """bodies: scene/window.Body per body (rows, the frame's reference, its built and calibrated TargetPack, the sample's
     volume per particle, the dynamics mass); x0, v0: the launch state in body order (CUDA tensors); schedule:
     scene/schedule.MorphSchedule (each window's target on the way, by the window's end time) or None (the final target
@@ -110,11 +111,17 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
             x, F, v, C, J, counts = promote(commit, lo, hi)
         for k in GUARDS:
             guards[k] += counts[k]
+        assim_rec = None
         if cfg.assim > 0:
             with timed("assim"):
                 # the controls' deformation without the loads (scene/window.free_end_F), or (assim_free False) the
-                # loaded end as the frozen rule reads it: the impact's compression, the weight's sag made rest shape
-                F_assim = opt.win.free_end_F() if assim_free else F
+                # loaded end as the frozen rule reads it: the impact's compression, the weight's sag made rest shape;
+                # or (assim_share, the B9b experiment) only the controls' share against the uncontrolled continuation
+                if assim_share:
+                    F_assim = share_F(F, opt.win.zero_end_F(), Fp)
+                    assim_rec = {"read": stretch_record(F_assim, Fp), "frozen_read": stretch_record(F, Fp)}
+                else:
+                    F_assim = opt.win.free_end_F() if assim_free else F
                 Fp = assimilate_elastic(F_assim, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
                                         isochoric=not cfg.assim_volume)
         with timed("frames"):
@@ -134,7 +141,8 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
                    "contact_impulse": impulse, **(cross_gap(x, bodies) if len(bodies) == 2 else {}), **counts,
                    "lambda": res.hist[-1]["lambda"] if res.hist else opt.lam_r, "loss": stats.get("commit_E_final"),
                    "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj, **device_memory(),
-                   **{k: stats.get(k) for k in _STATS}, "morph_s": s, "replay_retries": retries}
+                   **{k: stats.get(k) for k in _STATS}, "morph_s": s, "replay_retries": retries,
+                   **({"assim": assim_rec} if assim_rec is not None else {})}
         if dump is not None and dump["t0"] <= a * 2 * cfg.T * prm.dt < dump["t1"]:
             from .dump import window_dump
             window_dump(dump["path"], a, a * 2 * cfg.T * prm.dt, opt, commit, dump["bodies"])
@@ -151,6 +159,31 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
             + (f"  replay retries={len(retries)}" if retries else "")
             + (f"  zero-control commit ({stats.get('zero_reason')})" if stats.get("zero_commit") else ""))
     return {"frames": frames, "history": hist, "guards": guards, "Fp": Fp.cpu().numpy()}
+
+
+def share_F(F_ctrl: torch.Tensor, F_zero: torch.Tensor, Fp: torch.Tensor) -> torch.Tensor:
+    """The F that plasticity.assimilate_elastic reads (its F_e = F Fp^-1) so that it assimilates only the controls'
+    share of the window's elastic deformation (B9b, assim_share): F_e = Fe_zero^-1 Fe_ctrl = Fp F_zero^-1 F_ctrl Fp^-1,
+    the committed end's elastic deformation relative to the uncontrolled continuation's under the same loads, in the
+    intermediate (rest) frame where assimilate_elastic's stretch acts. The loads' strain is in both and cancels; a
+    rotation the loads add to both cancels too (the spatial form F_ctrl F_zero^-1 would carry it). Where the
+    continuation's F is degenerate (det <= 1e-6) nothing is assimilated (F_e = I)."""
+    Fz = F_zero.reshape(-1, 3, 3).float()
+    ok = torch.linalg.det(Fz) > 1e-6
+    Fz = torch.where(ok[:, None, None], Fz, torch.eye(3, device=Fz.device).expand_as(Fz))
+    Fpf = Fp.reshape(-1, 3, 3).float()
+    out = Fpf @ torch.linalg.solve(Fz, F_ctrl.reshape(-1, 3, 3).float())
+    return torch.where(ok[:, None, None], out, Fpf)
+
+
+def stretch_record(F: torch.Tensor, Fp: torch.Tensor) -> dict:
+    """A record: the elastic stretch the assimilation reads, F_e = F Fp^-1, as each particle's largest |log singular
+    value|: its median, 90th and 99th percentile over the particles."""
+    with torch.no_grad():
+        Fe = F.reshape(-1, 3, 3).float() @ torch.linalg.inv(Fp.reshape(-1, 3, 3).float())
+        s = torch.linalg.svdvals(Fe).clamp_min(1e-6).log().abs().max(1).values
+        q = torch.quantile(s.double(), torch.tensor([0.5, 0.9, 0.99], dtype=torch.float64, device=s.device))
+        return {"p50": float(q[0]), "p90": float(q[1]), "p99": float(q[2])}
 
 
 def wp_impulse(win) -> list:

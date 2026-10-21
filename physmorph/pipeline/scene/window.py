@@ -173,6 +173,23 @@ class SceneWindow:
         x = torch.stack([self.tr.cat("x", t) for t in range(self.T + 1)])
         return positions_in_domain(x, self.prm)
 
+    def zero_end_F(self) -> torch.Tensor:
+        """Each body's end F of the window's uncontrolled continuation under the same loads (B9b, assim_share): zero
+        control and zero u from the window's start, gravity, the floor with its position constraint and the bodies'
+        contact as in the window's own rollout (the bodies stepped together). What the loads alone make of the start."""
+        trajs, keep = [], []                     # keep: the zero buffers the Warp views read (alive to the rollout's end)
+        for body, spec in zip(self.bodies, self.specs):
+            dz = torch.zeros(self.T, body.n, 3, 3, device=self.dc_buf.device)
+            uz = torch.zeros(body.n, device=self.u_buf.device)
+            keep += [dz, uz]
+            seq = [wp.from_torch(dz[t], dtype=wp.mat33) for t in range(self.T)]
+            uw = wp.from_torch(uz, dtype=wp.float32)
+            trajs.append(body_trajectory(spec, seq, uw, requires_grad=False, persistent=False, vp=body.vp))
+        Bodies(trajs, [bd.vp for bd in self.bodies], self.mu).rollout()
+        out = torch.cat([wp.to_torch(tr.F[self.T]).reshape(-1, 3, 3).clone() for tr in trajs])
+        del keep
+        return out
+
     def free_end_F(self) -> torch.Tensor:
         """Each body's end F under the window's committed controls (the ones last loaded: the commit's) without the
         loads: alone, no gravity, no floor (D147, the coordinator's go on assimilating the control's share). The

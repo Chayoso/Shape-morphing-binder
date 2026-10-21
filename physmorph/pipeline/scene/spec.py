@@ -40,6 +40,10 @@ class SceneSpec:
                                  # are
     drag: float = 0.0            # V0 keeps the frozen drag (0.9) to compare with the frozen runs
     assim_free: bool = True      # the assimilation reads the controls' deformation without the loads (window.free_end_F)
+    assim_share: bool = False    # B9b experiment (2026-10-21, not adopted): the assimilation reads only the controls'
+                                 # share, the committed end's elastic deformation relative to the window's uncontrolled
+                                 # continuation under the same loads (runner.share_F, window.zero_end_F); overrides
+                                 # assim_free
     morph_time: float = 0.0      # s: each body's target on its way from the source over this time (scene/schedule.py,
                                  # the bodies meet mid-morph); 0: the target from the start
     g: float = 0.0               # wu/s^2: the gravity given as an acceleration, as the single-body runs' --f_ext (B9b:

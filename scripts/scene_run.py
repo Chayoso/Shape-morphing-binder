@@ -129,7 +129,7 @@ def main():
         d0, d1, db = a.dump.split(",")
         dump = {"t0": float(d0), "t1": float(d1), "bodies": [int(v) for v in db.split("+")], "path": Path(f"{a.out}_dump")}
     res = run_scene(bodies, gpu.tensor(x0), gpu.tensor(v0), prm, cfg, windows, spec.mu, log=log, F_stride=cfg.T,
-                    assim_free=spec.assim_free, schedule=schedule, dump=dump)
+                    assim_free=spec.assim_free, schedule=schedule, dump=dump, assim_share=spec.assim_share)
     seconds = time.time() - t0
     frames = res["frames"]
     n_frames = len(frames.x)

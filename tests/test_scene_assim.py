@@ -85,3 +85,36 @@ def test_an_impacts_compression_is_not_assimilated():
     assert 1.0 - float(torch.linalg.det(frozen).min()) > 0.3 * deficit
     assert 1.0 - float(torch.linalg.det(free).min()) < 0.05 * deficit
     assert float((free - Fp0).abs().max()) < 0.05 * deficit + 1e-4
+
+
+def test_the_uncontrolled_continuation_is_the_windows_own_zero_control_rollout():
+    """B9b, assim_share: zero_end_F rolls the window's start out with zero control and zero u under the same loads
+    (gravity, the floor with its position constraint): the window's own rollout of the zero control, to the rounding."""
+    cfg = PipelineConfig(T=6, young=1.0e4, min_spacing=0.9, volume_exact="carried")
+    x = _ball((0.0, 0.0, 0.0))
+    prm = MPMParams(dx=1.0, dt=1.0 / 240.0, drag=0.0, f_ext=(0.0, -3.0, 0.0), grid_min=(-16.0, -10.0, -10.0),
+                    nx=32, ny=20, nz=20, floor_y=float(x[:, 1].min()) - 0.5 * 0.125 ** (1.0 / 3.0))
+    win = _window([x], [np.zeros_like(x)], prm, cfg)
+    win.load(torch.zeros(cfg.T, len(x), 3, 3, device="cuda"), None)
+    F_loaded = _loaded_end_F(win)
+    assert float((F_loaded - torch.eye(3, device="cuda")).abs().max()) > 1e-6       # the loads deform it
+    assert float((F_loaded - win.zero_end_F()).abs().max()) < 1e-5
+
+
+def test_the_controls_share_cancels_the_loads_and_their_rotation():
+    """runner.share_F: with no control the share is the identity (nothing assimilated); a rotation the loads add to both
+    ends cancels; for an unloaded start at rest (F_zero = I) it is the frozen rule's reading."""
+    from physmorph.pipeline.scene.runner import share_F
+    g = torch.Generator().manual_seed(4)
+    n = 64
+    Fp = torch.eye(3) + 0.05 * torch.randn(n, 3, 3, generator=g)
+    F0 = (torch.eye(3) + 0.1 * torch.randn(n, 3, 3, generator=g)) @ Fp
+    F1 = (torch.eye(3) + 0.1 * torch.randn(n, 3, 3, generator=g)) @ F0
+    assert float((share_F(F0, F0, Fp) - Fp).abs().max()) < 1e-5            # F_e = I
+    a = torch.tensor(0.7)
+    Q = torch.tensor([[torch.cos(a), 0.0, torch.sin(a)], [0.0, 1.0, 0.0], [-torch.sin(a), 0.0, torch.cos(a)]])
+    assert float((share_F(Q @ F1, Q @ F0, Fp) - share_F(F1, F0, Fp)).abs().max()) < 1e-4
+    eye = torch.eye(3).repeat(n, 1, 1)
+    assert float((share_F(F1, eye, eye) - F1).abs().max()) < 1e-5
+    a1 = assimilate_elastic(share_F(F0, F0, Fp).cuda(), Fp.cuda(), eta=0.5)
+    assert float((a1 - Fp.cuda()).abs().max()) < 1e-4
