@@ -67,7 +67,7 @@ def test_a_shell_needs_the_exterior_outside_the_mesh():
 
 def test_an_open_mesh_is_closed_and_turned_outward():
     V, F = _sphere()
-    Vc, Fc, loops, tight = closed_outward(V, F[5:])                     # a hole of five faces
+    Vc, Fc, loops, tight = closed_outward(V, F[1:])                      # a hole of one face
     assert loops == 1 and tight and trimesh.Trimesh(Vc, Fc).volume > 0
     Vi, Fi, loops, tight = closed_outward(V, F[:, ::-1])                 # every face inward
     assert loops == 0 and tight and trimesh.Trimesh(Vi, Fi).volume > 0
