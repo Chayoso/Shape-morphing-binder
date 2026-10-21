@@ -10093,6 +10093,94 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   three-seed reading (uncertain). If it fails: the next root cause from the frames and the next definition, with
   numbers. *A slip recorded:* at 2026-10-21 about 12:13 CDT a local `python3 --version` ran in a no-op shell guard
   (it printed the version; nothing else ran).
+  **D155d read (runs 2026-10-21 12:27–14:05 CDT on GPU 1; read 14:05–14:40 on hyde06's CPU; `output/gpu/d155/gate/`
+  (`summary_d/`, `jcourse_d.log`, `forensic_d.log`, `forensic_dp.log`, `spots_d_*.log`, `post_d.log`, `endtime_d.log`,
+  `ugate_d.log`, `select_d.log`, `silcourse_*.log`, `room.log`, `d157cmp.log`, `d157_A3D_*.jsonl`); local
+  `output/results_2026-10-17/d155_together/gate40k_d/`). FAIL by the letter on item 2 only (IoU 3 of 5, yardstick
+  silhouette 2 of 5, on both readings); the volume (6a, 6b mean, 6b p99), items 1, 3, 4, 5 and the render lead hold on 5
+  of 5.** *Gates:* deterministic default against the tag's run A SAME (556 history fields); with `--record_elastic` SAME
+  (frames, 37 metrics, the 556 common history fields; the record's fields added); pinned references exit 0; full suite
+  exit 0 (444 passed, 2 skipped). All 24 runs rc 0. A reader correction before the verdict was written: `d155d_sum.py`'s
+  first version took the tag's range from its re-run seeds only; D155's gate defines it with B3's runs too (as
+  `d155_gate_sum.py`); corrected, the verdict the same.
+  *The items (A3D render arm against the tag's seeds):* (1) movement after 1 s 0.80–0.90 (tag 0.16–0.59); (3) at rest; (4)
+  peak kinetic energy 0.020–0.487 (tag 0.61–1.93); (5) apart in windows 3–12 4–39, visible bumps 1–6 (tag 21–188, 26–262);
+  the lead over the twin 5 of 5. (6a) the ramp's largest mean J 1.013 / 1.018 / 1.005 / 1.014 / 1.016 (bunny / dragon /
+  teapot / armadilo / homer; A3G 1.029 / 1.100 / 1.008 / 1.051 / 1.057). (6b) the end's mean J 1.0003 / 0.9962 / 0.9995 /
+  0.9985 / 0.9999, nearer 1 than the tag's nearest seed on 5 of 5 (tag 1.0040–1.0047 / 1.0098–1.0143 / 0.9945–0.9965 /
+  1.0032–1.0041 / 0.9967–0.9974); J's p99 1.109 / 1.265 / 1.026 / 1.045 / 1.098, below the tag's largest (1.142 / 1.409 /
+  1.047 / 1.126 / 1.156) on 5 of 5. (2) by the letter: IoU 3 of 5 (dragon 0.9751 against 0.9754, teapot 0.9790 against
+  0.9792), yardstick silhouette 2 of 5 (bunny 2.777 against 2.748, dragon 2.046 against 2.005, homer 0.834 against 0.809,
+  1e-3), shading 4 of 5 (homer 0.552 against 0.547), display 5, thin 5; with dragon's and homer's three-seed median: IoU
+  3, silhouette 2, shading 4, display 4, thin 5 (dragon's IoU 0.9751 / 0.9744 / 0.9750, homer's silhouette 0.834 / 0.862
+  / 0.904: systematic, by 0.0003–0.0010 and 3–12 %). Predictions: held for (6a), (6b), det Fp = 1 on the way, J back to 1
+  at s = 1 (1.0007 / 1.0019 / 1.0017 on bunny / dragon / homer against A3G's 1.014 / 1.072 / 1.021), the elastic energy
+  (below), (1), (3), (4), (5), shading 4 of 5; missed for the silhouette on the three-seed reading (≥ 4 predicted, 2).
+  *The volume and the elastic energy:* on the way det Fp = 1 and the body's mean J 1.003–1.018 (J_e p01..p99 0.96–1.08),
+  1.000–1.002 by s = 1; from s = 1 the volume assimilation creeps as in the tag (J's p99 1.03 → 1.11 on bunny, 1.05 →
+  1.27 on dragon), below the tag's. The elastic energy carried (Σ V0 ψ(F Fp⁻¹)): largest on the ramp 1524 / 2700 / 424 /
+  1498 / 2154 at 1.0–1.5 s, 1.6–7 × the tag's own arrival (345 / 405 / 267 / 304 / 352; A3G 212 / 743 / 61 / 410 / 504),
+  its volumetric part 189–1192 (tag 26–101, 7–24 ×); at 3.3 s 25–296 (tag 1.8–33), at 4 s 9–138 (bunny, dragon, homer), at the end 0.33–1.98
+  (tag 0.30–2.22). The release: kinetic energy over 3–4.5 s 0.005–0.26 against A3G's 0.005–0.24 (+0–19 %); the tag is at
+  rest by then (≤ 0.0014) after its own arrival's peak of 0.61–1.93.
+  *Is the end gap the release of the stored energy? No.* A3G stores 4–10 × less (its volume made rest volume) and has the
+  same gap (silhouette 2 of 5), as A3 and A3C; the release adds 0–19 % kinetic energy over A3G; the stored energy is the
+  tag's by the end. Beyond the yardstick the ends are the tag's: the outer layer against the independent sample within
+  the tag's range on bunny / dragon / teapot (0.405 / 0.420 / 0.332 against 0.397–0.414 / 0.418–0.426 / 0.329–0.335
+  pitch), homer +1 % (0.363 against 0.352–0.359); a plain silhouette (the particles as 0.8-pitch discs in the 18 views at
+  256 px against the independent sample, `d155d_silcourse.py`) equal at the end (homer 0.0286–0.0292 against
+  0.0285–0.0291, dragon 0.0314–0.0323 against 0.0313–0.0319) and at or below the tag's at the same time after arrival;
+  against the exact mesh (D157's reader on A3D L / P, `d157cmp.log`) the render arm's outline 1 − IoU and contour Chamfer
+  (1024 px, held-out views) within ±3 % of the tag's seed 97 on bunny / teapot / armadilo, dragon better (0.0289 against
+  0.0296; boundary F error at 0.5 pitch 0.103 against 0.112), homer worse (0.0175 against 0.0163; 0.037 against 0.032).
+  Also not: the time after arrival (over the ramp runs of a mesh ρ −0.63…+0.80, no sign), u's work (homer 40–51 against
+  the tag's 58–64 gate-window-equivalents, dragon equal), strays (none), the selection (no rejection in the first 3.3 s in
+  either), spots (2.0–2.7 % of the layer, 2–4 reference points each, ±0.5–0.7 pitch where the tag's seeds lie ±0.1–0.4).
+  *Where the residual sits:* in the physics-only end. The ramp's twins (A3GP, A3DP) end with rims and thin parts further
+  from the independent sample than the tag's twins (homer rim 0.372 against 0.353–0.362, thin 0.396 against 0.380–0.387;
+  teapot rim 0.361 against 0.344–0.347, thin 0.402 against 0.381–0.387, the thin parts' mean offset −0.220 against
+  −0.195…−0.202 pitch: set back inward); the render recovers most of it (against the exact mesh r = (e_twin − e_arm) /
+  e_twin on the outline 1 − IoU +0.10…+0.13 under the ramp against +0.08…+0.12 in the tag, with equal arm errors). On
+  homer the twins are equal at the same time after arrival (+6 s: 0.367 against 0.375) and the tag's twin simply ran
+  longer after it (10.2 against 7.3 s); on teapot the ramp's twin is behind at the same time after arrival (rim 0.361
+  against 0.341–0.349 at +2–3 s). The next root cause is not yet isolated: the frame-level candidates are the extremities
+  under-supplied on the way (the in-between targets' map is the debiased barycentric map at one MPM cell, smooth at the
+  cell's scale, so a part thinner than a cell moves as its neighbourhood's average) and the post-arrival budget (homer).
+  *The decisive measurement before a definition:* continue the ramp runs' delivered states (A3D L / P on homer and teapot,
+  seed 97) for the tag's own post-arrival duration under the frozen code (the continuation is the tag's path): if the
+  outline reaches the tag's, the residual is the post-arrival budget; if not, the extremities' supply on the way, and
+  the definition to test is the in-between map read at the extremities' own scale (the debiased map on the loss grid
+  instead of the MPM cell, `grid_transport_displacement_separable`, D148b's operator, no new constant). Cost: 4 runs of
+  2–4 card-minutes plus the readers.
+  **The render's room under the ramp (D155, the user's question "physics already moves everything, what does the
+  render do?"; existing 40k runs only, CPU, `d155_room.py`, `d155_d157cmp.py`, figure `fig_render_room.png`).** The
+  render arm against its λ = 0 twin (same seed, same source: the same material), the tag V97 / W97 and D155d A3DL97 /
+  A3DP97; the floor is the same arm run twice (V97 against its re-run VE97; A3GL97 against A3GE97: the unordered atomics
+  alone). (1) The surface difference (the outer layers' mean distance to each other, pitches): in the tag it rises to
+  0.63 / 1.11 / 0.47 / 1.05 / 1.01 at 0.5–1 s (bunny / dragon / teapot / armadilo / homer) while the floor is 0.20 / 0.17
+  / 0.10 / 0.37 / 0.07 at 0.5 s, then falls to 0.54 / 0.61 / 0.49 / 0.61 / 0.59 at the end (floor 0.47 / 0.53 / 0.27 /
+  0.56 / 0.39): the render reshapes the fast arrival by up to a pitch over the floor in its first second and keeps 0.05–0.2
+  pitch of it. Under the ramp it rises slowly to its peak at 2–3 s (0.51 / 0.89 / 0.41 / 0.70 / 0.75; floor 0.34 / 0.42
+  / 0.24 / 0.45 / 0.36 at 2 s) and ends at 0.53 / 0.59 / 0.44 / 0.58 / 0.55 (floor 0.43 / 0.57 / 0.41 / 0.54 / 0.53). (2)
+  The render's share of the actual motion (the arm-minus-twin displacement projected on the arm's over 0.2 s, the outer
+  layer): the tag 0.065 / 0.094 / 0.052 / 0.069 / 0.098 in 0–1 s, which carries 66–99 % of all the motion (the re-run
+  floor 0.000 / 0.001 / 0.001 / −0.044 / 0.002); the ramp 0.046 / 0.079 / 0.054 / 0.081 / 0.048 in 1 s–T_e, which carries
+  78–92 % (floor 0.033 / 0.026 / 0.045 / 0.019 / 0.006), 0.10–0.17 in 0–1 s (7–21 % of the motion). After the motion
+  (after T_e in both) the shares are large, 0.15–0.92, on almost no motion (0–2 %), and the floor's are as large: there the
+  difference is the runs' drift, not steering. (3) The end against the exact mesh (D157's reader; r > 0: the arm closer
+  than its twin): outline 1 − IoU at 1024 px (held-out views) the tag +0.111 / +0.083 / +0.081 / +0.087 / +0.120 (seed
+  97), the ramp +0.123 / +0.113 / +0.127 / +0.109 / +0.100; boundary F error within 0.5 pitch the tag +0.27 / +0.13 /
+  +0.21 / +0.25 / +0.08, the ramp +0.42 / +0.28 / +0.49 / +0.24 / +0.10; contour Chamfer the tag +0.05…+0.11, the ramp
+  +0.05…+0.13; 3D Chamfer and normal consistency alike (−0.03…+0.07). The arm's own errors are the tag's within ±3 %
+  (homer +7 %): the larger r under the ramp comes from a twin that ends further from the mesh (above), which the render
+  then closes. *Answer:* in the frozen pipeline the render does steer the arrival, not only polish: in the first second it
+  carries 5–10 % of the surface's motion and moves the surface up to a pitch from where physics alone would put it, but
+  that second holds two-thirds or more of all the motion, so afterwards only the sub-pitch polish is left (its end effect
+  8–12 % on the outline against the exact mesh). Under the ramp the render takes part for as long as the shape moves
+  (1–3.3 s), with about the same weight per unit of motion (5–8 % of it), and its end effect against the exact mesh is
+  larger (outline +10–13 %, boundary F +10–49 %) — not because it has more authority (its gradient share is calibrated to
+  1/3 in both, its share of the merit on the ramp is 0.2–2.8 % against the tag's 4–9 %) but because there is more for it
+  to fix in the ramp's physics-only end.
 - **D157, standard metrics that see the render, or a plain statement that none does: boundary-sensitive silhouette
   metrics, 3D F-score / normal consistency / Chamfer and novel-view PSNR / SSIM / LPIPS against the exact mesh, on the
   existing end states (a measurement; no pipeline change, no run; opened 2026-10-21 10:16 CDT server clock; the

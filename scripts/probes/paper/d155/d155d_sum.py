@@ -1,4 +1,4 @@
-"""d155d_sum.py GATE_DIR OUT_DIR -- D155d's 40k gate as pre-registered (2026-10-21 12:18 CDT): items (1), (3), (4), (5) and
+"""d155d_sum.py GATE_DIR OUT_DIR -- D155d's 40k gate as pre-registered (2026-10-21 12:18 CDT; the tag's range as D155's gate: its re-run seeds and B3's): items (1), (3), (4), (5) and
 the render lead at seed 97; (2) by the letter (seed 97) and with dragon and homer read by the median of the ramp arm's
 three seeds; (6a) the ramp's largest mean J <= 1.03; (6b) the end's mean J within the tag's range or nearer 1 than its
 nearest seed, J's p99 not above the tag's largest; each on >= 4 of 5. Tables: the volume and the elastic energy (A3D
@@ -36,8 +36,13 @@ def g(r, path):
     return x
 
 
+B3 = {r["name"]: r for r in (json.loads(line) for line in open(f"{os.path.dirname(GD)}/gate_b3_tag.jsonl"))}
+
+
 def tag(m, path, arm="V"):
-    return [x for x in (g(R.get(f"{m}40k_{arm}{s}"), path) for s in SEEDS) if x is not None]
+    """the tag's range as D155's gate defined it (pre-registered 2026-10-17, kept by D155b-d): its three re-run seeds and
+    B3's three where B3 has the measure (d155_gate_sum.tag)"""
+    return [x for src in (R, B3) for x in (g(src.get(f"{m}40k_{arm}{s}"), path) for s in SEEDS) if x is not None]
 
 
 def yes(b):
