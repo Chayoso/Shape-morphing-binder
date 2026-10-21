@@ -60,11 +60,22 @@ def main():
         gc.disable()
     gpu.require_cuda()
     spec = SceneSpec(**json.loads(Path(a.scene).read_text())) if a.scene else SceneSpec()
+    if spec.frame not in ("body", "fixed", "standing"):
+        raise ValueError(f"frame {spec.frame!r}: body, fixed or standing")
+    # B9b option 1 (the user's choice of 2026-10-20): frame "standing", a body at rest whose target stands on the floor
+    # with its pose fixed in the world, as the single-body --floor runs' target: the body is prepared with --floor (the
+    # target, its surface and its draws lifted onto the source's lowest point, B9's prepare), and its objective reads it
+    # in the frame where its source sits as the single-body run's does (below), so the objective is B9's
+    standing = spec.frame == "standing"
+    if standing and not (spec.rest and spec.floor and spec.bodies == 1):
+        raise ValueError("frame 'standing': one body at rest on the floor (spec.rest, spec.floor)")
     log = lambda s: print(s, flush=True)                                          # noqa: E731
     base = run_args(["--n", str(a.n), "--src", a.src, "--tgt", a.tgt, "--seed", str(a.seed),
                      "--render_weight_scale", str(a.render_weight_scale), "--drag", "0", "--out", a.out]
-                    + ([] if a.young is None else ["--young", str(a.young)]) + a.flags.split())
+                    + ([] if a.young is None else ["--young", str(a.young)]) + (["--floor"] if standing else [])
+                    + a.flags.split())
     bodies, srcs, vps, thins, tgts, prms, start = [], [], [], [], [], [], 0
+    means, lifts = [], []
     cfg = None
     for b, seed in enumerate((a.seed, a.seed + 1000)[:spec.bodies]):   # body 1: its own samples (none of body 0's)
         cfg0, prep = prepared(base, seed)
@@ -74,8 +85,12 @@ def main():
         if prep.tgt_surface is not None:
             tgt.relief = target_relief(tgt.pts, prep.tgt_surface, cfg_b)
         X = np.asarray(prep.src, np.float64)
+        means.append(X.mean(0))
+        # a record (standing): prepare's lift of the target (its sample is about its centroid before the lift)
+        lifts.append(float(np.asarray(prep.tgt, np.float64)[:, 1].mean()))
         X = X - X.mean(0)
-        calibrate_units(tgt, gpu.tensor(X.astype(np.float32)), cfg_b)
+        # standing: the units calibrated on the source where the single-body run has it (B9's calibrate_units)
+        calibrate_units(tgt, gpu.tensor(np.asarray(prep.src, np.float32) if standing else X.astype(np.float32)), cfg_b)
         # the gate's volume per particle: the sample's own (one jittered particle per voxel of the sampler's fill; after
         # the density match the source's fill is the target's), not the mesh's 110^3 volume / N, which read 0.917 of the
         # cell at interior nodes in the prototype (M-b) and let the gate fire only after an overlap of a spacing
@@ -96,6 +111,15 @@ def main():
     if spec.frame == "fixed":                   # V0: the objective in the frame the body has at launch (the world's)
         for bd, R in zip(bodies, R0):
             bd.fixed = (gpu.tensor(x0[bd.rows].mean(0)), gpu.tensor(R.astype(np.float32)))
+    elif standing:
+        # the frame y = (x - c) R in which the body's launch positions are its source sample as prepared, c = start - m R^T
+        # (m the sample's mean): the single-body run's world, its target lifted onto the floor by prepare (the floor's
+        # centre plane is the source's lowest point there and the body's lowest centre here, spec.rest)
+        info["fixed_frames"] = []
+        for bd, R, m, c0, lift in zip(bodies, R0, means, info["centres_at_launch"], lifts):
+            c = np.asarray(c0, np.float64) - m @ R.T
+            bd.fixed = (gpu.tensor(c.astype(np.float32)), gpu.tensor(R.astype(np.float32)))
+            info["fixed_frames"].append({"c": c.tolist(), "R": R.tolist(), "target_lift": lift})
     windows = a.windows or info["windows"]
     log(f"[scene] {json.dumps(info)}")
     t0 = time.time()
@@ -124,8 +148,12 @@ def main():
         with torch.no_grad():
             xb = gpu.tensor(xs[-1][bd.rows])
             m = shape(bd.frame(xb)[0].cpu().numpy(), tgt, ts)
-            if bd.fixed is not None:
+            if bd.fixed is not None and not standing:
                 m["buckens"] = shape(body_frame(xb, bd.Xq)[0].cpu().numpy(), tgt, ts)
+            elif standing:                      # the Buckens frame is about the centroid: the target about its own
+                tc = (tgt - tgt.mean(0)).astype(np.float32)
+                m["buckens"] = shape(body_frame(xb, bd.Xq)[0].cpu().numpy(), tc, thin_set(tc, prep.cell_shape or prep.prm.dx,
+                                                                                         cfg.mass_ref_n))
         met.append(m)
     log(f"[scene] done: {n_frames} frames, {seconds / 60:.1f} min; " + "  ".join(
         f"b{b}: silIoU={m['sil_iou']:.4f} chamfer={m['chamfer']:.4f} thin={m.get('thin_uncovered', float('nan')) * 100:.1f}%"

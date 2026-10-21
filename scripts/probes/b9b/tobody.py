@@ -13,7 +13,11 @@ Writes, next to the run:
                     (pitches), the frame's turn, tilt (the body's up axis from the vertical) and turn about the vertical
                     (deg), and over the pair to the next kept frame the centroid's speed, the angular speed, the RMS
                     deformation speed (v less the least-squares rigid velocity) and the mean particle move (pitches).
-The pitch: the sample's (vp^(1/3)); the at-rest layout put the floor's plane half of it below the lowest centre."""
+The pitch: the sample's (vp^(1/3)); the at-rest layout put the floor's plane half of it below the lowest centre.
+Option 1 (frame "standing", 2026-10-20): the archives are in the objective's frame, fixed in the world (the run's
+fixed_frames: the single-body run's world, its target lifted onto the floor), to be read against the independent sample
+lifted the same way (tmp/d145/ind_shift.py), as B9's; and every 4th kept frame (--shape_every K) and the last carry the
+shape's own tilt (shape_rotation), the upright item's measure, beside the Buckens (material) frame's."""
 import json
 import sys
 from pathlib import Path
@@ -31,6 +35,32 @@ def angle(R):
     return float(np.degrees(np.arccos(np.clip((np.trace(R) - 1.0) / 2.0, -1.0, 1.0))))
 
 
+def shape_rotation(xc, tc, tree_t, R, iters=40, sub=20000):
+    """The rotation (and shift) that best aligns a body's shape to its target's, y = xc R + t ~ the target: symmetric
+    nearest-neighbour pairs (body to target and target to body, up to `sub` points each), Kabsch on them, from R (the
+    Buckens rotation), until R moves by less than 1e-5. A shape measure, unlike the Buckens frame (the material's: a
+    morph that turns material inside an upright shape turns it, B9's 5-8 deg). xc, tc: about their centroids."""
+    from scipy.spatial import cKDTree
+    rng = np.random.default_rng(0)
+    xs = xc[rng.choice(len(xc), min(sub, len(xc)), replace=False)]
+    ts = tc[rng.choice(len(tc), min(sub, len(tc)), replace=False)]
+    t = np.zeros(3)
+    for _ in range(iters):
+        y = xs @ R + t
+        i = tree_t.query(y)[1]
+        j = cKDTree(y).query(ts)[1]
+        P = np.concatenate([xs, xs[j]])
+        Q = np.concatenate([tc[i], ts])
+        pm, qm = P.mean(0), Q.mean(0)
+        Rn = polar((P - pm).T @ (Q - qm))
+        t = qm - pm @ Rn
+        done = np.abs(Rn - R).max() < 1e-5
+        R = Rn
+        if done:
+            break
+    return R
+
+
 def rigid(x, v):
     c = x.mean(0)
     r = x - c
@@ -43,7 +73,8 @@ def rigid(x, v):
 
 def main():
     runs, tag = Path(sys.argv[1]), sys.argv[2]
-    times = [float(s) for s in sys.argv[3:]]
+    args = [s for i, s in enumerate(sys.argv) if s != "--shape_every" and sys.argv[i - 1] != "--shape_every"]
+    times = [float(s) for s in args[3:]]
     j = json.loads((runs / f"{tag}.json").read_text())
     z = np.load(runs / f"{tag}.npz")
     fr, raws, rows = z["frames"], z["raws"].astype(int), z["rows"]
@@ -56,12 +87,21 @@ def main():
     floor_c = float(fr[0][:, 1].min())                     # the lowest centre at launch: the floor's centre plane
     pitch = 2.0 * (floor_c - floor_y)                       # spec.layout: the plane half a pitch under it
     h_tgt = float(tgt[:, 1].mean() - tgt[:, 1].min())       # the target's centroid above its lowest point
+    # frame "standing" (option 1): the archive in the objective's frame, fixed in the world (the single-body run's world,
+    # the target lifted onto the floor: read against the independent sample lifted the same way, as B9's); otherwise the
+    # body's Buckens frame
+    ff = (j.get("scene") or {}).get("fixed_frames")
+    obj_frame = None if not ff else (np.asarray(ff[0]["c"], np.float64), np.asarray(ff[0]["R"], np.float64))
+    from scipy.spatial import cKDTree
+    tc = np.asarray(tgt, np.float64) - np.asarray(tgt, np.float64).mean(0)
+    tree_t = cKDTree(tc)
+    shape_every = int(sys.argv[sys.argv.index("--shape_every") + 1]) if "--shape_every" in sys.argv else 4
     ys, track = [], []
     for k in range(len(fr)):
         x = np.asarray(fr[k], np.float64)
         c = x.mean(0)
         R = polar((x - c).T @ X)
-        ys.append(((x - c) @ R).astype(np.float32))
+        ys.append((((x - obj_frame[0]) @ obj_frame[1]) if obj_frame is not None else ((x - c) @ R)).astype(np.float32))
         up = R[:, 1]                                        # the body's vertical axis in the world
         yaw = float(np.degrees(np.arctan2(R[0, 2] - R[2, 0], R[0, 0] + R[2, 2])))
         rec = {"k": k, "raw": int(raws[k]), "t": float(raws[k] * dt), "c": c.tolist(),
@@ -70,6 +110,10 @@ def main():
                "lowest_sp": float((x[:, 1].min() - floor_c) / pitch), "turn_deg": angle(R),
                "tilt_deg": float(np.degrees(np.arccos(np.clip(up[1], -1.0, 1.0)))), "yaw_deg": yaw,
                "drift_xz_sp": float(np.hypot(c[0] - fr[0][:, 0].mean(), c[2] - fr[0][:, 2].mean()) / pitch)}
+        if k % shape_every == 0 or k == len(fr) - 1:      # the shape's own tilt (shape_rotation), from the Buckens one
+            Rs = shape_rotation(x - c, tc, tree_t, R)
+            rec.update(shape_tilt_deg=float(np.degrees(np.arccos(np.clip(Rs[1, 1], -1.0, 1.0)))),
+                       shape_turn_deg=angle(Rs))
         if k + 1 < len(fr):
             x1 = np.asarray(fr[k + 1], np.float64)
             tau = float(raws[k + 1] - raws[k]) * dt
@@ -95,7 +139,9 @@ def main():
     e = track[-1]
     print(f"{tag}: {len(fr)} kept frames to {e['t']:.2f} s; pitch {pitch:.4f} wu; end: height vs the standing target "
           f"{e['dh_wu']:+.4f} wu ({e['dh_sp']:+.2f} sp), lowest {e['lowest_sp']:+.2f} sp, turn {e['turn_deg']:.2f} "
-          f"(tilt {e['tilt_deg']:.2f}, about the vertical {e['yaw_deg']:+.2f}) deg, drift {e['drift_xz_sp']:.2f} sp")
+          f"(tilt {e['tilt_deg']:.2f}, about the vertical {e['yaw_deg']:+.2f}) deg, drift {e['drift_xz_sp']:.2f} sp; "
+          f"the shape's tilt {e.get('shape_tilt_deg', float('nan')):.2f} deg; archive in the "
+          f"{'objective (standing) frame' if obj_frame is not None else 'Buckens frame'}")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ The items (each with its pre-registered bar):
   reach     silhouette IoU against the independent sample in the body's frame >= the no-gravity runs' lowest seed - 0.01
             (40k: the tag's V, d145t_b3; 300k: the tag's L, d145t_b1, seeds 97 / 99 / 101; D147's E4 margin)
   height    the end centroid above the floor's centre plane against the target standing there within one pitch, and
-            the body upright (tilt of its up axis below V0's 3 deg)
+            the body upright (tilt of its up axis below V0's 3 deg; option 1 (frame "standing"): a separate item on the
+            shape's own tilt, tobody.shape_rotation, at most UPRIGHT below; the Buckens (material) tilt reported)
   rest      the last window's rigid speed (|v_c| and |w| R) below 0.01 wu/s and the lowest centre within one pitch of
             the plane (D147 V1's bar); the deformation's speed and the last second's particle move reported beside B9
   momentum  gravity is vertical and the floor frictionless, so P_x, P_z and L_y (about the centroid) stay at zero: the
@@ -132,6 +133,9 @@ def scene_row(stage, R, mesh, arm, seed):
              drift_end_sp=end["drift_xz_sp"], drift_max_sp=max(p["drift_xz_sp"] for p in tr["track"]),
              yaw_max_deg=max(abs(p["yaw_deg"]) for p in tr["track"]),
              tilt_max_deg=max(p["tilt_deg"] for p in tr["track"]),
+             shape_tilt_deg=end.get("shape_tilt_deg"),
+             shape_tilt_max_deg=max((p["shape_tilt_deg"] for p in tr["track"] if "shape_tilt_deg" in p
+                                     and p["t"] >= 0.5 * end["t"]), default=None),
              v_com_end=float(np.linalg.norm(last["v_com"])), omegaR_end=float(np.linalg.norm(last["omega"])) * Rb,
              v_def_rms_end=pairs[-1]["v_def_rms"] if pairs else None,
              move_lastsec_sp=float(np.mean([p["move_sp"] for p in lastsec])) if lastsec else None,
@@ -172,10 +176,19 @@ def scene_row(stage, R, mesh, arm, seed):
     return r
 
 
+# the upright bar on the shape's tilt (tobody.shape_rotation; option 1's pre-registration, 2026-10-20): V0's 3 deg, or the
+# single-body path's own reading of an upright end where larger (B9 G2L97 at 300k: dragon 0.75, bunny 3.10 deg)
+UPRIGHT = {"bunny": 3.10, "dragon": 3.0}
+
+
 def verdicts(r, bar):
     v = {}
     v["reach"] = r.get("sil_ind") is not None and r["sil_ind"] >= bar
-    v["height"] = abs(r["dh_sp"]) <= 1.0 and r["tilt_deg"] < 3.0
+    if r.get("shape_tilt_deg") is not None:         # option 1: height and upright apart, upright on the shape's tilt
+        v["height"] = abs(r["dh_sp"]) <= 1.0
+        v["upright"] = r["shape_tilt_deg"] <= UPRIGHT.get(r["mesh"], 3.0)
+    else:                                           # B9b as pre-registered: one item, the Buckens frame's tilt
+        v["height"] = abs(r["dh_sp"]) <= 1.0 and r["tilt_deg"] < 3.0
     v["rest"] = r["v_com_end"] < 0.01 and r["omegaR_end"] < 0.01 and abs(r["lowest_sp"]) <= 1.0
     v["momentum"] = r["drift_max_sp"] < 1.0
     v["pieces"] = r["end_serious"] == 0
@@ -210,7 +223,8 @@ def main():
     prefix = sys.argv[3] if len(sys.argv) > 3 else str(R / f"read_{stage}")
     refs = b9_refs(stage)
     rows, lines, gate_fail = [], [], []
-    lines += [f"# B9b {stage}: one body under gravity with the floor, the scene path", "",
+    title = sys.argv[4] if len(sys.argv) > 4 else "one body under gravity with the floor, the scene path"
+    lines += [f"# B9b {stage}: {title}", "",
               "Body-frame measures against the independent sample; the height against the target standing on the "
               "floor; pitches are the sample's (vp^(1/3)). L = render arm, P = render-off twin.", ""]
     for mesh in MESHES:
@@ -218,14 +232,15 @@ def main():
         bar = (min(nog) - 0.01) if nog else None
         lines += [f"## {mesh} {stage}", "", f"Reach bar (no-gravity tag runs' lowest seed - 0.01): {fmt(bar, '.4f')} "
                   f"(no-gravity silhouette IoU ind {rng(nog)})", ""]
-        hdr = ["run", "sil IoU ind", "chamfer ind", "thin %", "end height vs target (sp)", "tilt deg",
+        hdr = ["run", "sil IoU ind", "chamfer ind", "thin %", "end height vs target (sp)", "material tilt deg",
+               "shape tilt deg (2nd half max)",
                "lowest (sp)", "drop min (wu, s)", "|v_c| wu/s", "|w|R wu/s", "def. speed wu/s", "move last s (sp)",
                "drift max (sp)", "yaw max deg", "max P_xz / (M g window)", "max L_y / max L_xz", "serious frames / at end",
                "largest / farthest (sp)", "windows", "min", "lambda med", "g_share med"]
         if stage == "300k":
             hdr[4:4] = ["yard sil e-4", "yard shading e-4", "display front %"]
         lines += ["| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
-        vt = ["| run | reach | height | rest | momentum | pieces | whole run |", "|---|---|---|---|---|---|---|"]
+        vt = ["| run | reach | height | upright | rest | momentum | pieces | whole run |", "|---|---|---|---|---|---|---|---|"]
         for arm, seed in ARMS:
             r = scene_row(stage, R, mesh, arm, seed)
             if r is None:
@@ -239,7 +254,9 @@ def main():
             rows.append(r)
             cells = [r["name"], fmt(r.get("sil_ind"), ".4f"), fmt(r.get("chamfer_ind"), ".5f"),
                      fmt(None if r["thin"] is None else 100 * r["thin"], ".2f"), fmt(r["dh_sp"], "+.2f"),
-                     fmt(r["tilt_deg"], ".2f"), fmt(r["lowest_sp"], "+.2f"),
+                     fmt(r["tilt_deg"], ".2f"),
+                     "-" if r.get("shape_tilt_deg") is None else f"{r['shape_tilt_deg']:.2f} ({r['shape_tilt_max_deg']:.2f})",
+                     fmt(r["lowest_sp"], "+.2f"),
                      f"{r['drop_min_wu']:+.3f}, {r['drop_min_t']:.2f}", fmt(r["v_com_end"], ".2e"),
                      fmt(r["omegaR_end"], ".2e"), fmt(r["v_def_rms_end"], ".2e"), fmt(r["move_lastsec_sp"], ".4f"),
                      fmt(r["drift_max_sp"], ".2f"), fmt(r["yaw_max_deg"], ".2f"),
@@ -252,11 +269,11 @@ def main():
                               fmt(None if r.get("yard_ext_pbr") is None else 1e4 * r["yard_ext_pbr"], ".2f"),
                               fmt(None if r.get("disp_front_1miou") is None else 100 * r["disp_front_1miou"], ".3f")]
             lines.append("| " + " | ".join(cells) + " |")
-            vt.append("| " + " | ".join([r["name"]] + [fmt(v[k]) for k in ("reach", "height", "rest", "momentum",
+            vt.append("| " + " | ".join([r["name"]] + [fmt(v.get(k, "-")) for k in ("reach", "height", "upright", "rest", "momentum",
                                                                              "pieces", "whole")]) + " |")
             if arm == "L":
-                for k in ("reach", "height", "pieces", "whole"):
-                    if not v[k]:
+                for k in ("reach", "height", "upright", "pieces", "whole"):
+                    if k in v and not v[k]:
                         gate_fail.append(f"{r['name']} {k}")
         lines += ["", "Items by their bars:", ""] + vt + [""]
         L97 = next((r for r in rows if r["name"] == f"{mesh}{stage}_L97"), None)

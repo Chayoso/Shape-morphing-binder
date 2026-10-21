@@ -35,7 +35,7 @@ class Body:
     vp: float
     mass: float
     cfg: object = None                  # the body's own run config (its prepare's loss grid, berth); None: the scene's
-    fixed: tuple | None = None          # V0 only: (c, R) of a frame fixed at launch (the world's), velocities as they are
+    fixed: tuple | None = None          # V0 or frame "standing": (c, R) of a frame fixed in the world, velocities as they are
     raster: object = None               # scene/raster.BodyRaster (fix 1): the loss raster grows to cover the body; None:
                                         #   the target's raster as built
     base: object = None                 # the window's target before the raster's growth (set by scene/raster.cover)
@@ -50,7 +50,7 @@ class Body:
         return self.stop - self.start
 
     def frame(self, x: torch.Tensor):
-        """(y, c, R) of the body's positions x (its rows): the Buckens frame, or (V0) the frame fixed at launch."""
+        """(y, c, R) of the body's positions x (its rows): the Buckens frame, or a frame fixed in the world (V0, standing)."""
         if self.fixed is not None:
             c, R = self.fixed
             return (x - c) @ R, c, R

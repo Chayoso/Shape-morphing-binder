@@ -17,7 +17,13 @@ A's RMS, each term (transport lv, kinetic lk, silhouette lr, shading lpbr, d_sil
 difference to A; and (amended 2026-10-17 17:50 CDT, after the first check stopped on the zero control's kinetic terms
 of a body at rest, 6.5e-11 and 3.5e-13) every arm's window replayed REPLAYS times per control: the arm's own replay
 range of each term (CUDA atomics sum in another order at every replay) and its positions' largest difference from A's
-first replay over all replays. CUDA; run on hyde06."""
+first replay over all replays. CUDA; run on hyde06.
+
+one_equal.py OUT_JSON N SEED MESH standing -- option 1 (frame "standing", 2026-10-20): the body prepared with --floor (the
+target, its surface and draws lifted onto the source's lowest point, B9's prepare), the source where prepare puts it (the
+single-body run's world), A the frozen window with that lifted target (B9's objective) on its own grid without the floor
+or gravity (the floors differ by definition); B, C, D, E as above but in the world frame fixed at the origin (the
+standing frame of a body whose source sits as prepared: c = start - m R^T = 0): B must equal A as before."""
 from __future__ import annotations
 
 import dataclasses
@@ -52,14 +58,16 @@ def main():
     n = int(sys.argv[2]) if len(sys.argv) > 2 else 40000
     seed = int(sys.argv[3]) if len(sys.argv) > 3 else 97
     mesh = sys.argv[4] if len(sys.argv) > 4 else "bunny"
+    standing = len(sys.argv) > 5 and sys.argv[5] == "standing"
     gpu.require_cuda()
-    base = run_args(["--n", str(n), "--tgt", f"assets/{mesh}.obj", "--seed", str(seed), "--out", str(out)])
+    base = run_args(["--n", str(n), "--tgt", f"assets/{mesh}.obj", "--seed", str(seed), "--out", str(out)]
+                    + (["--floor"] if standing else []))
     cfg0, prep = prepared(base, seed)
     cfg = run_config(base, cfg0, prep)
-    prm_a = prep.prm
+    prm_a = dataclasses.replace(prep.prm, floor_y=-1.0e9) if standing else prep.prm
     X = np.asarray(prep.src, np.float64)
     X = (X - X.mean(0)).astype(np.float32)
-    x = gpu.tensor(X)
+    x = gpu.tensor(np.asarray(prep.src, np.float32) if standing else X)
     tgt = build_target(prep.tgt, prm_a, cfg, draws=prep.tgt_draws)
     if prep.tgt_surface is not None:
         tgt.relief = target_relief(tgt.pts, prep.tgt_surface, cfg)
@@ -81,10 +89,10 @@ def main():
     prm_e, info_e = scene_prm(True)
     arms = {
         "A": ("frozen", prm_a, None),
-        "B": ("scene", prm_a, "fixed"),
-        "C": ("scene", dataclasses.replace(prm_a, drag=0.0), "body"),
-        "D": ("scene", prm_d, "body"),
-        "E": ("scene", prm_e, "body"),
+        "B": ("scene", prm_a, "world" if standing else "fixed"),
+        "C": ("scene", dataclasses.replace(prm_a, drag=0.0), "world" if standing else "body"),
+        "D": ("scene", prm_d, "world" if standing else "body"),
+        "E": ("scene", prm_e, "world" if standing else "body"),
     }
     gen = torch.Generator().manual_seed(2)
     noise = torch.randn(cfg.T, n, 3, 3, generator=gen)
@@ -101,9 +109,10 @@ def main():
             win = Window(start, prm, cfg, tgt, vol0, bonds)
             obj = Objective(win)
         else:
-            body = Body(start=0, stop=n, Xq=x, tgt=tgt, vp=vp, mass=cfg.mass_ref_n / n, cfg=cfg,
-                        raster=BodyRaster(prm_a, cfg),
-                        fixed=(x.mean(0), torch.eye(3, device=x.device)) if frame == "fixed" else None)
+            eye = torch.eye(3, device=x.device)
+            fixed = {"fixed": (x.mean(0), eye), "world": (torch.zeros(3, device=x.device), eye)}.get(frame)
+            body = Body(start=0, stop=n, Xq=gpu.tensor(X), tgt=tgt, vp=vp, mass=cfg.mass_ref_n / n, cfg=cfg,
+                        raster=BodyRaster(prm_a, cfg), fixed=fixed)
             win = SceneWindow(start, prm, cfg, [body], vol0, [bonds], mu=0.0)
             obj = SceneObjective(win)
         row = {}
