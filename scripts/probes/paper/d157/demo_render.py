@@ -18,7 +18,7 @@ D = sys.argv[1]
 CROPS = json.load(open(sys.argv[2])) if len(sys.argv) > 2 else {}
 RED, BLUE, AGREE, INK, INK2, BG = "#e34948", "#2a78d6", "#d9d8d4", "#0b0b0b", "#52514e", "#ffffff"
 plt.rcParams.update({"font.size": 10, "figure.facecolor": "white"})
-LAB = {"P": "render OFF (physics only)", "L": "render ON"}
+LAB = {"P": "dF_c + layer u", "L": "dF_c + layer u + render loss (full)"}   # the user's arm names (2026-10-21)
 VIEWNAME = {"bunny": {16: "side", 13: "three-quarter", 2: "from above (held-out, far)"},
             "dragon": {16: "side", 14: "raised side", 38: "from below (held-out, far)"}}
 SCALE = 0.5                                                    # pitches, the heatmap's fixed range
@@ -208,7 +208,7 @@ def time_figure(mesh, zt, ze, out):
             label(ax, S, T)
             if i == 0:
                 ax.set_title(name, fontsize=12, color=INK)
-        axes[i, 0].set_ylabel(LAB[lab], fontsize=11, color=INK)
+        axes[i, 0].set_ylabel(LAB[lab].replace(" + render", "\n+ render"), fontsize=11, color=INK)
     fig.suptitle(f"{mesh} 300k, side view (held-out), offset-corrected reference: when the difference appears",
                  fontsize=11, color=INK, y=0.995)
     legend(fig)
