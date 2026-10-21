@@ -1,8 +1,9 @@
-"""d154_g40.py OUT_DIR -- D154 follow-up (3): the 40k gallery (D155's gate re-runs of B3's V / W on the tag's default
-path) against the exact mesh, from output/gpu/d154/read/g40_*.jsonl (CPU, read-only). Per mesh and measure: V / W over
-the seeds (median, range), the share of W's excess over the perfect sample that V removes, (W - V) / (W - own), and the
-paired tests: the sign count and the two-sided Wilcoxon signed-rank test over the 15 mesh-seed pairs and over the 5
-per-mesh medians. Writes g40_table.json and prints the lines the entry quotes."""
+"""d154_g40.py OUT_DIR -- D154 follow-ups (3) / (3b): the 40k gallery against the exact mesh, 19 meshes (the five of
+D155's gate re-runs, read/g40_*.jsonl, and the 14 of (3b)'s re-runs on repo_t1s, read/g40b_*.jsonl; both re-runs of B3's
+V / W on the tag's default path; CPU, read-only). Per mesh and measure: V / W over the seeds (median, range), the share
+of W's excess over the perfect sample that V removes, (W - V) / (W - own), and the paired tests: the sign count and the
+two-sided Wilcoxon signed-rank test over the mesh-seed pairs and over the per-mesh medians; the count of meshes at
+V / W <= 0.90 and > 0.95 (the pre-registered rule). Writes g40_table.json and prints the lines the entry quotes."""
 import glob
 import json
 import sys
@@ -14,9 +15,10 @@ from scipy.stats import wilcoxon
 O = Path("/data/relcfd/chayo/physmorph_v2/output/gpu/d154")
 out = Path(sys.argv[1])
 out.mkdir(parents=True, exist_ok=True)
-rows = [json.loads(s) for f in sorted(glob.glob(str(O / "read/g40_*.jsonl"))) for s in open(f) if s.startswith("{")]
+rows = [json.loads(s) for f in sorted(glob.glob(str(O / "read/g40_*.jsonl")) + glob.glob(str(O / "read/g40b_*.jsonl"))) for s in open(f) if s.startswith("{")]
 R = {(r["mesh"], r["seed"], r["label"]): r for r in rows}
-MESHES = ["armadilo", "bunny", "dragon", "homer", "teapot"]
+MESHES = ["A", "armadilo", "beast", "bimba", "bob", "bunny", "C", "cheburashka", "cow", "dragon", "fandisk", "heart", "homer",
+          "maxplanck", "nefertiti", "ogre", "spot", "teapot", "V"]          # (3): the five of D155's gate; (3b): the other 14
 SEEDS = (97, 99, 101)
 MEAS = [("outline_sd", "outline-shape error (outline offset spread, 1024 px), pitches", lambda r: r["exact_1024"]["outline_state_sd_a"]),
         ("iou1024", "1 - IoU, exact binary silhouettes, 1024 px", lambda r: r["exact_1024"]["one_minus_iou"]),
@@ -65,7 +67,9 @@ for key, label, get in MEAS:
                       pairs=dict(n=len(pairs_v), v_lower=int(sum(v < w for v, w in zip(pairs_v, pairs_w))),
                                  wilcoxon_p=wil(pairs_v, pairs_w)),
                       mesh_medians=dict(n=len(med_v), v_lower=int(sum(v < w for v, w in zip(med_v, med_w))),
-                                        wilcoxon_p=wil(med_v, med_w)))
+                                        wilcoxon_p=wil(med_v, med_w)),
+                      ratio_le_090=int(sum(m["ratio"][0] <= 0.90 for m in per_mesh.values())),
+                      ratio_gt_095=int(sum(m["ratio"][0] > 0.95 for m in per_mesh.values())))
 json.dump(table, open(out / "g40_table.json", "w"), indent=1)
 for key, d in table.items():
     print(f"== {key}: {d['label']}")
@@ -75,4 +79,5 @@ for key, d in table.items():
               f"({m['share'][1] if m['share'] else float('nan'):.2f}..{m['share'][2] if m['share'] else float('nan'):.2f})")
     p, q = d["pairs"], d["mesh_medians"]
     print(f"  pairs: V lower in {p['v_lower']} / {p['n']}, Wilcoxon p {p['wilcoxon_p']}; mesh medians: V lower in "
-          f"{q['v_lower']} / {q['n']}, p {q['wilcoxon_p']}")
+          f"{q['v_lower']} / {q['n']}, p {q['wilcoxon_p']}; meshes with V / W <= 0.90: {d['ratio_le_090']}, > 0.95: "
+          f"{d['ratio_gt_095']}")

@@ -8914,6 +8914,42 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Otherwise in between.
   - Prediction: like (3)'s five, 0.85–0.93 on most meshes; the sharp, flat-faced shapes (A, C, V, fandisk) may differ,
     as their 300k / 40k IoU readings did.
+  **Result (3b), read 2026-10-21 10:00 CDT: all 19 meshes (`g40_table.json`; local
+  `output/results_2026-10-20/d154_gallery40k/`).**
+  - Runs and gates. The chain (PID 2228430) ran the three seed batches on GPU 1 (23:21–00:18) and GPU 3 (00:18–01:33,
+    01:43–02:42). Each card was claimed after 10 idle minutes and released at the batch's end. All 84 runs rc 0, mean
+    136 s. The 42 new mesh-seed frames reproduce their runs' target samples (≤ 4.8e-7 wu), and 126 states were read
+    with 2 readers at nice 10 (done 02:55).
+  - Outline-shape error, V / W per mesh (median over seeds): A 0.97, armadilo 0.88, beast 0.91, bimba 0.88, bob 0.85,
+    bunny 0.88, C 0.88, cheburashka 0.96, cow 0.92, dragon 0.92, fandisk 0.94, heart 0.88, homer 0.88, maxplanck 0.90,
+    nefertiti 0.87, ogre 0.92, spot 0.90, teapot 0.89, V 0.94. So 0.85–0.97, median 0.90, below 1 on every mesh.
+    - V is lower in 56 of 57 mesh-seed pairs (Wilcoxon p = 5.4e-11) and in 19 of 19 mesh medians (p = 3.8e-6).
+    - W is below the perfect sample on 18 of 19 (all but C), so the share of W's excess is defined only on C (0.41).
+  - Exact 1 − IoU at 1024 px: V / W 0.99–1.10, median 1.013. V is higher in 42 of 57 pairs (p = 5.2e-5) and lower in
+    6 of 19 mesh medians (p = 0.023); V +9.6 %, C +7.2 %, bunny +4.1 %, heart +3.7 %, cheburashka +3.4 %. At 96 px: V
+    lower in 21 of 57 (p = 0.011).
+  - Normals at the nearest mesh point: V / W 0.96–1.03, median 0.98. V lower in 44 of 57 (p = 5.8e-6) and 15 of 19
+    medians (p = 0.005).
+  - Yardstick against exact-mesh discs: silhouette V / W 0.97–1.10, median 1.012 (V lower in 20 of 57, p = 7.9e-4);
+    shading neutral (31 of 57, p = 0.85). Exact headlight shading neutral (30 of 57, p = 0.44).
+  - The mean offset outside the mesh: V's exterior sits farther out in 45 of 57 pairs (p = 1.8e-5), by 0–5 %. That is
+    where its extra silhouette area comes from. At 300k the arm sat nearer the mesh than its twin (L / P 0.93–0.98)
+    and won on the exact IoU (0.88–0.96); why the 40k arm sits farther out was not resolved.
+  - Reading by the pre-registered rule: the outline V / W ≤ 0.90 holds on 9 of 19 meshes (16 needed for "only the
+    binary IoU is blind") and > 0.95 on 2 of 19 (12 needed for "small"): **in between.** The five meshes of (3), all
+    0.88–0.92, were among the stronger ones; the 5-mesh reading does not hold on 19.
+  - In words: at 40k the render term improves the outline's shape on every mesh, by about half its 300k effect
+    (median −10 % against −14…−33 %), and the normals slightly. It does not improve the silhouette's area against
+    the exact mesh (about 1 % worse). The gallery's binary IoU therefore shows almost no lead: partly because it reads
+    area, not shape, and partly because at 40k there is no area lead to show.
+  - Paper wording (proposed, replacing (3)'s): "At 40k the render term reshapes the outline rather than the
+    silhouette's area. Against the exact mesh, its outline-shape error is 3–15 % below the λ = 0 twin's on all 19
+    meshes (56 of 57 mesh-seed pairs, Wilcoxon p = 5 × 10⁻¹¹; median −10 %, about half the 300k effect), and its
+    normals are about 2 % closer (44 of 57, p = 6 × 10⁻⁶). Its exact binary silhouette error is about 1 % higher
+    (42 of 57), so the gallery's binary IoU shows almost no lead at 40k."
+  - Cleanup (`cleanup.log`, 09:59): the 84 kept-frame archives removed after the reading (5.4 GB). Kept: their end
+    frames (`g40runs/*_end1.npz`, 104 MB) and the meshes in their runs' frames (`meshes40/`, 85 MB). D155's gate
+    frames are D155's and were not touched.
 - **D153, the runtime on the tag freeze-2026-10-15: where an attempt's time goes, two exact levers (merged as
   freeze-2026-10-15-rt1), how much the late windows buy, and a fixed 5–6 s horizon (opened 2026-10-16 11:26 CDT server
   clock; the user: "속도를 현재 더 줄일 수는 없을까"; at 11:35 the user's follow-up, relayed by the coordinator: "뒤로
