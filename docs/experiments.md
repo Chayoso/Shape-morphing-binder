@@ -6655,6 +6655,60 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
         towards the no-gravity runs' late motion (≈ 0.003 a), rest by V1's bar on most runs, and the shapes,
         heights and uprightness as now.
       - Gate it at 40k on this option-1 setup (L97 / 99 / 101 + P97, both meshes) against this reading.
+  - **The controls' share of the assimilation, the 40k gate: an experiment, not adopted (the coordinator's go
+    2026-10-21); pre-registered 2026-10-21 15:52 CDT server clock, before any run** (code `wip/b9b` e801d0d, server copy
+    `repo_b9s`; `output/gpu/b9b/share/`; chain `chainshare.sh`).
+    - *The definition* (`SceneSpec.assim_share`, off by default; scene path only; used here with frame "standing" and
+      gravity). At every commit the assimilation reads only the controls' share of the window's elastic deformation:
+      F_e = Fe_zero⁻¹ Fe_ctrl = Fp F_zero⁻¹ F_ctrl Fp⁻¹.
+      - F_ctrl is the committed end's F. F_zero is the end F of the window's uncontrolled continuation under the same
+        loads: zero control and zero u from the window's start, with gravity, the floor with its position constraint,
+        and contact (`window.zero_end_F`).
+      - `assimilate_elastic` is the recipe's (η 0.5, its band, the volume as the recipe does).
+      - The proposal wrote F_ctrl F_zero⁻¹, the spatial form. The assimilation's stretch acts in the rest
+        (intermediate) frame, Fp ← S_e^η Fp, so the share is composed there. This form is also invariant to any
+        rotation the loads add to both ends; the spatial form would carry it (tested).
+      - Where F_zero is degenerate (det ≤ 1e-6) nothing is assimilated.
+      - A per-window record keeps the stretch read (p50 / p90 / p99 of each particle's largest |log σ|) beside what
+        the frozen rule would read.
+      - Tests (`tests/test_scene_assim.py`): the continuation equals the window's own zero-control rollout; the share
+        is the identity without control, cancels a common rotation, and equals the frozen reading for an unloaded start
+        at rest.
+      - No new constant. Cost: one rollout a window, in place of the load-free one.
+    - *Proof first, on the card:* the full suite (the pinned references, the throw scene's tests with the field off,
+      the new tests); its exit status is recorded and a non-zero exit stops the chain.
+    - *Runs (40k, the option-1 settings and seeds).*
+      - Gravity: bunny and dragon, L97 / L99 / L101 and P97, `specs/b9s_MESH.json` (option 1 + `assim_share`).
+      - No gravity, standing frame, g 0: bunny ZA97 and ZB97 (the current rule, twice: its own run-to-run
+        difference), ZS97 (the share), dragon ZA97 (the dragon's no-gravity level).
+      - Readings: option 1's (tracks with the corrected shape measure, the lifted independent sample, momentum,
+        apart.py), plus the 40k yardstick (`endarch.py` + `render_terms_probe.py`) for these runs and for option 1's
+        own 40k runs.
+    - *The gate* (`read_share.py`).
+      - P1, the end material motion falls to the no-gravity level: for each mesh, the render arms' median end motion
+        (the mean particle move per kept-frame pair over the last second, pitches) is at most the largest of that mesh's
+        no-gravity current-rule runs; and V1's rest bar holds on at least 6 of the 8 gravity runs.
+      - P2, nothing else gets worse: every render arm has shape tilt ≤ 3°, end height within one pitch, and silhouette
+        IoU at least the reach bar. Its silhouette IoU, chamfer, thin and both yardstick terms are no worse than option
+        1's worst 40k render arm of the mesh.
+      - P3: no serious piece at the end, and every window committed.
+    - *The frozen question.* On the no-gravity bunny, the RMS position difference frame by frame (pitches), the share
+      against the current rule, set against the current rule against itself. The current rule equals the frozen one
+      for a body without loads (D147's test). So if the share moves the unloaded body's frames beyond the rule's own
+      run-to-run difference, porting it would change the frozen algorithm: it is reported and not adopted. Either way
+      this is an experiment, and adoption is the user's.
+    - *Cards:* one, the lock protocol, a card idle 10 min. The chain waits to 17:05 before its idle wait, so SHOWCASE,
+      D145r and the D155 dragon re-run, which come first after 17:00, take a card first. The 40k side renders (the
+      share's L97 bunny and dragon, 1080p, studio look) follow on a second claim.
+    - *Predictions.*
+      - P1 holds: the end motion falls from option 1's 0.011–0.021 (bunny) / 0.014–0.019 (dragon) pitches per pair to
+        the no-gravity level. V1 rest holds on at least 6 of 8. The early sag (1.2–2.8 pitches) is about the same, but
+        nothing sinks after it, and the material frame turns less (below 5°).
+      - P2 holds.
+      - The assimilation's p99 read falls below the frozen rule's under gravity.
+      - With no gravity, the share does move the frames beyond the rule's own difference: a moving body's
+        uncontrolled continuation is not the identity, so its own elastic recovery is not assimilated. This is a
+        change to the frozen rule, reported and not adopted.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
