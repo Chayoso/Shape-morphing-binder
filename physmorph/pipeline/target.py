@@ -105,21 +105,22 @@ def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
     return relief
 
 
-def shell_pictures(mesh, lattice, h, pitch, refs, views, extent, cfg, sils0, shade0):
-    """D159: the render's target pictures drawn from the target mesh grown by the run's own exterior offset (its mean
-    signed distance from the mesh over refs, the run's target exterior discs), on the exterior's lattice by the same
-    operators; sils0, shade0 (the samples' pictures) only for the record."""
+def shell_pictures(mesh, lattice, h, pitch, radius, refs, views, extent, cfg, sils0, shade0):
+    """D159: the render's target pictures drawn from the target mesh grown by the run's own exterior offset (the signed
+    distance from the mesh of refs, the run's target exterior discs, averaged over the field's radius `radius`, wu), on
+    the exterior's lattice by the same operators; sils0, shade0 (the samples' pictures) only for the record."""
     if mesh is None:
         raise ValueError("render_target mesh_shell needs the target mesh in the target's frame")
     from ..render.mesh_shell import mesh_shell_discs
-    p, n, c, info = mesh_shell_discs(lattice, h, mesh[0], mesh[1], pitch, refs)
+    p, n, c, info = mesh_shell_discs(lattice, h, mesh[0], mesh[1], pitch, refs, radius)
     sils, shade = exterior_targets(p, n, views, cfg.render_res, extent, cfg.sil_k, cfg.pbr_ambient)
     msq = lambda a, b: float(torch.stack([(x - y).square().mean() for x, y in zip(a, b)]).mean())   # noqa: E731
-    print(f"[target] render target (D159): the target mesh grown by the run's own exterior offset c = {c:.4f} wu = "
-          f"{c / pitch:.3f} pitches (sd {info['c_sd'] / pitch:.3f} pitches over {sum(len(r) for r in refs)} discs of "
-          f"{len(refs)} samples; {info['faces']} faces, {info['loops_closed']} loops closed, watertight "
-          f"{info['watertight']}), {info['discs']} discs; its pictures against the samples' (mean square): silhouette "
-          f"{msq(sils, sils0):.3e}, shading {msq(shade, shade0):.3e}", flush=True)
+    print(f"[target] render target (D159): the target mesh grown by the run's own exterior offset, local over the field's "
+          f"radius: c mean {c / pitch:.3f} pitches (sd {info['c_sd'] / pitch:.3f}, p01 {info['c_p01'] / pitch:.3f}, median "
+          f"{info['c_p50'] / pitch:.3f}, p99 {info['c_p99'] / pitch:.3f}) from {sum(len(r) for r in refs)} discs of "
+          f"{len(refs)} samples in {info['cells']} cells; the mesh {info['faces']} faces, {info['loops_closed']} loops "
+          f"closed, watertight {info['watertight']}; {info['discs']} discs; its pictures against the samples' (mean "
+          f"square): silhouette {msq(sils, sils0):.3e}, shading {msq(shade, shade0):.3e}", flush=True)
     return sils, shade
 
 
@@ -200,7 +201,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
               f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target"
               + (f"; the pictures are the mean over {len(samples)} samples" if len(samples) > 1 else ""), flush=True)
         if cfg.render_target == "mesh_shell":
-            ext.sils, ext.shade = shell_pictures(mesh, lattice, h, pitch, refs, views, extent, cfg, e_sils, e_shade)
+            ext.sils, ext.shade = shell_pictures(mesh, lattice, h, pitch, radius * pitch, refs, views, extent, cfg, e_sils,
+                                                 e_shade)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range)
     dtdims = (cfg.dt_res,) * 3
     dtdx = 3.0 * extent / cfg.dt_res

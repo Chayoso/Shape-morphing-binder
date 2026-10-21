@@ -1,7 +1,7 @@
 """D159 (--render_target mesh_shell): the render's target pictures drawn from the target mesh grown by the run's own
 measured exterior offset (render/mesh_shell.py, target.shell_pictures). CPU: (1) the shell field is the mesh's signed
 distance less c, its discs lie at distance c outside the mesh with the distance's gradient as normals, as the
-exterior's lattice makes the body's discs; (2) c is the mean signed distance of the reference discs; (3) an open mesh is
+exterior's lattice makes the body's discs; (2) c is the reference discs' signed distance, averaged locally over the field's reach; (3) an open mesh is
 closed and turned outward; (4) the mesh in the target's frame is where the frame puts the mesh's surface points; (5) the
 option's validation. CUDA: (6) the default path ignores a mesh bit for bit, and the shell's pictures of a ball's sphere
 are close to the samples' (one shape, one shell)."""
@@ -12,7 +12,7 @@ import trimesh
 
 from physmorph.pipeline.config import PipelineConfig
 from physmorph.render.exterior import Lattice, ZhuBridson
-from physmorph.render.mesh_shell import MeshDistance, MeshShell, closed_outward, mesh_shell_discs
+from physmorph.render.mesh_shell import LocalOffset, MeshDistance, MeshShell, closed_outward, mesh_shell_discs
 
 
 def _sphere(radius=5.):
@@ -31,7 +31,7 @@ def _ball(radius=5., seed=0):
 def test_the_shell_field_is_the_signed_distance_less_c():
     V, F = _sphere()
     dist = MeshDistance(V, F)
-    shell = MeshShell(dist, _ball(), 1., .6)
+    shell = MeshShell(dist, _ball(), 1., lambda Q: np.full(len(Q), .6))              # a constant offset
     q = torch.tensor([[0., 0., 0.], [7., 0., 0.], [0., 5.6, 0.], [0., 0., -3.]], dtype=torch.float64)
     f, g, s = shell(q)
     assert np.allclose(f.numpy(), [-5.6, 1.4, 0., -2.6], atol=.01)        # faceting of the icosphere below .01
@@ -46,8 +46,8 @@ def test_the_shell_discs_stand_c_outside_the_mesh_with_radial_normals():
     x = _ball()
     refs = [x.new_tensor(np.random.default_rng(1).normal(size=(4000, 3)))]
     refs[0] = refs[0] / refs[0].norm(dim=1, keepdim=True) * 5.7         # the run's exterior: 0.7 outside the sphere
-    p, n, c, info = mesh_shell_discs(Lattice(torch.zeros(3, dtype=x.dtype), 30.), .4, V, F, 1., refs)
-    assert abs(c - .7) < .01 and info["c_sd"] < .01 and info["watertight"]
+    p, n, c, info = mesh_shell_discs(Lattice(torch.zeros(3, dtype=x.dtype), 30.), .4, V, F, 1., refs, 3.)
+    assert abs(c - .7) < .01 and info["c_sd"] < .01 and info["watertight"] and abs(info["refs_sd_median"] - .7) < .01
     assert len(p) > 1000 and info["discs"] == len(p)
     r = p.norm(dim=1)
     assert float((r - 5.7).abs().max()) < .03
@@ -57,12 +57,19 @@ def test_the_shell_discs_stand_c_outside_the_mesh_with_radial_normals():
     assert .5 < len(p) / len(pz) < 2.
 
 
-def test_a_shell_needs_the_exterior_outside_the_mesh():
+def test_the_offset_is_local_over_the_field_s_reach():
+    """The run's exterior 0.7 outside the sphere on one half and 1.2 on the other: away from the seam (beyond the
+    field's radius R = 1.5 here) the shell follows each half; a point reads the offset of the cells around it."""
     V, F = _sphere()
-    x = _ball()
-    inside = [x.new_tensor([[4., 0., 0.], [0., 4.5, 0.]])]
-    with pytest.raises(ValueError, match="c > 0"):
-        mesh_shell_discs(Lattice(torch.zeros(3, dtype=x.dtype), 30.), .4, V, F, 1., inside)
+    u = np.random.default_rng(2).normal(size=(30000, 3))
+    u = u / np.linalg.norm(u, axis=1, keepdims=True)
+    ref = torch.as_tensor(u * np.where(u[:, :1] > 0, 5.7, 6.2))
+    p, n, c, info = mesh_shell_discs(Lattice(torch.zeros(3, dtype=ref.dtype), 30.), .4, V, F, 1., [ref], 1.5)
+    r, side = p.norm(dim=1), p[:, 0] / p.norm(dim=1)
+    assert float((r[side > .5] - 5.7).abs().max()) < .05 and float((r[side < -.5] - 6.2).abs().max()) < .05
+    assert .7 < c < 1.2 and info["c_p01"] < .75 and info["c_p99"] > 1.15
+    loc = LocalOffset(ref.numpy(), np.where(u[:, 0] > 0, .7, 1.2), 1.5, .4, np.full(3, -32.1))
+    assert np.allclose(loc(np.array([[5.7, 0., 0.], [-6.2, 0., 0.]])), [.7, 1.2], atol=1e-6)
 
 
 def test_an_open_mesh_is_closed_and_turned_outward():
