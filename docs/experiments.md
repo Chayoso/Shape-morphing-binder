@@ -9198,7 +9198,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   2026-10-17 at about 13:55 CDT a local `python3 --version` ran in a compound command (it printed the version; nothing
   else ran). Readers: `scripts/probes/paper/d155/` (`d155_gate_read.py`, `d155_gate_sum.py`, `chain_gate.sh`,
   `chain_gate3.sh`, `chain_cpu.sh`, `cpu3.sh`); disk 3.8 GB of kept 40k frames, kept for the user's look.
-  **D155b, u reads its arrival at the final target on the moving target (pre-registered 2026-10-20 22:58 CDT server
+  **D155b, u reads its arrival at the final target on the moving target (pre-registered 2026-10-20 22:53 CDT server
   clock, before any run of it; the user's go relayed by the coordinator, with the standing rule: no "limitation" before
   the next method is tried).** *Definition:* with option A on, u's transport gate reads the body's arrival at the FINAL
   target, the tag's gate itself (a layer particle within `layer_gate_ot_cells` MPM cells of its transport image on the
