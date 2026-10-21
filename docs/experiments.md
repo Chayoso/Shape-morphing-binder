@@ -8833,7 +8833,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     is 5.9 GB.
   **Follow-up (3), the 40k gallery read against the exact mesh (the coordinator, 2026-10-20: the 40k gallery's binary
   IoU lead on the tag is small, median V − W +0.0007, 18 / 19, p 1.1e-5; is the 40k lead small, or is only the
-  binary IoU blind to it? CPU only, at most 2–3 readers, niced). Pre-registered 2026-10-20 22:55 CDT server clock,
+  binary IoU blind to it? CPU only, at most 2–3 readers, niced). Pre-registered 2026-10-20 22:52 CDT (the commit; the
+  readers started at 22:56; first stamped 22:55, corrected),
   before any reading.**
   - Data. B3's kept frames (`d145t_b3`, 19 meshes × V / W × 97 / 99 / 101) were removed on 10-16 after D145 read them
     (`cleanup.log`); only their JSON and logs are left. The only tag-equivalent 40k V / W frames left are D155's gate
@@ -8889,7 +8890,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pairs, Wilcoxon p = 6 × 10⁻⁵), and the normals come about 2 % closer (14 of 15, p = 2 × 10⁻⁴), less than at 300k
   (14–33 %)."
   **Follow-up (3b), the other 14 gallery meshes run again (the coordinator approved it on 2026-10-20 as an evidence run,
-  not an algorithm change). Pre-registered 2026-10-20 23:12 CDT server clock, before any run.**
+  not an algorithm change). Pre-registered 2026-10-20 23:09 CDT (the commit; the chain started at 23:10:29), before
+  any run.**
   - Runs: A, beast, bimba, bob, C, cheburashka, cow, fandisk, heart, maxplanck, nefertiti, ogre, spot and V at 40k ×
     V / W × seeds 97 / 99 / 101 (84 runs). B3's lines (`tmp/d145/main.queue`): `--tgt assets/MESH.obj --n 40000
     --seed S`, with `--render_weight_scale 0` for W. They run on `repo_t1s`, rt1's kept-frames copy, whose results
