@@ -9035,6 +9035,67 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   teapot's peak kinetic energy at most slightly lower, the rest as the tag. Risks: the render weight's cap is set at the
   first window (20 × its raw ratio, at s ≈ 0.008 for A3), so a capped window on the ramp is flagged; a body that lags
   its target at the ramp's end shows a late catch-up.
+  **Option A's 40k gate, read (runs 2026-10-17 16:23–20:34 CDT on GPU 1 / GPU 0 by the lock protocol; read 2026-10-20
+  22:45 CDT; `output/gpu/d155/gate/` (54 runs, all rc 0), `gate_all.jsonl`, `summary/gate_tables.md`, `fig_gate.png`;
+  local `output/results_2026-10-17/d155_together/gate40k/`). FAIL by the letter: items 1, 3 and 4 hold on 5 of 5, item
+  2 (end quality) does not; the direction works, the cost is in the end quality, mid-morph surface bumps and minutes.**
+  *Default path:* Warp-deterministic 40k bunny, four windows, `repo_d155s` against the tag's run A: SAME (frames12 4
+  arrays, 37 metrics, 556 history fields); pinned references exit 0; full suite on GPU 1 439 passed, 2 skipped, exit 0
+  (the tag's 435 + the four new tests).
+  *A finding the reading rests on:* at 300k option A as approved (T_e = the run's own period, 3.23–3.26 s) is A3's ramp;
+  A3 at 40k is its preview at 40k's cost. Read against the tag (its three re-run seeds and B3's three where B3 has the
+  measure; the tag's own re-run reads close to B3, `summary/gate_tables.md`):
+
+  | A3, render arm | move after 1 s (tag) | physics / render P90, s (tag) | peak kinetic (tag) | IoU ind. (tag) | yardstick sil. 1e-3 (tag) | display (tag) | minutes (tag) |
+  |---|---|---|---|---|---|---|---|
+  | bunny | 0.851 (0.217–0.229) | 2.31 / 2.64 (0.79 / 0.99–1.01) | 0.084 (0.97–0.99) | 0.9730 (0.9731–0.9736) | 2.633 (2.557–2.748) | 0.0192 (0.0188–0.0205) | 3.6 (1.1–1.5) |
+  | dragon | 0.891 (0.515–0.547) | 2.48 / 2.63 (1.12–1.21 / 1.18–1.36) | 0.296 (1.34–1.61) | 0.9749 (0.9754–0.9762) | 2.118 (1.903–2.005) | 0.0175 (0.0168–0.0173) | 3.9 (1.7–2.2) |
+  | teapot | 0.811 (0.135–0.168) | 2.28 / 2.49 (0.58 / 0.64) | 0.022 (0.61) | 0.9791 (0.9792–0.9805) | 1.630 (1.489–1.572) | 0.0144 (0.0135–0.0152) | 2.5 (1.1–1.6) |
+  | armadilo | 0.892 (0.490–0.527) | 2.48 / 2.77 (1.13–1.18 / 1.28–1.34) | 0.339 (1.34–1.52) | 0.9714 (0.9717–0.9727) | 1.699 (1.646–1.802) | 0.0223 (0.0200–0.0221) | 3.8 (1.5–2.5) |
+  | homer | 0.905 (0.590–0.597) | 2.58 / 2.75 (1.24–1.25 / 1.22–1.27) | 0.467 (1.91–1.96) | 0.9752 (0.9738–0.9762) | 0.952 (0.757–0.809) | 0.0154 (0.0141–0.0148) | 4.9 (2.2–3.4) |
+
+  (1) Timing, 5 of 5: 81–91 % of the movement after 1 s (tag 14–60 %), 13–23 % after 3 s (tag 2–7 %); the physics core
+  reaches 90 % of its drop on the final target at 2.3–2.6 s (tag 0.6–1.25 s), the render 0.15–0.35 s after it (A_lin
+  0.020–0.038, tag 0.002–0.031; A_log 0.022–0.053, tag 0.019–0.060). (2) End quality not below the tag's worst seed:
+  IoU against the independent sample 1 of 5 (homer; the others 0.0001–0.0005 below), yardstick silhouette 2 of 5
+  (dragon +6 %, teapot +4 %, homer +18 % above the tag's worst), yardstick shading 3 of 5 (dragon +6 %, homer +11 %),
+  display 2 of 5 (dragon, armadilo, homer +1–4 %), thin 4 of 5 (armadilo 0.050 against 0.047); the render lead over
+  A3's own twin (yardstick silhouette) 5 of 5. (3) At rest, 5 of 5: the delivered kinetic energy within the tag's range
+  (bunny below it). (4) Peak kinetic energy, 5 of 5: 0.04–0.25 of the tag's smallest (predicted 0.04–0.6),
+  reached at 1.8–2.3 s instead of 0.3–0.8 s. Reported: *the shared in-between shape* — over the ramp the raw cosine of
+  the physics and render gradients is 0.25–0.38 against the tag's 0.12–0.19 over the same span (higher on 5 of 5), the
+  render's share of the step 1/3 by construction, its share of the merit 0.2–2.2 % (tag 3.6–9.1 % over its first 1.19 s:
+  the body follows its in-between target closely, so the render term against the in-between pictures is small), λ never
+  capped; after the ramp the cosine is the tag's. *Floating pieces:* particles apart in windows 3–12 up on 4 of 5
+  (bunny 136 against 22–45, dragon 860 against 125–188, armadilo 400 against 58–128, homer 183 against 36–68; teapot 65
+  against 79–114); by visible_apart nearly all are bumps joined to the surface (bunny, whole run: 274 bumps, 54 above one
+  pitch, against the tag's 100 and 3), the visible blobs not more (0–4 against 0–5). Diagnostic (added at 19:05 after
+  part 1 was read; not judged): with u off, A3's mid-ramp apart falls to 5 (bunny) / 19 (dragon): the bumps are u's —
+  its gate is open on 93–100 % of the layer from the first window, because the body is always within a cell of its
+  moving target (the tag's gate opens at 0.7–1.0 s); u off also costs the end (yardstick 2.1–3.3×). *Momentum:* the
+  centre of mass's drift as the tag's (≤ 6e-6 wu), |L| at the window starts at or below the tag's on 5 of 5. *Minutes:*
+  ×1.4–3.3 against the tag's seeds (about ×2): the bunny runs longer (58 against 26–37 windows; the others 38–63 against
+  31–72), the ramp windows are slower and the in-between targets cost: a build is 3.2–3.7 s per ramp window at 40k
+  (5.5 s at the first, 2 s near the end), about 55 % of a ramp window and 28–41 % of an A3 run (bunny, dragon, teapot);
+  per window was kept
+  (the target moves 0.44 pitch a window at the ramp's peak, so a coarser refresh would make it jump by about a pitch);
+  inferred at 300k ≈ the 8–10 s setup per build, about +3 min a run for the builds. *A1* (the 40k body's own 1.19 s,
+  reported): movement after 1 s 0.45–0.70 (tag 0.14–0.60, +0.10…+0.29), peak kinetic energy 0.3–0.9× (bunny 0.44,
+  teapot 0.18), the end within the tag's range on ≥ 4 of 5 for every measure (homer's yardstick silhouette +4 % and shading
+  +1 %, teapot's IoU
+  −0.0006, bunny's thin 0.055 against 0.053), apart in windows 3–12 within the tag's range but on the bunny (89 against
+  22–45), visible blobs 0–6 (tag 0–5), ×0.8–1.9 minutes. *Predictions:* timing,
+  peak kinetic energy, the cosine, at rest and momentum as predicted; the end "within the tag's range" and the fewer
+  apart particles were wrong (a few per cent worse on three meshes; u's bumps). *Conclusion (for the user, nothing
+  adopted):* the moving target does what D155 asked (the deformation spread over the ramp, physics and render reading
+  one in-between shape, a slow arrival), but at the deliverable's N it costs a few per cent of the end on three of five
+  meshes, bumpy in-between surfaces and twice the minutes, so it is not ready for a re-freeze as is. The measured
+  source of the bumps is one definition: u's gate reads the window's (moving) target; reading the body's arrival at
+  the final target instead (u acting where the final shape is reached, as on the tag) is the candidate change, a 40k
+  gate of about 3 card-hours; whether it also recovers the end quality is not measured. *A slip recorded:* on
+  2026-10-17 at about 13:55 CDT a local `python3 --version` ran in a compound command (it printed the version; nothing
+  else ran). Readers: `scripts/probes/paper/d155/` (`d155_gate_read.py`, `d155_gate_sum.py`, `chain_gate.sh`,
+  `chain_gate3.sh`, `chain_cpu.sh`, `cpu3.sh`); disk 3.8 GB of kept 40k frames, kept for the user's look.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
