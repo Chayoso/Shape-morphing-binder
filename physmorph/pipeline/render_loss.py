@@ -233,12 +233,14 @@ class LambdaBalancer:
 # ---- the render terms read on the exterior (D62): surface discs in place of the particle cloud ----
 
 def shaded_discs(p: torch.Tensor, n: torch.Tensor, views, res: int, extent: float, k: float = 1.5,
-                 ambient: float = 0.25, beta: float = 3.0):
+                 ambient: float = 0.25, beta: float = 3.0, albedo: torch.Tensor | None = None):
     """All views of the shaded image of surface discs: (V,res,res) shade*alpha and alpha.
 
     A disc is drawn where it faces the camera: its splat weight is CIC x its facing cosine max(n.l, 0) (its
     projected area) x the soft front bias of shaded_view; its shade is ambient + (1-ambient) max(n.l, 0). The
-    alpha is the coverage of all the discs, the silhouette's."""
+    alpha is the coverage of all the discs, the silhouette's.
+    D160 (albedo (M, C), the discs' colours): channel c's shade is albedo_c x (ambient + (1-ambient) max(n.l, 0)),
+    the same weights and alpha; returns (C,V,res,res) and alpha. With one channel of ones it is the image above."""
     from ..losses.silhouette import _view_basis
     right, up = _view_basis(p, views)
     V = right.shape[0]
@@ -250,6 +252,8 @@ def shaded_discs(p: torch.Tensor, n: torch.Tensor, views, res: int, extent: floa
     pw = facing * torch.exp(beta * (zr - 1.0))
     rel = (torch.stack([p @ right.T, p @ up.T], -1) + extent) / (2 * extent) * res
     voff = (torch.arange(V, device=p.device) * (res * res)).view(1, V)
+    if albedo is not None:                                        # D160: one numerator per colour channel
+        return _shaded_discs_albedo(rel, voff, pw, b, albedo, V, res, k)
     num = p.new_zeros(V * res * res)
     den = p.new_zeros(V * res * res)
     cov = p.new_zeros(V * res * res)
@@ -264,17 +268,51 @@ def shaded_discs(p: torch.Tensor, n: torch.Tensor, views, res: int, extent: floa
     return (num / den.clamp_min(1e-6) * alpha).reshape(V, res, res), alpha.reshape(V, res, res)
 
 
-def exterior_targets(p_t: torch.Tensor, n_t: torch.Tensor, views, res: int, extent: float, k=1.5, ambient=0.25):
-    """The target's silhouettes and shaded images, drawn by the same operators from the target's own discs."""
+def _shaded_discs_albedo(rel, voff, pw, b, albedo, V: int, res: int, k: float):
+    """shaded_discs' splat with the discs' albedos (M, C): channel c's numerator weighs each disc's shade b by its
+    albedo_c, the denominator and the coverage are the grey image's; (C,V,res,res) shade*alpha and alpha. Per channel
+    the operations are the grey image's with b x albedo_c in place of b, so one channel of ones gives it bit for bit."""
+    C = albedo.shape[1]
+    num = [rel.new_zeros(V * res * res) for _ in range(C)]
+    den = rel.new_zeros(V * res * res)
+    cov = rel.new_zeros(V * res * res)
+    for ii, jj, w0 in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (voff + ii * res + jj).clamp(0, V * res * res - 1).reshape(-1)
+        w = torch.where(valid, w0, torch.zeros_like(w0))
+        for c in range(C):
+            num[c] = num[c].index_add(0, idx, (w * pw * (b * albedo[:, c:c + 1])).reshape(-1))
+        den = den.index_add(0, idx, (w * pw).reshape(-1))
+        cov = cov.index_add(0, idx, w.reshape(-1))
+    alpha = 1.0 - torch.exp(-k * cov)
+    return (torch.stack([(nc / den.clamp_min(1e-6) * alpha).reshape(V, res, res) for nc in num]),
+            alpha.reshape(V, res, res))
+
+
+def exterior_targets(p_t: torch.Tensor, n_t: torch.Tensor, views, res: int, extent: float, k=1.5, ambient=0.25,
+                     albedo=None):
+    """The target's silhouettes and shaded images, drawn by the same operators from the target's own discs.
+    D160 (albedo: the target discs' colours (M, C)): the shaded images are colour pictures, one (C,res,res) per view."""
     from ..losses.silhouette import soft_silhouette_multi
     with torch.no_grad():
+        if albedo is not None:
+            return (list(soft_silhouette_multi(p_t, views, res, extent, k)),
+                    list(shaded_discs(p_t, n_t, views, res, extent, k, ambient, albedo=albedo)[0].movedim(1, 0)))
         return (list(soft_silhouette_multi(p_t, views, res, extent, k)),
                 list(shaded_discs(p_t, n_t, views, res, extent, k, ambient)[0]))
 
 
 def d_exterior(p: torch.Tensor, n: torch.Tensor, sils, shade, views, res: int, extent: float, k: float = 1.5,
-               w_hole: float = 2.0, w_spray: float = 1.0, ambient: float = 0.25):
-    """(silhouette, shading) of the discs against the target's: d_render and d_pbr's measures on the exterior."""
-    s, _ = shaded_discs(p, n, views, res, extent, k, ambient)
-    return (d_render(p, sils, views, res, extent, k, w_hole, w_spray),
-            (s - torch.stack(list(shade), 0)).pow(2).mean(dim=(1, 2)).mean())
+               w_hole: float = 2.0, w_spray: float = 1.0, ambient: float = 0.25, albedo=None):
+    """(silhouette, shading) of the discs against the target's: d_render and d_pbr's measures on the exterior.
+    D160 (albedo: the discs' colours (M, C), shade: the target's colour pictures, one (C,res,res) per view): the
+    shading term is the mean over the channels of each channel's shading term, (1/C) sum_c mean (s_c - t_c)^2; one
+    channel of ones against a white target is the term without colour, bit for bit."""
+    if albedo is None:
+        s, _ = shaded_discs(p, n, views, res, extent, k, ambient)
+        return (d_render(p, sils, views, res, extent, k, w_hole, w_spray),
+                (s - torch.stack(list(shade), 0)).pow(2).mean(dim=(1, 2)).mean())
+    s, _ = shaded_discs(p, n, views, res, extent, k, ambient, albedo=albedo)       # (C,V,res,res)
+    sil = d_render(p, sils, views, res, extent, k, w_hole, w_spray)
+    t = torch.stack(list(shade), 0).movedim(1, 0).contiguous()                     # (C,V,res,res)
+    return sil, sum((s[c] - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)

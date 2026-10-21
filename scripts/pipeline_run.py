@@ -92,6 +92,11 @@ def parse_args(argv=None):
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
                     help="D131 (default carried): the motion's own volume J per particle, carried like F in the smoothed F "
                          "itself (det F = J after every step, the stress reading F + dFc); off = the old path bit for bit")
+    ap.add_argument("--appearance", default="", choices=["", "white", "half", "band", "ears", "turn"],
+                    help="D160 (an option, off by default): each particle carries a fixed albedo from the source and the "
+                         "render's shading term compares colour pictures of the target's paint (physmorph/pipeline/"
+                         "appearance.py: the scenes); the physics never reads it; \"\" (the default) = the frozen path; "
+                         "white = one channel of ones against a white target, the frozen path bit for bit")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
@@ -283,8 +288,14 @@ def run_main(args, prep, src, tgt, prm, cfg):
     on_commit, on_iter = live_hooks(args, src, tgt, prm, cfg)
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
+    app = None
+    if args.appearance:                                     # D160: the scene's albedos (source, target, its draws)
+        from physmorph.pipeline.appearance import make_appearance
+        app = make_appearance(args.appearance, src, tgt, prep.tgt_draws)
+        out["provenance"]["appearance"] = app.params
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws)
+                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
+                       appearance=app)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")
@@ -310,7 +321,9 @@ def run_main(args, prep, src, tgt, prm, cfg):
              render_mask=np.ones(len(src), bool), s=np.zeros(0, np.float32),
              w_src=np.zeros(0, np.float32), w_tgt=np.zeros(0, np.float32),     # the archive format: no rest-volume weights
              tgt_base=np.zeros((0, 3), np.float32),
-             Fg_commit_idx=np.zeros(0, np.int64), Fg_commits=np.zeros((0, 0, 3, 3), np.float32))
+             Fg_commit_idx=np.zeros(0, np.int64), Fg_commits=np.zeros((0, 0, 3, 3), np.float32),
+             **({} if app is None else dict(src_albedo=app.src, tgt_albedo=app.tgt,
+                                            appearance=np.str_(json.dumps(app.params)))))
     out["arms"][ARM] = {"config": cfg_dump, "metrics": met,
                         "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v) for k, v in gates.items()},
                         "guards": res["guards"], "converged": res["converged"], "balancer": res["balancer"],
