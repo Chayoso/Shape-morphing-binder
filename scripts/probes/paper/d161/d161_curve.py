@@ -86,6 +86,8 @@ SEED = 97
 TGT = {"sphere": "assets/isosphere.obj", "bunny": "assets/bunny.obj",
        "coin": "/data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj"}[mesh]
 WS = {"sphere": [4, 6, 8, 11, 16, 22, 32, 45], "coin": [4, 6, 8, 11, 16, 22, 32], "bunny": [4, 6, 8, 11, 16, 22]}[mesh]
+if os.environ.get("D161_WS"):                                # a subset of the wavelengths (CPU jobs split by w)
+    WS = [float(v) for v in os.environ["D161_WS"].split(",")]
 DS = [-1.0, -0.5, 0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
 DT = [0.25, 0.5, 1.0, 2.0]
 out = open(out_path, "a")

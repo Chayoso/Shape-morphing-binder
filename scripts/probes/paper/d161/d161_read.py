@@ -217,7 +217,10 @@ def records(prefix):
     arm = list(js["arms"].values())[0]
     hist = [h for h in arm["history"] if h.get("frame_end") and not h.get("null_commit")]
     last = hist[-1]
+    met = arm.get("metrics", {})
     return dict(windows=len(hist), wall_s=arm.get("seconds", js.get("seconds")),
+                sil_iou=met.get("sil_iou"), chamfer=met.get("chamfer"), thin_uncovered=met.get("thin_uncovered"),
+                surf_rough=met.get("surf_rough"), detF_min=met.get("detF_min"),
                 v_mean=last.get("v_mean"), kin=last.get("kin"), stab_end=last.get("stab_end"),
                 lam_last=last.get("lambda"), g_share_last=last.get("g_share"),
                 lam_med10=float(np.median([h.get("lambda") or 0.0 for h in hist[-10:]])),
