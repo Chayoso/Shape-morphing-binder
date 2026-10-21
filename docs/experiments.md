@@ -10842,6 +10842,78 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - P follows its target, so (b) is about (a).
   - L − P on the concave surface stays small (the in-loop render's demand is local and rim-bound, D156's (ii)),
     while held-out silhouettes and images gain as in D156 (+0.1…+0.3): rim polish on top of the carve.
+  **Result of A0 (17:15–17:27 CDT, CPU at nice 10; `output/gpu/d156b/photo_*.log`, `assets_hull/photo_r96.jsonl`):
+  the pre-registered test does not separate true surface from phantom voxels. D156b stops at A0 and nothing is
+  carved.** The test's decisions on the visual hull's surface voxels (on-mesh: within half a voxel of the mesh;
+  phantom: at least one voxel outside it):
+
+  | mesh | testable | on-mesh rejected | phantom rejected | T per dof, median: on-mesh / phantom | noise max per dof |
+  |---|---|---|---|---|---|
+  | bob | 0.48 | 0.67 | 0.01 | 11.1 / 59.2 | 1.4 / 2.0 |
+  | bunny | 0.69 | 0.77 | 0.56 | 13.1 / 61.6 | 1.6 / 2.1 |
+  | dragon | 0.55 | 0.55 | 0.53 | 36.7 / 112.7 | 1.8 / 2.2 |
+  | armadilo | 0.72 | 0.79 | 0.58 | 33.2 / 101.4 | 1.8 / 2.3 |
+  | cheburashka | 0.83 | 0.86 | 0.80 | 12.3 / 84.0 | 1.5 / 2.4 |
+  | C | 0.64 | 0.69 | 0.40 | 5.6 / 12.6 | 0.9 / 2.6 |
+  | A | 0.62 | 0.72 | 0.25 | 11.8 / 302 | 1.0 / 2.5 |
+  | homer | 0.77 | 0.80 | 0.74 | 30.1 / 710 | 1.6 / 2.1 |
+  | cow | 0.79 | 0.85 | 0.86 | 21.5 / 118 | 1.7 / 2.1 |
+
+  - The statistic ranks the phantom voxels above the true ones: the phantom median is 2–60 × the on-mesh median
+    on every mesh.
+  - But a true surface point's 18 shades fit one normal only to 5.6–37 × the noise per degree of freedom. The
+    pictures are drawn by the soft exterior operator (2 × 2-pixel splats, normals of a field smoothed over three
+    pitches, the soft front bias), not as point shading. So a tolerance at the draws' noise rejects 55–86 % of the
+    true surface.
+  - Cow passed A0 only by the letter (0.86 against 0.85, on 63 phantom voxels). Its carve then removed all 13 962
+    voxels in 12 iterations: the over-carve the test predicts. Cow is reported as a failed carve.
+  - Bob rejects only 1 % of its phantom voxels although their T is 5 × the on-mesh one; its testable share is the
+    lowest (0.48). Why was not resolved.
+  - The eight `*_photo18_r96.obj` written for the non-separating meshes are the uncarved visual hulls. They were
+    deleted, so that no run takes them for a photo hull.
+  - Root cause: the draws estimate the pictures' sampling noise, but the error between the render's pictures and a
+    point model of shading is 5–37 × larger. Any per-point test with a noise tolerance carves the true surface.
+    Kutulakos and Seitz's hand-set 6 %, and Seitz and Dyer's drift with a larger threshold, are the same fact seen
+    from the other side.
+  - Next definition: compare with the operator itself, not with a point model of it (D156c below).
+- **D156c, the render-carved target: the visual hull carved by the render loss itself (pre-registered 2026-10-21
+  17:29 CDT server clock, before any carve or run of it; in place of D156b's per-point test, which failed A0; the
+  coordinator's instruction stands: name the next method).**
+  *The idea.* Broadhurst, Drummond and Cipolla (ICCV 2001) decide a voxel by comparing the data's likelihood with the
+  voxel and without it, which needs no threshold. Our likelihood is the render loss: the pipeline's own operator
+  against the eight-draw pictures, with no model mismatch. D156's carve path showed that this loss falls 1.5–5 ×
+  from the hull to the mesh.
+  *The carve (`d156_rcarve.py`, CPU, nice 10, at most three processes).* Frame, photographs, operator and loss are
+  those of the run's render term: the true mesh's 40k frame at seed 97, its eight samples, the exterior operators
+  (pitch, lattice, h, box from the seed-98 sample), d_exterior with w_hole 2, w_spray 1, ambient 0.25.
+  - The carried sample: the visual hull's sample in that frame at the true sample's number density
+    (sample_in_frame, seed 98), each particle in the voxel of the hull's grid (pictures' pitch) it falls in. Carving
+    a voxel deletes its particles; the rest stay where they are, so the loss changes only through the carve, with no
+    resampling noise.
+  - The order: the surface voxels seen in at least three views, ranked by D156b's statistic T per degree of
+    freedom. Its ranking separates (phantom median 2–60 × the on-mesh one); its threshold did not.
+  - The step: try removing the top k of the ranking, starting with all of them and halving k after each refusal;
+    the first removal that lowers the loss is accepted. The carve stops when no k ≥ 1 lowers it. A removal is kept
+    only if the pictures prefer the solid without it, so the loss decides, with no threshold and no constant.
+  - The output: the kept voxels meshed as in D156b (`assets_hull/MESH_rcarve18_r96.obj`). Reported per mesh: the
+    loss at the start and the end, the floor (an independent sample of the mesh, seed 99, at the same density),
+    iterations, voxels carved, the volumes, and the over-carve (the true sample's share outside the carved solid
+    against the visual hull's).
+  *Runs and readings.* Exactly D156b's: 9 meshes × L / P × 97 / 99 at 40k, `--tgt RCARVE --render_tgt
+  assets/MESH.obj`. Report (a) the carved solid alone, (b) P on it, (c) L − P, on the concave surface, the hull's
+  excess volume, the held-out silhouettes and the held-out studio images (0 = the visual hull's sample, 1 = the
+  mesh's). Same rules:
+  - the 300k gate: (b) ≥ 0.5 on the concave surface on at least 6 of 9 meshes, and the held-out silhouettes and
+    images not below D156's P;
+  - (c) by D156's rule (adds concavity: Δ_surf ≥ 0.15 and Δ_vol ≥ 0.10 on at least 6 of 9 at both seeds, median
+    ≥ 0.15; none: Δ_surf < 0.05 on at least 6 of 9, then the held-out Δs state whether it is rim polish only).
+  - A mesh whose carve removes nothing is reported; its runs would be D156's and are not repeated.
+  *Predictions (inferred).*
+  - The carve removes the excess that the pictures' loss sees (the carve path: most of the loss's fall between
+    t = 0.3 and 0.9) and stops before the true surface.
+  - (a) on the concave surface 0.3–0.7 on the deep meshes, less on the shallow ones; over-carve ≤ the visual
+    hull's own (the loss refuses holes).
+  - (b) ≈ (a); (c) small on the concave surface, positive on the held-out views (as D156).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
