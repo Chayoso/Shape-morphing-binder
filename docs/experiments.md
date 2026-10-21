@@ -6077,6 +6077,61 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     `dragon40k_L97_side1080.mp4` in the studio look with the floor; the 300k renders were not made because the 300k
     did not run). Server: `output/gpu/b9b/runs/` (the runs' kept frames, every 12th, about 1.3 GB). Code: `wip/b9b`
     12c7e34 (scene-spec fields `g` / `rest`, default off; the single-body path untouched).
+  - **Option 1, the scene path with a world-fixed standing target: the user's choice (2026-10-20); the 40k gate
+    pre-registered 2026-10-20 23:05 CDT server clock, before any run** (code `wip/b9b` d3de5a5; server copy
+    `repo_b9w`; `output/gpu/b9b/world/`; chain `chain40kw.sh`).
+    - *The definition* (`SceneSpec.frame = "standing"`, off by default, scene code only). It applies to one body at
+      rest whose target stands on the floor.
+      - `scene_run.py` prepares the body with `--floor`, so the target, its surface and its draws are B9's lifted ones,
+        and its pack is built as B9 builds it.
+      - The objective reads y = (x − c)R, where c = start − mR^T and m is the source sample's mean: the frame in which
+        the body's launch positions are its source as prepared, B9's world. The target's position and orientation are
+        therefore fixed in the world, as in B9.
+      - The velocity terms read the velocities as they are, as in B9 and V0's "fixed".
+      - Every window is committed, as in B9b.
+      - Frame "body" (the throw scene) and "fixed" are unchanged; an unknown frame now raises.
+    - *What still differs from B9's single-body runs.* Every window is committed (no selection, brake, truncation or
+      stop rule); the drag acts on the deformation velocity only (no drag on m v); the assimilation reads the load-free
+      end F; the floor is gated, with its position constraint; the domain comes from the scene's extents; the scene's
+      fixes 1–3 apply; the horizon is fixed (bunny 8.33 s, dragon 12.5 s).
+    - *Proofs before the runs, on the card.*
+      1. The tag `freeze-2026-10-15-rt1` is merged into `wip/b9b` (211bd90; its single-body files equal the tag's, an
+         empty diff). The full suite runs, the pinned references (`test_refreeze_reference.py`: the window bit for bit
+         and the pipeline's digest) and the throw scene's tests with the field off included; its exit status is
+         recorded, and a non-zero exit stops the chain.
+      2. `one_equal.py` in standing mode: the frozen window with the lifted target (B9's objective; no gravity, no
+         floor, since the floors differ by definition) against the scene's one-body window in the world frame with the
+         same target. B must equal A as before (positions within 1e-5 wu; each term within the test's tolerance or with
+         overlapping replay ranges), else the chain stops. C (the option's dynamics, the deformation damping) is
+         reported.
+    - *Runs.* Bunny and dragon at 40k, render arm L at seeds 97 / 99 / 101 and the twin P at 97
+      (`specs/b9w_MESH.json`: B9b's spec with frame "standing"). One card under the lock protocol (agent B9b, a card
+      idle 10 min).
+    - *Items and bars* (`read_b9b.py`, B9b's items). The archive is read in the objective's frame, B9's world, against
+      the independent sample lifted as the run's target (`ind_shift.py`, B9's reading).
+      1. Reaches: silhouette IoU at least the no-gravity runs' lowest seed − 0.01 (bunny 0.9631, dragon 0.9655).
+      2. Height: the end centroid within one pitch of the standing target's height.
+      3. Upright (now its own item): the *shape's* tilt at the end, from `tobody.shape_rotation` (the rotation that
+         best aligns the body's shape to the target's, symmetric nearest-neighbour pairs and Kabsch, started from the
+         Buckens rotation), at most max(3°, B9 G2L97's own reading at 300k): bunny 3.10°, dragon 3.0°.
+         The material (Buckens) frame cannot carry this item: it turns inside an upright shape. Checked on existing
+         archives before this entry (`shapetilt.py`): B9 G2L97 dragon at 300k reads 0.75° by shape against 5.2° by
+         the material frame; bunny 3.10° against 8.3°. B9b's turned runs read their real turn either way (bunny L97
+         20.25° / 20.33°, L99 4.77° / 5.18°, dragon L97 92.6° / 92.5°). The material tilt is reported beside it.
+      4. At rest (D147 V1's bar), momentum (horizontal drift below one pitch), the render lead and minutes are read and
+         do not gate.
+      5. No serious piece at the end.
+      6. Every window committed.
+      7. The material's large sag under gravity, and its sinking with the assimilation (B9b's forensic: the uncontrolled
+         sphere sinks 1.62 wu in 8.33 s, and about 0.75 wu without the assimilation), remain in this option. They are
+         reported as measured: each run's largest drop and end height against the standing target.
+    - *The 40k gate:* every render arm reaches, ends at the target's height, stands upright, has no serious piece at
+      the end, and commits all its windows. On a PASS the 300k is pre-registered separately; on a FAIL the work stops
+      and is reported.
+    - *Predictions.* B9's level on both meshes: the dragon reaches (B9 40k: 0.9757), stands (shape tilt below 3°) and
+      ends within a pitch of the standing height; the bunny reaches on 3 of 3 seeds (B9 40k G2L97: 0.9735), since no
+      brake can stop it. The twin reaches, behind its arm. At rest: no (the drag on m v is gone). Minutes like B9b's
+      (3–4 / 6–7).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
