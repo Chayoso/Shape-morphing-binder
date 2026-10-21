@@ -1,4 +1,4 @@
-"""d160_studio.py OUT_DIR SCENE FULL_FRAMES12 TWIN_FRAMES12 IND_NPZ [+stride=1] [+w=960] [+h=540] -- D160's videos:
+"""d160_studio.py OUT_DIR SCENE FULL_FRAMES12 TWIN_FRAMES12 IND_NPZ [+stride=1] [+w=960] [+h=540] [+endonly=1] -- D160's videos:
 the two arms of one seed side by side in the deliverables' studio look (render/studio.StudioRaster: the grey gradient
 backdrop, the three lights, the tone map; scripts/render_deliverable.py's base display, +fit=0: the exterior discs of
 each kept frame's particles on the display's field (zbs, D144), their normals averaged twice over the reach, discs of a
@@ -11,8 +11,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
-import torch
+from physmorph import gpu                                      # noqa: E402  (before torch: CuPy binds its CUDA 12 compiler first)
+import numpy as np                                             # noqa: E402
+import torch                                                   # noqa: E402
 import torch.nn.functional as nnf
 from PIL import Image, ImageDraw, ImageFont
 
@@ -21,7 +22,6 @@ from physmorph.render.exterior import Lattice, found_disc_albedo, make_field
 from physmorph.render.knn_gpu import knn_self_torch
 from physmorph.render.studio import StudioRaster
 from physmorph.render.support import normal_filter_size
-from physmorph import gpu
 
 dev = torch.device("cuda")
 opts = dict(s[1:].split("=", 1) for s in sys.argv[1:] if s.startswith("+"))
@@ -30,6 +30,7 @@ out, scene = Path(argv[1]), argv[2]
 zf, zt = (np.load(p, allow_pickle=True) for p in argv[3:5])
 ind = np.asarray(np.load(argv[5])["tgt"], np.float32)
 STRIDE, W, H = int(opts.get("stride", 1)), int(opts.get("w", 960)), int(opts.get("h", 540))
+END_ONLY = opts.get("endonly", "0") == "1"                     # +endonly=1: the delivered end only (the sheets)
 (out / "frames").mkdir(parents=True, exist_ok=True)
 tgt = torch.as_tensor(np.asarray(zf["tgt"], np.float32), device=dev)
 pitch = lambda s: .708 * float(knn_self_torch(s, 9)[0][:, 8].median())   # noqa: E731
@@ -94,6 +95,8 @@ LABELS = ("dF_c + layer u + render loss (full)", "dF_c + layer u (lambda = 0 twi
 nf, nt = len(zf["frames"]), len(zt["frames"])
 n_frames = max(nf, nt)
 keep = list(range(0, n_frames, STRIDE)) + ([n_frames - 1] if (n_frames - 1) % STRIDE else [])
+if END_ONLY:
+    keep = [n_frames - 1]
 for i, k in enumerate(keep):
     tiles = []
     for z, alb, m in ((zf, alb_f, nf), (zt, alb_t, nt)):
@@ -114,6 +117,7 @@ for i, k in enumerate(keep):
     if k == keep[-1]:
         canvas.save(out / "end.png")
     print(i, k, flush=True)
-subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", "20", "-i", str(out / "frames" / "%04d.png"),
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", str(out / "side_by_side.mp4")], check=True)
+if not END_ONLY:
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", "20", "-i", str(out / "frames" / "%04d.png"),
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", str(out / "side_by_side.mp4")], check=True)
 print("wrote", out, flush=True)
