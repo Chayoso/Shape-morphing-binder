@@ -8253,6 +8253,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `scene_drop.json` = v20. Runs on one card (chain25): the three at 40k plus 300k v20, render arm, seed 97, then
   studio renders (static camera, floor, contact shadow) at 1080p and 4K, at azimuth 0 and 35°, with contact sheets.
   Expected: the 300k in 20–25 min. Read by eye frame by frame (ears, pieces, landing); no pass/fail.
+  *Read (runs 14:52–15:51 CDT server clock).* The 40k drops rolled forward 2.7–3.5 wu by 5–6.5 s, toward the 2.5 wu
+  room's wall. So the 300k ran on `scene_drop.json` = v20 with `margin` 6 (changed before the run that was kept; the
+  first 300k start on margin 2.5 was stopped at window 9). One card, gpu1 for the 40k and gpu2 for the 300k, held one
+  at a time. Every run has the same course:
+  - the sphere becomes a bunny in the air, with its shadow on the floor;
+  - it lands at 2.5–2.6 s, squashes, bends its ear tips forward and bounces;
+  - it then tips forward onto its head and ears.
+
+  The tip-over comes from the bounce: the body comes off the floor with a spin (|ω| 0.37–0.9 rad/s) and lands again
+  on its front. The body-frame objective lets it tumble and nothing turns it back upright.
+
+  | 300k | landing v/c | drop (wu) | minutes | pieces apart (largest, farthest, when) |
+  |---|---|---|---|---|
+  | v20, the main run | 0.20 | 9.2 | 9.7 | 8 particles at 2–6 spacings, at the ear tip, 2.9–5.2 s, then joined again |
+  | v25, the higher drop | 0.25 | 11.5 | 18.9 | single particles, ≤ 2.2 spacings |
+  | v15, the gentler drop | 0.15 | 6.9 | 9.5 | 5 particles, ≤ 2.3 spacings, 2.9–3.5 s |
+
+  No run has a piece of 10 or more particles. In v20's 4K frames at 3.3–4.5 s the ear tips are folded and one has a
+  dimple. Delivered to `output/results_2026-10-21/demo_studio/drop_bunny_*` (1080p and 4K, azimuth 0 and 35°, sheets)
+  with `README_drop.md`; the server runs are `runs/drop*`.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
