@@ -9587,7 +9587,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pack. Predictions: the body's mean J on the ramp within the tag's (≤ +3 %), the end's J and item 2 within the tag's
   range, items 1, 3, 4, 5 as D155b. What it does not address: the local density variation inside Z_s (the J quantiles'
   spread beyond the mean), to be read in its gate. Cost: the same 40k gate, about 1 card-hour.
-  **D155c, the targets on the way at the body's density (pre-registered 2026-10-21 10:15 CDT server clock, before any
+  **D155c, the targets on the way at the body's density (pre-registered 2026-10-21 10:14 CDT server clock, before any
   run of it; the coordinator's go: the next method of the user's rule; an option on `wip/d155`, the tag untouched).**
   *Definition:* on the moving target (D155b's, u reading the final target) each target on the way is rescaled about its
   centroid by k_s = sp(Y) / sp(Z_s), sp the median 8th-neighbour spacing on build_target's seeded 20k subsample (the
