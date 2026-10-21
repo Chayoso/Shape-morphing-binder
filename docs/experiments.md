@@ -8183,6 +8183,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Against the predictions:* no piece, yes (one 4-particle piece in the twin); heads below the bar, yes but s99's body 1;
   judge passes, yes; elastic landings, yes (16–36 spacings); more tumble, yes; not at rest, yes; v/c a third, yes;
   tip stretch about 1.1, yes (1.1–1.45); 45–55 min, yes (43–55).
+  **The drop, a showcase scene for the user's demo (pre-registered 2026-10-21 14:52 CDT server clock, as its runs
+  started; a showcase, not a gate; the user, relayed by the coordinator: the gravity scene "is not what I wanted, I
+  just wanted a sim dropped from very high up").** One body, a sphere at rest, released above the floor; it becomes a
+  bunny on the way down (the morph ramp ends at 2.3 s) and lands at about 2.5 s. The material is the stiff one
+  (`--young 9.8e5`, the world-unit motion of the stiff throw). The four fixes and the damping speed-up are on, the
+  body-frame objective lets it tumble after landing, and the scene lasts 7 s (42 windows). Code: `wip/d147` bfeed2d.
+  `SceneSpec.margin` (wu added to the horizontal reach; the default 0 keeps every earlier layout) gives the body
+  2.5 wu of room to tip over. Specs `scene_drop_v15` / `v20` / `v25` set the landing speed over the sound speed to
+  0.15 / 0.20 / 0.25 after the 2.5 s fall, a drop of 6.9 / 9.2 / 11.5 wu (1.5 / 2.0 / 2.4 body heights) below the
+  body's lowest point. The stiff throw landed at 0.10–0.12 and kept its shape; the frozen material at 0.3 crumpled.
+  `scene_drop.json` = v20. Runs on one card (chain25): the three at 40k plus 300k v20, render arm, seed 97, then
+  studio renders (static camera, floor, contact shadow) at 1080p and 4K, at azimuth 0 and 35°, with contact sheets.
+  Expected: the 300k in 20–25 min. Read by eye frame by frame (ears, pieces, landing); no pass/fail.
 - **D148, the two sides of a target gap on their own grid fields (`--gap_split`; design opened 2026-10-14 09:36 CDT
   server clock; the user approved the direction, relayed by the coordinator: the crevice's foam at about 3.3–4.2 s and
   the two floating particles at about 5.1–5.4 s on the final dragon side video are to go physically; the deadline,
