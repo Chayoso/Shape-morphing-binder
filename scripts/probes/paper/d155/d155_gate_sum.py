@@ -54,7 +54,7 @@ def val(m, arm, path, nd=3):
 yes = lambda b: "–" if b is None else ("yes" if b else "NO")  # noqa: E731
 
 
-def judge(arm, item5):
+def judge(arm, item5, item6=False):
   crit = {}
   for m in MESH:
     a3 = R.get(f"{m}40k_{arm}L97")
@@ -81,16 +81,25 @@ def judge(arm, item5):
         c["5 apart"] = None if not ta or g(a3, "apart_w3_12.max") is None else g(a3, "apart_w3_12.max") <= max(ta)
         c["5 bumps"] = (None if not tb or g(a3, "visible_w3_10.bump_max") is None
                         else g(a3, "visible_w3_10.bump_max") <= max(tb))
+    if item6:
+        jr = g(a3, "J_ramp_max")
+        c["6a ramp J"] = None if jr is None else jr <= 1.03
+        tm, tq = tag(m, "V", "J_end.mean"), tag(m, "V", "J_end.p99")
+        jm, jq = g(a3, "J_end.mean"), g(a3, "J_end.p99")
+        c["6b end J mean"] = None if not tm or jm is None else (min(tm) <= jm <= max(tm))
+        c["6b end J p99"] = None if not tq or jq is None else jq <= max(tq)
     crit[m] = c
   p(f"## Criteria ({arm} render arm against the tag's three seeds, V)")
   p("| mesh | 1 timing | 2 IoU (ind.) | 2 yardstick sil. | 2 yardstick shading | 2 display | 2 thin | 2 lead over its twin | 3 at rest | 4 peak kinetic |"
-    + (" 5 apart w3-12 | 5 visible bumps w3-10 |" if item5 else ""))
-  p("|---|---|---|---|---|---|---|---|---|---|" + ("---|---|" if item5 else ""))
+    + (" 5 apart w3-12 | 5 visible bumps w3-10 |" if item5 else "")
+    + (" 6a ramp J | 6b end J mean | 6b end J p99 |" if item6 else ""))
+  p("|---|---|---|---|---|---|---|---|---|---|" + ("---|---|" if item5 else "") + ("---|---|---|" if item6 else ""))
   for m, c in crit.items():
     q = c["2 end"]
     p(f"| {m} | {yes(c['1 timing'])} | {yes(q['end.ind_sil'])} | {yes(q['end.yard_sil'])} | {yes(q['end.yard_pbr'])} | "
       f"{yes(q['end.display'])} | {yes(q['end.thin'])} | {yes(c['2 lead'])} | {yes(c['3 rest'])} | {yes(c['4 peak kinetic'])} |"
-      + (f" {yes(c['5 apart'])} | {yes(c['5 bumps'])} |" if item5 else ""))
+      + (f" {yes(c['5 apart'])} | {yes(c['5 bumps'])} |" if item5 else "")
+      + (f" {yes(c['6a ramp J'])} | {yes(c['6b end J mean'])} | {yes(c['6b end J p99'])} |" if item6 else ""))
   n_ok = lambda f: sum(1 for c in crit.values() if f(c))  # noqa: E731
   verdict = {"1": n_ok(lambda c: c["1 timing"]),
              **{k: n_ok(lambda c, k=k: c["2 end"][k]) for k in ("end.ind_sil", "end.yard_sil", "end.yard_pbr",
@@ -98,6 +107,8 @@ def judge(arm, item5):
              "lead": n_ok(lambda c: c["2 lead"]), "3": n_ok(lambda c: c["3 rest"]), "4": n_ok(lambda c: c["4 peak kinetic"])}
   if item5:
       verdict.update({"5 apart": n_ok(lambda c: c["5 apart"]), "5 bumps": n_ok(lambda c: c["5 bumps"])})
+  if item6:
+      verdict.update({k: n_ok(lambda c, k=k: c[k]) for k in ("6a ramp J", "6b end J mean", "6b end J p99")})
   p()
   p("counts of 5: " + json.dumps(verdict))
   passed = all(v >= 4 for v in verdict.values()) and len(crit) == 5
@@ -108,6 +119,8 @@ def judge(arm, item5):
 judge("A3", False)
 if any(k.endswith("A3GL97") for k in R):
     judge("A3G", True)
+if any(k.endswith("A3CL97") for k in R):
+    judge("A3C", True, True)
 # ---------------- tables ----------------
 p("## Timing (render arm L / its twin P; the tag: three seeds V / W)")
 p("| mesh | move after 1 s: tag L / A1 L / A3 L | after 3 s: tag / A1 / A3 | physics P90 (s, final target) tag / A1 / A3 | render P90 (s) | A_lin tag / A1 / A3 | A_log tag / A1 / A3 | T_e A1 / A3 (s) |")
@@ -221,6 +234,51 @@ if any(k.endswith("A3GL97") for k in R):
                                 ("end.display", 1, 4), ("end.thin", 1, 3)):
                 tv = [v * k for v in tag(m, t_, path)]
                 va, vb = g(R.get(f"{m}40k_A3{x}97"), path), g(R.get(f"{m}40k_A3G{x}97"), path)
+                row.append(f"{rng(tv, nd)} / {'–' if va is None else f'{va * k:.{nd}f}'} / "
+                           f"{'–' if vb is None else f'{vb * k:.{nd}f}'}")
+            p(f"| {m} {x} | " + " | ".join(row) + " |")
+if any(k.endswith("A3CL97") for k in R):
+    def jmax(r, t1):
+        c = (r or {}).get("curves") or {}
+        v = [j for t, j in zip(c.get("t", []), c.get("J", [])) if j is not None and t <= t1 + 1e-9]
+        return max(v) if v else None
+
+    f_ = lambda r, k, nd=3: "–" if g(r, k) is None else f"{g(r, k):.{nd}f}"  # noqa: E731
+    p()
+    p("## D155c: A3C (the targets on the way at the body's density) against A3G and the tag, render arm")
+    p("| mesh | ramp's largest mean J: tag over [0, T_e] / A3G / A3C | end mean J tag / A3G / A3C | end J p99 tag / A3G / A3C | k_s (A3C) | target volume before the match | local volume p05..p95: final target / A3C on the way |")
+    p("|---|---|---|---|---|---|---|")
+    for m in MESH:
+        a, b = R.get(f"{m}40k_A3GL97") or {}, R.get(f"{m}40k_A3CL97") or {}
+        te = b.get("T_e", 3.26)
+        tj = [x for x in (jmax(R.get(f"{m}40k_V{s}"), te) for s in SEEDS) if x is not None]
+        mo = b.get("morph") or {}
+        fq = mo.get("final_vol_q") or [None, None, None]
+        p(f"| {m} | {rng(tj, 4)} / {f_(a, 'J_ramp_max', 4)} / {f_(b, 'J_ramp_max', 4)} | "
+          f"{rng(tag(m, 'V', 'J_end.mean'), 4)} / {f_(a, 'J_end.mean', 4)} / {f_(b, 'J_end.mean', 4)} | "
+          f"{rng(tag(m, 'V', 'J_end.p99'), 3)} / {f_(a, 'J_end.p99')} / {f_(b, 'J_end.p99')} | "
+          f"{mo.get('k')} | {mo.get('vol_ratio')} | {fq[0]}..{fq[2]} / {mo.get('vol_q_p05')}..{mo.get('vol_q_p95')} |")
+    p()
+    p("| mesh | move after 1 s tag / A3G / A3C | physics / render P90 s A3G / A3C | ramp cos A3G / A3C | apart w3-12 A3G / A3C | visible bumps w3-10 A3G / A3C | peak kinetic A3G / A3C | delivered kinetic 1e-5 tag / A3C | minutes tag / A3G / A3C |")
+    p("|---|---|---|---|---|---|---|---|---|")
+    for m in MESH:
+        a, b = R.get(f"{m}40k_A3GL97") or {}, R.get(f"{m}40k_A3CL97") or {}
+        p(f"| {m} | {rng(tag(m, 'V', 'move_after_1s'))} / {f_(a, 'move_after_1s')} / {f_(b, 'move_after_1s')} | "
+          f"{f_(a, 'lin.P90_s', 2)} {f_(a, 'lin.R90_s', 2)} / {f_(b, 'lin.P90_s', 2)} {f_(b, 'lin.R90_s', 2)} | "
+          f"{f_(a, 'ramp.raw_cos')} / {f_(b, 'ramp.raw_cos')} | {g(a, 'apart_w3_12.max')} / {g(b, 'apart_w3_12.max')} | "
+          f"{g(a, 'visible_w3_10.bump_max')} / {g(b, 'visible_w3_10.bump_max')} | {f_(a, 'kin_peak')} / {f_(b, 'kin_peak')} | "
+          f"{rng([x * 1e5 for x in tag(m, 'V', 'kin_end')], 2)} / {(g(b, 'kin_end') or float('nan')) * 1e5:.2f} | "
+          f"{rng(tag(m, 'V', 'minutes'), 2)} / {f_(a, 'minutes', 2)} / {f_(b, 'minutes', 2)} |")
+    p()
+    p("| mesh, arm | IoU ind. tag / A3G / A3C | yardstick sil. 1e-3 | yardstick shading 1e-3 | display | thin |")
+    p("|---|---|---|---|---|---|")
+    for m in MESH:
+        for t_, x in (("V", "L"), ("W", "P")):
+            row = []
+            for path, k, nd in (("end.ind_sil", 1, 4), ("end.yard_sil", 1e3, 3), ("end.yard_pbr", 1e3, 3),
+                                ("end.display", 1, 4), ("end.thin", 1, 3)):
+                tv = [v * k for v in tag(m, t_, path)]
+                va, vb = g(R.get(f"{m}40k_A3G{x}97"), path), g(R.get(f"{m}40k_A3C{x}97"), path)
                 row.append(f"{rng(tv, nd)} / {'–' if va is None else f'{va * k:.{nd}f}'} / "
                            f"{'–' if vb is None else f'{vb * k:.{nd}f}'}")
             p(f"| {m} {x} | " + " | ".join(row) + " |")

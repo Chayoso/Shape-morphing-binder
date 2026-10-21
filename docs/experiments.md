@@ -9710,6 +9710,84 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   mean on ≥ 4 of 5, J's p99 on 3–4 of 5 (the global match leaves the local variation, measured by `morph_vol_q`); (2)
   within the tag's range on ≥ 4 of 5 per measure (from D155b's ordering of the misses with the volume excess); (1), (3),
   (4), (5) as D155b. If it fails: the next root cause from the frames and the next definition, with numbers.
+  **D155c read (runs 2026-10-21 10:23–11:10 CDT on GPU 3; suite reruns and the target dumps 11:20–12:08 on GPU 1; read
+  11:10–12:25 CDT; `output/gpu/d155/gate/` (`gate_all.jsonl`, `summary_c/`, `jcourse_c.log`, `zdump_*40k.npz`,
+  `zread_*.log`, `follow_*.log`, `forensic_c.log`, `spots_c_*.log`, `twinj_c.log`); local
+  `output/results_2026-10-17/d155_together/gate40k_c/`). FAIL by the letter: item 6 (6a 2 of 5, 6b mean 0 of 5, p99 0 of
+  5) and item 2 (yardstick silhouette 3, shading 3 of 5); items 1, 3, 4, 5 and the render lead 5 of 5.**
+  *Gates:* deterministic default against the tag's run A SAME (556 history fields); pinned references exit 0; the full
+  suite exit 1 twice, each time on one of my own D155b tests, then exit 0 (442 passed, 2 skipped): the first compared
+  `m_ref` (a mass-grid mean, unordered atomics) by equality (fixed `wip/d155` a107cfe), the second took the last pack a
+  window read as the final pack, which a short test run whose windows are rejected need not reach (082318c: the final
+  pack from the moving target itself). Tests only; the code is ef3071c's. All ten runs rc 0.
+  *The items (A3C render arm, seed 97, against the tag's three seeds):* (1) movement after 1 s 0.81–0.90 (tag 0.14–0.60),
+  physics P90 2.27–2.65 s; (5) apart in windows 3–12 1–25, visible bumps 1–14 (tag 21–188 and 26–262); (3) at rest; (4)
+  peak kinetic 0.07–0.24 of the tag's smallest; the render lead over the twin 5 of 5. (2) IoU against the independent
+  sample 4 of 5 (armadilo 0.9715 against 0.9717), yardstick silhouette 3 of 5 (dragon 2.110 against 2.005, homer 0.936
+  against 0.809, 1e-3), shading 3 of 5 (dragon 1.561 against 1.491, homer 0.584 against 0.547), display 4 of 5 (homer
+  0.0156 against 0.0148), thin 5 of 5 (D155b: 4 / 2 / 3 / 3 / 3). (6a) the ramp's largest mean J 1.017 / 1.080 / 1.008 /
+  1.038 / 1.033 (bunny / dragon / teapot / armadilo / homer; A3G 1.029 / 1.100 / 1.008 / 1.051 / 1.057; the tag over the
+  same span 1.011 / 1.024–1.029 / 1.002 / 1.006 / 1.001): 2 of 5. (6b) the end's mean J 1.0097 / 1.0370 / 1.0019 /
+  1.0108 / 0.9933 against the tag's 1.0040–1.0047 / 1.0098–1.0143 / 0.9945–0.9965 / 1.0032–1.0041 / 0.9967–0.9974 (homer
+  now below its smallest): 0 of 5; J's p99 1.194 / 1.617 / 1.091 / 1.244 / 1.210 against the tag's largest 1.142 / 1.409 /
+  1.047 / 1.126 / 1.156: 0 of 5. k_s 0.957–1.035, the volume before the match (the run's estimator) 0.908–1.141; the
+  matched targets' local volume quantiles (d8³, p05..p95) 0.55..2.06 against the final target's own 0.59..2.06: the
+  8th-neighbour local volume is dominated by the sample's own spread and could not see the interpolation's local part
+  (read below with a better measure). The ramp's cosine 0.14–0.31, minutes 2.5–3.5 (tag 1.1–3.4). Predictions held for
+  k_s and items 1, 3, 4, 5; missed for (6a) (5 predicted, 2), (6b) (≥ 4 and 3–4 predicted, 0 and 0), (2) (≥ 4 of 5 per
+  measure predicted; IoU, display, thin reached it, silhouette and shading did not).
+  *The render's influence:* g_share 1/3 on the ramp as in every arm; the render's share of the merit on the ramp
+  0.002–0.022 (the tag over the same span 0.04–0.09); the lead over the λ = 0 twin on the yardstick silhouette 2.667 /
+  2.110 / 1.421 / 1.764 / 0.936 against 4.238 / 2.916 / 2.303 / 2.407 / 1.476. The volume is not the render's: every twin's
+  end J and ramp maximum are its render arm's within 0.006 (`twinj_c.log`).
+  *Why the volume missed (frame level; the moving target's own points dumped by `d155c_zdump.py`, read on CPU).* (i) The
+  estimator reads the sampling pattern as well as the volume: the source sample, the body at t = 0, reads 0.981 / 0.941 /
+  0.990 / 0.958 / 0.960 of the final target's volume by the same median spacing, though the tag's body fills the target
+  at J ≈ 1; the first targets on the way (the blurred barycentric image of the source) read 0.90–0.98; so k at the start
+  was 1.006–1.035 and the first targets were larger than the body: on the transport's own cells (the gate grid's occupied
+  cells, at least half the final target's median count) +0.9 / +3.4 / +2.5 % on bunny / dragon / homer at the first
+  window (`fig_volume_c.png`). The body dilated at once: mean J at 0.5 s +1.5 / +4.2 / +0.5 / +3.5 / +3.1 % (A3G +0.3 /
+  +1.8 / −0.1 / +1.5 / +1.0 %), within about one point of the occupancy times k³. Every fine-scale volume misreads this
+  start the same way (the mean of the points' d8³ reads it 0.88–0.98 too): the blurred image is compact at the scale of a
+  few neighbours but not at the transport's blur, where the body without the rescale did not move (A3G's J 0.995–1.000 at
+  0.17 s, the first window; A3C's 1.008–1.027). (ii) The ratchet: whatever volume the body holds becomes rest volume
+  within about a second (the assimilation takes half the elastic stretch, volume included, every window: det Fp's p99 within 0.03 of J's p99 from 1 s on in every
+  arm), so nothing gives it back when the target asks less: at s = 0.98 D155b's targets ask 1.001 / 1.012 / 1.010 (bunny /
+  dragon / homer) and the body holds 1.016 / 1.081 / 1.025; a sixth to three quarters of it stays to the end; D155c's
+  homer, taken below its volume (0.993 at 3 s) by its rescaled targets, stays below too. The tag has the same ratchet on
+  its own, shorter transient (its mean J peaks at +1.1 / +2.8 % and keeps +0.45 / +1.4 % on bunny / dragon). The mean also
+  rises with the local part: mid-ramp D155c's dragon targets ask only +1…+3 % in total on those cells, yet its J reaches
+  1.080 at 2.2 s, with p01 / p99 0.907 / 1.472 at 2 s (the local stretches taken more than the local squeezes). (iii) The
+  local part, untouched by any global scale: J's p99 on the ramp is the same with and without
+  the rescale (A3C against A3G at the end −0.03…+0.07); the in-between targets' local volume, each point against itself on
+  the final target (mean distance to 32 neighbours, cubed) after a global match, spans p01–p99 0.84–1.26 / 0.77–1.30 /
+  0.87–1.29 / 0.78–1.35 / 0.77–1.27 at s = 0.5 and exactly 1 at s = 1: the straight-line interpolation inflates locally
+  wherever the map stretches one way and thins the other (Minkowski's determinant inequality), and the ratchet keeps it.
+  *What the volume does not explain.* At the delivered end the interior (cells two gate cells wide, their six neighbours
+  inside too) holds the target's particle density in every arm (bunny A3C median local volume 1.000 against the target's
+  1.000; dragon A3G and A3C 0.964 against 0.984, the tag 0.969 against 0.984): the carried J's excess is a rest-volume
+  state, not a dilated interior. Across the 15 ramp runs (A3, A3G, A3C × 5 meshes) the end's volume excess over the tag
+  ranks with the yardstick silhouette's excess at ρ 0.13–0.20 and with the shading's at 0.41–0.56. The outer layer's
+  deviation from the independent sample at the same time after arrival is the tag's: dragon 0.437 against 0.432 pitch at
+  +6 s, homer 0.366 against 0.364, armadilo 0.369 against 0.366; the ramp runs arrive at 3.34 s (tag 1.3–1.7 s) and their
+  stop rules (three rejected candidates, or converged) left 6.7 / 7.6 / 6.4 s after arrival against the tag seed 97's
+  7.1 / 9.3 / 6.4 s. Places off by more than half a pitch in A3C only: 1.6 % (homer) and 2.9 % (dragon) of the layer, spots
+  of 1–5 reference points that form after the ramp and drift (dragon −0.15 → −0.73 pitch), carried by particles that
+  settled at 3.5–5.2 s, as D155b's. Item 2 is one seed against three, and its misses moved between A3, A3G and A3C by
+  more than the tag's seed spread (homer yardstick 0.952 / 0.809 / 0.936 against 0.757–0.809).
+  *Next definition (D155d, proposed, not run):* the targets on the way do not set the body's rest volume. With option A
+  on, the plastic assimilation stays isochoric (its form before D135) in a window whose target is one on the way (s < 1)
+  and takes the volume from the final target on (s = 1): D135's rule, "a volume the end state keeps becomes the rest
+  volume", read on the state it was made for. D155c's rescale is dropped (it over-scales the start). No constant; one
+  condition in the runner (`isochoric = not cfg.assim_volume or s_window < 1`, behind its own switch, the tag's path
+  untouched). Mechanism: the volume the targets on the way ask (+3…+14 % globally, local p99 +26…+35 %) is held elastically,
+  so the body follows it less and gives it back as the targets return to the body's volume (1.001–1.012 at s = 0.98).
+  Predictions: (6a) the ramp's largest mean J below A3G's on 5 of 5 and ≤ 1.03 on ≥ 4 of 5; (6b) the end's mean J within
+  the tag's range or nearer 1 than its nearest seed, and J's p99 not above the tag's largest, each on ≥ 4 of 5; det Fp's
+  p99 at s = 1 within the tag's at its own arrival; (1), (3), (4), (5) as D155b; (2) moves at most with the shading (the
+  volume's link), so the gate adds the render arm's seeds 99 / 101 on dragon and homer (4 runs) and reads item 2 by the
+  letter and against the ramp arm's own three seeds. Risk: the elastic energy held on the way (the at-rest and kinetic
+  items read it). Cost: the 40k gate, about 1 card-hour, plus 4 runs (≈ 15 card-minutes).
 - **D157, standard metrics that see the render, or a plain statement that none does: boundary-sensitive silhouette
   metrics, 3D F-score / normal consistency / Chamfer and novel-view PSNR / SSIM / LPIPS against the exact mesh, on the
   existing end states (a measurement; no pipeline change, no run; opened 2026-10-21 10:16 CDT server clock; the
