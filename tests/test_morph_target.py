@@ -170,8 +170,10 @@ def test_d155b_a_pack_without_the_particle_pictures_is_the_same_pack():
         assert torch.allclose(u, v, rtol=1e-5, atol=1e-6)
     for k in ("grid", "dt3", "pts"):
         assert torch.allclose(getattr(a, k), getattr(b, k), rtol=1e-5, atol=1e-6)
-    assert (a.extent, a.pdx, a.pblur, a.nn_spacing, a.m_ref, a.n_support) == (b.extent, b.pdx, b.pblur, b.nn_spacing,
-                                                                              b.m_ref, b.n_support)
+    # m_ref reads the mass grid, whose splats' atomics are unordered outside the deterministic mode (D155c's suite saw
+    # 222.22215 against 222.22223): compared to float rounding like the grids above
+    assert (a.extent, a.pdx, a.pblur, a.nn_spacing, a.n_support) == (b.extent, b.pdx, b.pblur, b.nn_spacing, b.n_support)
+    assert a.m_ref == pytest.approx(b.m_ref, rel=1e-5)
     assert a.ext.pitch == b.ext.pitch and a.ext.h == b.ext.h
 
 
