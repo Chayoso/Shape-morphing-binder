@@ -9,6 +9,16 @@ set -e
 D=$(cd "$(dirname "$0")" && pwd)
 H=hyde06j
 ssh -o BatchMode=yes $H true || { echo "ssh to hyde06 fails: stop (the user re-adds the key)"; exit 1; }
+# redeploy repo_d156 / repo_d156s (agent D156's own copies, made 2026-10-21) from wip/d156's head: git archive, as before
+SHA=$(git -C /c/dev/smb_d156 rev-parse --short wip/d156)
+git -C /c/dev/smb_d156 archive --format=tar.gz -o "$TMP/repo_d156.tgz" wip/d156
+scp -q -o BatchMode=yes "$TMP/repo_d156.tgz" $H:/data/relcfd/chayo/physmorph_v2/tmp/repo_d156.tgz
+ssh -o BatchMode=yes $H "set -e; B=/data/relcfd/chayo/physmorph_v2; cd \$B; rm -rf repo_d156 repo_d156s; mkdir repo_d156;
+  tar -xzf tmp/repo_d156.tgz -C repo_d156; echo $SHA > repo_d156/VERSION;
+  echo '$SHA (wip/d156: freeze-2026-10-15-rt1 + the D156 render target, default off), git archive' > repo_d156/DEPLOYED_FROM;
+  cp -a repo_d156 repo_d156s; source tmp/d146/cache_env.sh;
+  /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python tmp/d145/patch_s.py repo_d156s;
+  echo 'repo_d156 + tmp/d145/patch_s.py (kept frames in place of the full archive)' >> repo_d156s/DEPLOYED_FROM; rm tmp/repo_d156.tgz"
 scp -q -o BatchMode=yes $D/d156_chain.sh $D/d156_read.py $D/d157_lib.py $D/d156_table.py $D/d156_jobs.py $D/d156_cpu.sh \
     $D/hull_carve.py $H:/data/relcfd/chayo/physmorph_v2/tmp/d156/
 # launch once: the chain logs its own pid ("chain start pid") in output/gpu/d156/status.txt
