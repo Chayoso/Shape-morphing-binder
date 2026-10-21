@@ -15716,7 +15716,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (a gated A/B experiment, adoption the user's call; pre-registered 2026-10-21 17:27 CDT server clock, before any gate,
   probe or run of it; the coordinator, relaying D158's proposal, then the user: "the dragon's scales and the bunny's
   wrinkles", made through the physics, "rendering이 physics에 영향을 줘서 physics의 방향을 바꿀 수 있는 방법이면
-  뭐든지"; code: branch `wip/d159` 4728a84 = freeze-2026-10-15-rt1 + `--render_target`, default off; server
+  뭐든지"; code: branch `wip/d159` 4728a84 (6ec1b3c after amendment 2) = freeze-2026-10-15-rt1 + `--render_target`, default off; server
   `repo_d159` (git archive) / `repo_d159s` (+ `tmp/d145/patch_s.py`, kept frames); scripts
   `scripts/probes/paper/d159/` (server `tmp/d159/`); results `output/gpu/d159/`; local
   `output/results_2026-10-21/d158_render_detail/` (a D159 section in its Korean README)).**
@@ -15827,6 +15827,34 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   thin 24.9 %, region 18.8 % (the head and mane, the belly scutes, the claws, patches of the flanks; the flank scales are
   faint in this mesh at these bands), threshold 0.048 a (`regions_{mesh}_b5.4.npz`, `regions.jsonl`). The time course
   (R2) and the coordinator's region readings use these masks.
+  *Amendment 2 (18:06 CDT, before any gate or run; the chain started at 17:29 was stopped at 17:43 by its PID before it
+  had a card).* Step 0 (a) with the definition as written (`step0/step0.jsonl`): c = 0.645 a (bunny), 0.955 a (dragon),
+  but the discs' signed distances spread with an sd of 1.61 / 0.47 a: on the bunny 3.2 % of the run's own exterior
+  discs lie over the five fan-closed holes of its base, 1.5 pitches (up to 18) inside the fans (median of all 0.86 a,
+  0.78 a without them); on the dragon a tail to 3–6 pitches where the field bridges crevices the grown mesh leaves open.
+  The new pictures then differ from the samples' by 1.6e-3 / 8.8e-4 (silhouette, mean square) and the tag's end
+  exterior from the shell by 0.33 / 0.43 a rms above 10.8 pitches against 0.13 / 0.17 a below: a coarse shell the
+  body's exterior cannot make (the base, the bridged crevices), the D90 risk by construction. The offset is therefore
+  measured locally (code `wip/d159` 6ec1b3c, `render/mesh_shell.LocalOffset`, tests updated, CPU tests pass): the run's
+  own exterior discs' signed distances pooled per lattice cell over all eight samples, each cell's offset the mean of
+  the cells within the exterior field's own radius (3 pitches) weighted by the field's own kernel (1 − r²/R²)³, a
+  point reading its nearest cell. Above the field's reach the shell is the run's own exterior (its base, its bridged
+  crevices), below it the mesh's relief; c is still measured per run and no constant is added (the radius is the
+  exterior's). Step 0 again (`step0/step0_local.jsonl`): c over the shell's discs median 0.879 / 0.916 a (p01 −15.0 /
+  0.52, p99 1.17 / 3.45 a: the base and the crevices followed); the new pictures against the samples' 2.05e-4 /
+  2.03e-4 (silhouette), 4.96e-4 / 4.93e-4 (shading); the tag's end states against old → new pictures: L97 silhouette
+  2.88e-4 → 4.43e-4, shading 4.54e-4 → 6.07e-4 (bunny), 2.72e-4 → 4.40e-4, 4.99e-4 → 8.23e-4 (dragon); P97 1.19e-3 →
+  1.50e-3, 7.0e-4 → 8.8e-4 and 1.32e-3 → 1.49e-3, 8.4e-4 → 1.14e-3; the own sample 5.9e-4 → 8.3e-4, 4.2e-4 → 9.2e-4
+  (bunny), 4.9e-4 → 8.5e-4, 3.2e-4 → 8.2e-4 (dragon). (That file's low / relief split still subtracts the mean c, not
+  the local one; it is not read.) Before any run, the R1 measure on the tag (`read/relief_test.jsonl`, bunny): the
+  outer-layer particles already follow the mesh's relief in the region (k 0.78 / 0.84 / 0.87 below 2.7 / 2.7–5.4 /
+  5.4–10.8 pitches; the twin P97 0.79 / 0.86 / 0.88), the exterior does not (−0.02 / 0.43 / 0.65; the own sample's
+  exterior 0.11 / 0.55 / 0.74): the relief sits in the particles and the field of radius 3 hides it (D123). A first form
+  of R1 read the points' closest-point distance to the mesh; on a bumpy mesh that distance behaves as a dilation and
+  read about 1 in every band, so R1 reads, at each mesh sample, the state's surface height along the mesh's normal (the
+  exterior through its field, the layer through its 8 nearest layer particles, D158's weighting), as the code's
+  docstring says. Also corrected: the seed-99 twins' re-run is a replicate of B1's P99, not equal to it bit for bit
+  (production runs are not run-to-run deterministic; rt1 = the tag was shown under Warp's deterministic mode).
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`
