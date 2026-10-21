@@ -15281,6 +15281,80 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Disk.* Kept frames 1–2.3 GB a run (about 25 GB in all); the twins' kept frames are removed after their readings,
   the render frames after both videos exist (`cleanup.log`); the render arms' kept frames stay until the deliverable is
   accepted.
+- **D158, why the render loss inside the run does not write the relief D115's display layer writes (a measurement; no
+  run of the pipeline, no default changed; pre-registered 2026-10-21 16:10 CDT server clock, before any computation of
+  it; the user, 2026-10-21: can the in-loop render loss do the job of the post-process
+  `render_deliverable.py +fit=1 +steps=15 +carry=h +decay=1`, so that the detail is physical; scratch copy of the
+  tag's renderer `tmp/d158/d158_fit.py` (repo_freeze1015, the fit unchanged), results `output/gpu/d158/`, local
+  `output/results_2026-10-21/d158_render_detail/` with a Korean README).**
+  *Why.* D115's layer is massless, so moving its fit into the run changes nothing. The question is why the render term
+  the run already has, acting on the layer control u (the outer layer's normal displacement, one value a particle at
+  the run's pitch a), does not produce the same relief. Two hypotheses from the coordinator: (H1) the loop's pictures
+  are too coarse (at 300k 188 px over the render box; D115 draws at a pixel of a_c, the dense samples' pitch); (H2) u
+  cannot represent it (one value a particle: no wavelength below about 2 a). On record: the outer-layer relaxation
+  removes relief of 6 spacings and less (D14) unless it is the target's own (D105's reference, in the tag); a run
+  carries 80–95 % of the relief its 300k sample can carry (D105, D122); the exterior's kernel of 3 pitches hides relief
+  the particles carry (D123; the tag kept radius 3, `exterior_radius` 3.0 in B1's JSON); the loop's target pictures,
+  the mean over eight 300k draws at the run's pitch, are as blurred as the field at that pitch whatever the sample's
+  density (D104). The last two give two more candidates, read alongside: (T) the loop's target pictures do not
+  contain the relief, and (F) the field's kernel, through which the loop's render gradient reaches u, cannot express
+  it even where one value a particle could.
+  *Item 1, the numbers (from the runs' logs and PipelineConfig, before the measurement).* The loop draws
+  `render_res` 96 px at N ≤ 40k, × (N / 40000)^(1/3) above (`pipeline_run.run_config`): 188 px at 300k, over the box
+  ±1.25 max|x| of the target. 300k (B1, seed 97): bunny a = 0.0480 wu, pixel 0.0520 wu = 1.08 a; dragon a = 0.0476,
+  pixel 0.0626 = 1.32 a; the loop's discs on a lattice of half a pixel (0.54 a, 0.66 a). 40k (D155's gate runs, seed
+  97): bunny a = 0.0964, 96 px, pixel 1.06 a; dragon a = 0.0973, 1.26 a. D115 (the fit): the dense samples' pitch
+  a_c (four 1.5M draws, `d111/{mesh}_dense15{,_s9,_s10,_s11}.npz`, the deliverable's), a pixel of a_c over the same
+  box (res = ⌈2 box / a_c⌉, D115's logs: 346 px bunny, 428 px dragon), so the D115 pixel is about 0.58 a and the loop's
+  is 1.8–2.3 times it; D115's discs on 0.92 a_c ≈ 0.53 a. (The 128 px of the gallery's silhouette metric is 1.6–1.9
+  a at 300k; it is a reader's resolution, not the loss's.)
+  *States.* B1's render arms (`d145t_b1/{bunny,dragon}300k_L97_frames12.npz`, the post-tag evidence, freeze-2026-10-15).
+  D115's fit run over every kept frame in order, as the deliverable runs it (+fit=1 +steps=15 +carry=h +decay=1
+  +video=0, the four dense draws); dumped at the kept frames t = 0.5, 1, 2, 4 s and the last (20 kept frames a second):
+  the base discs p, their normals n, h, the arrived mask, the frame's particles, and the render terms before and after
+  the frame's fit (rows.txt).
+  *Item 3, h taken apart.* On each dumped frame: the outer layer by the pipeline's own definition
+  (`window/layer.layer_relax_data` on the frame: asymmetry ≥ 0.5 spacings, its normals). h_uW = the least-squares
+  projection of h on what a per-particle normal displacement u of the layer particles can make on the discs through
+  the display's own particle → disc weighting (`carried()`: each disc moves by the Gaussian-weighted mean, σ = a, of its
+  8 nearest particles' moves; particles off the layer do not move); h_uF = the same through the exterior field's own
+  response (Tracked.read linearised: a disc moves along its normal by −(|p − x̄| − offset) / slope, Zhu and Bridson's
+  kernel of 3 pitches; checked against autograd on the first dump), the path the loop's render gradient takes to u.
+  Conjugate gradients on the normal equations, a Tikhonov term of 1e-3 of the median column weight. Rests h − h_uW,
+  h − h_uF. Bands by Gaussian means over the discs (same-side neighbours) of σ = 0.5 / 1 / 2 / 4 a: wavelengths below
+  about 2.7 / 2.7–5.4 / 5.4–10.8 / 10.8–21.6 / above 21.6 a (D107's family). h_low = the part above 10.8 a; h_rel =
+  h − h_low, the relief. The low part holds the two fields' different offsets (0.8 a for the base discs, 0.8 a_c for
+  the dense pictures: about −0.33 a everywhere, D111 moved the mean offset to the 1.5M exterior's) and the shape,
+  which u represents trivially, so the readings are on h_rel. Energies over the arrived discs.
+  *Item 3 and 4, the render terms.* Each part drawn as the fit draws h (p + part · n, normals tilted by its slope):
+  h = 0, h, h_uW, h − h_uW, h_uF, h − h_uF, h_low, h_low + P_W h_rel, h_low + P_F h_rel; against four pictures:
+  dense_ac (D115's own: the dense draws at a pixel of a_c), dense_loop (the same targets at 188 px), loop_ac and
+  loop_loop (the run's own loss targets rebuilt as prepare.py draws them: its target sample and seven further draws,
+  seeds seed + 1 + 100 k, at pitch a; drawn on the state's lattice, like for like). At each picture also the render
+  gradient at h = 0 on the arrived discs: its cosine with h and with h_rel and its band shares. At t = 4 s and the end a
+  static fit from h = 0 (200 Adam steps of the fit's rule) against each of the four pictures: what each picture asks
+  of a free layer (its h_rel's correlation with D115's, its band energies).
+  *Readings (fixed now).* Gains are reductions of silhouette + shading (w_pbr 1, as the fit). The relief's gain at a
+  picture: G(s) = L_s(h_low) − L_s(h); a part's share: [L_s(h_low) − L_s(h_low + part)] / G(s).
+  - **H2 holds** if at dense_ac h_rel − P_W h_rel keeps ≥ 0.5 of h_rel's energy and ≥ 0.5 of G(dense_ac), on both
+    meshes at t ≥ 2 s: the relief needs degrees of freedom finer than the particles.
+  - **F holds** if P_W h_rel carries ≥ 0.6 of the energy and of G(dense_ac) but P_F h_rel ≤ 0.4: one value a particle
+    suffices, the loop's path to u through the field's kernel does not.
+  - **H1 holds** if P_W h_rel carries ≥ 0.6 (energy and gain) and the relative relief gain G / L(h_low) at dense_loop is
+    at most a third of that at dense_ac (the 188-px picture does not register it), with the static fit at dense_loop
+    writing an h_rel correlated ≤ 0.3 with D115's.
+  - **T holds** if G(loop_ac) ≤ ⅓ G(dense_ac) relative to L(h_low) (or negative): the loop's own targets do not ask for
+    the relief at any pixel.
+  - More than one may hold; each is reported with its numbers, and the next definition follows from those that hold
+    (stated as a proposal; nothing is run or changed).
+  *Predictions.* h rms 0.4–0.5 a at the end (D115 1f: 0.46 a), most of it in the band above 21.6 a (the offset), mean
+  −0.3 to −0.45 a; h_rel rms 0.05–0.15 a. P_W h_rel 0.6–0.8 of h_rel's energy (the relief sits mostly at 2.7–10.8
+  pitches, which one value a particle at a resolves), P_F h_rel 0.2–0.4 (the kernel of 3 pitches): F holds. At
+  dense_loop the relief's relative gain under a third of dense_ac's (H1 holds); at loop_ac and loop_loop near zero or
+  negative (T holds: D104). H2 in the literal sense the smallest part. So: a stack of T, H1 and F, not H2.
+  *Cards.* One card by the lock protocol (agent D158; a card idle 10 minutes; released when the fits end; nothing held
+  while reading files), bunny and dragon in parallel on it; about 30–40 min. Dumps deleted after the reading
+  (`cleanup.log`).
 
 ## To run next, in order
 
