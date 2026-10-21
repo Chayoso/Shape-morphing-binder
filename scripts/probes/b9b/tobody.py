@@ -94,7 +94,8 @@ def rigid(x, v):
 
 def main():
     runs, tag = Path(sys.argv[1]), sys.argv[2]
-    args = [s for i, s in enumerate(sys.argv) if s != "--shape_every" and sys.argv[i - 1] != "--shape_every"]
+    track_only = "--track_only" in sys.argv      # the track alone (its archives already written and read)
+    args = [s for i, s in enumerate(sys.argv) if s not in ("--shape_every", "--track_only") and sys.argv[i - 1] != "--shape_every"]
     times = [float(s) for s in args[3:]]
     j = json.loads((runs / f"{tag}.json").read_text())
     z = np.load(runs / f"{tag}.npz")
@@ -147,13 +148,15 @@ def main():
         track.append(rec)
     ys = np.stack(ys)
     dn = np.int64(raws[-1] + 1)
-    np.savez(runs / f"{tag}_body12.npz", frames=ys, raws=raws, tgt=tgt, deliver_n=dn, src=X.astype(np.float32))
-    np.savez(runs / f"{tag}_frames12.npz", frames=fr, raws=raws, tgt=tgt, deliver_n=dn)
+    if not track_only:
+        np.savez(runs / f"{tag}_body12.npz", frames=ys, raws=raws, tgt=tgt, deliver_n=dn, src=X.astype(np.float32))
+        np.savez(runs / f"{tag}_frames12.npz", frames=fr, raws=raws, tgt=tgt, deliver_n=dn)
     at = {}
     for T in times:
         k = int(np.argmin(np.abs(raws * dt - T)))
         name = f"{tag}_at{T:g}_body.npz"
-        np.savez(runs / name, frames=ys[k:k + 1], raws=raws[k:k + 1], tgt=tgt, deliver_n=np.int64(raws[k] + 1))
+        if not track_only:
+            np.savez(runs / name, frames=ys[k:k + 1], raws=raws[k:k + 1], tgt=tgt, deliver_n=np.int64(raws[k] + 1))
         at[f"{T:g}"] = {"file": name, "k": k, "t": float(raws[k] * dt)}
     out = {"tag": tag, "pitch": pitch, "floor_y": floor_y, "floor_c": floor_c, "h_target_wu": h_tgt,
            "R_body": float(np.linalg.norm(X, axis=1).max()), "at": at, "track": track}
