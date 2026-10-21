@@ -3,7 +3,8 @@ demand point into the excess, and how much of it does the transport hold"): at a
 descent directions of the render terms (against the true mesh's pictures) and of the transport (to the hull), read on
 the particles in the hull's excess over the mesh. A measurement on a card (the pipeline's own operators, repo_d156).
 
-RUN_PREFIX: output/gpu/d156/runs40/MESH40k_ARM_SEED (its .json gives the run's flags, its _frames12.npz the end state).
+RUN_PREFIX[:tgt|:m]: output/gpu/d156/runs40/MESH40k_ARM_SEED (its .json gives the run's flags, its _frames12.npz the end
+state); :tgt reads the run's own target sample (the hull's perfect placement), :m the true mesh's sample (no transport).
 The run's TargetPack is rebuilt from its flags (scripts/pipeline_run.prepared / run_config, target.build_target with
 the render target's samples), the transport as the window objective builds it (GridSinkhornLoss, blur one loss cell),
 its scale ot_scale and the render weight lambda from the run's last committed window (for a twin, lambda of its render
@@ -19,22 +20,24 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
-import open3d as o3d
-import torch
-import trimesh
-
 sys.path.insert(0, str(Path.cwd()))
+import physmorph  # noqa: E402,F401  (before torch: CuPy's CUDA 12 compiler loads first)
+import numpy as np  # noqa: E402
+import open3d as o3d  # noqa: E402
+import torch  # noqa: E402
 from physmorph import gpu  # noqa: E402
 from physmorph.losses.grid_ot import GridSinkhornLoss  # noqa: E402
+from physmorph.losses.volumetric import d_vol_density  # noqa: E402
 from physmorph.pipeline.render_loss import d_exterior  # noqa: E402
-from physmorph.pipeline.target import build_target, calibrate_units  # noqa: E402
+from physmorph.pipeline.target import build_target  # noqa: E402
 from physmorph.render.exterior import make_field, tracked  # noqa: E402
 from physmorph.sampling.mesh import _oriented, load_normalized  # noqa: E402
 from scripts.pipeline_run import parse_args, prepared, run_config  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from d157_lib import close_holes  # noqa: E402
+
+torch.set_grad_enabled(True)                                 # d157_lib turns gradients off at import
 
 
 def scene(V, F):
@@ -48,7 +51,9 @@ def last_committed(hist):
 
 
 out = open(sys.argv[1], "a")
-for prefix in sys.argv[2:]:
+for spec in sys.argv[2:]:
+    prefix, _, which = spec.partition(":")                  # PREFIX (the end state) or PREFIX:tgt (the run's own
+    which = which or "end"                                  #   target sample, the hull's perfect placement)
     js = json.load(open(prefix + ".json"))
     pv = js["provenance"]
     arm = list(js["arms"].values())[0]
@@ -57,19 +62,30 @@ for prefix in sys.argv[2:]:
     cfg0, prep = prepared(args, args.seed)
     cfg = run_config(args, cfg0, prep)
     tgt = build_target(prep.tgt, prep.prm, cfg, draws=prep.tgt_draws, render_x=prep.render_x)
-    calibrate_units(tgt, gpu.tensor(prep.src), cfg)
     rec = last_committed(arm["history"])
     lam = float(rec["lambda"] or 0.0)
     lam_from = "own"
     if lam == 0.0:                                           # a twin: its render arm's lambda (same seed)
         jl = json.load(open(prefix.replace("_P_", "_L_") + ".json"))
         lam, lam_from = float(last_committed(list(jl["arms"].values())[0]["history"])["lambda"]), "L"
-    ot_scale = float(rec["ot_scale"])
     ot = GridSinkhornLoss(tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, eps=float(tgt.ldx) ** 2, iters=cfg.ot_iters,
                           tol=min(cfg.ot_tol, 1e-3), mass_total=float(tgt.m.sum()), cuda_blocks=True, support=tgt.support)
-    x = gpu.tensor(np.asarray(np.load(prefix + "_frames12.npz", allow_pickle=True)["frames"][-1], np.float32))
-    xg = x.clone().requires_grad_(True)
-    g_t = ot_scale * torch.autograd.grad(ot.state_energy(xg, tgt.m), xg)[0]
+    # ot_scale as the window objective sets it once a run (at the first window, x0 = the source): the transport's
+    # gradient norm equals D_vol's there
+    xs = gpu.tensor(prep.src).requires_grad_(True)
+    gd = torch.autograd.grad(d_vol_density(xs, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref, tgt.n_support),
+                             xs)[0].norm()
+    xs = gpu.tensor(prep.src).requires_grad_(True)
+    gt = torch.autograd.grad(ot.state_energy(xs, tgt.m), xs)[0].norm()
+    ot_scale = float(gd / gt.clamp_min(1e-30))
+    z = np.load(prefix + "_frames12.npz", allow_pickle=True)
+    if which == "m":                                        # the true mesh's own sample (the render's optimum; another
+        x = gpu.tensor(prep.render_x)                      #   particle count, so no transport is read on it)
+        g_t = torch.zeros_like(x)
+    else:
+        x = gpu.tensor(np.asarray(z["tgt"] if which == "tgt" else z["frames"][-1], np.float32))
+        xg = x.clone().requires_grad_(True)
+        g_t = ot_scale * torch.autograd.grad(ot.state_energy(xg, tgt.m), xg)[0]
     e = tgt.ext
     discs = tracked(make_field(e.field, x.detach(), e.pitch, radius=e.radius, offset=e.offset, device_field=True),
                     e.lattice, e.h, e.skin)
@@ -102,10 +118,11 @@ for prefix in sys.argv[2:]:
     # the outer layer outside R (the scale): particles within one pitch of the hull's surface, inside the mesh
     dh = sh.compute_distance(q).numpy()
     lay = (~R) & in_t & (dh < e.pitch)
-    row = dict(run=prefix.split("/")[-1], lam=lam, lam_from=lam_from, ot_scale=ot_scale, n_R=int(R.sum()),
+    deep = R & (dist >= e.pitch)                             # at least a pitch outside the mesh
+    row = dict(run=prefix.split("/")[-1], state=which, n_R_deep=int(deep.sum()), lam=lam, lam_from=lam_from, ot_scale=ot_scale, n_R=int(R.sum()),
                n_layer=int(lay.sum()), R_depth_median_pitch=float(np.median(dist[R]) / e.pitch) if R.any() else None,
                sil=float(sil), pbr=float(pbr))
-    for name, m in (("R", R), ("layer", lay)):
+    for name, m in (("R", R), ("R_deep", deep), ("layer", lay)):
         if not m.any():
             continue
         s = {k: float((-(G[k][m] * u[m]).sum(1)).mean()) for k in ("t", "s", "p", "r")}       # inward descent per particle

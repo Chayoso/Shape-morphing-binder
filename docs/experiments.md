@@ -10644,6 +10644,90 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - The decision's surface measure is therefore that pooled share (`surf_deep`). The thresholds and the rest of the
     rule are unchanged, and the all-points form is reported alongside with its own count.
   - V's pooled share per mesh (0.70–1.01) is reported as what a 3D target gives (the ceiling).
+  **Result (read 2026-10-21 17:05 CDT; `output/gpu/d156/table40.json`, `demand97.jsonl`, `path97.jsonl`; local
+  `output/results_2026-10-21/d156_image_target/`).**
+  *Gates (GPU 1, 15:14–15:29).*
+  - V1, the full suite on repo_d156: 442 passed, 2 skipped, exit 0. The first attempt (14:15) had one failure: a test
+    design slip, the test's second cloud left one axis unscaled, so its box equalled the first's. Fixed in fa115a5
+    (tests only) and redeployed.
+  - V2, the pinned digest and reference: 3 passed, exit 0.
+  - V3, deterministic 40k bunny, four windows, against rt1's S1: SAME at the defaults, and SAME with
+    `--render_tgt assets/bunny.obj` (frames12 4 arrays, 37 metrics, 556 history fields).
+  - V4, both arms ran (render sample 37 867 particles at the hull sample's density).
+  *Runs (GPU 1, 15:29–16:43).* 36 of 36 exited 0, 0.8–2.0 min each, 19–67 windows. Every run passed the rest gate.
+  The centre of mass moved at most 6e-4 pitch, at most 2 particles ended outside the largest piece, and the body's
+  volume Jx_mean stayed at 0.989–1.018 (L like P).
+  *Reading (180 states: three CPU readers at nice 10; the decision measure as amended at 13:59).*
+  - **Verdict: FAIL.** Δ_surf (the concave surface at least half a pitch below the hull) is −0.09…+0.02 per mesh;
+    below 0.05 on 9 of 9, median −0.005. The all-points form is also below 0.05 on 9 of 9. Δ_vol is −0.03…+0.03.
+  - The render does not recover the concavities that only the pictures show. P and L end equally far from the
+    hull: concave surface −0.48…0.00 and volume 0.04–0.56 for both.
+  - The tag's runs with the mesh itself as target (V) reach 0.71–1.01 and 0.93–1.18 on the same two measures.
+  - Seen in the held-out studio views (`views_dragon97.png`): the dragon's coil gap and the bunny's and bob's hidden
+    hollows stay filled in both arms.
+  - What L does recover, per mesh, L − P in the share of the way from the hull's sample to an independent mesh
+    sample (the 46 held-out views):
+    - silhouettes +0.06…+0.36 (bunny +0.36, cow +0.29, homer and dragon +0.27, A +0.26);
+    - studio images, shaded MSE +0.03…+0.18 and LPIPS +0.05…+0.20, on 9 of 9.
+    - On the run's own pictures, L removes 0.40–0.97 of the hull's excess on the silhouette term and 0.20–0.42 on
+      the shading term (P −0.21…+0.23).
+    - So the render reshapes the rims and outlines that the pictures show, not the hollows behind them.
+  - Predicted: PARTIAL, with Δ_surf 0.05–0.25 on the deep meshes. Observed: FAIL; even the deep meshes stay
+    below 0.05.
+  *Root cause (the pre-planned diagnostics).*
+  - (i) The pictures carry the excess, and their loss does favour the carve.
+    - The run's own render terms score the hull's perfect sample 3.4–11 × the independent mesh sample on the
+      silhouette and 3.4–8 × on the shading.
+    - Along a carve from the hull to the mesh (`d156_path.py`: the solids (1 − t) sd_hull + t sd_mesh < 0, each
+      sampled by the pipeline's sampler at the hull's density) the terms fall near-monotonically. Silhouette:
+      bunny 6.4 → 3.5, dragon 11.6 → 3.2, bob 4.1 → 2.8, cow 10.3 → 1.9 (e-3). Shading: 2.6 → 1.4, 4.4 → 1.4,
+      2.2 → 1.0, 2.7 → 0.7 (e-3). Single-step bumps lie within the resampling noise.
+  - (ii) Locally, per particle, the render does not ask for the carve (`d156_demand.py`, GPU, the run's own
+    operators).
+    - At the hull's perfect sample, the render's descent moves only 15–39 % of the excess region's particles
+      toward the mesh (9 of 9 meshes).
+    - The silhouette term pushes them outward on 8 of 9: its deficit weight 2 acts at the rims. The shading term
+      pushes the particles deeper than a pitch inward on 7 of 9, but weakly.
+    - On the outer layer outside the excess, the render pushes 62–71 % inward. Its gradient lives on the rims.
+    - Orthographic headlight shading reads a hidden hollow only through the normals of its walls. A phantom face
+      moved inward at the same normal changes neither picture.
+  - (iii) Where the render does ask, the transport holds.
+    - At the ends, in the deep excess, the render's inward demand (λ-weighted) is 0–14 % of the transport's hold;
+      on the outer layer it is 3–54 %.
+    - The carve also has to shed mass: the path's samples lose 6–17 % of their particles (bunny 39 979 → 37 618,
+      dragon 39 932 → 33 010), and the body has the hull's mass, held at the hull's density by the transport.
+    - The body's volume did not move in either arm.
+  - So the blocker is not the volume alone. The image information acts as a local, rim-bound force against a
+    3D target that pins the hull's mass. A per-window gradient cannot carry out a coordinated carve that sheds
+    mass, even though the pictures' loss is 1.5–5 × lower at its end.
+  *Next definition (proposed, not run; the coordinator's question: how the images can set the volume, with no new
+  constant).* The image information has to enter the 3D target before the morph, by the render's own model.
+  - D156b, the photo hull (Kutulakos and Seitz 2000, space carving with a known reflectance): voxels at the
+    pictures' pitch inside the visual hull.
+  - A surface voxel stays if the training pictures that see it agree on one normal under the render's shading
+    (headlight Lambertian, ambient 0.25), with visibility from the current carve.
+  - The tolerance comes from the pictures themselves: the spread of the eight draws at those pixels. No constant
+    is added.
+  - Carve until no voxel is removed. The volume is then what the pictures allow; the transport target is the photo
+    hull, sampled as a target is today; L and P are run as in D156.
+  - Expected: the hollows whose walls the training views see are carved, and L again refines the rims on top.
+    Hollows no picture sees (the teapot's cavity) stay filled.
+  - Two definitions were considered and not proposed:
+    - letting the body's volume float under the hull transport: the transport still demands the hull's
+      distribution;
+    - an in-loop transport that yields where the render asks: it needs a new weight or schedule.
+  - The 300k stage was conditional on a 40k pass, so it was not run. The 188-px hulls are carved:
+    bunny, dragon, bob, cheburashka, A and C, median excess depth 1.1–5.5 pitches at 300k.
+  *Operations.*
+  - The first chain (12:47) never claimed GPU 0, which looked free until 13:11. I stopped it by its own PID and
+    restarted it at 13:17 with the wait reasons logged.
+  - The cards were then held by DEMO (two), D155, SHOWCASE, D145r and D147 in turn. My chain claimed GPU 1 at
+    14:15 and again at 15:14 (released 16:43).
+  - The demand probe ran beside the 40k runs on that same card, niced.
+  - CPU readers: at most three at nice 10. One first carve-path attempt (cutting the hull's sample at the mesh's
+    surface, which also cut the sampler's own outer shell) was stopped by its PID; its output is kept as
+    `path97_cut_v1.jsonl` and not used.
+  - Disk: runs40 2.1 GB of kept frames, kept for the next definition's comparison. Nothing deleted.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
