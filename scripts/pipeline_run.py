@@ -94,6 +94,10 @@ def parse_args(argv=None):
                          "itself (det F = J after every step, the stress reading F + dFc); off = the old path bit for bit")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
+    ap.add_argument("--render_target", default="samples", choices=["samples", "mesh_shell"],
+                    help="D159 A/B: the render's target pictures; samples (the default) = the target sample and its draws "
+                         "through the exterior, the frozen path; mesh_shell = the target mesh grown by the run's own "
+                         "measured exterior offset (render/mesh_shell.py)")
     ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
                     help="the baseline loss: the C++ code's (min-mass penalty, out-of-target gradient x5) or the "
                          "published one (Xu et al., arXiv 2409.15746)")
@@ -212,7 +216,8 @@ def prepared(args, seed: int):
                    surface=args.n // 4 if args.layer_relief and not args.baseline.startswith("xu") else 0,
                    draws=args.render_target_draws,
                    match_density=args.match_density,
-                   cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0)
+                   cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0,
+                   mesh=args.render_target == "mesh_shell")
     return cfg0, prep
 
 
@@ -246,7 +251,8 @@ def run_config(args, cfg0, prep):
                               render_exterior=args.render_exterior, render_res=res,
                               min_spacing=args.min_spacing, spacing_symmetric=args.spacing_symmetric,
                               exterior_radius=args.exterior_radius,
-                              exterior_field=args.exterior_field, u_off=args.u_off, relax_driven=args.relax_driven,
+                              exterior_field=args.exterior_field, render_target=args.render_target,
+                              u_off=args.u_off, relax_driven=args.relax_driven,
                               gap_split=args.gap_split,
                               gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
                                       if args.gap_split in ("interface", "walls") else 0.0),
@@ -284,7 +290,8 @@ def run_main(args, prep, src, tgt, prm, cfg):
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws)
+                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
+                       mesh=prep.tgt_mesh)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

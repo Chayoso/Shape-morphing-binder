@@ -310,6 +310,14 @@ def surface_in_frame(path: str, frame: dict, n: int, seed: int = 0):
             np.asarray(mesh.face_normals[face], np.float32))
 
 
+def mesh_in_frame(path: str, frame: dict):
+    """(V (n,3) float64, F (m,3) int64): the mesh's own triangles in the frame load_normalized put its cloud in
+    (`frame`, as it filled it), by the operations surface_in_frame and draws_in_frame apply to its points (D159)."""
+    mesh = _oriented(path)
+    return ((np.asarray(mesh.vertices, np.float64) - frame["offset"]) * frame["scale"],
+            np.asarray(mesh.faces, np.int64))
+
+
 STREAK_REPORT = {"stripped": 0, "method": None}   # last fill's streak count (tests, logs)
 POCKET_REPORT = {"filled": 0, "iters": 0}         # last fill: sub-voxel pockets filled by _fill_pockets
 FILL_MODE = "reliable"     # "reliable" (2026-09-22: hole-aware axes + pocket fill) | "legacy" (plain orthographic + streak

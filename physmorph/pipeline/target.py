@@ -105,11 +105,32 @@ def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
     return relief
 
 
-def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> TargetPack:
+def shell_pictures(mesh, lattice, h, pitch, refs, views, extent, cfg, sils0, shade0):
+    """D159: the render's target pictures drawn from the target mesh grown by the run's own exterior offset (its mean
+    signed distance from the mesh over refs, the run's target exterior discs), on the exterior's lattice by the same
+    operators; sils0, shade0 (the samples' pictures) only for the record."""
+    if mesh is None:
+        raise ValueError("render_target mesh_shell needs the target mesh in the target's frame")
+    from ..render.mesh_shell import mesh_shell_discs
+    p, n, c, info = mesh_shell_discs(lattice, h, mesh[0], mesh[1], pitch, refs)
+    sils, shade = exterior_targets(p, n, views, cfg.render_res, extent, cfg.sil_k, cfg.pbr_ambient)
+    msq = lambda a, b: float(torch.stack([(x - y).square().mean() for x, y in zip(a, b)]).mean())   # noqa: E731
+    print(f"[target] render target (D159): the target mesh grown by the run's own exterior offset c = {c:.4f} wu = "
+          f"{c / pitch:.3f} pitches (sd {info['c_sd'] / pitch:.3f} pitches over {sum(len(r) for r in refs)} discs of "
+          f"{len(refs)} samples; {info['faces']} faces, {info['loops_closed']} loops closed, watertight "
+          f"{info['watertight']}), {info['discs']} discs; its pictures against the samples' (mean square): silhouette "
+          f"{msq(sils, sils0):.3e}, shading {msq(shade, shade0):.3e}", flush=True)
+    return sils, shade
+
+
+def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh=None) -> TargetPack:
     """draws: further independent samples of the target in its frame. The render term's target pictures are then the
     mean of the pictures the operator draws of every sample: what it draws of the mesh in expectation. Drawn from
     the one sample, a render arm fitted that sample's noise as well, and half its measured lead over the
-    physics-only twin was that fit (D90, D91)."""
+    physics-only twin was that fit (D90, D91).
+    mesh (D159, cfg.render_target "mesh_shell"): (V, F) of the target mesh in the target's frame; the exterior's target
+    pictures are then drawn from the mesh grown by the run's own measured exterior offset (render/mesh_shell.py), on
+    the same lattice; everything else is as on the frozen path."""
     set_kernel("cic")
     tgt_t = gpu.tensor(target_x)
     samples = [tgt_t] + [gpu.tensor(d) for d in (draws or [])]
@@ -163,11 +184,13 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
         center = geom.mean(0)
         lattice = Lattice(center, 2.8 * float((geom - center).norm(dim=1).max()))
         h = min(extent / cfg.render_res, 0.92 * pitch * (radius / 3.0))
-        per = []
+        per, refs = [], []
         for s in samples:
             with torch.no_grad():
                 p_t, g_t, _, _ = lattice.discs(make_field(cfg.exterior_field, s, pitch, radius=radius, offset=offset,
                                                           device_field=cfg.exterior_field == "zbs"), h, refine=False)
+            if cfg.render_target == "mesh_shell":
+                refs.append(p_t)
             per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
                                         extent, cfg.sil_k, cfg.pbr_ambient))
         e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
@@ -176,6 +199,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
               f"pitch {pitch:.4f} wu, kernel {radius:g} pitches, offset {offset:.3f}, lattice {h / pitch:.2f} pitches = "
               f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target"
               + (f"; the pictures are the mean over {len(samples)} samples" if len(samples) > 1 else ""), flush=True)
+        if cfg.render_target == "mesh_shell":
+            ext.sils, ext.shade = shell_pictures(mesh, lattice, h, pitch, refs, views, extent, cfg, e_sils, e_shade)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range)
     dtdims = (cfg.dt_res,) * 3
     dtdx = 3.0 * extent / cfg.dt_res

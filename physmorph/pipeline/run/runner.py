@@ -73,7 +73,8 @@ class _AttemptClock:
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                 on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None):
+                 on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None,
+                 mesh=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
@@ -81,7 +82,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     every committed window records (measurement only). surface: (points, normals) of the target
     mesh's surface in the target's frame; with it the outer layer's relaxation keeps the target's
     own relief (target.target_relief). draws: further independent samples of the target in its
-    frame; the render's target pictures are then the mean over all samples (target.build_target)."""
+    frame; the render's target pictures are then the mean over all samples (target.build_target). mesh: (V, F)
+    of the target mesh in the target's frame, for cfg.render_target "mesh_shell" (D159)."""
     gpu.require_cuda()
     cfg = dataclasses.replace(cfg)
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
@@ -90,7 +92,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     N = src.shape[0]
     if len(target_x) != N:
         raise ValueError(f"source and target need the same particle count (got {N} vs {len(target_x)})")
-    tgt = build_target(target_x, prm, cfg, draws=draws)
+    tgt = build_target(target_x, prm, cfg, draws=draws, mesh=mesh)
     if surface is not None:
         tgt.relief = target_relief(tgt.pts, surface, cfg)
     calibrate_units(tgt, src, cfg)

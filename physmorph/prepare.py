@@ -20,7 +20,7 @@ from . import gpu
 from .mpm.discretisation import derive, report
 from .mpm.state import MPMParams
 from .sampling import load_normalized
-from .sampling.mesh import draws_in_frame, surface_in_frame
+from .sampling.mesh import draws_in_frame, mesh_in_frame, surface_in_frame
 
 
 @dataclass
@@ -39,6 +39,7 @@ class Prepared:
     density: dict | None = None         # D132 (match_density): the two samples' fill volumes and the source's scale
     cell_shape: float | None = None     # D137 (cell_ref_n, above it): the shape's MPM cell (diag / cell_diag, as derived
                                         #   before), kept for the u gate and the thin set; None = prm.dx is the shape's cell
+    tgt_mesh: tuple | None = None       # D159 (mesh): (V, F) of the target mesh in the target's frame (the render's shell)
 
 
 def sampling_berth(target: np.ndarray) -> float:
@@ -59,7 +60,7 @@ def sampling_berth(target: np.ndarray) -> float:
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
-            draws: int = 1, match_density: bool = False, cell_ref_n: int = 0) -> Prepared:
+            draws: int = 1, match_density: bool = False, cell_ref_n: int = 0, mesh: bool = False) -> Prepared:
     fill_src, fill_tgt = ({}, {}) if match_density else (None, None)
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified", fill=fill_src)
     frame = {}
@@ -87,6 +88,8 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     # seed + 1 + 100 k; seed + 2 is left to the evaluation's independent reference), for the render's target
     tgt_draws = (draws_in_frame(tgt_path, frame, n, [seed + 1 + 100 * k for k in range(1, draws)])
                  if draws > 1 else None)
+    # mesh (D159): the target mesh's own triangles in the same frame, for the render's shell target (target.shell_pictures)
+    tgt_mesh = mesh_in_frame(tgt_path, frame) if mesh else None
     floor_y = None
     if floor:                                 # both shapes stand on one floor, at the source's lowest point
         floor_y = float(src[:, 1].min())
@@ -97,6 +100,8 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
             tgt_surface[0][:, 1] += lift
         for d in tgt_draws or []:
             d[:, 1] += lift
+        if tgt_mesh is not None:
+            tgt_mesh[0][:, 1] += lift
         log(f"[v2run] floor at y = {floor_y:.3f} wu; the target stands on it")
     log(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
         f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})")
@@ -150,4 +155,5 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
-                    tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape)
+                    tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape,
+                    tgt_mesh=tgt_mesh)

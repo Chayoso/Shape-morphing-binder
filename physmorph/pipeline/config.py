@@ -128,6 +128,9 @@ class PipelineConfig:
                                     #   "aniso" the anisotropic density field (render/exterior.Anisotropic, D140) or "zbs" Zhu
                                     #   and Bridson's with Solenthaler et al.'s correction (ZhuBridsonSolenthaler, D144),
                                     #   read by the target's pictures and the render terms alike
+    render_target: str = "samples"  # D159 A/B: the render's target pictures; "samples" = the target sample and its draws
+                                    #   through the exterior (the frozen path), "mesh_shell" = the target mesh grown by the
+                                    #   run's own measured exterior offset (render/mesh_shell.py), needs the mesh and the exterior
     u_off: bool = False             # D124 A/B (ablation): u's gate is zero on every particle, so u never acts; the leaf
                                     #   stays (zero gradient) and everything else is as it is
     render_views: int = 6           # azimuths per elevation ring
@@ -198,6 +201,10 @@ class PipelineConfig:
             raise ValueError("exterior_field must be \"zb\", \"aniso\" or \"zbs\"")
         if self.exterior_field == "aniso" and self.exterior_radius != 3.0:
             raise ValueError("the anisotropic field (D140) has its own reach: exterior_radius must stay 3")
+        if self.render_target not in ("samples", "mesh_shell"):
+            raise ValueError("render_target must be \"samples\" or \"mesh_shell\"")
+        if self.render_target == "mesh_shell" and not self.render_exterior:
+            raise ValueError("the mesh shell (D159) is drawn on the exterior: render_exterior must be on")
         if not math.isfinite(self.render_weight_scale) or self.render_weight_scale < 0:
             raise ValueError("render_weight_scale must be finite and nonnegative")
         if self.lambda_auto <= 0:
