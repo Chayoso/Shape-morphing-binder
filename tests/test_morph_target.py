@@ -118,15 +118,23 @@ def test_d155b_u_reads_the_final_target_on_the_ramp(monkeypatch):
     final pack its own; without it the packs on the way have none."""
     from physmorph.mpm.state import MPMParams
     from physmorph.pipeline import PipelineConfig, run_pipeline
+    from physmorph.pipeline.run.morph import MorphTarget
     from physmorph.pipeline.window import solve
-    seen = []
-    init = solve.WindowOptimizer.__init__
+    seen, made = [], []
+    init, minit = solve.WindowOptimizer.__init__, MorphTarget.__init__
 
     def recording(self, *a, **kw):
         init(self, *a, **kw)
         seen.append(self.tgt)
 
+    def keeping(self, *a, **kw):
+        minit(self, *a, **kw)
+        made.append(self)
+
     monkeypatch.setattr(solve.WindowOptimizer, "__init__", recording)
+    # the final pack from the moving target itself: a short run whose windows are rejected (unordered atomics) may end
+    # before s = 1, so the last pack read need not be the final one (the D155c suite saw it)
+    monkeypatch.setattr(MorphTarget, "__init__", keeping)
     rng = np.random.default_rng(7)
     src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
     tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
@@ -135,8 +143,10 @@ def test_d155b_u_reads_the_final_target_on_the_ramp(monkeypatch):
                 dt_res=32, patience=5, reject_stop=0, morph_time=3.5 * 2 * 3 * prm.dt)
     for on in (False, True):
         seen.clear()
+        made.clear()
         run_pipeline(src, tgt, prm, PipelineConfig(**base, morph_u_final=on), log=lambda *_: None)
-        final = seen[-1]
+        assert len(made) == 1
+        final = made[0].final
         on_way = [t for t in seen if t is not final]
         assert on_way and final.gate_ref is None
         for t in on_way:
