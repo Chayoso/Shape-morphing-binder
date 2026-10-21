@@ -10728,6 +10728,120 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     surface, which also cut the sampler's own outer shell) was stopped by its PID; its output is kept as
     `path97_cut_v1.jsonl` and not used.
   - Disk: runs40 2.1 GB of kept frames, kept for the next definition's comparison. Nothing deleted.
+- **D156b, the photo hull: the 3D target carved from the pictures by the render's own shading model, and what the
+  in-loop render adds on top (pre-registered 2026-10-21 17:11 CDT server clock, before any carve or run of it; the
+  coordinator's go 2026-10-21 after D156's FAIL; no pipeline change: the runs use repo_d156s (wip/d156 fa115a5, gates
+  of D156) with `--tgt PHOTO_HULL --render_tgt assets/MESH.obj`; scripts `scripts/probes/paper/d156/`
+  (`d156_photohull.py`, `d156b_chain.sh`, the D156 readers with the photo hull's frame), server `output/gpu/d156b/`,
+  local `output/results_2026-10-21/d156_image_target/` (a D156b section in its README_ko.md)).**
+  *Why.* D156 found three things.
+  - The pictures carry the hidden concavities: the run's own render terms score the hull's sample 3.4–11 × the floor,
+    and they fall 1.5–5 × along a carve to the mesh.
+  - Per particle, the render's demand into the excess is weak and mixed: 15–39 % of the excess region is pushed
+    toward the mesh, 0–14 % of the transport's hold at the ends.
+  - The carve has to shed mass that the transport holds at the hull's density.
+
+  So the image information goes into the 3D target first, by the classical answer to "the shape the photographs
+  allow".
+  *Papers read for the consistency test.*
+  - Kutulakos and Seitz, "A Theory of Shape by Space Carving", IJCV 38(3) 2000. The photo hull is the union of all
+    photo-consistent shapes and the largest of them. It is computed by carving surface voxels that fail a
+    consistency check consist_K, which takes a voxel's colours and viewing rays (and a known radiance model) and
+    decides whether one surface point can reflect them. The check must be monotonic: more views can only make it
+    harder. For Lambertian scenes it is a likelihood-ratio test, λ = (K − 1) σ² / σ0², χ² with K − 1 degrees of
+    freedom, σ0 the sensor noise. Their experiments used a hand-set threshold of 6 % RGB error.
+  - Seitz and Dyer, "Photorealistic Scene Reconstruction by Voxel Coloring", IJCV 35(2) 1999. The same χ² test.
+    When σ0 is unknown it is estimated from repeated measurements (s0, an F-test). They also report that a larger
+    threshold drifts voxels toward the cameras, and a smaller one gives an accurate but incomplete reconstruction.
+  - Broadhurst, Drummond and Cipolla, "A Probabilistic Framework for Space Carving", ICCV 2001. They compare the
+    likelihoods of a voxel existing and not existing, which needs no global threshold and carves no holes.
+  - Yang, Pollefeys and Welch, ICCV 2003. Colour-variance tests fail where the shading changes with the view
+    (textureless, specular); a model-based test is needed.
+  - Hernández, Vogiatzis and Cipolla, "Multiview Photometric Stereo", PAMI 30(3) 2008. Start from the visual hull,
+    then recover the shape from shading under known lighting.
+  - Recent differentiable work treats shading and shadows as cues to hidden geometry (Tiwary et al., "Towards
+    Learning Neural Representations from Shadows", ECCV 2022).
+  - What we take: KS's carve with a model-based consist_K (our radiance model is the render's own headlight
+    Lambertian, so a point's shade changes with the view and colour variance cannot be used), and Seitz and Dyer's
+    noise estimate from repeated measurements, here the eight draws. Broadhurst et al.'s point (no threshold, no
+    holes) is checked before any carve (A0 below).
+  *The carve (`d156_photohull.py`, CPU, nice 10; one mesh per process, at most three).*
+  - The photographs are the run's own render pictures at 96 px: the 18 training views of the true mesh's eight
+    samples (the sample at seed 98 and draws at seeds 98 + 100 k, prepare's), each drawn by the pipeline's exterior
+    operators (pitch, lattice, box of the true mesh's run frame, seed 97). Per draw d and view v: the shade
+    c^d_v = S^d_v / A^d_v, the shaded picture over its alpha, read bilinearly on the pictures' own lattice.
+  - Start: D156's visual hull voxels, grid at the pictures' pitch (2 box / 96).
+  - Visibility: a surface voxel (occupied, with an empty face neighbour) is seen in view v if the orthographic ray
+    from it toward the camera meets no occupied voxel. It is marched in half-voxel steps from the voxel's own corner
+    distance (√3 / 2 voxel) outward, recomputed every iteration.
+  - The pictures show the exterior, which lies c outside a solid (Zhu and Bridson's offset). c is measured once per
+    mesh: the mean signed distance of the true mesh sample's exterior from the mesh, as D157 does (0.80 pitch on the
+    bunny). A voxel X is read at X + c n̂, with n̂ its fitted normal (fit at X, shift, fit again).
+  - The model (the render's shading, `render_loss.shaded_discs`): a surface point with unit normal n, seen in view v
+    (l_v toward the camera), has shade a + (1 − a) max(n · l_v, 0), with a = 0.25 (cfg.pbr_ambient).
+  - The consistency statistic: T(c) = min over unit n of Σ_{v visible} (pred_v(n) − c_v)² / s_v².
+    - c̄ is the eight draws' mean picture, which the render loss compares with.
+    - s_v² is the variance over the eight draws at that pixel, divided by 8 (the mean's own noise).
+    - The unit-norm constrained least squares is solved exactly (eigen decomposition and the secular equation).
+  - The test (Seitz and Dyer's noise estimate from repeated measurements, in Broadhurst et al.'s
+    no-threshold spirit).
+    - The null is the eight draws themselves: ε_d = (c^d − c̄) / √7 has the mean picture's noise.
+    - T_d = T(pred(n̂) + ε_d) is the statistic a consistent point would show with that noise.
+    - X is inconsistent iff T(c̄) > max_d T_d, i.e. its residual exceeds every one of the eight noise
+      realisations the data provide.
+    - A voxel seen in fewer than three views is kept: a unit normal has two degrees of freedom, so two views
+      cannot refute it.
+  - The decision has no constant beyond the pipeline's own 8 draws and its ambient. It is monotonic: more views,
+    more terms.
+  - Carving: KS's algorithm with a batch per iteration. Every surface voxel whose visible view set changed is
+    tested; all inconsistent ones are removed. Stop when an iteration removes none.
+  - The mesh: D156's hull field at the kept voxels (capped at half a pixel), −½ pixel at the carved ones, marching
+    cubes at zero. It is written in the mesh's oriented coordinates as `assets_hull/MESH_photo18_r96.obj`
+    (orientation `id`, checked).
+  - A0, before any voxel is carved (the gate of the carve): the first iteration's test results on the visual
+    hull's surface voxels, split by their distance to the true mesh:
+    - on-mesh: within half a voxel of the mesh's surface;
+    - phantom: at least one voxel outside the mesh.
+
+    Carve a mesh only if the test rejects phantom voxels more often than on-mesh voxels; otherwise stop for that
+    mesh and report. Both rates are reported for all meshes.
+  *Runs (40k, repo_d156s, kept frames; one card under the lock protocol).*
+  - The 9 meshes of D156 (bunny, dragon, armadilo, homer, cow, bob, cheburashka, C, A) × seeds 97 / 99.
+  - L: `--tgt PHOTO_HULL --render_tgt assets/MESH.obj` at the rt1 defaults. P: the same with
+    `--render_weight_scale 0`. 36 runs.
+  - The chain claims a card only after it has been idle for 20 minutes, so agents that are already waiting
+    (SHOWCASE, D145r, B9b, D158, D155's dragon) go first.
+  *Readings (d156_read.py with the photo hull's frame; the same measures and references as D156; 0 = the visual
+  hull's perfect sample H, 1 = the true mesh's M; the floor Mp).*
+  - (a) The photo hull itself, before any morph: its perfect sample's shares on the concave surface (the points at
+    least half a pitch below the visual hull), on the hull's excess volume, on the held-out silhouettes (46 views)
+    and on the held-out studio images. Also its over-carve: the share of the mesh's volume sample outside the photo
+    hull, against the same share for the visual hull.
+  - (b) P on the photo hull: the same four shares.
+  - (c) L − P on the photo hull: the in-loop render beyond the carved target, the four Δs.
+  - Records as D156: minutes, windows, rest, centre of mass, pieces, volume.
+  *Reading rules (written before any carve).*
+  - The 40k gate, which decides any 300k run: P on the photo hull reaches a concave-surface share ≥ 0.5 on at least
+    6 of 9 meshes (mean of the seeds), and on those meshes its held-out silhouette and studio-image shares are not
+    below D156's P on the visual hull (the carve must not damage what the views show). If the gate fails, no 300k
+    run.
+  - (c), the paper's question, read by D156's rule:
+    - the in-loop render adds concavity beyond the carve if Δ_surf ≥ 0.15 and Δ_vol ≥ 0.10 on at least 6 of 9 with
+      the same sign at both seeds and the median Δ_surf ≥ 0.15;
+    - it adds none if Δ_surf < 0.05 on at least 6 of 9.
+
+    In the second case, the Δs of the held-out silhouettes and studio images say whether its effect is rim and
+    appearance polish only. That is stated with the numbers, together with the next method.
+  - (a) is reported as is: no gate, it is what the images alone allow.
+  *Predictions (inferred).*
+  - A0 separates on the deep-excess meshes: phantom points see different true surfaces in different views.
+  - The carve removes most of the excess whose walls the training views see: the dragon's coil and bob's hollow
+    partly, the letters' openings. It removes little of the shallow excess (median depth 0.4–0.5 pitch, inside the
+    exterior's own offset).
+  - Over-carve below 2 % of the mesh's volume.
+  - P follows its target, so (b) is about (a).
+  - L − P on the concave surface stays small (the in-loop render's demand is local and rim-bound, D156's (ii)),
+    while held-out silhouettes and images gain as in D156 (+0.1…+0.3): rim polish on top of the carve.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
