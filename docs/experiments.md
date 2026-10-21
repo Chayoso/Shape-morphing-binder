@@ -9751,8 +9751,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   start the same way (the mean of the points' d8³ reads it 0.88–0.98 too): the blurred image is compact at the scale of a
   few neighbours but not at the transport's blur, where the body without the rescale did not move (A3G's J 0.995–1.000 at
   0.17 s, the first window; A3C's 1.008–1.027). (ii) The ratchet: whatever volume the body holds becomes rest volume
-  within about a second (the assimilation takes half the elastic stretch, volume included, every window: det Fp's p99 within 0.03 of J's p99 from 1 s on in every
-  arm), so nothing gives it back when the target asks less: at s = 0.98 D155b's targets ask 1.001 / 1.012 / 1.010 (bunny /
+  within about a second (the assimilation takes half the elastic stretch, volume included, every window: det Fp's p99
+  within 0.03 of J's p99 from 1 s on in every arm), so nothing gives it back when the target asks less: at s = 0.98 D155b's targets ask 1.001 / 1.012 / 1.010 (bunny /
   dragon / homer) and the body holds 1.016 / 1.081 / 1.025; a sixth to three quarters of it stays to the end; D155c's
   homer, taken below its volume (0.993 at 3 s) by its rescaled targets, stays below too. The tag has the same ratchet on
   its own, shorter transient (its mean J peaks at +1.1 / +2.8 % and keeps +0.45 / +1.4 % on bunny / dragon). The mean also
