@@ -14,16 +14,12 @@ GATE = ("armadilo", "bunny", "dragon", "homer", "teapot")
 
 
 def ref(mesh, arm, seed):
-    pats = ([f"{G}/d155/gate/{mesh}*{arm}*{seed}*_frames12.npz"] if mesh in GATE else []) + \
-           [f"{G}/d154/g40runs/{mesh}*{arm}*{seed}*_end1.npz", f"{G}/d154/g40runs/{mesh}_*{arm}{seed}*_end1.npz"]
-    for p in pats:
-        hits = sorted(set(glob.glob(p)))
-        hits = [h for h in hits if h.split("/")[-1].split("_")[0].rstrip("0123456789k") in (mesh, f"{mesh}40")]
-        if len(hits) == 1:
-            return hits[0]
-        if len(hits) > 1:
-            print(f"ambiguous {mesh} {arm} {seed}: {hits}", file=sys.stderr)
-            return None
+    """The tag's 40k run of MESH, arm V or W, at SEED: D155's gate frame (armadilo, bunny, dragon, homer, teapot) or
+    D154 (3b)'s end frame."""
+    for p in ([f"{G}/d155/gate/{mesh}40k_{arm}{seed}_frames12.npz"] if mesh in GATE else []) + \
+             [f"{G}/d154/g40runs/{mesh}40k_{arm}{seed}_end1.npz"]:
+        if glob.glob(p):
+            return p
     print(f"missing {mesh} {arm} {seed}", file=sys.stderr)
     return None
 
