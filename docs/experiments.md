@@ -5948,6 +5948,43 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     symmetry D149 restored for the spacing push; a pairwise-symmetric hold is the same correction D149 made).
   - *Chamfer is not comparable as read (ours below the floor by construction).* Next: score every method's surface
     the same way — our display mesh above sampled by the pipeline's stratified sampler, as the baselines' meshes are.
+  **D145 post-tag reading 4, the measurement follow-ups of reading 3 (pre-registered 2026-10-21 10:12 CDT server clock,
+  before any of them is computed; the coordinator's approval of reading 3's proposals; measurement only, no pipeline
+  run, no new criterion: everything is reported as found).** Cards: one at a time, the lock protocol (idle 10 min);
+  CPU readers nice 10, at most three at a time; outputs `output/gpu/d145_ext/r4/`.
+  1. *The exterior measures for every method.* The yardstick (`render_terms_probe.py`) and the display
+     (`surface_layer_probe.py`), repo_r77 as `read300.sh`, against the independent sample, on the end frame (the last
+     fillable one) of every external method's run on the six meshes, all seeds (Xu et al., Buonomo et al., NISE,
+     ISD, 4Deform with its radial arm, ARAP, OT, Large Steps and FlexiCubes in both arms); ours from B1's `t3end` /
+     `e3end`. A probe that fails (e.g. out of memory) is recorded.
+  2. *Our display surface through the baselines' mesh readers.* The yardstick's exterior field (Zhu and Bridson,
+     radius 3, offset 0.8 pitches; the field the render loss and `visible_apart.py` use) meshed by D154's `zb_mesh`
+     (marching cubes at half a pitch, exact field values near the zero set), on B1's render-arm end frames (L97 / 99 /
+     101 on the six meshes, + 103 / 105 on bunny and dragon) and on L97's kept frames at the harness's p = 0.25 / 0.5 /
+     0.75; read by B11 / B12's code (`b11_common.topo` / `components`: watertight, components, the genus of each closed
+     component; libigl's copyleft CGAL self-intersection, detect only), in B12's env.
+  3. *One sampler.* Each display mesh sampled at 300k by the pipeline's `sample_volume_stratified` (seed 97), as the
+     baselines' meshes were; then `ext_end145.py` (silhouette IoU, chamfer, thin uncovered against the independent
+     sample). Added for every method of the table, sample against sample: the F-score at 1 and 2 pitches (precision =
+     share of the state's sample within τ of the independent sample, recall the reverse). D157's F-score and normal
+     consistency against the exact mesh are not duplicated; the display meshes are left in `d145_ext/r4/display/` for it.
+  4. *The early loose particles on the display surface.* At L97's p = 0.25 / 0.5 / 0.75 frames on the six meshes (the
+     harness's apart counts: teapot 1828 / 2622 / 2246, bunny 108 / 93 / 335, …): each apart particle classified by
+     the display mesh of item 2 as inside a separate display component (a real piece; its size and gap) or under the
+     main component's surface (a bump or hidden); beside it `visible_apart.py`'s hidden / bump / blob at those frames.
+     If real pieces remain, a concrete plan for the pair-symmetric layer link (not run; the user's go).
+  5. *The tail after the render's own floor.* Per render-arm run (seeds 97 / 99 / 101, six meshes), from its records:
+     the first committed window whose silhouette term d_sil is at or below the seed's floor (D152's `own_floor.jsonl`,
+     the independent sample read against the run's pictures), the share of the windows and of the wall time after it,
+     and the end measures' change over that tail (d_sil, d_pbr, transport, kinetic); on bunny and dragon (B1's every
+     frame) the yardstick silhouette / shading and the display front at the crossing against the end.
+  *Expected (from readings 1–3, D148, D152, D154).* (1) The exterior lead holds against every method on all six meshes,
+  narrowest against ARAP and ISD. (2) Our display mesh is one watertight component at the end; its genus matches the
+  target where the gaps are wider than the cell (bunny, teapot, bob, armadilo, homer), the dragon's crevices less
+  certain; self-intersection none (one level set). (3) The display-sampled chamfer near the floor (1.00–1.02 ×) and
+  silhouette IoU as the particles'. (4) Most apart particles are bumps under the main surface (D148: ~90 %); few real
+  pieces. (5) 53–90 % of the windows after the crossing (D152: crossing after 10–47 % of them); the tail improves the
+  yardstick and the display by less than it costs in time.
   **B9b, gravity with the floor through the scene path with one body (pre-registered 2026-10-17 17:10 CDT server
   clock, before any run; the user approved the rerun on 2026-10-17; code `wip/b9b` f0a26d5 = `wip/d147` 5dbcf6e + two
   scene-spec fields and the probes, server copy `repo_b9b`; `scripts/probes/b9b/`; `output/gpu/b9b/runs/`; local
