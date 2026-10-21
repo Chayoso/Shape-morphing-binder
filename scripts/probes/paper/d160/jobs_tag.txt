@@ -1,0 +1,16 @@
+tagW97_half half /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W97_frames12.npz
+tagV97_half half /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V97_frames12.npz twin=tagW97_half
+tagW97_band band /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W97_frames12.npz
+tagV97_band band /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V97_frames12.npz twin=tagW97_band
+tagW97_ears ears /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W97_frames12.npz
+tagV97_ears ears /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V97_frames12.npz twin=tagW97_ears
+tagW97_turn turn /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W97_frames12.npz
+tagV97_turn turn /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V97_frames12.npz twin=tagW97_turn
+tagW99_half half /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W99_frames12.npz
+tagV99_half half /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V99_frames12.npz twin=tagW99_half
+tagW99_band band /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W99_frames12.npz
+tagV99_band band /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V99_frames12.npz twin=tagW99_band
+tagW99_ears ears /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W99_frames12.npz
+tagV99_ears ears /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V99_frames12.npz twin=tagW99_ears
+tagW99_turn turn /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_W99_frames12.npz
+tagV99_turn turn /data/relcfd/chayo/physmorph_v2/output/gpu/d155/gate/bunny40k_V99_frames12.npz twin=tagW99_turn

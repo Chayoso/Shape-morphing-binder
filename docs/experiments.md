@@ -15827,6 +15827,208 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   thin 24.9 %, region 18.8 % (the head and mane, the belly scutes, the claws, patches of the flanks; the flank scales are
   faint in this mesh at these bands), threshold 0.048 a (`regions_{mesh}_b5.4.npz`, `regions.jsonl`). The time course
   (R2) and the coordinator's region readings use these masks.
+- **D160, the render routes material by its colour: which material ends where is the physics objective's null space
+  (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
+  user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`
+  on `wip/d160` (a38b685 + 89bf653, from freeze-2026-10-15-rt1 6c9b0e9), deployed as `repo_d160` / `repo_d160s`.
+  Scripts `scripts/probes/paper/d160/` (server `tmp/d160/`), results `output/gpu/d160/`, local
+  `output/results_2026-10-21/d160_appearance/` with a Korean README).**
+  *Why.* So far the render only polishes rims. Its pictures carry the information the 3D target already carries, and
+  the transport dominates:
+  - D156: an image-only target could not carve concavities, because the transport holds the hull's mass.
+  - D158: the in-loop target pictures are as blurry as the run's own surface.
+
+  Every term of the physics objective is blind to which material is where. The Sinkhorn transport, the surface
+  proximity, the end drift, the released motion, the spray cleanup and the near band read only the set of particle
+  positions, and there is no regulariser on the controls (Chapter 4). So the arrangement of material inside a given
+  shape (colour or texture layout) is a null space of the physics objective, and only the render can choose it.
+  Particles here carry a fixed colour from the source, and the target is given as colour pictures. Then:
+  - the λ = 0 twin ("dF_c + layer u") gets the shape and puts the colours wherever the transport sends them;
+  - "dF_c + layer u + render loss (full)" must route the right material to the right place.
+
+  The render is essential by construction, and the ablation can be seen.
+  *Papers read (14; 9 in full, 5 through their method sections), and what each changed.*
+  - Xing et al., "Differentiable Rendering using RGBXY Derivatives and Optimal Transport", ACM TOG 41(6) 2022 (DROT).
+    - Pixel-wise colour losses give "intrinsically local" gradients: zero without pixel overlap, opposite signs on
+      the two sides of an edge.
+    - Blur (SoftRas), image pyramids and 1024 px rendering did less well than their OT matching in (rgb, xy). It
+      needs a colour-to-position weight α, and it fails on rotated repetitive textures.
+    - For us: this is our main risk. It is measured, not assumed (the distance still to travel, the timeline below),
+      and DROT's matching is the named next method if the long move stalls.
+  - Park, Zhou and Koltun, "Colored Point Cloud Registration Revisited", ICCV 2017.
+    - Matching in joint (position, colour) space makes distant same-coloured points correspond.
+    - They keep correspondences geometric and add colour only to the objective; colour then locks sliding along
+      the surface.
+    - For us: colour stays out of S_ε; the transport (and so the twin) stays colour-blind.
+  - Nicolet, Jacobson and Jakob, "Large Steps in Inverse Rendering of Geometry", ACM TOG 40(6) 2021.
+    - Sparse image gradients are spread over the shape by (I + λL)^-1.
+    - For us: the MPM grid transfer and the window's adjoint already spread a colour front's push over the body's
+      material, with no new constant.
+  - Liu et al., "Soft Rasterizer", ICCV 2019. The basin of an image loss is the kernel's width; widening it over time
+    is a schedule. For us: nothing added; the disc kernel (3 pitches) and the 96-px pixel are the existing widths.
+  - Feydy et al., "Interpolating between OT and MMD using Sinkhorn Divergences", AISTATS 2019; Feydy et al.,
+    MICCAI 2019 (labels carried through a transport plan); Shen, Feydy et al., "Accurate Point Cloud Registration with
+    Robust Optimal Transport", NeurIPS 2021.
+    - A feature-augmented cost needs a feature-versus-length scale.
+    - For us: if colour went into S_ε, the twin would no longer be colour-blind. Carrying the target's paint back
+      through a colour-blind map gives the layout the transport alone delivers: done here on the tag's own runs.
+  - Bonneel, van de Panne, Paris and Heidrich, "Displacement Interpolation using Lagrangian Mass Transport", ACM TOG
+    30(6) 2011 (advect, do not blend); Pitié, Kokaram and Dahyot, CVIU 2007; Ferradans et al., SIAM J. Imaging Sci.
+    2014 (colour masses need not match). For us: the albedo is advected and never blended or optimised; the target's
+    red surface needs red material under it, not equal colour volumes, and the interior takes the rest.
+  - Xie et al., "PhysGaussian", CVPR 2024; Lin et al., "OmniPhysGS", ICLR 2025; Zhang et al., "PhysDreamer", ECCV
+    2024; Zhong et al., "Spring-Gaus", ECCV 2024.
+    - In physics + Gaussian splats, colour (SH, opacity) is fixed per particle and advected; none optimises colour
+      against motion.
+    - For us: the albedo is fixed and never a leaf (a free colour would recolour in place of moving material). That
+      the render chooses where material goes is new.
+    - Their colour metrics (PSNR / SSIM / LPIPS) are used.
+  - Li et al., "GaussianMorphing", arXiv 2510.02034, 2025. A mesh-anchored splat morph whose colour is interpolated
+    along learned correspondences, not transported; scored with CIELAB ΔE. For us: ΔE is reported beside PSNR / LPIPS.
+  *Definition (the option; nothing else changes).*
+  - Particle albedo: a_i ∈ [0, 1]^C, fixed at the source by the scene, carried by the particle's index (advected with
+    the material). Never a control; read by no physics term, gate, cleanup or selection rule.
+  - Disc albedo: an exterior disc's albedo is its particles' under the disc's own centre weights,
+    c_k = ā + Σ_j w_kj (a_j − ā) / Σ_j w_kj, with w_kj = (1 − |p0_k − x_j|² / R²)³₊.
+    - These are the weights of the disc's Zhu–Bridson centre x̄_k (render/exterior.disc_albedo, Tracked.read).
+    - ā is the body's mean albedo. The sum is written about ā so that a one-colour body gives exactly ā and its
+      weights carry exactly zero colour gradient.
+    - c_k is differentiable in the particles' positions: material of the wanted colour is drawn toward a disc, the
+      other away.
+    - The target's discs (found once per sample) take the target sample's albedos by the same weights.
+  - Shading term: channel c's picture is the grey operator (`shaded_discs`) with the disc shade b_k replaced by
+    b_k · c_k,c, i.e. albedo × (ambient 0.25 + 0.75 max(n · l, 0)), the same splat weights and alpha.
+    - The term is (1 / C) Σ_c mean_{views, pixels} (S_c − T_c)².
+    - The target colour pictures are the mean over the eight target draws, each painted by the scene's target field.
+  - Unchanged: the silhouette term, the shading model, λ's rule (λ |g_render| = 0.5 |g_physics| at every window),
+    PCGrad, the merit, the stopping rule, u, every physics term.
+    - The render's budget is the same; colour changes what its shading term compares.
+    - The colours are white (1, 1, 1) and red (0.9, 0.25, 0.2), fixed before any run.
+  - The reduction: one channel of ones against a white target is the shading term without colour, bit for bit, in
+    value and gradient (`--appearance white`; tests below).
+  *Scenes (`physmorph/pipeline/appearance.py`; source the isosphere; every threshold from each sample's own quantile, so
+  the painted volumes are exact shares; one target field paints every draw).*
+  - half (control): source red above its median height; bunny red above its median height. The transport's own
+    layout: the twin should be nearly right.
+  - band (a short move): source red above its median height; bunny red above its 65 % height quantile (the top 35 %).
+  - ears (a medium move): source red above its 95 % height quantile (the top 5 %); bunny red above the ears' base
+    (y = 3.2 in the bunny's frame; the 40k target samples of seeds 98 / 100 / 102 split into two ears above 3.22 /
+    3.32 / 3.49 by a one-pitch slab scan; 0.9 % of the volume, 4 % of the surface).
+  - turn (a long move): source red above its median height; bunny red on the head's side of the target's median
+    plane across the head's horizontal direction (−0.76, 0, 0.65) (measured on the same samples). The split must turn
+    by a quarter.
+  - dragon band: band's paint on the dragon (generality).
+
+  The volumes are feasible: every red target surface has red material available (red volume ≥ its red surface
+  layer), and the interior takes the excess. Why these: a ladder of distances, so that the main risk (locality) is
+  measured, not hoped away. The mirror swap was rejected: a left/right swap is a saddle (the render's push is
+  symmetric and cannot choose a turning sense).
+  *The twin's layout, measured before any run.* The tag's own 40k runs (D155's gate re-runs on repo_t1s, `d155/gate`)
+  are colour-blind, so painting their source frame by a scene's source field and carrying the paint by index shows the
+  layout the transport gives (`tmp/d160/d160_read.py` on W = the λ = 0 twin and V = the tag's render arm). Read on the
+  delivered end's exterior discs (zb, the loss's lattice): mis = the mis-coloured disc share, floor = the target
+  sample's own share, travel = the distance from a mis-coloured disc to the nearest target disc that wants its colour
+  (pitches, median / p90), held-out colour images (D157's 46 held-out views, the loss's own colour operator, 256 px,
+  against the independent sample d92 painted alike).
+
+  | scene | W97 mis (floor) | travel med / p90 | held colour PSNR / LPIPS / ΔE | V97 mis | W99 mis | V99 mis |
+  |---|---|---|---|---|---|---|
+  | half | 0.057 (0.003) | 2.6 / 8.7 | 18.75 / 0.070 / 9.8 | 0.061 | 0.059 | 0.061 |
+  | band | 0.099 (0.006) | 3.7 / 7.3 | 16.78 / 0.089 / 12.3 | 0.102 | 0.104 | 0.104 |
+  | ears | 0.127 (0.004) | 9.8 / 21.8 | 16.24 / 0.105 / 13.8 | 0.127 | 0.127 | 0.126 |
+  | turn | 0.433 (0.012) | 12.4 / 22.6 | 10.69 / 0.168 / 32.0 | 0.438 | 0.437 | 0.439 |
+  | dragon band | 0.194 (probe) | 7.0 / 14.3 | – | – | 0.196 | – |
+
+  - The layouts repeat across seeds (the probe on W97 / W99 / W101: the same scene's mis within ±0.002).
+  - The tag's render arm without colour leaves the layout where the twin has it: V − W mis +0.000 to +0.005, and the
+    outer layer's red material shifts by −0.003 to +0.05 pitches along the needed direction. V moves the outer layer
+    by a median 0.41 pitches (p90 1.06) from W.
+  - The ears' twin already paints 81 % of the ears red; its fault is red on the head and back (12 % of the surface
+    wanted white).
+  *Gates (in order, a failure stops the chain before any run; `tmp/d160/d160_chain.sh V`).*
+  - V1: the full suite on repo_d160 (exit status).
+  - V2: the pinned references (`test_refreeze_reference.py`) and D160's tests (exit status).
+    - `test_appearance.py`, CPU:
+      - the reduction bit for bit (value and gradient, float32 and float64);
+      - three equal channels equal the grey term to rounding;
+      - the disc albedo is the kernel mean, with central finite differences;
+      - a one-colour body carries exactly zero colour gradient;
+      - with the geometry exact and only the paint shifted, the colour term descends and moves the colour front
+        toward its colour;
+      - the null space: the transport with proximity, the drift, the released motion, the spray cleanup and the
+        near band are the same to 1e-9 under any permutation of the particles; the colour term is not invariant under
+        a permutation of the albedos; no physics module reads an albedo;
+      - the scenes' shares.
+    - `test_appearance_pipeline.py`, CUDA, deterministic, on the pinned small cloud with the exterior:
+      - white is the frozen path bit for bit, history included;
+      - the λ = 0 twin's trajectory is the same bit for bit with no paint and two different paints;
+      - the paint changes the full run.
+  - V3: Warp run-to-run deterministic 40k bunny seed 97, four windows (`tmp/rt/det_run.py`, repo_d160s). The
+    defaults and `--appearance white` each against rt1's S1 (`d153/rt1/S1`), every frame, metric and history field:
+    SAME.
+  - V4: the same deterministic setting:
+    - the twin without paint against the twin with the band paint: the trajectory SAME;
+    - the band paint at the rule's weight: exit 0, its appearance line, and a trajectory unlike S1's.
+  *Runs (one card, lock protocol: a card idle for twelve one-minute samples, two more than the queued agents' rule;
+  `d160_chain.sh "V R C M"`).*
+  - bunny40k_{half,band,ears,turn}_{L,P}{97,99} and dragon40k_band_{L,P}{97,99}: 20 runs on repo_d160s.
+    - L = `--appearance SCENE` ("dF_c + layer u + render loss (full)").
+    - P = the same with `--render_weight_scale 0` ("dF_c + layer u", the twin).
+  - The P runs of one seed are repeats of one colour-blind physics, so they also give the run-to-run floor.
+  - Card readers, as D155's: the end frame, the yardstick (`render_terms_probe.py` against the independent sample),
+    the display (`surface_layer_probe.py`), `gallery_ind.py`.
+  - CPU readers: pieces (`d120_apart.py`, `visible_apart.py`); D157's reader (`d157_read.py`) on the L runs' ends for
+    its three decision measures.
+  - Colour readings (`d160_read.py`) on every run, with the timeline (mis at every fourth kept frame).
+  - Videos (`d160_studio.py`): the seed-97 pairs side by side in the studio look. The only change from the studio
+    look is the disc albedo (the studio grey × the particles' albedo). Columns: full, twin, the target paint; rows:
+    the front (azimuth 35) and the back (215). Plus the end sheets.
+  *Criteria (pre-registered).*
+  - C1, colour (the render's effect). Per scene and seed, the recovered share r = (mis_P − mis_L) / (mis_P −
+    floor), and the held-out colour PSNR and LPIPS of L against P.
+    - A rearrangement scene (bunny band, ears, turn; dragon band) passes if, at both seeds, r ≥ 0.5, PSNR_L > PSNR_P
+      and LPIPS_L < LPIPS_P.
+    - C1 holds if at least two of the four pass and the control half keeps mis_L ≤ mis_P + 0.01 at both seeds.
+  - C2, geometry not worse beyond the spread. Each L run, on the independent sample's silhouette IoU, the yardstick
+    silhouette and shading, the display front 1 − IoU, thin uncovered, and D157's Boundary IoU at 1024 px (held-out,
+    corrected), F at 0.5 pitch and held-out studio PSNR.
+    - A measure misses if it is worse than the tag's worst of V97 / V99 / V101 (the same mesh) by more than the
+      tag's own spread (max − min of the three).
+    - C2 holds if at most one cell in ten (run × measure) misses.
+  - C3, at rest. Every L run passes G3 (jitter_rel and drift_rel < 0.003), and its delivered kinetic record is
+    ≤ 1.25 × the tag's largest V (D155's item 3).
+  - C4, no serious pieces. No L run ends with a piece of ≥ 10 particles apart from the body.
+  - Gate: C1–C4 hold → propose the 300k runs to the coordinator (not started without the go). C1 failing with C2–C4
+    held means the render cannot route material at this reach.
+  *Risk, pre-registered readings (locality).* DROT's finding says the colour gradient lives near the colour fronts.
+  Three readings separate "the front moves slowly" from "the front does not move":
+  - the distance still to travel of L's mis-coloured discs against P's (a stall: L's travel ≈ P's with r small);
+  - the outer layer's red material's mean shift, L minus P, along the needed direction: height for half / band /
+    ears, the head direction for turn. In pitches, against V − W (≤ 0.05) and the P–P floor;
+  - the timeline of mis: whether L is still falling at the delivered end. If so, the run's length, not the kernel,
+    bounds the reach.
+
+  Also reported: L's windows and minutes against P's, λ and g_share, the render-lead (L's yardstick silhouette below
+  P's).
+  *Predictions.*
+  - V1–V4 pass; the P runs repeat the tag's W layout (mis within ±0.01).
+  - r: band 0.5–0.9 (a short move within the kernel's reach plus the adjoint's spread); ears 0.3–0.7 (the head's red
+    must be buried and covered from below over ~10 pitches); turn 0.05–0.3 (the front moves a few pitches in the
+    run's time; 12 pitches median to go); dragon band 0.3–0.7.
+  - Held-out colour PSNR: +1–3 dB on band and ears, +0.3–2 on turn; LPIPS down 10–30 %.
+  - The red outer material shifts 1–3 pitches (band), 2–6 (ears) and 1–4 (turn) more than the twin's. The L runs last
+    longer (+20–60 % windows: the colour term keeps the merit falling).
+  - Geometry: λ is calibrated on the whole render gradient, so colour takes part of the render's budget from the
+    rims. The yardstick silhouette lies between the tag's V and W; C2 holds narrowly; a miss most likely on the
+    yardstick silhouette.
+  - Overall: C1 passes on band and ears (two of four), turn is the measured limit, C2–C4 hold.
+  *If it fails.*
+  - C1 failing on the long scene with the travel unchanged: the root cause is the pixel-local colour residual
+    (DROT's diagnosis). The next method replaces the per-pixel colour residual by the Sinkhorn divergence between the
+    rendered and the target colour pictures over (pixel position, colour), with the pipeline's own solver; its
+    colour-to-length scale is fixed by the pictures, not tuned.
+  - C2 failing: measure the render gradient's split among the silhouette, the grey shading and the colour before any
+    change.
 
 ## To run next, in order
 
