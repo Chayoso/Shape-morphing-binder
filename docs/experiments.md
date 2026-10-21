@@ -15481,8 +15481,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   accepted.
 - **D158, why the render loss inside the run does not write the relief D115's display layer writes (a measurement; no
   run of the pipeline, no default changed; pre-registered 2026-10-21 16:07 CDT server clock [the stamp first read 16:10,
-  three minutes ahead of the server clock: corrected; the runner started at 16:07:52, waiting for a card], before any computation of
-  it; the user, 2026-10-21: can the in-loop render loss do the job of the post-process
+  three minutes ahead of the server clock: corrected; the runner started at 16:07:52, waiting for a card], before any
+  computation of it; the user, 2026-10-21: can the in-loop render loss do the job of the post-process
   `render_deliverable.py +fit=1 +steps=15 +carry=h +decay=1`, so that the detail is physical; scratch copy of the
   tag's renderer `tmp/d158/d158_fit.py` (repo_freeze1015, the fit unchanged), results `output/gpu/d158/`, local
   `output/results_2026-10-21/d158_render_detail/` with a Korean README).**
@@ -15563,6 +15563,83 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   smooth part and the whole layer, against the four pictures. Reading: T is confirmed with the loop's own normals if,
   against the loop's own targets, the relief alone changes silhouette + shading by less than 5 % either way at both
   pixels, while against the dense pictures the relief on top of h_low still lowers it by more than 30 %.
+  **Result (fits 16:17–17:06 CDT on GPU 0, released at 17:06; the follow-up 16:48 (bunny, the same card) and
+  17:06–17:09 (dragon, CPU: no card taken after 17:00); `output/gpu/d158/{bunny,dragon}300k_L97/` (`head.json`,
+  `d158.jsonl`, `raw.jsonl`, `rows.txt`), `table_all.txt`, `summary.json`, `figs/`; scripts `scripts/probes/paper/d158/`
+  (server `tmp/d158/`: `d158_fit.py`, `d158_table.py`, `d158_figs.py`, `d158_raw.py`); local
+  `output/results_2026-10-21/d158_render_detail/`): neither the picture's pixel (H1) nor u's resolution (H2, F) keeps
+  the loop from writing the relief. The loop's own target pictures do (T): they are 300k samples drawn through the
+  run's own field, they do not hold the relief, and against them the relief makes the render term worse.** The
+  linearised field
+  response matches autograd to 9e-7 (relative); the run's target sample was rebuilt exactly (max difference 0).
+  *Item 1 (D115's estimator, a = 0.708 × the target sample's median 8th-neighbour distance; the run's own subsample
+  estimator reads 0.0480 / 0.0476 and pixels 1.08 / 1.32 a).* Bunny a = 0.0489 wu, a_c = 0.0282 (0.578 a): D115's pixel
+  0.577 a (346 px), the loop's 1.063 a (188 px), 1.84 times; discs 0.531 a in both. Dragon a = 0.0482, a_c = 0.0275
+  (0.572 a): D115's pixel 0.571 a (428 px), the loop's 1.300 a, 2.28 times; discs 0.526 a (D115) and 0.650 a (the loop).
+  At 40k the loop's pixel is 1.06 / 1.26 a (96 px).
+  *The layer h at the end (bunny t = 15.7 s, 97 % of the discs arrived; dragon t = 27.0 s, 91 %).* Mean −0.438 / −0.383
+  a, rms 0.476 / 0.455 a, 97 / 96 % of its energy above 21.6 pitches: D115's layer is mostly a uniform inward shift, the
+  difference between the two fields' shells (D111: the base exterior stands +0.290 / +0.675 a off the mesh, the 1.5M
+  exterior −0.145 / +0.219 a). The relief h_rel (below 10.8 pitches) has rms 0.094 / 0.087 a.
+  *Item 3, what u can hold (energy over every disc, the least squares' own norm; at the end, and bunny 2 / 4 s).*
+
+  | | relief held by W (one value an outer particle) | by F (through the field: the loop's path) | rest (W / F) | share of the relief's render gain at dense_ac (W / F) | u for the relief, rms / p99 (layer spacings; W / F) |
+  |---|---|---|---|---|---|
+  | bunny 2 s | 0.71 | 0.77 | 0.29 / 0.22 | 0.71 / 0.78 | 0.16 / 0.54, 0.43 / 1.43 |
+  | bunny 4 s | 0.71 | 0.78 | 0.29 / 0.20 | 0.77 / 0.82 | 0.17 / 0.53, 0.48 / 1.47 |
+  | bunny end | 0.72 | 0.81 | 0.28 / 0.18 | 0.82 / 0.86 | 0.14 / 0.43, 0.41 / 1.23 |
+  | dragon end | 0.73 | 0.82 | 0.27 / 0.17 | 0.84 / 0.88 | 0.13 / 0.41, 0.34 / 1.12 |
+
+  The whole layer: W holds 0.86 / 0.83, F 0.93 / 0.92 of h. Drawn alone against D115's own pictures (dense_ac), h lowers
+  silhouette + shading by 88 / 67 % (bunny / dragon), h_uW by 73 / 55 %, h_uF by 80 / 60 %; the rest alone changes it by
+  +2 / 0 %. The rest is fine speckle and a few crease lines (the ear's fold, the horns' roots; `map_*.png`). The dragon at 2
+  and 4 s had 2 % and 14 % of its discs arrived (D115's arrival test reads the run's end): its readings are the end's.
+  *Item 4, the pixel (the relief on top of its smooth part, against the dense pictures).* The relief lowers the term by
+  56.5 % at D115's pixel and 47.7 % at the loop's (bunny), 28.2 % and 27.0 % (dragon): the 188-px picture keeps 0.84 /
+  0.95 of the relief's relative gain, and the held parts carry 0.87 / 0.89 (W) and 0.91 / 0.93 (F) of it there. The
+  static fit from h = 0 against the dense pictures at 188 px writes a layer whose relief correlates 0.47 / 0.39 with
+  D115's (0.56 / 0.46 at D115's pixel).
+  *The loop's own targets (loop_ac, loop_loop).* With D115's display normals: the whole layer raises the term 4.7–6.9 ×
+  (bunny) and 3.2–4.3 × (dragon) — the inward shift; the relief on its smooth part lowers it 9.0 / 9.9 % (bunny) and
+  7.0 / 9.8 % (dragon), the relief alone on the run's own surface changes it −4.3 / +3.5 % and −7.3 / −2.2 % (silhouette
+  +1 / +40 % and −2 / +29 %, shading −9 / −15 % and −11 / −13 %). The follow-up, drawn as the loop draws (the field's own
+  normals, which the targets carry): the relief alone on the run's own surface raises the loop's term by +4.0 % at D115's
+  pixel and +18.9 % at the loop's (bunny; silhouette +1.0 / +39.6 %, shading +7.0 / +5.4 %), −0.2 % and +11.4 %
+  (dragon; silhouette −2.1 / +29.4 %, shading +1.6 / +0.3 %), while against the dense pictures the relief on its smooth
+  part still lowers the term by 48.2 / 42.6 % (bunny) and 25.9 / 27.2 % (dragon). The shading gain with D115's normals
+  was the relief undoing the display's own normal averaging.
+  The loop's render gradient at h = 0 is nearly orthogonal to the relief (cosine 0.02–0.09 against the loop's targets;
+  0.09 against the dense pictures, where the shift dominates it, cosine with h 0.28–0.31). A static fit from h = 0 against
+  the loop's targets writes a different layer: relief correlation 0.25 / 0.22 (bunny) and 0.25 / 0.24 (dragon), half of
+  its energy below 2.7 pitches (0.45–0.55 against 0.12–0.28 for the dense fits), mean −0.08 to −0.13 a.
+  *Readings.* H2: the rest keeps 0.27–0.29 of the relief's energy and 0.16–0.18 of its gain (< 0.5): does not hold. F:
+  the field's path holds more than the display's weighting (0.81 / 0.82 against 0.72 / 0.73; a disc reads about 34
+  particles through the field and 8 through the display's weighting, only the outer layer's moving in either; the field
+  path needs 2.7–2.9 times the u): does not hold. H1:
+  the loop's pixel keeps 0.84 / 0.95 of the relief's relative gain (> ⅓), its static fit correlates 0.47 / 0.39 (> 0.3):
+  does not hold. T: G(loop_ac) / L(h_low) = 0.090 / 0.070 against 0.565 / 0.282 at dense_ac, 0.16 / 0.25 of it (≤ ⅓):
+  holds on both meshes (at the loop's pixel 0.18 / 0.35); the follow-up: by its letter (less than 5 % either way at both
+  pixels) not met: at D115's pixel the change is +4.0 / −0.2 %, within 5 %, but at the loop's pixel +18.9 / +11.4 %,
+  beyond it in the penalising direction, and the dragon's dense gain is 26–27 %, under the 30 % asked. What it says
+  holds: the loop's targets do not ask for the relief, and at their own pixel they penalise it.
+  Predictions: h (0.4–0.5 a rms, mean −0.3 to −0.45 a, mostly the shift; h_rel 0.05–0.15 a), P_W 0.6–0.8, T and H2
+  smallest: right; F (P_F 0.2–0.4) and H1 (the coarse picture under a third): wrong.
+  *What it means.* The render loss in the loop compares the body's exterior with the mean exterior of eight 300k samples
+  drawn through the same field at the same pitch (radius 3 a, offset 0.8 a); D104 found a denser sample drawn at that
+  pitch no sharper. Its optimum is a 300k sample's surface, which the run already nearly is (at h = 0 the term against
+  the loop's targets is 3.6 / 3.2 times smaller than against D115's). D115's layer is fitted to another surface, the
+  dense samples' exterior at a_c: a
+  shell about 0.4 a further in, with relief below the 300k field's width. One value an outer particle can carry three
+  quarters of that relief and the loop's pixel can see it; nothing in the loop asks for it.
+  *Next definition (a proposal to the user; nothing run or changed).* The loop's render targets carry the relief in the
+  run's own shell: the target pictures drawn from the dense samples' exterior at a_c (D115's targets), moved out along
+  their normals by the shell difference between the two fields (measured here as D115's smooth part, 0.38–0.44 a; as a
+  definition, the run's own sample's mean exterior offset from the mesh minus the dense sample's, D111 / D157's
+  corrected referee), or the exact mesh grown by the run's own offset; the loop's pixel kept (188 px keeps 84–95 % of
+  the gain), u as the channel (it holds 72–82 % of the relief). Risks on record: D90 (targets from a different shell
+  stood behind on the display), D107 (the rest of the window takes back what the optimisation writes in these bands:
+  0–1 % of a band's offset closed per window), the transport's pull to the 300k sample, and u's bound of one spacing a
+  window (the field path needs p99 1.1–1.2 spacings for the relief). The deletions of the dumps are in `cleanup.log`.
 
 ## To run next, in order
 
