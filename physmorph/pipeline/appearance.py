@@ -9,14 +9,16 @@ the target samples the albedo of the target's paint; the render's shading term t
 
 The scenes paint with two albedos, WHITE and RED, by fields of position fixed once from the samples' own quantiles (so
 the volumes painted are exact shares of each sample); the same field paints every target draw. Source: isosphere; the
-bunny-specific scenes read the bunny's ears and head from its target sample.
+bunny scenes read the ears' base and the head's direction of the bunny's frame (BUNNY_EAR_BASE,
+BUNNY_HEAD), measured once on its target samples.
   white  one channel of ones on both sides: the term without colour, bit for bit (the reduction test)
   half   source red above its median height; target red above its median height (the transport's own layout, the
          control: the lambda = 0 twin is nearly right)
   band   source red above its median height; target red above its 65 % height quantile (the top 35 %): a short move
-  ears   source red above its 95 % height quantile (the top 5 %); target red above the ears' base (bunny): a medium move
-  turn   source red above its median height; target red on the head's side of the median plane across the head's
-         horizontal direction (bunny): a long move
+  ears   source red above its 95 % height quantile (the top 5 %); target red above the ears' base (bunny,
+         BUNNY_EAR_BASE): a medium move
+  turn   source red above its median height; target red on the head's side of the target's median plane across the
+         head's horizontal direction (bunny, BUNNY_HEAD): a long move
 """
 from __future__ import annotations
 
@@ -42,50 +44,13 @@ class Appearance:
         return [self.tgt] + list(self.draws)
 
 
-def pitch_of(x: np.ndarray) -> float:
-    """The volume sample's pitch, 0.708 x the median 8th-neighbour distance (target.build_target's)."""
-    from scipy.spatial import cKDTree
-    d, _ = cKDTree(x).query(x, 9)
-    return 0.708 * float(np.median(d[:, 8]))
-
-
-def _pieces(pts: np.ndarray, link: float) -> np.ndarray:
-    from scipy.sparse import coo_matrix
-    from scipy.sparse.csgraph import connected_components
-    from scipy.spatial import cKDTree
-    if len(pts) < 2:
-        return np.zeros(len(pts), int)
-    pairs = cKDTree(pts).query_pairs(link, output_type="ndarray")
-    return connected_components(coo_matrix((np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])), shape=(len(pts),) * 2),
-                                directed=False)[1]
-
-
-def ear_base(tgt: np.ndarray, pitch: float) -> float:
-    """The bunny's ears' base: scanning a one-pitch slab of the target sample down from two pitches below the top in
-    half-pitch steps, the top of the first slab that is one piece (pieces linked within 1.5 pitches, a piece counted
-    when it holds a tenth of the slab) after slabs of two pieces (the ears)."""
-    y = tgt[:, 1]
-    two = False
-    for h in np.arange(y.max() - 2 * pitch, y.min(), -0.5 * pitch):
-        sl = tgt[(y >= h) & (y < h + pitch)]
-        if not len(sl):
-            continue
-        big = int((np.bincount(_pieces(sl, 1.5 * pitch)) >= 0.1 * len(sl)).sum())
-        two = two or big >= 2
-        if two and big == 1:
-            return float(h + pitch)
-    raise ValueError("ear_base: no slab of two pieces above a slab of one (not a bunny?)")
-
-
-def head_direction(tgt: np.ndarray, y_ear: float) -> np.ndarray:
-    """The bunny's head direction: from the target sample's centroid to the centroid of its slab a tenth of its height
-    deep below the ears' base, horizontal, unit."""
-    c = tgt.mean(0)
-    H = float(tgt[:, 1].max() - tgt[:, 1].min())
-    sl = tgt[(tgt[:, 1] < y_ear) & (tgt[:, 1] >= y_ear - 0.1 * H)]
-    d = (sl.mean(0) - c).astype(np.float64)
-    d[1] = 0.0
-    return d / np.linalg.norm(d)
+# The bunny's ears' base height in its normalised frame (the mesh's frame, the same at every N and seed): the 40k
+# target samples of seeds 98 / 100 / 102 split into two pieces (the ears) above 3.22 / 3.32 / 3.49 by a one-pitch slab
+# scan (tmp/d160/d160_ears.py); 3.2 keeps the ears down to their base (0.9 % of the volume, 4 % of the surface).
+BUNNY_EAR_BASE = 3.2
+# The bunny's head direction (horizontal): from the sample's centroid to the centroid of the slab a tenth of its height
+# deep below the ears' base, (-0.71, 0.70) / (-0.76, 0.66) / (-0.81, 0.59) on those samples.
+BUNNY_HEAD = (-0.76, 0.0, 0.65)
 
 
 def scene_params(scene: str, src: np.ndarray, tgt: np.ndarray) -> dict:
@@ -101,16 +66,13 @@ def scene_params(scene: str, src: np.ndarray, tgt: np.ndarray) -> dict:
         p["tgt_y"] = float(np.quantile(yt, 0.5))
     elif scene == "band":
         p["tgt_y"] = float(np.quantile(yt, 0.65))
-    elif scene in ("ears", "turn"):
-        a = pitch_of(tgt)
-        p["pitch"], p["ear_base"] = a, ear_base(tgt, a)
-        if scene == "ears":
-            p["tgt_y"] = p["ear_base"]
-        else:
-            h = head_direction(tgt, p["ear_base"])
-            c = tgt.mean(0).astype(np.float64)
-            p["head_dir"], p["centre"] = h.tolist(), c.tolist()
-            p["tgt_h"] = float(np.median((tgt - c) @ h))
+    elif scene == "ears":
+        p["tgt_y"] = BUNNY_EAR_BASE
+    elif scene == "turn":
+        h = np.asarray(BUNNY_HEAD) / np.linalg.norm(BUNNY_HEAD)
+        c = tgt.mean(0).astype(np.float64)
+        p["head_dir"], p["centre"] = h.tolist(), c.tolist()
+        p["tgt_h"] = float(np.median((tgt - c) @ h))
     return p
 
 

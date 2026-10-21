@@ -242,18 +242,19 @@ def test_the_scenes_paint_the_quantiles_they_name_and_one_target_field():
         make_appearance("plaid", src, tgt)
 
 
-def test_the_ears_rule_finds_two_pieces_above_one():
-    """The bunny scenes' ear base on a toy: a block with two posts on top; the base is the block's top, within a
-    pitch."""
-    from physmorph.pipeline.appearance import ear_base, head_direction
-    g = np.arange(0., 20., 1.)
-    block = np.stack(np.meshgrid(g, np.arange(0., 10., 1.), g, indexing="ij"), -1).reshape(-1, 3)
-    post = np.stack(np.meshgrid(np.arange(0., 3., 1.), np.arange(10., 20., 1.), np.arange(0., 3., 1.), indexing="ij"),
-                    -1).reshape(-1, 3)
-    pts = np.concatenate([block, post + [2., 0., 15.], post + [14., 0., 15.]]).astype(np.float64)
-    pts += np.random.default_rng(1).uniform(-.1, .1, pts.shape)
-    y = ear_base(pts, 1.)
-    assert 9. <= y <= 11.
-    h = head_direction(pts, y)
-    assert h[1] == 0. and h[2] < -.9      # the slab under the posts' base is the whole block: the posts (+z) pull the
-    #                                       centroid toward them, so the slab's centroid lies toward -z of it
+def test_the_bunny_scenes_paint_the_ears_and_the_head_side():
+    """ears: the target red above the bunny's ears' base, the source's top 5 %; turn: the target red on the head's side
+    of its median plane (half the target sample), the source's top half."""
+    from physmorph.pipeline.appearance import BUNNY_EAR_BASE, BUNNY_HEAD, make_appearance, source_red, target_red
+    rng = np.random.default_rng(8)
+    src = rng.normal(0, 1, (5000, 3)).astype(np.float32)
+    tgt = (rng.normal(0, 1, (5000, 3)) * np.array([1., 1.6, 1.])).astype(np.float32)
+    ears = make_appearance("ears", src, tgt)
+    assert abs(float(source_red(ears.params, src).mean()) - .05) < 2e-3
+    assert np.array_equal(target_red(ears.params, tgt), tgt[:, 1] >= BUNNY_EAR_BASE)
+    turn = make_appearance("turn", src, tgt)
+    assert abs(float(source_red(turn.params, src).mean()) - .5) < 2e-3
+    assert abs(float(target_red(turn.params, tgt).mean()) - .5) < 2e-3
+    h = np.asarray(BUNNY_HEAD) / np.linalg.norm(BUNNY_HEAD)
+    far = tgt[np.argmax(tgt @ h)][None]
+    assert bool(target_red(turn.params, far)[0]) and not bool(target_red(turn.params, -far)[0])
