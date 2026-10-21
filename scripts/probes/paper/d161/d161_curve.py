@@ -2,7 +2,8 @@
 (pitches), what each term of the objective does to it at an arrived state, against what the render asks of it.
 
 A measurement on a card with the pipeline's own operators (repo_d161 = freeze-2026-10-15-rt1 + D156's --render_tgt).
-MESH: sphere (assets/isosphere.obj; zonal patterns cos(m theta), one exact wavelength) or bunny (assets/bunny.obj;
+MESH: sphere (assets/isosphere.obj; zonal patterns cos(m theta), one exact wavelength), coin (d161coin.obj, a rounded
+disc from the sphere: planar stripes along x over the whole coin, exact on its flat faces) or bunny (assets/bunny.obj;
 stripes cos(k y.e) along the body inside a window of 1.8 wu on the flank). The run's TargetPack, scales and units are
 rebuilt from the frozen recipe's flags at N, seed 97 (scripts/pipeline_run.prepared / run_config, target.build_target,
 calibrate_units, the transport scale at the source as the window objective sets it).
@@ -82,8 +83,9 @@ torch.set_grad_enabled(True)
 out_path, mesh, N = sys.argv[1], sys.argv[2], int(sys.argv[3])
 lam_json = sys.argv[4] if len(sys.argv) > 4 else None
 SEED = 97
-TGT = {"sphere": "assets/isosphere.obj", "bunny": "assets/bunny.obj"}[mesh]
-WS = [4, 6, 8, 11, 16, 22, 32, 45] if mesh == "sphere" else [4, 6, 8, 11, 16, 22]
+TGT = {"sphere": "assets/isosphere.obj", "bunny": "assets/bunny.obj",
+       "coin": "/data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj"}[mesh]
+WS = {"sphere": [4, 6, 8, 11, 16, 22, 32, 45], "coin": [4, 6, 8, 11, 16, 22, 32], "bunny": [4, 6, 8, 11, 16, 22]}[mesh]
 DS = [-1.0, -0.5, 0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0]
 DT = [0.25, 0.5, 1.0, 2.0]
 out = open(out_path, "a")
@@ -257,6 +259,8 @@ for w in WS:
     if mesh == "sphere":
         m_int = max(1, int(round(2 * math.pi * R_mean / (w * a))))
         pat = Zonal(center, np.array([0.0, 0.0, 1.0]), R_mean, m_int)
+    elif mesh == "coin":                                     # planar stripes over the whole coin, along x (in the faces)
+        pat = Stripes(np.array([1.0, 0.0, 0.0]), 2 * math.pi / (w * a), center, 1e9)
     else:
         pat = Stripes(fwd, 2 * math.pi / (w * a), c_f, 1.8)
     Pv, Gv, Wv = pat.at(surf)

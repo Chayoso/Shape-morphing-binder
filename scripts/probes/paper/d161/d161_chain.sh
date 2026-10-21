@@ -61,12 +61,12 @@ LAM40=$G/d155/gate/bunny40k_V97.json
 LAM300=$G/d145t_b1/bunny300k_L97.json
 for C in C40 C300; do
   [[ " $STEPS " == *" $C "* ]] || continue
-  if [ $C = C40 ]; then JOBS=("sphere 40000 $LAM40" "bunny 40000 $LAM40"); else JOBS=("sphere 300000 $LAM300" "bunny 300000 $LAM300"); fi
+  if [ $C = C40 ]; then JOBS=("coin 40000 $LAM40" "bunny 40000 $LAM40" "sphere 40000 $LAM40"); else JOBS=("coin 300000 $LAM300" "bunny 300000 $LAM300"); fi
   claim_card curve_$C
   for job in "${JOBS[@]}"; do
     set -- $job
     tag=${1}$(( $2 / 1000 ))k
-    [ -e $O/curve/$tag.done ] && { log "C $tag exists, skipped"; continue; }
+    { [ -e $O/curve/$tag.done ] || [ -e $O/curve/${tag}_cpu.done ]; } && { log "C $tag exists, skipped"; continue; }
     log "C $tag start"
     ( envr repo_d161; $PY $W/d161_curve.py $O/curve/$tag.jsonl $1 $2 $3 > $O/curve/$tag.log 2>&1 < /dev/null
       echo $? > $O/curve/$tag.rc )

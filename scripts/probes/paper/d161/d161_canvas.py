@@ -7,6 +7,8 @@ relief meshes:
                         iterations: pass band k_PB = 0.04, wavelengths below about 30 edges (1.8 wu) go, no shrinkage), so that the letters are the only relief beyond the
                         smooth 3D target and the bumps (D159's subject) do not mix in; the name ends in _bunny so the
                         orientation table turns it as the bunny.
+  d161coin.obj          a coin (the points within 0.9 of a flat disc of radius 1.85: flat faces, a round rim; axis z),
+                        marching cubes of its exact distance at h = 0.022: a real morph from the sphere with a flat canvas.
 Prints each mesh's counts, watertightness and its volume against the original's."""
 import json
 import sys
@@ -38,4 +40,32 @@ rows["d161smooth_bunny"] = dict(verts=len(bs.vertices), faces=len(bs.faces), wat
                                 move_raw_median=float(np.median(d)), move_raw_p99=float(np.quantile(d, 0.99)),
                                 edge_raw=float(np.median(b.edges_unique_length)))
 print(json.dumps(rows, indent=1))
+json.dump(rows, open(out / "canvas.json", "w"), indent=1)
+# the coin: the points within r_e of a flat disc of radius R0 (a disc grown by a ball: flat faces, a round rim, smooth),
+# axis z, overall diameter 2 (R0 + r_e) = 5.5 and thickness 2 r_e = 1.8 in raw units (the frame rescales); marching
+# cubes of the exact distance at h = 0.022 (skimage), the sampler's watertight input as D156's hulls
+from skimage.measure import marching_cubes  # noqa: E402
+R0, re_, h = 1.85, 0.9, 0.022
+lo = np.array([-(R0 + re_) - 3 * h, -(R0 + re_) - 3 * h, -re_ - 3 * h])
+n = np.ceil((-2 * lo) / h).astype(int) + 1
+gx, gy, gz = (lo[i] + h * np.arange(n[i]) for i in range(3))
+X, Y, Z = np.meshgrid(gx, gy, gz, indexing="ij")
+rho = np.hypot(X, Y)
+sdf = np.sqrt(np.maximum(rho - R0, 0.0) ** 2 + Z ** 2) - re_
+V, F, _, _ = marching_cubes(sdf, level=0.0, spacing=(h, h, h), allow_degenerate=False)
+coin = trimesh.Trimesh(V + lo, F, process=True)
+coin.update_faces(coin.nondegenerate_faces())          # zero-area faces (as D156's hull_carve.py)
+coin.merge_vertices()
+coin.remove_unreferenced_vertices()
+if not coin.is_watertight:
+    trimesh.repair.fill_holes(coin)
+assert coin.is_watertight, "the coin is not watertight"
+if coin.volume < 0:
+    coin.invert()
+coin.export(out / "d161coin.obj")
+rows["d161coin"] = dict(verts=len(coin.vertices), faces=len(coin.faces), watertight=bool(coin.is_watertight),
+                        volume=float(coin.volume), exact_volume=float(np.pi * R0 ** 2 * 2 * re_ + np.pi ** 2 * re_ ** 2 * R0
+                                                                     + 4 / 3 * np.pi * re_ ** 3),
+                        min_edge=float(coin.edges_unique_length.min()), median_edge=float(np.median(coin.edges_unique_length)))
+print(json.dumps(rows["d161coin"], indent=1))
 json.dump(rows, open(out / "canvas.json", "w"), indent=1)

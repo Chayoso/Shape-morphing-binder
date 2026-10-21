@@ -28,7 +28,7 @@ from d161_lib import target_frame  # noqa: E402
 from d161_pattern import Pattern  # noqa: E402
 
 
-def raster_text(text, em, texel):
+def raster_text(text, em, texel, pad):
     """(mask, u0, v0): the even-odd fill of the text's outline (em size `em`), centred on (0, 0), texel `texel`."""
     from matplotlib.font_manager import FontProperties
     from matplotlib.path import Path as MPath
@@ -38,7 +38,6 @@ def raster_text(text, em, texel):
     allv = np.concatenate(polys)
     lo, hi = allv.min(0), allv.max(0)
     c = 0.5 * (lo + hi)
-    pad = 4 * texel
     us = np.arange(lo[0] - pad, hi[0] + pad, texel) - c[0]
     vs = np.arange(lo[1] - pad, hi[1] + pad, texel) - c[1]
     U, Vv = np.meshgrid(us, vs, indexing="ij")
@@ -49,9 +48,9 @@ def raster_text(text, em, texel):
     return inside.reshape(U.shape).astype(np.float64), float(us[0]), float(vs[0])
 
 
-def raster_rings(rings, texel):
+def raster_rings(rings, texel, pad):
     rmax = max(r[1] for r in rings)
-    us = np.arange(-rmax - 4 * texel, rmax + 4 * texel, texel)
+    us = np.arange(-rmax - pad, rmax + pad, texel)
     U, Vv = np.meshgrid(us, us, indexing="ij")
     r = np.hypot(U, Vv)
     m = np.zeros(U.shape)
@@ -68,12 +67,12 @@ def main():
     sub = x_t[np.random.default_rng(0).choice(len(x_t), min(20000, len(x_t)), replace=False)]
     a = 0.708 * float(np.median(cKDTree(sub).query(sub, 9)[0][:, 8])) * (len(sub) / len(x_t)) ** (1 / 3)
     texel = 0.2 * a
-    if "text" in spec:
-        mask, u0, v0 = raster_text(spec["text"], spec["height"] * a, texel)
-        stroke = None
-    else:
-        mask, u0, v0 = raster_rings([[r0 * a, r1 * a] for r0, r1 in spec["rings"]], texel)
     edge = spec["edge"] * a
+    pad = 4 * edge + 4 * texel                # the blur stays inside the raster (no step at its border)
+    if "text" in spec:
+        mask, u0, v0 = raster_text(spec["text"], spec["height"] * a, texel, pad)
+    else:
+        mask, u0, v0 = raster_rings([[r0 * a, r1 * a] for r0, r1 in spec["rings"]], texel, pad)
     tex = gaussian_filter(mask, edge / texel, mode="constant")
     from physmorph.sampling.mesh import _oriented
     from physmorph.sampling.orientation import orient_name, rotation
