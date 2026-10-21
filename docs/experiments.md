@@ -5985,6 +5985,161 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   silhouette IoU as the particles'. (4) Most apart particles are bumps under the main surface (D148: ~90 %); few real
   pieces. (5) 53–90 % of the windows after the crossing (D152: crossing after 10–47 % of them); the tail improves the
   yardstick and the display by less than it costs in time.
+  **D145 post-tag reading 4, read (2026-10-21 10:13 – 13:05 CDT server clock; readers `scripts/probes/paper/posttag/r4_*`:
+  `r4_end1.py` / `r4_prep.sh` (each external run's last fillable frame as a one-frame archive, 159), `r4_gpu.sh` (the
+  card part: `yard` = `t3end` / `e3end` on those, `disp` = `ext_end145.py` on the display samples), `r4_mesh.py` (our
+  display surface as a mesh by D154's `zb_mesh`, copied unchanged; each apart particle's component; each component's
+  kind by the sign of its enclosed volume: a solid piece or an internal cavity), `r4_topo.py` (B11 / B12's mesh
+  readers in B11's venv; the sampler), `r4_fscore.py`, `r4_floor.sh` (the floors' and the far-piece frames' display),
+  `r4_vis.sh` (`visible_apart.py`), `r4_blob.py`, `r4_undrawn.py`, `r4_far.py`, `r4_extra.py`, `r4_slice.py`, `r4_timeline.sh` /
+  `r4_tl_read.py`, `r4_tail.py`, `r4_table.py`; two card jobs, one at a time, under the lock protocol (agent D145r, GPU 0
+  idle in eleven looks a minute apart: `yard` 10:23–12:46, `disp` 12:57–13:00, lock released each time); CPU readers nice
+  10, at most three at a time; `output/gpu/d145_ext/r4/`; local `output/results_2026-10-20/d145_external/` (`r4_*`)).**
+  *Operations.* No queue edit, no other process touched. My first meshing pass lacked the piece / cavity split and was
+  stopped by its own PIDs (1390953, 1390955, 1404939, 1415046) and rerun. `visible_apart.py --jsonl` rewrites its file
+  per call, so its per-state counts are read from its log. Out of memory on the card (47 GiB) for Xu et al.'s most
+  scattered ends: both probes on dragon XU97 and on homer's three seeds, the display probe on dragon XU101 (recorded as
+  failed; Xu et al.'s dragon is read on XU99 / XU101 by the yardstick and on XU99 by the display, homer not at all; the
+  pool had read none of them). Added after the registration, observed and not gated:
+  the floors' display (D90's independent sample and the run's own target sample, meshed and resampled the same way),
+  the frames where `pieces145.py` found the most particles ≥ 5 pitches off the body, the per-particle placement of
+  `visible_apart`'s kinds and of the apart particles on the display (`r4_blob.py`, `r4_undrawn.py`, `r4_far.py`), where the end
+  departs from the target (`r4_extra.py`, `r4_slice.py`), the cavities and genus over the first 2–4 s (`r4_timeline.sh`,
+  bunny L97 and its twin P97, teapot L97), and in (5) when each measure has made 90 % of its tail gain.
+  **The updated master table** (per mesh the median over seeds, then the range over the six meshes; ratios against the
+  floor = the run's own target sample read the same way, D152's `yard_floor.jsonl` for the yardstick, the `own` state of
+  `e3end` for the display; every mesh in `r4_tables.md`):
+
+  | method | meshes | sil IoU (ind.) | thin uncovered % | yardstick silhouette / floor | yardstick shading / floor | display front 1 − IoU / floor | F-score at 1 pitch (floor 0.988–0.989) | chamfer / floor | end genus = target | wall |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | ours (tag) | 6 | 0.9864–0.9899 | 4.1–6.1 | 0.85–1.22 | 1.02–1.43 | 0.83–1.03 | 0.985–0.992 | 0.97–0.98 | 3 of 6 | 8.8–33.7 min |
+  | ours, display mesh resampled | 6 | 0.9541–0.9626 | 0.4–1.0 | – | – | – | 0.938–0.965 | 1.05–1.10 | – | – |
+  | *floor of that route* | 6 | 0.9584–0.9673 | 0.4–1.1 | – | – | – | 0.952–0.970 | 1.04–1.07 | 3 of 6 | – |
+  | Xu et al. TVCG 2025 | 6 (yard 5) | 0.9396–0.9754 | 30.2–48.4 | 5.8–28.4 | 5.3–24.6 | 2.6–8.6 | 0.697–0.967 | 1.03–2.20 | (particles) | 2.3–6.8 min |
+  | Buonomo et al. SGP 2025 | 6 | 0.9163–0.9688 | 29.8–45.1 | 15.0–48.7 | 7.2–23.8 | 4.2–9.1 | 0.905–0.964 | 1.05–1.66 | 0 of 4 | 45–47 min |
+  | NISE ICCV 2023 | 6 | 0.9660–0.9830 | 20.1–35.2 | 4.1–15.1 | 2.2–5.9 | 1.6–3.6 | 0.974–0.984 | 1.01–1.02 | 3 of 3 | 13 min |
+  | ISD ICLR 2025 | 6 | 0.9822–0.9901 | 12.2–18.1 | 1.11–6.84 | 1.18–2.47 | 1.14–1.80 | 0.983–0.986 | 1.00–1.01 | 5 of 6 | 27–39 min |
+  | 4Deform CVPR 2025 | 6 | 0.4955–0.7628 | 67.5–81.5 | 106–565 | 70–306 | 25–70 | 0.465–0.784 | 2.8–10.3 | 3 of 6 | 68–138 min |
+  | ISD, radial matching | 2 | 0.9816–0.9862 | 14.3–19.0 | 2.6–5.0 | 1.6–2.4 | 1.2–1.9 | 0.982–0.983 | 1.01 | 1 of 2 | 27–34 min |
+  | 4Deform, radial matching | 2 | 0.9329–0.9784 | 22.7–32.2 | 6.4–24.1 | 4.4–20.4 | 1.9–3.9 | 0.744–0.970 | 1.04–3.94 | 0 of 2 | 69–75 min |
+  | ARAP (genus-0 targets) | 3 | 0.9849–0.9884 | 9.7–16.8 | 1.15–1.68 | 1.21–1.49 | 1.00–1.09 | 0.983–0.985 | 1.01 | 3 of 3 | 0.2–12 min |
+  | OT displacement | 2 | 0.9306–0.9440 | 24.0–24.7 | 25.0–26.7 | 22.9–23.1 | 6.8–10.5 | 0.956–0.977 | 1.04–1.11 | (particles) | not timed |
+  | Large Steps (a) | 6 | 0.9777–0.9881 | 9.7–17.7 | 1.33–6.57 | 1.41–6.18 | 1.12–1.78 | 0.906–0.983 | 1.01–1.46 | 3 of 6 | 18–33 s |
+  | Large Steps (b) | 6 | 0.9807–0.9897 | 9.6–16.3 | 1.05–4.19 | 1.25–3.87 | 1.01–1.41 | 0.956–0.985 | 1.01–1.17 | 3 of 6 | 27–53 s |
+  | FlexiCubes (a) | 6 | 0.8307–0.9315 | 53.5–70.8 | 25–108 | 13–59 | 6.0–20.5 | 0.543–0.934 | 1.21–6.64 | 0 of 6 | 10–21 s |
+  | FlexiCubes (b) | 6 | 0.9055–0.9803 | 31.2–60.8 | 5.2–50.0 | 3.3–30.5 | 2.0–11.2 | 0.735–0.977 | 1.02–3.61 | 0 of 6 | 17–28 s |
+
+  Reading 3's other columns (volume over the frames, p = 0.75, apart at p 0.5, pieces off the body) are unchanged.
+  **(1) The exterior measures for every method.** 159 end frames, 154 with both probes (above). Per mesh, ours'
+  seed range against each method's (apart-ahead = ours' range lies below the method's on the measure):
+  - yardstick silhouette: ours apart-ahead of every external method on five meshes (bunny 7.0–7.7e-4 against the
+    nearest, Large Steps (b) 10.0–12.0 and ARAP 10.7; dragon 5.0–5.8 against ISD 13.2–45.2; teapot 6.9–7.9 against ISD
+    15.2–15.6; bob 4.3–4.8 against ISD 5.2–5.7; homer 2.7–3.7 against Large Steps (b) 3.7–4.4), overlapping Large Steps
+    (b) on the armadilo (5.5–7.5 against 7.4–8.4; ARAP 7.7);
+  - yardstick shading: apart-ahead on four (bunny, dragon, teapot, bob); the armadilo overlaps ARAP (3.9) and Large
+    Steps (b) (4.0–4.2) against ours 3.4–4.0; homer overlaps ARAP (2.07) and ISD (2.07–4.98) against ours 1.98–2.08;
+  - display front: apart-ahead on three (dragon, teapot, bob); level with ARAP and Large Steps (b) on the bunny (0.92–0.98
+    % against 0.96 and 0.97–1.14), the armadilo (1.20–1.29 against 1.28 and 1.21–1.32) and homer (0.73–0.84 against 0.79
+    and 0.81–0.87). No external method lies apart-ahead of ours on any mesh on any of the three.
+  Against the floor (a perfect sample; per-mesh medians), ours' yardstick silhouette is below it on four meshes (bunny
+  0.93, dragon 0.85, bob 0.85, armadilo 0.93; teapot 1.04, homer 1.22), its shading above it on all six (1.02–1.24,
+  homer 1.43), its display front 0.83–1.03 (below on bunny, dragon, bob); the nearest external methods are ISD
+  (silhouette 1.11–6.84), ARAP (1.15–1.68 on its three meshes) and Large Steps (b) (1.05–4.19).
+  **(2) Our display surface through the baselines' mesh readers.** Every state read — the 22 render-arm ends, 18
+  mid-progress frames, 4 far-piece frames, 12 floors and 83 timeline frames — is one closed, watertight 2-manifold
+  (no boundary or non-manifold edge, consistent winding) with 0 self-intersecting face pairs (one level set; expected).
+  End genus of the largest component, ours (target; the floors' display, independent / own sample): bunny 0 × 5 (0;
+  6 / 2), dragon 2 × 5 (15; 9 / 12), teapot 0 × 3 (1; 1 / 1), bob 1 × 3 (1; 1 / 1), armadilo 0 × 3 (0; 1 / 0), homer
+  0 / 1 / 2 (0; 2 / 2). The genus matches on bunny, bob and armadilo, where a perfect sample's display misses the bunny
+  (2–6 tunnels of the random sample) and matches on the same three counts (3 of 6 for the own sample). End components:
+  one on the bunny (L105: 2), teapot (L99: 2), bob and armadilo; dragon 6–21 and homer 5–16: slivers of 6–72 vertices
+  and ≤ 1e-4 wu³ (about a pitch³) with no particle, but for one 128-vertex piece holding one particle (dragon L105) and
+  one internal cavity in dragon L99 / L101 (132 / 16 particles line it); the floors carry 10–93 such slivers.
+  Where the end departs from the target (`r4_extra.py`: material farther than 1 pitch from the other sample; at 2
+  pitches nothing is missing in any end, 27–53 particles extra), the same in the render arm and its twin:
+  - teapot: in this mesh the handle's eye is an opening of 30 pitches² in the handle's plane (about 5.5 pitches across;
+    both floors keep it, 30.1–30.2). Every end fills it — the plane has no enclosed opening in L97 / 99 / 101 or P97;
+    the eye holds 127–140 particles up to 2.6–3.0 pitches from any target point; a second cluster (55–96) closes the slit
+    at the spout's root. That is the genus 0 against 1. The timeline: genus 0 from 0.7 s on — the eye is never opened.
+  - bunny: the target sample has two internal voids under the base (0.034 and 0.041 wu³, 10 and 2.3 pitches inside; two
+    cavities in the target's display); every end fills both (143–176 particles each, up to 2.4–2.9 pitches from any
+    target point). Not visible from outside.
+  - dragon: the extra material lies in crevice clusters (45–204 particles, 15–28 pitches long, up to 1.9–2.7 pitches
+    deep), where 13 of the 15 loops close (a perfect sample's display closes 3–6).
+  All three are openings narrower than the MPM cell: the shape's cell is 0.3085 wu = 6.4 pitches; the teapot's eye is
+  5.5. D137 traced the dragon's crevice beads and neck web to the same cell (its halved cell, `--cell_follows_n`, kept
+  as an option at the freeze; 3.3 pitches at 300k).
+  Mid-progress: one body at every read frame, with internal cavities (small closed voids, surface facing in): bunny 3–11
+  at p 0.25–0.75 and up to 57–64 at 0.8–1.0 s, in L97 and P97 alike (P97 up to 54); teapot 29 / 91 / 284 / 49 / 40 at
+  0.1–0.5 s (genus 2 / 0 / 116 / 0 / 2), then 0–20 until 3.0 s and none from 3.1 s; bob 1 at p 0.75, homer 4, dragon and
+  armadilo none. Their volume, summed over the 50 that hold the most particles, is ≤ 0.045 wu³ (0.09 % of the body) on the
+  teapot and ≤ 0.016 on the bunny. The far-piece frames (dragon raw 672, bob 432, armadilo 480, homer 384): 28–44
+  cavities (bob 0), genus 8–18, no particle in a separate solid piece.
+  **(3) One sampler.** Our display mesh sampled as the baselines' meshes were reads sil IoU 0.954–0.963, chamfer
+  1.05–1.10 × the particle floor, F at 1 pitch 0.938–0.965; the same route on a perfect sample (the own target sample's
+  display mesh resampled) reads 0.958–0.967, 1.04–1.07 ×, 0.952–0.970. The route carries the display's 0.8-pitch
+  outward offset, which every perfect sample carries too (D154: 0.69–0.90 pitch): precision at 1 pitch falls to
+  0.90–0.94 (the floor's 0.92–0.95) while recall stays at 0.980–0.985 (0.983–0.987). Against its own route's floor,
+  ours' chamfer is 1.003–1.012 × on bunny, teapot, bob and homer and 1.017–1.03 × on the dragon and armadilo; ISD and
+  ARAP on theirs 1.00–1.01 ×, Large Steps (b) 1.01–1.17 ×. Sample against sample (our particles, the baselines' meshes
+  sampled), F at 1 pitch: ours 0.985–0.992 (floor 0.988–0.989; above it on bunny, teapot, bob, homer), ISD 0.983–0.986,
+  ARAP 0.983–0.985, Large Steps (b) 0.956–0.985, NISE 0.974–0.984, Xu et al. 0.697–0.967; at 2 pitches every method but
+  4Deform, FlexiCubes and Xu et al. reads 0.98–1.00. D157 owns the exact-mesh F-score at 0.25–2 pitches with the
+  offset-corrected referee (ours only); not duplicated.
+  **(4) The early loose particles on the display.** At L97's p = 0.25 / 0.5 / 0.75 frames, 0 of the harness's apart
+  particles lie in a separate solid display piece on any mesh (table): under the main surface teapot 1823 / 2504 / 2209
+  of 1830 / 2634 / 2258, the rest on cavity walls (7 / 130 / 49); bunny 108 / 93 / 344 of 108 / 93 / 345. 0–8 a frame
+  are not drawn at all (the field is positive at the particle: single particles or pairs 1.5–1.9 pitches off; 2 of the
+  teapot's 2634, 6 of the bunny's 93; at the ends 5–17). visible_apart's kinds placed on the display (`r4_blob.py`): of
+  the teapot's 105 blobs at p 0.5, 97 sit under the main surface (median 0.73 pitch from it) and 8 on a cavity's wall,
+  0 in a piece — its segment test crosses a groove or a cavity of the same surface, not a gap to another piece; bumps
+  2256 main / 111 cavity. The particles `pieces145.py` counts ≥ 5 pitches off the body (`r4_far.py`, its frames with the
+  most: dragon 8, bob 15, armadilo 8, homer 2, in sets of 1–8, 5.3–9.2 pitches from the largest linked set) all lie
+  inside the main display surface, 0.29–0.79 pitch under it (field −0.12…−0.76 pitch): they are the body's under-dense
+  parts, where the 1.5-pitch links break while the display (radius 3 pitches) keeps one surface. At the end: 0
+  particles in a piece but dragon L105's one. So the display draws no loose piece at any read frame: the apart counts
+  are the relief, grooves, pores and under-dense patches of one surface. The pair-symmetric layer link has nothing to
+  remove here; its plan stays on record (below), not proposed for a run.
+  **(5) The tail after the render's own floor** (`r4_tail.md`). The render arm's silhouette term reaches its floor at
+  2.2–12.0 s in 18 of 18 runs; after it come 54–90 % of the committed windows (median 78 %) and 49–88 % of the wall
+  (median 74 %). Over that tail: d_sil × 0.14–0.67, d_pbr × 0.46–0.87, transport × 0.04–0.61, kinetic × 0.0002–0.34
+  (armadilo 0.28–1.5); on bunny and dragon (B1's every-frame readings) the yardstick silhouette × 0.52–0.89, shading
+  × 0.58–0.80, display front × 0.64–0.94. Where the gain comes: each measure has made 90 % of its crossing-to-end change
+  with 13–69 % of the wall still to go for d_sil (median 38 %), d_pbr 16–68 % (29 %), transport 10–66 % (30 %), kinetic
+  on a log scale 3–61 % (32 %), yardstick silhouette 30–43 % (34 %), shading 16–43 % (27 %), display front 25–52 % (39 %).
+  Against the registration: the windows after the crossing as expected; the tail improves the end measures by more
+  than expected (expected: less than it costs) — a stop at the crossing would give up 11–48 % of the yardstick
+  silhouette, 20–42 % of its shading and 6–36 % of the display front on bunny and dragon, and an unsettled body.
+  **The render's influence (standing rule).** Every ours row is the render arm L of B1 (g_share 0.333 in every
+  committed window, λ from the balancer). Where it acts: the exterior measures of (1), where ours is apart-ahead of
+  every method on 3–5 of 6 meshes and level on the rest (reading 2: the arm is −31…−57 % against its λ = 0 twin on
+  them). What it does not change: the topology departures of (2) — the teapot's filled eye, the bunny's filled voids,
+  the dragon's closed crevices, and the early cavities — appear in the twin P alike (P97 / 99 / 101), so they come from
+  the physics (the cell), not the render; the render does not reopen them either.
+  **Where we are level or behind, and the next step for each (proposals; none run).**
+  - *Genus on the teapot, dragon and homer (3 of 6 against ISD's 5 of 6).* The openings lost are narrower than the cell
+    (6.4 pitches). Next: the existing option `--cell_follows_n` (3.3 pitches at 300k) on teapot, dragon and homer 300k
+    with their twins, read by these readers (genus, the handle slice, the extra clusters) — D137's teapot run with it
+    (`d137s/teapot300k_LM`) kept no frames. Evidence runs of an approved option: the coordinator's go for the cards; a
+    default change stays the user's.
+  - *Homer's display genus 1–2 on two seeds (target 0, a perfect sample 2).* The display route itself adds tunnels on
+    homer. Next: locate them as for the teapot (slice / clusters) before reading them as the method's.
+  - *Shading and display front level with ARAP / Large Steps (b) on armadilo and homer (display also bunny).* These
+    meshes sit near their floors for every good method (ours 0.83–1.03 × on the display). Next: the exact-mesh reading
+    of D157 at 0.25–0.5 pitch with the offset-corrected referee, extended from ours to the external methods' end meshes,
+    so the remaining gap is read without a sample in the reference.
+  - *Chamfer on one sampler (ours 1.003–1.03 × its route's floor against ISD / ARAP 1.00–1.01 ×).* The display route
+    adds its own offset; the same D157 extension removes it. No further sampler variant.
+  - *Speed (Large Steps, FlexiCubes, ARAP, Xu et al. 10–100 × faster).* The tail is where the end measures and rest
+    are made (above), so an earlier stop costs quality. Next: the yardstick and the display on L97's kept frames of the
+    four other meshes (one card job, the frames exist) to price each minute of the tail on all six; and the exact
+    runtime levers of the 10-minute goal. An end rule stays the user's decision.
+  - *The pair-symmetric (momentum-exact) layer link, on record, not proposed:* D151's hold made symmetric as D149 made
+    the spacing push — each over-long link (i, j) of the outer layer corrected by ±½ (d − d_max) n̂_ij on both ends
+    over the symmetric closure of the spacing list, after u's rigid-mode removal (Σ m Δx = 0 and Σ x × Δx = 0 by
+    construction, central pairs). Predicted if a drawn piece appears: blobs −50…−90 % (D151: the layer step opens the
+    link in 85–97 % of detachments), momentum at D149's level, a risk to thin features, +3–5 % a window; gate the 40k
+    gallery and bunny / dragon 300k with twins; the user's go before any code.
   **B9b, gravity with the floor through the scene path with one body (pre-registered 2026-10-17 17:10 CDT server
   clock, before any run; the user approved the rerun on 2026-10-17; code `wip/b9b` f0a26d5 = `wip/d147` 5dbcf6e + two
   scene-spec fields and the probes, server copy `repo_b9b`; `scripts/probes/b9b/`; `output/gpu/b9b/runs/`; local
@@ -9919,7 +10074,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     Prediction (inferred): the bias is outward at both N and about the same in pitches (both N have about 1.2 pitches
     a render pixel), so in world units, and as a share of the silhouette's area, twice as large at 40k; at 300k the
     shading term and the symmetric part pull the arm inward (L / P offset 0.93–0.98), at 40k they do not.
-  *Amendments before any reading (10:35 CDT; seen: the reader's test on the 40k bunny seed 97, its three states).*
+  *Amendments before any reading (10:33 CDT, the commit 14a419b; first stamped 10:35; seen: the reader's test on the
+  40k bunny seed 97, its three states).*
   (1) The five open meshes (bunny, dragon, beast, maxplanck, ogre) are closed for the referee by a fan from each
   boundary loop's centroid (the volume the sampler fills; bunny 5 loops, watertight after). (2) The corrected referee's
   marching cubes at a / 2, not a / 4 (a full a / 4 grid is 3.4 GB at 300k); on the test its points sit 0.801 pitch
@@ -9929,6 +10085,114 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   head-on 10 %, crevice 0.2–0.3 %), so the offset is also read in bins of the distance to the nearest training outline
   (|n · d| < 0.5; run's render pixels 0 / 0.1 / 0.25 / 0.5 / 1 / 2 / ∞). (5) (4b)'s half and double resolutions on seed
   97 only. Runs: three CPU slots (`d157_queue.sh`, nice 10, 6 threads each) from 10:32:53.
+  **Result, read 2026-10-21 13:05 CDT (237 states: 66 at 300k, 171 at 40k, every reader task rc 0; server
+  `output/gpu/d157/tables/` table.json, table.txt, summary.txt, gate.txt; local `output/results_2026-10-21/d157_metrics/`
+  with a Korean README and three figures).** In one line: standard metrics do see the render. At 300k 13 of the 14
+  decision metrics see it by the pre-registered rule (all gains, 21–22 of 22 pairs, 6 of 6 meshes); at 40k 6 of 14 do,
+  and the other 8 are significant and consistent but below the 5 % bar. No metric sees a loss at either N.
+  - Gate. 40k: the reader's pooled 1 − IoU equals D154's on all 171 states, to ≤ 7.8e-7 on the 135 watertight ones
+    (≤ 8.6e-5 on the fan-closed bunny, dragon, maxplanck, ogre: the closure). 300k: median 0.13 %, 4 of 66 above 1 %
+    (teapot 99 own / L / P up to 2.4 %, teapot 101 L 1.07 %). With D154's 300k constants (the independent sample's box
+    and pitch) the reader gives D154's teapot-99 values to ≤ 5.5e-7 (`d157_gate_box.py`), so the gap is the constants,
+    not the reader. Referee: c = 0.67–0.95 pitch by mesh; the grown mesh's points sit at c ± 0.004 on average (sd ≤
+    0.022; A 0.196 at its sharp concave corners). Dragon and beast stay non-watertight after the fan (signs by a
+    three-ray majority). The teapot's closed inner cavity, which the sampler fills, makes its thin labels wall-thickness
+    labels.
+  - The decision set: held-out views at 1024 px against the corrected referee; 3D on the exterior. r = the share of
+    the twin's error the arm removes, median over pairs; then pairs with the arm better, Wilcoxon p, meshes with r > 0.
+
+  | metric | 300k | sees | 40k | sees |
+  |---|---|---|---|---|
+  | Boundary IoU (2 % diag.) | +16.3 % (22/22, 4.8e-7, 6/6) | yes | +7.1 % (52/57, 1.9e-9, 17/19) | yes |
+  | boundary F (DAVIS, 12 px) | +0.9 % (12/22, 0.79) | no, saturated (error 0.003) | +12.5 % (31/57, 0.073, 11/19) | no |
+  | 2D contour Chamfer | +20.2 % (21/22, 4.8e-6, 6/6) | yes | +8.4 % (54/57, 8.0e-10, 18/19) | yes |
+  | 2D contour HD95 | +19.6 % (21/22, 2.6e-4, 6/6) | yes | +8.1 % (50/57, 7.5e-9, 18/19) | yes |
+  | 3D F-score @ 0.5 pitch | +36.4 % (22/22, 4.8e-7, 6/6) | yes | +8.0 % (46/57, 8.5e-5, 16/19) | yes |
+  | 3D F-score @ 1 pitch | +14.4 % (22/22, 4.8e-7, 6/6) | yes | +3.5 % (39/57, 2.7e-4, 15/19) | < 5 % |
+  | 3D normal consistency | +9.2 % (21/22, 9.5e-7, 6/6) | yes | +2.8 % (42/57, 3.2e-5, 15/19) | < 5 % |
+  | 3D Chamfer-L1 | +12.9 % (22/22, 4.8e-7, 6/6) | yes | +4.3 % (46/57, 3.2e-6, 16/19) | < 5 % |
+  | shaded PSNR | +0.73 dB, MSE +15.4 % (22/22, 6/6) | yes | +0.30 dB, MSE +6.7 % (53/57, 3.0e-9, 18/19) | yes |
+  | shaded SSIM | +10.7 % (22/22, 6/6) | yes | +3.0 % (52/57, 2.5e-9, 18/19) | < 5 % |
+  | shaded LPIPS | +7.0 % (22/22, 6/6) | yes | +2.5 % (47/57, 1.9e-6, 17/19) | < 5 % |
+  | normal-map PSNR | +0.96 dB, MSE +19.8 % (22/22, 6/6) | yes | +0.36 dB, MSE +8.0 % (53/57, 7.2e-10, 18/19) | yes |
+  | normal-map SSIM | +9.0 % (22/22, 6/6) | yes | +2.7 % (51/57, 1.5e-7, 17/19) | < 5 % |
+  | normal-map LPIPS | +10.0 % (22/22, 6/6) | yes | +3.8 % (51/57, 1.8e-6, 17/19) | < 5 % |
+
+    Holm-adjusted p over the decision set: 300k ≤ 5.1e-4 for the 13; 40k ≤ 2.6e-4 for the 6 and ≤ 5.3e-4 for the 7
+    below 5 % (DAVIS 0.073). Absolute values, 300k arm / twin / perfect sample: BIoU error 0.054 / 0.068 / 0.052,
+    F@0.5 0.895 / 0.832 / 0.940, NC 0.976 / 0.973 / 0.964, normal-map PSNR 27.97 / 26.85 dB; 40k: BIoU 0.087 / 0.092 /
+    0.103, F@0.5 0.944 / 0.942 / 0.948, normal-map PSNR 25.71 / 25.46 dB. The ends are smoother than a perfect sample
+    (NC, LPIPS and SSIM of both arms better than the own sample's); the arm closes 53–90 % of the twin's gap to the perfect
+    sample on the contour metrics and F@0.5 at 300k.
+  - Against the gallery's measures. The gallery's binary IoU (128 px against the run's own sample): 300k +2.3 % (14/22,
+    p 0.033), not seen; 40k +4.5 % (48/57, 19/19, p 4.4e-9), consistent but below 5 %. Exact mask IoU at 1024 px
+    against the raw mesh: 300k +5.2 % (22/22; 78–80 % of that error is the exterior's own offset: 0.0525 raw against
+    0.0108 corrected), 40k −0.9 % (19/57, the arm slightly worse; item 4). The run's own `thin_uncovered`: 300k +2.8 %
+    (12/22, p 0.20), 40k +3.7 % (p 0.096), not seen; the mesh-referenced thin recall within one pitch: 300k +9.9 %
+    (16/22, p 7e-4), 40k +5.3 % (p 0.015).
+  - The referee. Against the raw mesh at 300k the render is still seen by mask IoU (+5.2 %), boundary F at one pitch
+    (+33.9 %), HD95 (+9.9 %), F@1 (+11.2 %), NC (+8.5 %, offset-free by construction), thin recall (+7.9 %), shaded
+    and normal-map PSNR (+0.34 / +0.32 dB), LPIPS (+6.9 / +7.0 %) and the normal angle (+6.1 %); BIoU at 2 % (+4.0 %)
+    and Chamfer-L1 (+3.4 %) are below 5 %. At 40k no raw-referee metric passes the rule (medians −1.1 … +5.9 %): the
+    shared offset dominates, and the arm's exterior sits 0.006 pitch farther out than the twin's (item 4).
+  - Generality. Training / held-out / far views (BIoU 2 %, 1024 px): 300k +22.2 / +16.3 / +15.4 %, 40k +7.2 / +7.1 /
+    +7.5 %, so the gain is not specific to the views the loss sees. 256 / 512 / 1024 px: 300k +16.6 / +16.5 / +16.3 %,
+    40k +7.2 / +7.2 / +7.1 %. The display surface (zbs) reads as the exterior (zb) to ±0.1 point (F@0.5 +36.4 / +36.4 %
+    at 300k, +7.9 / +8.0 % at 40k).
+  - Against the predictions. 300k: the contour metrics as predicted (+20 %), 3D F@0.5 above it (+36 %), BIoU at 2 % of
+    the diagonal wrong (predicted < 5 %, +16 %: the corrected referee removes the offset that would fill the band), the
+    images larger than predicted (+7…+20 % against < 5 %). 40k: contour about half 300k's as predicted, 3D small, the
+    images not neutral (PSNR +0.3 dB seen).
+  - **(4), the outward bias: undecided by the pre-registered rule, the mechanism measured.** (i) The 2 : 1 asymmetry's
+    bias is outward at both N on every state read: the twin +0.067 (300k, 0.060–0.092) and +0.062 pitch (40k,
+    0.045–0.210), the perfect sample +0.039 / +0.042, the arm +0.016 / +0.024. (ii) At 40k the term asks the twin to
+    move +0.075 pitch (0.041–0.105) but the arm sits only +0.006 (42/57 pairs, p 5.9e-5; +0.011 on the bias subset)
+    outside it, a factor 7–12, not within 2. (iii) The extra outward offset is larger on rims than head-on in 35 of 57
+    pairs (median +0.009, p 0.020), short of the rule (2/3 and p < 0.01). Not refuted either: the bias is far above a
+    quarter of the observed difference and the rim difference is positive. What the numbers do show:
+    - The bias is set by the pitch, not the pixel. At half / run / double resolution it is +0.061 / +0.067 / +0.083
+      (300k twin) and +0.050 / +0.062 / +0.059 (40k twin). Both N have 1.0–1.1 pitches a render pixel, so the 40k
+      pictures are not coarser in pitches and the "coarser pictures" half of the hypothesis is refuted. The target
+      pictures' edge is 0.44–0.50 pitch wide for the 8-draw mean and 0.27–0.33 for one draw: a single surface cannot
+      match the averaged edge, and the 2 : 1 weight settles the mismatch outward.
+    - What differs between N is the symmetric part. The 300k twin's exterior lies outside the target pictures (its
+      (1,1) optimum −0.104 pitch), so the term's net wish is inward (−0.035), and the arm moves inward by just that
+      (−0.035 against the twin, 22/22, most on the outline: −0.047 in the 0–0.1-pixel bin, −0.020 beyond 2 px). The 40k
+      twin sits at its (1,1) optimum (−0.000), so the asymmetry's +0.075 is the only wish left, and the arm moves
+      outward on the outline (0–0.1-pixel bin +0.008, 43/57, p 2.8e-5; 0.1–0.25 +0.005, p 0.003; beyond 0.25 px not
+      significant).
+    - Inferred: at 40k the 2 : 1 asymmetry is the source of the arm's outward lean and of its +1 % exact-IoU error, but
+      only about a tenth of the term's uniform optimum is realised (the volume and transport hold the body). The same
+      bias in pitches is twice as large in world units at 40k (the pitch is twice as large).
+    - Coverage of (4b): bunny and dragon, every seed at both N (pre-registered first); of the other meshes A × 3 and
+      C × 2 at 40k and teapot at 300k when this was written (the rest still running; appended when done).
+  - **Recommendation for the paper.** Lead with three standard metrics, all against the exact target mesh on views the
+    loss never sees:
+    (1) Boundary IoU [Cheng et al. 2021] on held-out views, the drop-in replacement for mask IoU: the error falls 16 %
+    at 300k (22/22 pairs, 6/6 meshes) and 7 % at 40k (52/57, 17/19).
+    (2) The 3D F-score at τ = 0.5 pitch [Knapitsch et al. 2017; Tatarchenko et al. 2019], with τ = 1 pitch alongside:
+    1 − F falls 36 % at 300k (22/22) and 8 % at 40k (46/57).
+    (3) Novel-view PSNR of studio-shaded images and normal maps [as in NeRF and 3DGS]: +0.73 / +0.96 dB at 300k
+    (22/22) and +0.30 / +0.36 dB at 40k (53/57). LPIPS [Zhang et al. 2018] and SSIM [Wang et al. 2004] agree at 300k
+    (−7 … −11 %) and are below 5 % at 40k.
+    Every surface metric compares the exterior with the mesh grown by the exterior's own offset (the perfect sample's
+    measured c), so a perfect particle placement scores near zero; the raw-mesh numbers go to the supplement (300k: 9 of
+    the 14 still seen against the raw mesh; 40k: none).
+    Paper sentences (proposed): "Binary mask IoU is dominated by interior pixels and is insensitive to boundary
+    quality [Cheng et al. 2021]. At our gallery's 128-px resolution one pixel spans about 1.8 particle spacings, so the
+    render term's sub-spacing reshaping of rims changes it by only 2–5 % (not significant at 300k). On views not used
+    in training, against the exact target mesh, the same term lowers the boundary-IoU error by 16 % (300k, 22 of 22
+    paired runs) and 7 % (40k, 52 of 57), and the 3D F-score error at half a particle spacing by 36 % and 8 %."
+  - What it implies. The render's effect is not too small for standard metrics: at 300k it is 7–36 % on every
+    boundary-, surface- and image-level metric that is not saturated. At 40k it is real but modest (7–8 % on the
+    contour metrics, F@0.5 and PSNR; 2.5–4.3 % elsewhere), so the 40k gallery carries the contour metrics and the 300k
+    runs carry the headline. The image-only-target experiment (D156) is not needed to show that the render term acts;
+    it remains the test of a target given by images alone.
+  - Operations. CPU only on hyde06 (no card): three queue slots at nice 10, 6 threads each, 10:32–13:00 for the 237
+    states and the bunny/dragon bias, load 10–20. LPIPS from `pip --target deps/d157_lpips` (lpips 0.1.4, AlexNet
+    weights in the /data torch cache); the env untouched. **A slip:** at 10:35 one status check listed my queue's
+    child processes with `pgrep -f` (read-only, nothing stopped); the rule forbids pgrep -f entirely. Every later check
+    used the recorded slot PIDs (1525265–1525267) only. Disk: `output/gpu/d157` 17 MB.
 - **D156, a target given only by images: the visual hull of the 18 training silhouettes as the transport's and the
   body's target, the true mesh's pictures as the render's (pre-registered 2026-10-21 12:45 CDT, before any run of it;
   the user approved it on 2026-10-21: "1 & 2도 다 해야지. SIGGRAPH에 내야 하는 거야"; code: branch `wip/d156` 3270b5f =
