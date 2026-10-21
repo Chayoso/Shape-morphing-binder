@@ -6,7 +6,7 @@ B=/data/relcfd/chayo/physmorph_v2; W=$B/tmp/d156
 source $W/env.sh
 export CUDA_VISIBLE_DEVICES="" D157_THREADS=6 OMP_NUM_THREADS=6 MKL_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6
 export PYTHONPATH=$B/deps/d157_lpips:$B/repo_d156:$W
-JOBS=$1; OUT=$2; SLOTS=${3:-3}
+JOBS=$(readlink -f $1); OUT=$(readlink -f $2); SLOTS=${3:-3}
 cd $B/repo_d156
 grep -v '^#' $JOBS | awk 'NF' > $OUT.all
 awk -v s=$SLOTS -v o=$OUT '{k=$1" "$2" "$3; if (k!=last) {c++; last=k} print > (o "_s" (c % s) ".jobs")}' $OUT.all
