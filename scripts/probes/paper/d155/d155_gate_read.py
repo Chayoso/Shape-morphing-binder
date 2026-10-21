@@ -159,6 +159,26 @@ def read(name, d):
     mq = re.search(r"local volume quantiles p05 / p50 / p95 \[([^\]]*)\]", log)
     if mq:
         out["morph"]["final_vol_q"] = [float(v) for v in mq.group(1).split(",")]
+    # D155d: the elastic energy the body carries (records of --record_elastic), the rest volume and the kinetic energy
+    # around the moving target's end; the same fixed times for every arm (3.3 s = A3's ramp end at 40k)
+    def at(tq, key):
+        c = [(abs(tt - tq), h.get(key)) for tt, h in zip(t, hist) if h.get(key) is not None]
+        return min(c)[1] if c else None
+    el = [(tt, h) for tt, h in zip(t, hist) if h.get("E_el") is not None]
+    if el:
+        on = [h for tt, h in el if tt <= 3.3 + 1e-9]
+        out["elastic"] = dict(ramp_max=max((h["E_el"] for h in on), default=None),
+                              ramp_vol_max=max((h["E_el_vol"] for h in on), default=None),
+                              ramp_max_t=max(((h["E_el"], tt) for tt, h in el if tt <= 3.3 + 1e-9), default=(0, None))[1],
+                              at1=at(1.0, "E_el"), at2=at(2.0, "E_el"), at33=at(3.3, "E_el"), vol_at33=at(3.3, "E_el_vol"),
+                              end=el[-1][1]["E_el"], end_vol=el[-1][1]["E_el_vol"],
+                              Je_p99_ramp_max=max((h["Je_p99"] for h in on), default=None),
+                              Je_p01_ramp_min=min((h["Je_p01"] for h in on), default=None),
+                              Je_p99_end=el[-1][1]["Je_p99"], Je_p01_end=el[-1][1]["Je_p01"])
+        out["curves"].update(E_el=[h.get("E_el") for h in hist], E_vol=[h.get("E_el_vol") for h in hist])
+    out["J_at33"] = dict(mean=at(3.3, "Jx_mean"), p99=at(3.3, "Jx_p99"), Jp_p99=at(3.3, "Jp_p99"), Jp_p01=at(3.3, "Jp_p01"))
+    kr = [k for tt, k in zip(t, kin) if 3.0 - 1e-9 <= tt <= 4.5 + 1e-9]
+    out["kin_release"] = float(max(kr)) if kr else None
     bs = [h.get("morph_build_s") for h in hist if (h.get("morph_build_s") or 0) > 0 and (h.get("morph_s") or 1) < 1]
     ta = [h.get("t_attempt") for h, r in zip(hist, ramp) if r and h.get("t_attempt")]
     out.update(build_s_mean=float(np.mean(bs)) if bs else None, ramp_attempt_s=float(np.mean(ta)) if ta else None)

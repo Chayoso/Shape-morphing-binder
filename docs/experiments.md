@@ -9711,7 +9711,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   within the tag's range on ≥ 4 of 5 per measure (from D155b's ordering of the misses with the volume excess); (1), (3),
   (4), (5) as D155b. If it fails: the next root cause from the frames and the next definition, with numbers.
   **D155c read (runs 2026-10-21 10:23–11:10 CDT on GPU 3; suite reruns and the target dumps 11:20–12:08 on GPU 1; read
-  11:10–12:25 CDT; `output/gpu/d155/gate/` (`gate_all.jsonl`, `summary_c/`, `jcourse_c.log`, `zdump_*40k.npz`,
+  11:10–12:12 CDT; `output/gpu/d155/gate/` (`gate_all.jsonl`, `summary_c/`, `jcourse_c.log`, `zdump_*40k.npz`,
   `zread_*.log`, `follow_*.log`, `forensic_c.log`, `spots_c_*.log`, `twinj_c.log`); local
   `output/results_2026-10-17/d155_together/gate40k_c/`). FAIL by the letter: item 6 (6a 2 of 5, 6b mean 0 of 5, p99 0 of
   5) and item 2 (yardstick silhouette 3, shading 3 of 5); items 1, 3, 4, 5 and the render lead 5 of 5.**
@@ -9788,6 +9788,48 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   volume's link), so the gate adds the render arm's seeds 99 / 101 on dragon and homer (4 runs) and reads item 2 by the
   letter and against the ramp arm's own three seeds. Risk: the elastic energy held on the way (the at-rest and kinetic
   items read it). Cost: the 40k gate, about 1 card-hour, plus 4 runs (≈ 15 card-minutes).
+  **D155d, the targets on the way do not set the body's rest volume (pre-registered 2026-10-21 12:18 CDT server clock,
+  before any run of it; the coordinator's go, with both criteria changes accepted because they are fixed here, before
+  the first run).** *Definition:* with option A on (the moving target, u reading the final target: D155b's A3G), the
+  plastic assimilation is isochoric in a window whose target is one on the way (s < 1) and takes the volume from the
+  final target on (s = 1); D155c's rescale is not used. No constant. Code `wip/d155` 42c8f81 (`--morph_assim final`,
+  `cfg.morph_assim_final`; the default `always` = D135 on every window), deployed as `repo_d155d` / `repo_d155ds`. A
+  record, not read by the run: `--record_elastic`, per committed window the elastic energy the body carries into the
+  next window, E_el = Σ V0 ψ(F Fp⁻¹) (fixed corotated, the window's Lamé parameters), its volumetric part E_vol = Σ V0
+  λ/2 (J_e − 1)², and J_e's p01 / p99.
+  *Gates of the default path:* deterministic 40k bunny four windows on `repo_d155ds` against the tag's run A: SAME; the
+  same with `--record_elastic`: every frame and metric SAME, the history differing only by the added record fields;
+  pinned references; the full suite on a card (exit status).
+  *Runs (one card, lock protocol, agent D155):* A3D = A3G + `--morph_assim final --record_elastic`: bunny, dragon, teapot,
+  armadilo, homer at 40k, seed 97, render arm L and twin P (10 runs); render arm seeds 99 and 101 on dragon and homer
+  (4 runs). References for the elastic energy only (not judged): the tag's V97 and D155b's A3GL97 re-run with
+  `--record_elastic` on the five meshes (10 runs; the record does not change a run, the gate above proves it). The tag's
+  V / W at seeds 97 / 99 / 101 and D155b's A3G / D155c's A3C as read are the references of the items.
+  *Criteria (A3D render arm):* (1), (3), (4), (5) and the render lead over the twin as D155b's, on ≥ 4 of 5 at seed 97.
+  (2) the end, each measure (IoU against the independent sample, yardstick silhouette and shading, display, thin) not
+  below the tag's worst seed on ≥ 4 of 5, read twice: by the letter (seed 97 on all five) and with dragon and homer read
+  by the median of the ramp arm's three seeds (97 / 99 / 101); (2) holds if it holds on either reading, both reported.
+  Reason (criteria change 2): in D155c's reading item 2's misses moved between the ramp variants by more than the tag's
+  own seed spread (homer yardstick silhouette 0.952 / 0.809 / 0.936 for A3 / A3G / A3C against the tag's 0.757–0.809),
+  and the tag is read on three seeds; one ramp seed cannot separate the definition from the stop rules' timing. (6a) the
+  ramp's largest mean J at most 1.03 on ≥ 4 of 5. (6b) at the delivered end the mean J within the tag's range OR nearer
+  1 than the tag's nearest seed (|J − 1| ≤ the smallest |J_tag − 1|), and J's p99 not above the tag's largest, each on ≥ 4
+  of 5. Reason (criteria change 1): with the volume not assimilated on the way the rest volume at s = 1 is the source's,
+  so the end may keep less volume than the tag, which keeps part of its own arrival's transient (+0.45 / +1.4 % on bunny /
+  dragon); nearer the rest volume is not worse, and the old rule would fail it for being below the tag's smallest. All
+  six → pass. Reported, not judged (the risk named in D155c's reading): the elastic energy E_el and E_vol over time,
+  their largest on the ramp, at s = 1 and at the end, against the tag's and A3G's re-runs; J_e's p99; the kinetic energy
+  around s = 1 (the release); the at-rest and peak kinetic items read the risk. Also reported: J's mean / p01 / p99 course,
+  det Fp at s = 1, the ramp's cosine, A_lin / A_log / P90, momentum, minutes, the twins, the render's influence.
+  *Predictions:* (6a) the ramp's largest mean J below A3G's (1.029 / 1.100 / 1.008 / 1.051 / 1.057) on 5 of 5 and ≤ 1.03
+  on ≥ 4 of 5; det Fp = 1 on the way (by construction); the mean J falls back toward 1 as s → 1 (at s = 1 below A3G's
+  1.016 / 1.081 / 1.025 on bunny / dragon / homer); (6b) on ≥ 4 of 5 each; E_vol on the ramp above the tag's and A3G's
+  re-runs on 5 of 5 (the volume is now held elastically), E_el at the end within 2 × the tag's on ≥ 4 of 5; (1), (3),
+  (4), (5) as D155b (the release is slow: the smoothstep ends flat); (2): shading within the tag's range on ≥ 4 of 5 (its
+  link to the volume, ρ 0.41–0.56), the silhouette measures as D155b's on seed 97 (2–3 of 5) and ≥ 4 of 5 on the
+  three-seed reading (uncertain). If it fails: the next root cause from the frames and the next definition, with
+  numbers. *A slip recorded:* at 2026-10-21 about 12:13 CDT a local `python3 --version` ran in a no-op shell guard
+  (it printed the version; nothing else ran).
 - **D157, standard metrics that see the render, or a plain statement that none does: boundary-sensitive silhouette
   metrics, 3D F-score / normal consistency / Chamfer and novel-view PSNR / SSIM / LPIPS against the exact mesh, on the
   existing end states (a measurement; no pipeline change, no run; opened 2026-10-21 10:16 CDT server clock; the
