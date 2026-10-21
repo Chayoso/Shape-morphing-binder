@@ -14468,6 +14468,62 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   offset and the decoupled count. Refuted if the offset sits in the transport without support.
 - **Gradient dumps** of a 300k bunny run (`$OUT/viz/`), for a video of the per-particle render and physics gradients
   and the losses over the morph (large loss red, small green).
+- **SHOWCASE, the 300k showcase gallery for the paper and the video (pre-registered 2026-10-21 12:14 CDT server clock,
+  before any run of it; the coordinator relaying the user, 2026-10-21: "이제 300K 다양한 예제도 만들어봐야 할 거 같고 …
+  SIGGRAPH에 내야 하는 거야"; a showcase, so no pass / fail gate: every result is reported, failures included, each
+  failure with its frame-level cause and a proposed fix; scripts `scripts/probes/paper/showcase/` (server
+  `tmp/showcase/`), results `output/gpu/showcase/`, local `output/results_2026-10-21/showcase300k/` with a Korean
+  README).**
+  *Code.* The tag freeze-2026-10-15-rt1 (6c9b0e9) on `repo_t1s` (its kept-frames copy), the defaults:
+  `pipeline_run.py --src assets/SRC.obj --tgt assets/TGT.obj --n 300000 --seed 97`; the λ = 0 twin adds
+  `--render_weight_scale 0`. No pipeline change and no new option.
+  *Shape to shape.* `--src` takes any mesh (default `assets/isosphere.obj`): prepare normalises the source to a
+  bounding-box diagonal of 8 wu, scales the target to the source's volume and sets the MPM cell to the source's
+  diagonal / 26. The cell is therefore 0.31 wu for every source, while a less compact source has a smaller volume, so
+  the body is smaller in cells. At 300k the cell holds about 178 particles from the sphere, 332 from the bunny, 294 from
+  the teapot, 380 from spot and 742 from the armadillo (`sc_assets.py`, `showcase/assets.jsonl`): the pairs run on a
+  cell 1.2–1.6 times coarser relative to the body than the gallery. This is the frozen rule as written; it is reported,
+  not changed.
+  *Runs (seed 97; two chains `sc_chain.sh`, one card each by the lock protocol, agent SHOWCASE, at most two cards,
+  each released after three items and claimed again after 10 idle minutes).*
+  - A, the gallery: sphere → A, beast, bimba, C, cheburashka, cow, fandisk, heart, maxplanck, nefertiti, ogre, spot,
+    V, render arm L (13 runs). None is skipped: on the tag at 40k all 19 gallery meshes ran to rc 0 and ended near
+    their own samples (D154 (3b): exact 1 − IoU at 1024 px 0.037–0.125 against the own sample's 0.046–0.122). Twins P:
+    maxplanck (relief) and fandisk (sharp CAD edges).
+  - B, shape to shape (L): bunny → dragon, teapot → bob (genus 1 → 1: the handle's hole closes, bob's opens), spot →
+    cow, armadillo → homer, bunny → happy (genus 0 → 6). Twins P: bunny → dragon, teapot → bob.
+  - C (optional, a genus-high target the gallery lacks): sphere → happy. Happy Buddha, Stanford 3D Scanning Repository
+    (research use with credit, as bunny, dragon, armadillo), the 49k-vertex copy of alecjacobson/common-3d-test-models
+    (`data/happy.obj`), on the server in `tmp/showcase/assets_extra/` (outside `assets/` and the tag's copy). Its fill
+    at the 300k sampling pitch has 6 tunnels, one piece, no cavity (`sc_genus.py`: χ of the voxel solid; teapot and
+    bob 1 tunnel each).
+  - The existing B1 render arms (bunny, dragon, teapot, bob, armadilo, homer, L97, `d145t_b1`) are rendered for the
+    montage; their readings are D145's (`tab_tx.jsonl`), no new run.
+  *Readings per run (the table).* The run's JSON: silhouette IoU against its own target sample, thin uncovered,
+  windows, minutes, the end's kinetic record (rest). Against an independent 300k sample in the run's own frame (seed
+  99; `sc_ind.py` = `independent_sample.py` with the source as an argument, call for call the same for the sphere):
+  silhouette IoU and chamfer (`endgen145t.py`), the yardstick's exterior silhouette and shading (`render_terms_probe`),
+  the display's 1 − IoU front / back (`surface_layer_probe` measure, whole picture). Momentum on every kept frame
+  (`momentum_probe`: the centre of mass's largest move, angular net / gross, net rotation). Pieces: apart particles over
+  windows 3–10 (`d120_apart.py`), the visible blobs over the whole run and at its end (`visible_apart.py`, every 4th
+  kept frame), the pieces off the body at the end (`pieces145.py`: count, ≥ 10 particles, ≥ 5 pitches). Twin lead:
+  (L − P) / P of the yardstick silhouette, the display front 1 − IoU, the independent 1 − IoU and thin.
+  *Renders.* `render_deliverable.py +fit=0 +field=zbs` (the base display, the studio look), 3840 × 2160 at 20 fps, the
+  1080p video a Lanczos downscale of the same frames; the camera chosen per example from a preview strip of the
+  independent sample (`sc_views.py`, six azimuths), at least one frame per video checked by eye; stills and a contact
+  sheet at t = 0, 0.25, 0.5, 0.75, 1, 1.5, 2.5 s and the end; the montage's middle frame is the first kept frame with
+  progress p ≥ 0.5 (`sc_mid.py`: p = 1 − d(k) / d(0), d the symmetric mean nearest distance to the target sample).
+  *Predictions.* A: all 13 rc 0, 10–35 min each; silhouette IoU against the independent sample 0.975–0.990 on at least
+  11 of 13 (B1's six: 0.9864–0.9899); lower and with more end pieces on beast and ogre (20 and 45 open bodies, thin
+  limbs and horns); thin uncovered highest on beast, ogre and cheburashka; the twins behind L on the yardstick
+  silhouette by 30–55 % and the display front by 15–30 % (B1's ranges), silhouette IoU within ±0.002. B: rc 0; IoU ≥
+  0.97 on bunny → dragon, teapot → bob and spot → cow; armadillo → homer lower (the coarsest cell: homer's arms about
+  1.5 cells thick may stay webbed to the body until late); teapot → bob changes its hole within the first second;
+  bunny → happy and sphere → happy open the wider tunnels and leave those narrower than about two cells closed or
+  opened late (D139's gap rule); minutes above the gallery's on the coarser cells.
+  *Disk.* Kept frames 1–2.3 GB a run (about 25 GB in all); the twins' kept frames are removed after their readings,
+  the render frames after both videos exist (`cleanup.log`); the render arms' kept frames stay until the deliverable is
+  accepted.
 
 ## To run next, in order
 

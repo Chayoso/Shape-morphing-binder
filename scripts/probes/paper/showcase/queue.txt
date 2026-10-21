@@ -1,0 +1,18 @@
+# SHOWCASE queue (sc_chain.sh): run NAME SRC TGT AZ EL [args] | render NAME AZ EL VIEW
+# A: the gallery at 300k, sphere -> mesh, render arm, seed 97
+run nefertiti300k_L97 isosphere nefertiti 35 18
+run maxplanck300k_L97 isosphere maxplanck 35 18
+run spot300k_L97 isosphere spot 35 18
+run cow300k_L97 isosphere cow 35 18
+run fandisk300k_L97 isosphere fandisk 35 18
+run bimba300k_L97 isosphere bimba 35 18
+run heart300k_L97 isosphere heart 35 18
+run cheburashka300k_L97 isosphere cheburashka 35 18
+run ogre300k_L97 isosphere ogre 35 18
+run beast300k_L97 isosphere beast 35 18
+run A300k_L97 isosphere A 35 18
+run C300k_L97 isosphere C 35 18
+run V300k_L97 isosphere V 35 18
+# A: the twins
+run maxplanck300k_P97 isosphere maxplanck - - --render_weight_scale 0
+run fandisk300k_P97 isosphere fandisk - - --render_weight_scale 0
