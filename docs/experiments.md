@@ -6592,6 +6592,66 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       within B9 G2L97's level (0.9863). Heights within 0.2 pitches, shapes within 1°. The material frame turns
       5–20° and 6 of 8 runs miss rest. The render arm leads its twin on the yardstick silhouette and shading. 300k
       minutes: bunny about 12–18, dragon 20–30.
+  - **Option 1, the 300k read (chain 10:18–13:03 CDT on GPU 2; read 13:05–13:30; `world/read_300k.md`; local
+    `output/results_2026-10-21/b9b_gravity_world/300k/`). GATE 300k: PASS.** Every render arm reaches, ends at the
+    target's height, stands upright, has no serious piece at the end and commits all its windows; the twins pass too.
+
+    | 300k | bunny L97 / L99 / L101 (P97) | dragon L97 / L99 / L101 (P97) | B9 single-body G2L 97 / 99 / 101 (G2P97) | no gravity, tag L 97 / 99 / 101 |
+    |---|---|---|---|---|
+    | silhouette IoU ind (bar) | 0.9873 / 0.9875 / 0.9866 (0.9863); bar 0.9760 | 0.9879 / 0.9871 / 0.9874 (0.9854); bar 0.9766 | bunny 0.9863 / 0.9426 / 0.9443 (0.9289); dragon 0.9887 / 0.9881 / 0.9870 (0.9875) | bunny 0.9860–0.9891; dragon 0.9866–0.9887 |
+    | chamfer ind | 0.05533 / 0.05540 / 0.05539 (0.05531) | 0.05536 / 0.05557 / 0.05524 (0.05548) | bunny 0.0556 / 0.0613 / 0.0609; dragon 0.0554 / 0.0557 / 0.0556 | 0.0551–0.0552 / 0.0545–0.0546 |
+    | thin | 4.0 / 4.5 / 3.6 % (3.4) | 3.7 / 4.6 / 3.5 % (4.1) | bunny 4.0 / 29 / 30 %; dragon 3.5 / 3.8 / 3.8 % | 3.9–4.1 / 3.0–3.4 % |
+    | yardstick silhouette e-4 | 11.2 / 16.9 / 11.2 (22.1) | 8.0 / 11.9 / 6.9 (18.3) | bunny 13.3 / 191 / 188 (275); dragon 7.9 / 11.8 / 8.3 (27.2) | 7.0–7.7 / 5.3–5.8 |
+    | yardstick shading e-4 | 6.9 / 7.7 / 6.9 (9.1) | 6.1 / 7.4 / 6.3 (9.2) | bunny 7.3 (G2L97), 81–84 (the two stopped) (110); dragon 6.5 (G2L97), 7.2–8.0 (11.0) | 4.7–4.8 / 4.5–4.6 |
+    | display front 1−IoU % | 1.23 / 1.37 / 1.25 (1.65) | 1.23 / 1.52 / 1.01 (1.91) | bunny 1.29 (G2L97), 6.1–6.4 (7.2); dragon 1.18 (G2L97), 1.24–1.62 (1.90) | 0.92–0.98 / 0.88–0.99 |
+    | end height vs standing target | −0.08 / −0.07 / −0.08 pitches | −0.14 / −0.19 / −0.12 | at it (bunny G2L97 −0.17, dragon −0.06) | – |
+    | shape tilt (material tilt) | 0.09 / 0.41 / 0.17° (6.1 / 7.4 / 9.0°) | 0.38 / 0.39 / 0.16° (16.1 / 16.5 / 13.7°) | bunny 0.22°, dragon 0.17° (8.3 / 5.2°) | – |
+    | the sag, largest drop | 0.141 / 0.140 / 0.142 wu at 1.25 s | 0.270 / 0.274 / 0.264 wu at 1.40–1.45 s | bunny 2.2, dragon 2.4 pitches (G2L97) | – |
+    | at rest (V1) | no: |ω|R 0.016 / 0.016 / 0.022 wu/s | L97, L101 yes; L99 no (0.029) | not at rest by its record | – |
+    | mean particle move, last 20 kept frames | 0.031–0.033 a | 0.026–0.050 a | bunny 0.035 (G2L97); dragon 0.023–0.024 | 0.0012–0.0014 / 0.0026–0.0029 |
+    | momentum | drift 0 pitches; P_xz ≤ 7e-5; L_y / L_xz ≤ 7e-5 | 0; ≤ 7e-5; ≤ 2e-4 | – | – |
+    | serious pieces | none (largest 1 particle) | none (largest 4–10 particles at 3.8–5.9 pitches, never both at once; twin 16 at 4.7) | – | – |
+    | windows / minutes | 50 / 8.0 | 75 / 15.9–16.3 | bunny 38 / 7 / 7 windows, 5.6 / 1.8 / 1.8 min; dragon 58 / 49 / 49, 9.5–11.0 min | 8.8–11.1 / 26.6–28.7 min |
+
+    - *The bunny now reaches on 3 of 3 seeds, its twin too* (B9: 1 of 3, twin stopped at window 7). On every shape
+      measure it is inside the no-gravity runs' range (silhouette IoU 0.9866–0.9875 against 0.9860–0.9891; thin
+      3.6–4.5 % against 3.9–4.1 %) and at or above B9's one passing run. Its yardstick is 1.5–2.4× the no-gravity
+      runs' (silhouette 11.2–16.9e-4 against 7.0–7.7e-4): the cost of gravity on the surface.
+    - *The dragon: the two paths agree.* Option 1's seed ranges overlap B9 G2L's on silhouette IoU, chamfer, thin, both
+      yardstick terms and the display. Only the late particle motion is apart (0.026–0.050 against 0.023–0.024 a per
+      kept-frame pair) and the minutes (16 against 10, for 75 windows against B9's 49–58). At B9's own end times the
+      scene is within 0.002 of B9 on silhouette IoU (0.9863–0.9873 against 0.9870–0.9887).
+    - *The render's influence.* Weight: g_share 0.333 in every window, λ median 0.0036–0.0039. Against its twin at
+      seed 97, the arm ends its silhouette term at ×0.29 (bunny) / ×0.32 (dragon), lower in 100 % / 99 % of the
+      windows. Its yardstick silhouette is −49 % / −56 %, shading −25 % / −33 %, the display front 1.23 % against
+      1.65 % / 1.23 % against 1.91 %, and the silhouette IoU +0.0010 / +0.0025. What it does not change: the height,
+      the upright pose (the twins stand as well; that is the world target's doing) and the late motion (twins 0.026
+      / 0.031 a).
+    - *The side renders* (1080p, studio look with the floor, az 90, el 18, a still camera over the whole run):
+      `bunny300k_L97_side1080.mp4`, `dragon300k_L97_side1080.mp4` (see the render line below when the card frees).
+    - *What fails V1's rest bar, and why (measured): the sag is rebuilt in every window.*
+      - Over the last 2 s the material frame still turns 0.4–1.1°/s, the deformation speed holds at 0.03–0.05 wu/s
+        and the height stays fixed (−0.04 … −0.19 pitches). The shape is still and its material flows: a steady state,
+        not a decay.
+      - The no-gravity runs move 0.0013–0.0029 a per kept-frame pair at their end; these move 0.023–0.050 a. B9's
+        single-body runs, with the drag on m v, move as much (0.023–0.035 a), so the drag is not what is missing.
+      - The rate matches the creep that B9b's forensic measured without controls. Z1, the sphere with the
+        assimilation, was still sinking at 0.034 wu/s at 8 s; Z5, without the assimilation, stopped at a bounded sag.
+        At every commit the assimilation makes half the window's end strain rest shape, and the "load-free" end F
+        still carries the sag, because one window (1/6 s) is far shorter than the elastic period (1.19 s at 40k,
+        3.23 s at 300k). So the body sinks a little each window, and the controls raise it again.
+    - *The next definition (not run; for the user):* assimilate only the controls' share,
+      Fp ← stretch(F_ctrl F_zero⁻¹)^η Fp. F_zero is the end F of the window's uncontrolled continuation under the same
+      loads (gravity and the floor); η is the recipe's 0.5. No new constant.
+      - The weight's and the floor's strain appear in both F_ctrl and F_zero and cancel, so the load never becomes
+        rest shape, while the controls' deformation is assimilated as the recipe does.
+      - For a body without loads, F_zero is the uncontrolled rollout of the same start: the frozen rule's strain less
+        the window's free relaxation (to be tested against the single-body gallery before any adoption).
+      - Cost: one more rollout per window (the scene's line search already evaluates the zero control).
+      - Predicted: the per-window sinking stops (Z1 → Z5-like), the rebuild flow and the material's turn fall
+        towards the no-gravity runs' late motion (≈ 0.003 a), rest by V1's bar on most runs, and the shapes,
+        heights and uprightness as now.
+      - Gate it at 40k on this option-1 setup (L97 / 99 / 101 + P97, both meshes) against this reading.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
