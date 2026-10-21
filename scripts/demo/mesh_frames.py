@@ -15,16 +15,16 @@ import time
 import zipfile
 from pathlib import Path
 
-import numpy as np
-import torch
-import torch.nn.functional as nnf
-from numpy.lib import format as npf
-from skimage.measure import marching_cubes
-
 sys.path.insert(0, "/data/relcfd/chayo/physmorph_v2/repo_freeze1015")
-from physmorph import gpu                                      # noqa: E402,F401  (before torch's CUDA use)
+from physmorph import gpu                                      # noqa: E402  (before torch: CuPy binds its CUDA 12 compiler first)
+import numpy as np                                             # noqa: E402
+import torch                                                   # noqa: E402
+import torch.nn.functional as nnf                              # noqa: E402
+from numpy.lib import format as npf                            # noqa: E402
+from skimage.measure import marching_cubes                     # noqa: E402
 from physmorph.render.exterior import make_field              # noqa: E402
 from physmorph.render.knn_gpu import knn_self_torch            # noqa: E402
+from scripts.render_scene import base_discs                    # noqa: E402  (the paper display's discs and normals)
 
 torch.set_grad_enabled(False)
 dev = torch.device("cuda")
@@ -103,12 +103,22 @@ def surface(x, a):
     for c in Vt.split(2_000_000):
         _, gc, _ = field(c, grad=True)
         g.append(gc.float())
-    N = nnf.normalize(torch.cat(g), dim=1).cpu().numpy().astype(np.float32)
+    Nf = nnf.normalize(torch.cat(g), dim=1)
+    # the shading normals: the paper display's (render_scene.base_discs: the exterior's discs on a lattice of 0.92
+    # pitches, the field's normals averaged twice over the reach), carried to each vertex from its 4 nearest discs
+    # (inverse-distance weights); the field's own gradient where no disc is within a pitch. Geometry unchanged.
+    p, n = base_discs(x, a, "zbs", 0.92 * a)
+    dd, nn = gpu.KNN(p).query(Vt, 4)
+    w = (1.0 / dd.float().clamp_min(1e-3 * a))[..., None]
+    Nd = nnf.normalize((n[nn] * w).sum(1), dim=1)
+    far = dd[:, 0].float() > a
+    Nd[far] = Nf[far]
+    N = Nd.cpu().numpy().astype(np.float32)
     # marching cubes' winding faces the larger values (outside, the field is positive there): keep it outward for the
     # renderer by flipping when the mean of N . face normal is negative
     tri = V[F]
     fn = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
-    if float(np.einsum("ij,ij->", fn, N[F[:, 0]])) < 0:
+    if float(np.einsum("ij,ij->", fn, Nf.cpu().numpy()[F[:, 0]])) < 0:
         F = F[:, ::-1]
     return V, np.ascontiguousarray(F.astype(np.int32)), N
 
@@ -141,6 +151,6 @@ for k in mine:
         x = torch.as_tensor(x_all[s:e], device=dev)
         V, F, N = surface(x, pitches[b])
         write_ply(p, V, N, F)
-        (out / f"k{k:04d}_b{b}.json").write_text(json.dumps(dict(lo=V.min(0).tolist(), hi=V.max(0).tolist(),
+        (out / f"k{k:04d}_b{b}.json").write_text(json.dumps(dict(lo=V.min(0).tolist(), hi=V.max(0).tolist(), ylow=float(np.percentile(V[:, 1], 0.05)),
                                                                  verts=len(V), faces=len(F))))
     print(f"frame {k} raw {raws[k]} {time.time() - t0:.1f}s faces {len(F)}", flush=True)

@@ -3,7 +3,9 @@
 # four processes on the card), render them in Blender (blender_render.py), encode the mp4 (H.264, 20 fps; KIND morph
 # holds the last frame for 1 s), make the 4-panel still (start, two in-betweens, end), then delete the per-frame meshes
 # and images (logged in output/gpu/cleanup.log). KIND: morph | scene. FRAMES: a-b kept-frame indices or "all".
+# A queue line named HOLD_x parks its runner (and keeps its card) while tmp/demo/hold_HOLD_x exists.
 set -u
+case $2 in HOLD*) while [ -f /data/relcfd/chayo/physmorph_v2/tmp/demo/hold_$2 ]; do sleep 10; done; exit 0;; esac
 gpu=$1; name=$2; arc=$3; kind=$4; frames=$5; bkeys=$6
 B=/data/relcfd/chayo/physmorph_v2; D=$B/tmp/demo; S=$D/status.txt
 M=$D/mesh/$name; R=$D/frames/$name; O=$D/out
