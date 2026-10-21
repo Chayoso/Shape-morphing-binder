@@ -6289,6 +6289,105 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       ends within a pitch of the standing height; the bunny reaches on 3 of 3 seeds (B9 40k G2L97: 0.9735), since no
       brake can stop it. The twin reaches, behind its arm. At rest: no (the drag on m v is gone). Minutes like B9b's
       (3–4 / 6–7).
+  - **Option 1, the 40k read (chain 23:02–00:00 CDT on GPU 0; read 2026-10-21 10:00–10:17 CDT; `world/read_40k.md`,
+    the first reading kept as `read_40k_v1.md`).**
+    - *Proofs, both held.*
+      - The full suite exited 0 (454 passed, 2 skipped), the pinned references included (the window bit for bit, off
+        and carried, and the pipeline's digest, all PASSED).
+      - In the standing equality, B equals A: positions within 1e-5 wu; the zero control's two kinetic terms lie
+        inside A's replay range (lk 6.50–6.58e-11 against 6.52–6.58e-11). C (the option's damping) equals A when
+        driven and differs at rest on its 1e-11 kinetic terms, as in B9b.
+    - *By the letter: GATE 40k FAIL, on one item, bunny L99's upright (3.50° against 3.10°).* Every other item
+      passed on every render arm.
+    - *The frame-level forensic of L99 (`fx_tilt.py`, `tiltcheck.py`, CPU): the shape does not tilt 12°.*
+      - The 12.1° is the material (Buckens) frame. It turns 0.3° by 1 s, 3.8° by 2 s, 7.8° by 3 s, 9.4° by 4 s and
+        12.1° at 8.33 s.
+      - The shape's own tilt, fitted at every kept frame from the previous frame's fit, is 2.35° at 1.0 s (still the
+        half-formed body), 0.3° by 1.5 s and at most 0.9° from 1.75 s to the end (0.61° there).
+      - The body's least-squares angular speed is 0.09 rad/s at 1.75 s and 0.015–0.02 rad/s from 4 s on while the
+        shape stands still: material circulating inside an upright shape.
+      - The floor carries the angular momentum's changes. Horizontal L_split per window: the grid 2.5–5.0e3 during
+        the sag (1.0–1.5 s), then 27–300; u at most 10, the spacing and the relaxation at most 5.
+      - The controls act in every window (8 of 8 iterations accepted, 8–10 line-search trials) and bring the
+        silhouette term to 1e-3.
+      - L99's material sag is the deepest of the bunnies: the centroid drops 2.27 pitches at 1.40 s, against 1.26 and
+        1.18 for L97 / L101. In the sag (1.0–1.5 s) the contact patch spreads to 1200–1550 centres; as the body rises
+        again it shrinks to 300–550, and the centroid's lever over it reaches 7–9 pitches at 2.25–3 s. The shape stays
+        upright throughout.
+      - Across the render arms, the material frame turns more where the sag was deeper. Bunny: 4.1° / 6.4° / 12.1°
+        for drops of 1.18 / 1.26 / 2.27 pitches. Dragon: 14.6° / 16.8° / 20.7° for 2.27 / 2.42 / 2.77. The twins:
+        7.6° (bunny, 1.06) and 12.3° (dragon, 2.32).
+    - *The 3.50° was the measure's, not the body's.* The pre-registered shape fit (40 iterations from the Buckens
+      rotation) stops partway when the material frame has turned. At L99's end it reads 3.50° at a mean nearest
+      distance of 0.6717 pitches. Run to its end, it reads 0.37° from the Buckens start and 0.35 / 0.41° from the
+      identity, at 0.6596. A start-free grid of target tilts, 0.25° steps to 8°, puts the best at 0.71°. The same
+      flaw set the bar: B9's G2L97 bunny reads 3.10° unconverged but 0.22° converged (dragon 0.75° → 0.17°).
+      Corrected (`tobody.shape_fit`: from the identity, the Buckens rotation and the previous fit, each to its end,
+      the lowest residual), the bar is V0's 3° for both meshes. Every run now reads 0.05–0.46° at its end, and the
+      grid agrees (0.25–1.12°).
+    - *Re-read with the corrected measure (10:16 CDT, no new run): GATE 40k PASS.* This correction was made after the
+      gate's reading and is stated as such. The definition is unchanged; the measure now does what the
+      pre-registration said it does ("the rotation that best aligns the body's shape to the target's").
+    - *Is the dragon honest?* Yes, and this does not rest on the bar. Its material frame turns 12–21°, but its shape
+      stands within 0.05–0.46°, and the silhouette IoU, read in the world against the upright standing sample, is
+      0.9751–0.9756. A shape tilted 12° could not reach that: 0.8° alone costs 0.005–0.009 of IoU (V0). What a viewer
+      sees is an upright dragon at the standing height (0.05–0.08 pitches below it).
+    - *The table (40k; render arm L at 97 / 99 / 101, twin P97).*
+
+      | | bunny (scene, option 1) | dragon (scene, option 1) | B9 single-body G2L97 (bunny / dragon) | no gravity, tag (V, 3 seeds) |
+      |---|---|---|---|---|
+      | silhouette IoU ind | 0.9743 / 0.9744 / 0.9750, P 0.9707 | 0.9756 / 0.9751 / 0.9753, P 0.9736 | 0.9735 / 0.9757 | bunny 0.9731–0.9734, dragon 0.9755–0.9762 |
+      | chamfer ind | 0.1102 / 0.1107 / 0.1101 | 0.1118 / 0.1119 / 0.1122 | 0.1107 / 0.1121 | 0.1100–0.1103 / 0.1119–0.1120 |
+      | thin | 4.7 / 4.7 / 3.9 % | 5.3 / 4.7 / 6.2 % | 5.0 / 4.7 % | – |
+      | end height vs standing target | −0.03 / −0.13 / −0.04 pitches | −0.06 / −0.05 / −0.08 | at it | – |
+      | shape tilt (material tilt) | 0.12 / 0.41 / 0.16° (6.4 / 12.1 / 4.1°) | 0.33 / 0.46 / 0.05° (14.6 / 16.8 / 20.7°) | 0.22 / 0.17° (8.3 / 5.2°, 300k) | – |
+      | largest drop (the sag) | 1.26 / 2.27 / 1.18 pitches at 1.25–1.40 s | 2.27 / 2.42 / 2.77 at 1.35–1.50 s | 2.2 / 2.4 pitches (300k) | – |
+      | at rest (V1: |v_c|, |ω|R < 0.01 wu/s) | no: |ω|R 0.017 / 0.038 / 0.027 | L99 yes; L97, L101 no (0.012, 0.018) | not at rest by its record | – |
+      | momentum (drift; P_xz; L_y / L_xz) | 0 pitches; ≤ 5e-5; ≤ 5e-4 | 0; ≤ 6e-5; ≤ 6e-4 | – | – |
+      | serious pieces | none (largest 1 particle) | none (largest 2, 2.5 pitches) | none | – |
+      | windows committed / minutes | 50 of 50 / 2.0 | 75 of 75 / 3.1–3.3 | 34 / 51 windows, 1.2 / 1.9 min | – |
+
+      - The render's influence: g_share 0.333 in every window, λ median 0.0060–0.0084. The arm's silhouette term ends
+        at ×0.35 (bunny) / ×0.39 (dragon) of its twin's (median ×0.50 / ×0.41; lower in 100 % of the windows), and
+        its silhouette IoU is +0.0036 / +0.0020 higher. The upright pose is the world target's, not the render's (the
+        twins stand too).
+      - Against B9: the bunny is above B9's and the no-gravity runs' silhouette IoU (apart), with chamfer within and
+        thin lower. The dragon is 0.0001–0.0006 below B9's IoU (apart by D145's convention, by less than the
+        no-gravity seeds' own range of 0.0007), with chamfer within and thin 0–1.5 points higher. Both cost more
+        minutes, because the scene's horizon is longer (50 / 75 windows against B9's 34 / 51).
+    - *What remains, measured, not gating: the material sag and the circulation it drives.*
+      - Every body sinks 1.2–2.8 pitches in its first 1.5 s and is rebuilt to the standing height by the controls.
+      - The rebuilding leaves material circulating inside the upright shape: the material frame turns 4–21°, and the
+        least-squares angular speed stays at 0.01–0.04 wu/s at the end, so 7 of 8 runs miss V1's rest bar.
+      - B9's single-body runs circulate the same way (their material frame turns 5.2–8.3° with the drag on m v).
+      - The proposal for it, not run, for the user: the assimilation reads only the controls' share,
+        Fp ← stretch(F_ctrl F_zero⁻¹)^η Fp, with F_zero the window's uncontrolled continuation under the same loads
+        (the scene already rolls it out for the line search). The weight's sag then never becomes rest shape. B9b's
+        Z1 / Z5 show the assimilation turns the sag into an unbounded sinking, and here the turn grows with the sag's
+        depth. This is D147's earlier proposal, now with the data that call for it. No new constant.
+  - **Option 1, the 300k stage, pre-registered 2026-10-21 10:20 CDT server clock, before any run** (the 40k gate PASSED
+    on the corrected measure, as the coordinator's go asks: "if it passes, go on to the pre-registered 300k").
+    - *Code:* `wip/b9b` with `tobody.shape_fit` (deployed to `repo_b9w`; chain `chain300kw.sh`).
+    - *Runs:* bunny and dragon at 300k, L97 / L99 / L101 and P97, `specs/b9w_MESH.json`. One card idle 10 min.
+    - *Readings:* B9's read300.sh in the objective's frame (B9's world) against the 300k independent sample lifted as
+      the run's target (`ind_shift.py`): silhouette IoU and chamfer (`endgen145t.py`, at the end and at B9's end
+      times), the yardstick (exterior silhouette and shading) and the display front, momentum_probe, apart.py (niced,
+      three at once), the tracks with the corrected shape measure.
+    - *Items and bars:* as at 40k.
+      - Reach: at least the no-gravity tag L's lowest seed − 0.01 (bunny 0.9760, dragon 0.9767).
+      - Height within one pitch; upright by the shape's tilt ≤ 3°; no serious piece at the end; every window
+        committed.
+      - Rest, momentum, the render lead and minutes are reported. The sag and the material's turn are reported as
+        measured.
+      - The paths "agree" on the dragon where the seed ranges of option 1 and B9 G2L overlap on silhouette IoU,
+        chamfer and thin (D145's convention); the bunny is read against B9's one passing run (G2L97) and its three
+        stopped ones.
+    - *Renders:* the 300k L97 bunny and dragon from the side (az 90, el 18), studio look with the floor, 1080p, one
+      still camera, to `output/results_2026-10-21/b9b_gravity_world/`.
+    - *Predictions:* both meshes reach and stand. The dragon's ranges overlap B9's (0.9870–0.9887), and the bunny lies
+      within B9 G2L97's level (0.9863). Heights within 0.2 pitches, shapes within 1°. The material frame turns
+      5–20° and 6 of 8 runs miss rest. The render arm leads its twin on the yardstick silhouette and shading. 300k
+      minutes: bunny about 12–18, dragon 20–30.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
