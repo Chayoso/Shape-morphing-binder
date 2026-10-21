@@ -4,7 +4,7 @@
 # idle 10 minutes by the pool's shared first-free time; GPU 2 never: another user's desktop). Courtesy: once a card is
 # eligible the chain waits a further 90 s and claims it only if no other agent has (the queued agents poll every 60 s).
 # The card is held only while a GPU step runs; CPU steps hold none.
-#   C   the response curve (d161_curve.py): sphere and bunny at 40k, then at 300k (one card, one job at a time)
+#   C40 / C300  the response curve (d161_curve.py): sphere and bunny at 40k / at 300k (a claim each, released after)
 #   R   the 40k prototype runs (d161_runs.txt: NAME FLAGS... per line), repo_d161s (kept frames)
 B=/data/relcfd/chayo/physmorph_v2; G=$B/output/gpu; O=$G/d161; W=$B/tmp/d161; L=$B/gpu_locks
 mkdir -p $O/curve $O/runs40 $W/tmpdir
@@ -57,11 +57,13 @@ trap 'release_card' EXIT
 trap 'exit 1' INT TERM HUP
 envr() { export PHYSMORPH_RUN_REPO=$B/$1 PHYSMORPH_OUT=$G; source $B/$1/scripts/ops/hyde06_env.sh > /dev/null 2>&1; export TMPDIR=$W/tmpdir; cd $B/$1; }
 log "chain start pid $$ steps '$STEPS'"
-if [[ " $STEPS " == *" C "* ]]; then
-  claim_card curve
-  LAM40=$G/d155/gate/bunny40k_V97.json
-  LAM300=$G/d145t_b1/bunny300k_L97.json
-  for job in "sphere 40000 $LAM40" "bunny 40000 $LAM40" "sphere 300000 $LAM300" "bunny 300000 $LAM300"; do
+LAM40=$G/d155/gate/bunny40k_V97.json
+LAM300=$G/d145t_b1/bunny300k_L97.json
+for C in C40 C300; do
+  [[ " $STEPS " == *" $C "* ]] || continue
+  if [ $C = C40 ]; then JOBS=("sphere 40000 $LAM40" "bunny 40000 $LAM40"); else JOBS=("sphere 300000 $LAM300" "bunny 300000 $LAM300"); fi
+  claim_card curve_$C
+  for job in "${JOBS[@]}"; do
     set -- $job
     tag=${1}$(( $2 / 1000 ))k
     [ -e $O/curve/$tag.done ] && { log "C $tag exists, skipped"; continue; }
@@ -72,7 +74,7 @@ if [[ " $STEPS " == *" C "* ]]; then
     [ "$rc" = 0 ] && touch $O/curve/$tag.done
   done
   release_card
-fi
+done
 if [[ " $STEPS " == *" R "* ]]; then
   while read -r name flags; do
     [ -z "$name" ] && continue
