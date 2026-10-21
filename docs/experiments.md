@@ -8888,6 +8888,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   It reshapes the outline instead: the outline-shape error against the exact mesh falls 8–12 % (15 of 15 mesh-seed
   pairs, Wilcoxon p = 6 × 10⁻⁵), and the normals come about 2 % closer (14 of 15, p = 2 × 10⁻⁴), less than at 300k
   (14–33 %)."
+  **Follow-up (3b), the other 14 gallery meshes run again (the coordinator approved it on 2026-10-20 as an evidence run,
+  not an algorithm change). Pre-registered 2026-10-20 23:12 CDT server clock, before any run.**
+  - Runs: A, beast, bimba, bob, C, cheburashka, cow, fandisk, heart, maxplanck, nefertiti, ogre, spot and V at 40k ×
+    V / W × seeds 97 / 99 / 101 (84 runs). B3's lines (`tmp/d145/main.queue`): `--tgt assets/MESH.obj --n 40000
+    --seed S`, with `--render_weight_scale 0` for W. They run on `repo_t1s`, rt1's kept-frames copy, whose results
+    equal the tag's; the kept frames stay until the reading is done.
+  - Cards: one card at a time by the lock protocol (no lock, no other user's compute process, under 2000 MiB, idle 10
+    minutes by the pool's shared first-free time; GPU 2 never). Three batches, one seed each (28 runs, about 55 min at
+    B3's mean 114 s). The card is released after each batch and claimed again only after 10 idle minutes, so D155's
+    follow-up gate and B9b's world-target gate can take turns.
+  - Reading: exactly (3)'s (`d154_mesh_read.py` with `D154_REF=own`, `mesh_frames.py` at N = 40000 checked against
+    each run's own target sample; the last kept frame of V and W and the own sample; outline-shape error, exact
+    1 − IoU at 1024 px, the normal angle at the nearest mesh point, the yardstick against exact-mesh discs). At most
+    2 readers at nice 10, each batch read while the next waits for a card.
+  - All 19 meshes are then read together (the 5 of (3) plus these 14). Per mesh: V / W with seed ranges, and the
+    share of W's excess over the perfect sample. Paired tests (two-sided): the sign count and Wilcoxon over the 57
+    mesh-seed pairs, and over the 19 mesh medians.
+  - The same reading rule, scaled to 19 meshes:
+    - "Only the binary IoU is blind": the outline-shape V / W ≤ 0.90 on at least 4 / 5 of the meshes (16 of 19) with
+      p < 0.01 over the 57 pairs.
+    - "The 40k lead is small": the outline-shape V / W > 0.95 on at least 3 / 5 (12 of 19).
+    - Otherwise in between.
+  - Prediction: like (3)'s five, 0.85–0.93 on most meshes; the sharp, flat-faced shapes (A, C, V, fandisk) may differ,
+    as their 300k / 40k IoU readings did.
 - **D153, the runtime on the tag freeze-2026-10-15: where an attempt's time goes, two exact levers (merged as
   freeze-2026-10-15-rt1), how much the late windows buy, and a fixed 5–6 s horizon (opened 2026-10-16 11:26 CDT server
   clock; the user: "속도를 현재 더 줄일 수는 없을까"; at 11:35 the user's follow-up, relayed by the coordinator: "뒤로
