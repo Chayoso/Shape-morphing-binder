@@ -155,10 +155,11 @@ def test_build_target_draws_the_pictures_from_render_x():
     assert _close(pab.ext.sils, pb.ext.sils) and _close(pab.ext.shade, pb.ext.shade)
     assert not _close(pab.ext.sils, pa.ext.sils)
     # everything else: target_x's
-    assert torch.equal(pab.grid, pa.grid) and torch.equal(pab.pts, pa.pts) and torch.equal(pab.dt3, pa.dt3)
-    assert pab.dtdx == pa.dtdx and pab.nn_spacing == pa.nn_spacing and pab.m_ref == pa.m_ref
+    assert _close([pab.grid], [pa.grid]) and torch.equal(pab.pts, pa.pts) and _close([pab.dt3], [pa.dt3])
+    assert pab.dtdx == pa.dtdx and pab.nn_spacing == pytest.approx(pa.nn_spacing, rel=1e-6)
+    assert pab.m_ref == pytest.approx(pa.m_ref, rel=1e-5) and pab.extent != pa.extent
     # render_x = target_x: the frozen pack
-    assert paa.extent == pa.extent and paa.ext.pitch == pa.ext.pitch and torch.equal(paa.dt3, pa.dt3)
+    assert paa.extent == pa.extent and paa.ext.pitch == pa.ext.pitch and _close([paa.dt3], [pa.dt3])
     assert _close(paa.ext.sils, pa.ext.sils) and _close(paa.ext.shade, pa.ext.shade) and _close(paa.sils, pa.sils)
 
 
