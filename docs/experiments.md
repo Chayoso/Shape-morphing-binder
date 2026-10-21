@@ -15640,6 +15640,111 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   stood behind on the display), D107 (the rest of the window takes back what the optimisation writes in these bands:
   0–1 % of a band's offset closed per window), the transport's pull to the 300k sample, and u's bound of one spacing a
   window (the field path needs p99 1.1–1.2 spacings for the relief). The deletions of the dumps are in `cleanup.log`.
+- **D159, the render's target pictures carry the mesh's relief: the target mesh grown by the run's own exterior offset
+  (a gated A/B experiment, adoption the user's call; pre-registered 2026-10-21 17:27 CDT server clock, before any gate,
+  probe or run of it; the coordinator, relaying D158's proposal, then the user: "the dragon's scales and the bunny's
+  wrinkles", made through the physics, "rendering이 physics에 영향을 줘서 physics의 방향을 바꿀 수 있는 방법이면
+  뭐든지"; code: branch `wip/d159` 4728a84 = freeze-2026-10-15-rt1 + `--render_target`, default off; server
+  `repo_d159` (git archive) / `repo_d159s` (+ `tmp/d145/patch_s.py`, kept frames); scripts
+  `scripts/probes/paper/d159/` (server `tmp/d159/`); results `output/gpu/d159/`; local
+  `output/results_2026-10-21/d158_render_detail/` (a D159 section in its Korean README)).**
+  *Why.* D158: the loop's render pictures are eight 300k samples drawn through the run's own field, they hold no relief
+  below that field's width, and against them the relief makes the term worse; the loop's pixel would see the relief
+  (84–95 % of its gain) and u could hold 72–82 % of it. Here the pictures change and nothing else does.
+  *The definition (`--render_target mesh_shell`).* The exterior's target pictures are drawn from the target mesh grown
+  by c: the zero set of f(q) = sd(q) − c (sd the mesh's signed distance, < 0 inside; Open3D's exact closest points and
+  three-ray sign, the operator of D157's corrected referee), read by the exterior's own lattice (half a loop pixel,
+  refine off) and projection, one disc per crossed cell, normals the distance's gradient; the same operators draw
+  them (`exterior_targets`, 18 views, 188 px at 300k). c is measured per run: the mean signed distance from the mesh of
+  the run's own target exterior discs (the frozen path's discs, all eight samples). The mesh is put in the target's
+  frame by the sampler's own operations (`sampling.mesh.mesh_in_frame`), its boundary loops closed by fans and its
+  faces turned outward (D157's preparation). Nothing else changes: the transport, the u gate, the relaxation and its
+  relief reference, the cleanups, the calibrated render weight (its share of the gradient stays the rule's), the pixel.
+  *Why this form and not the shifted dense exterior.* Both keep the run's shell on average; the dense form needs a
+  dense sample's size (D111's 1.5M, a constant) and its field's pitch, and its shift would be measured from a second
+  sample; the grown mesh needs one number, c, which is measured from the run's own discs. It also carries the mesh's
+  relief whole, not a 1.5M sample's (D111: 0.49–0.77 of the mesh's relief at 2.7–5.4 pitches). One caveat follows: the
+  target surface is D157's corrected referee (the same mesh grown by the own sample's mean offset); the referee readings
+  are therefore taken on the held-out views and in 3D, and the raw mesh is read beside it.
+  *Gates (`d159_chain.sh`, one card by the lock protocol; any failure stops the chain before a run).* V1 the full suite
+  on `repo_d159` (exit status recorded; `tests/test_render_target_shell.py` includes the CUDA check that the default
+  path ignores a mesh bit for bit). V2 the pinned digest (`test_refreeze_reference.py`) within V1. V3 Warp's
+  deterministic mode (`tmp/rt/det_run.py`, 40k bunny, seed 97, four windows): `repo_d159s` at the defaults against rt1's
+  S1 (`output/gpu/d153/rt1/S1`, `det_cmp12.py`): SAME. V4 the new arm for four windows: exit 0 and its log line (c in
+  pitches, discs, the pictures' difference).
+  *Step 0 (no run; CPU and the gate's card).* (a) c per mesh, and the tag's end states (B1 L97, P97) read against the
+  new pictures: the render terms at the end against the old and the new pictures; the offset of the tag's end exterior
+  from the grown mesh split into the relief band (below 10.8 pitches) and the low band (above): the low band is the
+  shell the new pictures ask for beyond the relief (the D90 risk), the relief band what they ask for that the old ones
+  did not. (b) The regions, fixed here before any run (`d159_regions.py`, the exact mesh in the seed-97 frame,
+  `d154/meshes/{mesh}_97.npz`): area samples of the mesh (0.5 pitch apart), the mesh's relief = the height of the
+  surface above its own Gaussian mean over same-side neighbours at σ = 2 pitches (the part below 10.8 pitches, D107's
+  family), its amplitude = the rms of that relief within 3 pitches; not thin (shape diameter along −n at least two MPM
+  cells, thin.py's threshold); the region = the top quarter of the not-thin area by amplitude (the dragon's scaled body,
+  the bunny's wrinkled body, if the rule finds them: checked by eye on a map before the runs), the rest of the not-thin
+  surface the contrast. The same rule for both meshes.
+  *Runs (300k, `repo_d159s`, kept frames, one card).* Bunny and dragon, `--render_target mesh_shell`, seed 97, the
+  render arm (named "dF_c + layer u + render loss (full)" with the new target: D159 L97). Baselines: the tag's B1 L97
+  (the full arm, frozen target) and P97 (the λ = 0 twin "dF_c + layer u", which the target does not reach: reused).
+  The floor over time: the twins at seed 99 again with kept frames (`repo_d159s` defaults, `--render_weight_scale 0`;
+  their end must equal B1's P99 end bit for bit, a check of rt1 = the tag). Spread at the end: B1's L97–L105 (five
+  seeds).
+  *Then the 40k gallery (generalisation).* The 19 meshes, `--render_target mesh_shell`, the render arm, seed 97
+  (D159 V97); against the tag's V97 and V99 (`d154/g40runs`), read by D154's reader (`d154_mesh_read.py`: exact 1024-px
+  outline shape and 1 − IoU, the normal angle at the nearest mesh point, the yardstick against mesh discs) and the run's
+  JSON (thin uncovered, silhouette IoU). A mesh is worse if on any of outline_sd, iou1024, normal_cl or thin D159 V97 >
+  max(V97, V99) + |V97 − V99| (the two runs' spread).
+  *Renders.* The studio look (`render_deliverable.py +fit=0 +field=zbs`, 4K, the camera of the deliverables): D159 L97
+  beside the tag's L97, the same frames, side-by-side videos (1080p); close-ups at t = 1, 2, 4 s and the end of the
+  bunny's ears and wrinkled region, the dragon's horns and scaled region (tag | D159).
+  *Readings.*
+  - R1 the relief on the particles' own surface (not the display), against the exact mesh, in the regions and outside
+    (`d159_relief.py`): for the outer-layer particles (the pipeline's layer) and for the exterior's discs (radius 3,
+    the surface the loss reads), each point's signed distance to the mesh d and the mesh's relief r at its foot, both
+    split into the bands below 2.7 / 2.7–5.4 / 5.4–10.8 pitches by the same Gaussian means over the point set's own
+    same-side graph; the carried share k = 1 + cov(d_b, r_b) / var(r_b) per band (1: the surface follows the mesh's
+    relief at a constant offset, 0: smooth over it), and the rms of d_b − (r_b's part it lacks). States: D159 L97, the
+    tag's L97 and P97 ("dF_c + layer u"), the run's own target sample (its cap) and, for the exterior, a 1.5M sample
+    (D111's draw at its own pitch). Also on the whole surface. This is D158's detail share in the run's own surface:
+    what the physics now carries of the band D115's layer drew.
+  - R2 render → physics over time (`d159_course.py`): on every kept frame to 4 s and every 4th after, on the twin P97's
+    outer-layer particles p: Δ(p) = f_A(p) − f_P97(p) (f the exterior field of a state: its value at a point moves by
+    the local displacement of A's surface along the normal; no particle correspondence needed), for A = D159 L97, the
+    tag's L97 and the seed-99 twin (the floor); its rms (pitches) and the share of its energy below 10.8 pitches (the
+    detail band), and for the same-seed arms the particles' own distance |x_A − x_P97| on that layer. The render
+    changes where the material goes if D159's detail-band Δ exceeds the floor's and the tag's.
+  - R3 D157's reader on the end (held-out views at 1024 px against the corrected and the raw referee: Boundary IoU,
+    boundary F, contour Chamfer, HD95; 3D on the exterior: F@0.25 / 0.5 / 1, Chamfer-L1, normal consistency; studio
+    images PSNR / SSIM / LPIPS), D159 L97 against the tag's L97 and its seed range L97–L105.
+  - R4 the yardstick and the display against the independent sample (`render_terms_probe`, `surface_layer_probe`
+    measure), thin uncovered (JSON), the end at rest (the last window's kinetic record), pieces (`pieces145.py` at the
+    end: count, ≥ 10 particles, ≥ 5 pitches; `visible_apart.py` over the run every fourth kept frame), momentum
+    (`mom.sh`), minutes; the render's share (g_share, λ, render work) per window.
+  *Pass (an adoption candidate), on both meshes.* P1 (the aim) R1's carried share below 10.8 pitches in the regions,
+    outer-layer particles, above the tag's L97 by more than the tag's five-seed range (L97–L105 read the same way), and
+    R2's detail-band Δ of D159 at the end above both the floor's and the tag's. P2 R3: of D157's 11 decision measures
+    on the held-out views against the corrected referee, at most two outside the tag's five-seed range on the worse
+    side, none of the three 3D measures among them. P3 R4: yardstick silhouette and shading and the display front
+    1 − IoU not above the tag's five-seed range; thin uncovered not above its maximum + 0.005; the end's kinetic
+    record not above its maximum; no piece of ≥ 10 particles beyond the tag's count at the end. P4 the 40k gallery:
+    no mesh worse (above). A failure on P1 with P2–P4 held means the pictures ask and the physics does not answer.
+  *The recorded risks and how each is read.* D90 (a different shell as target fell behind on the display): c keeps
+    the mean shell; step 0 (a) measures how much shell the new pictures ask for beyond the relief; read in P3's display
+    and yardstick and in R2's low band (Δ above 10.8 pitches against the floor). D107 (the window's rest takes back what
+    the optimisation writes in these bands): R2's detail-band Δ over time, whether it builds and stays after arrival
+    or rises and falls back; R1 at the end against R1 on the kept frame at 4 s. The u cap (one spacing a window; D158's
+    field path needs p99 1.1–1.2 spacings for the whole relief at once): u is not archived; read from the kept frames as
+    the share of outer-layer particles whose normal move within one window (40 simulated frames) reaches one layer
+    spacing after arrival, and from R1: if the carried share stays far below D158's 0.72–0.82 while that share is near
+    zero, the cap is not what limits.
+  *Predictions.* c 0.3–0.9 pitches; the new pictures differ from the samples' by a mean square of 1e-3–3e-3 in the
+  silhouette (D158's dense-vs-loop difference 2.2–2.8e-3); step 0: the tag's end states score worse against the new
+  pictures, mostly in the relief band. R1: the carried share below 10.8 pitches in the regions up by 0.03–0.10 on the
+  outer layer and by less on the exterior (radius 3, D123); R2: D159's detail-band Δ from the twin 1.2–2 times the
+  tag's after arrival, above the floor, decaying by a third or more over the tail (D107). P2–P4 held (the shell is the
+  run's own on average). The 40k gallery level (a pixel of 1.06–1.26 pitches; the relief below a 40k pitch is small).
+  The prediction is a modest, real gain; a null result is possible, and it would name the window's rest (D107) as the
+  next limit.
 
 ## To run next, in order
 
