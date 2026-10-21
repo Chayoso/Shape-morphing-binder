@@ -125,7 +125,7 @@ def test_prepare_with_another_render_target_keeps_the_target_and_its_frame(tmp_p
 def _clouds():
     rng = np.random.default_rng(4)
     a = rng.uniform(-1., 1., (300, 3)).astype(np.float32)
-    b = (a * np.array([0.8, 1.0, 0.9], np.float32) + np.array([0.1, 0.0, -0.05], np.float32)).astype(np.float32)
+    b = (a * np.array([0.8, 0.9, 0.85], np.float32) + np.array([0.1, 0.0, -0.05], np.float32)).astype(np.float32)
     return a, b
 
 
