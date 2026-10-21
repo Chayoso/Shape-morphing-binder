@@ -9587,6 +9587,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pack. Predictions: the body's mean J on the ramp within the tag's (≤ +3 %), the end's J and item 2 within the tag's
   range, items 1, 3, 4, 5 as D155b. What it does not address: the local density variation inside Z_s (the J quantiles'
   spread beyond the mean), to be read in its gate. Cost: the same 40k gate, about 1 card-hour.
+  **D155c, the targets on the way at the body's density (pre-registered 2026-10-21 10:15 CDT server clock, before any
+  run of it; the coordinator's go: the next method of the user's rule; an option on `wip/d155`, the tag untouched).**
+  *Definition:* on the moving target (D155b's, u reading the final target) each target on the way is rescaled about its
+  centroid by k_s = sp(Y) / sp(Z_s), sp the median 8th-neighbour spacing on build_target's seeded 20k subsample (the
+  estimator the pack itself uses), so that it holds the body's volume: D132's density match applied on the way; k = 1 at
+  s = 1 (the final pack). No constant. Code `wip/d155` ef3071c (`--morph_density_match`, `cfg.morph_density_match`),
+  `repo_d155c` / `repo_d155cs`. Records on the way: `morph_k`, `morph_vol_ratio` (the target's volume over the body's
+  before the match, (sp(Z_s) / sp(Y))³) and `morph_vol_q` (the local volume (d8 / sp(Y))³ of the matched target, p05 /
+  p50 / p95, against the final target's own quantiles, logged at the start): the local density differences read
+  separately, as proposed.
+  *Gates of the default path:* deterministic 40k bunny against the tag's run A (SAME), pinned references, full suite.
+  *Runs:* A3C = A3G + `--morph_density_match`: the five meshes at 40k, seed 97, render arm L and twin P = 10 runs on
+  `repo_d155cs`, the readers of D155's gate; the tag's V / W (three re-run seeds and B3's) and D155b's A3G are the
+  references.
+  *Criteria (A3C render arm, five meshes):* (1)–(5) as D155b's; (6) new, the volume: (6a) the largest mean J (`Jx_mean`)
+  over the ramp's windows at most 1.03 on ≥ 4 of 5; (6b) at the delivered end the mean J and J's p99 not above the tag's
+  largest (and the mean not below its smallest), each on ≥ 4 of 5. All six → pass. Reported: k_s and the volume ratio
+  before the match over the ramp, the local volume quantiles of the matched targets against the final target's, J's p01 /
+  p99 course, the ramp's cosine, A_lin / A_log / P90, momentum, minutes, the twins.
+  *Predictions:* (6a) on 5 of 5 (A3G: 1.029 / 1.099 / – / – / 1.057 on bunny / dragon / homer); k_s in 0.95–1.04; (6b) the
+  mean on ≥ 4 of 5, J's p99 on 3–4 of 5 (the global match leaves the local variation, measured by `morph_vol_q`); (2)
+  within the tag's range on ≥ 4 of 5 per measure (from D155b's ordering of the misses with the volume excess); (1), (3),
+  (4), (5) as D155b. If it fails: the next root cause from the frames and the next definition, with numbers.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
