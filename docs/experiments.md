@@ -6140,6 +6140,54 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     construction, central pairs). Predicted if a drawn piece appears: blobs −50…−90 % (D151: the layer step opens the
     link in 85–97 % of detachments), momentum at D149's level, a risk to thin features, +3–5 % a window; gate the 40k
     gallery and bunny / dragon 300k with twins; the user's go before any code.
+  **D145 post-tag reading 5, the three next steps of reading 4 as evidence (pre-registered 2026-10-21 13:20 CDT server
+  clock, before any of its runs or readings; the coordinator approved all three as evidence runs and readings, no
+  default change; drivers `scripts/probes/paper/posttag/r5_*`; outputs `output/gpu/d145t_cell/` (runs) and
+  `output/gpu/d145_ext/r5/`; one card at a time under the lock protocol, held for the chain; CPU readers nice 10, at most
+  three).**
+  1. *The cell-size evidence: does a cell narrower than the openings open the teapot's handle and the dragon's loops,
+     and at what cost?* Runs: teapot, homer and dragon at 300k, seed 97, render arm `LC97` and its λ = 0 twin `PC97`
+     (`--render_weight_scale 0`), with `--cell_follows_n` (D137's option: dx = 0.3085 wu × (40000 / 300000)^(1/3) =
+     0.1576 wu, 3.3 pitches, against the shape's cell of 6.4), on rt1 (`freeze-2026-10-15-rt1` = 6c9b0e9, the tag with
+     D153's exact runtime levers, as `repo_t1s`: the kept frames only), in that order on one card (the dragon only when no
+     other dragon 300k run is on the server). Baselines: B1's L97 / P97 of the same meshes (the tag; rt1 is the tag bit
+     for bit, D153), with B1's seeds 97 / 99 / 101 as the run-to-run spread. Readings, each as for B1 or reading 4:
+     B1's (the yardstick and the display at the end against D90's independent sample, the arrangement, momentum on every
+     kept frame, the apart particles over the first 35 %, the dragon's tail pulse, `visible_apart.py` over windows 3–10
+     and over the run every fourth kept frame), `ext_end145.py` (silhouette IoU, chamfer, thin uncovered on the common
+     thin set), `r4_fscore.py`, D157's reader on the end (Boundary IoU, F at 0.25–2 pitches, Chamfer-L1, normal
+     consistency, held-out PSNR / SSIM / LPIPS against the raw and the corrected mesh; its context, thin set and pitch
+     from B1's L97 of the mesh, so the rows sit beside D157's), the display mesh at the end through B11 / B12's readers
+     (genus, components, watertight, self-intersecting pairs), `r4_extra.py` (material farther than 1 / 2 pitches from the
+     own target sample, its clusters), the teapot's handle plane (`r4_slice.py`, x = 0), and the display's timeline
+     every 0.1 s (teapot and homer to 4 s, the dragon to 6 s and every 0.05 s over 1.5–3.0 s, D137's tear; the same on
+     B1's kept frames: teapot / homer L97, dragon L97 and P97): genus, components, separate solid pieces with particles,
+     internal cavities. Cost: wall, windows, seconds per attempt, the largest GPU memory, end kinetic energy. No pass or
+     fail: the numbers go to the user, whose decision a default is.
+     *Expected.* The teapot's eye (about 5.5 pitches, 1.7 of the new cells) is still narrower than the kernel's reach of
+     about two cells: it opens at the end in perhaps two runs in five; if it opens, late (after 2 s). The dragon opens
+     more loops (end genus 2 → 6–12; D137: the neck–body hole open from 3.0 s) with D137's ring of small holes and a strand
+     at 1.9–2.5 s in both arms. Homer: genus 0 = the target, fewer slivers. Cost: the yardstick within ±15 % of B1's
+     spread on teapot and homer, better on the dragon (D137: −23 %); thin uncovered −1…+2 points; seconds per attempt
+     +0–20 %; GPU memory 35–40 GB (D137); the render arm still ahead of its twin on the exterior measures.
+  2. *The exact-mesh reading of the external methods* (D157's reader, its functions imported unchanged from
+     `tmp/d157/d157_read.py`; per mesh its context built from B1's L97 end, seed 97's frame, which the external methods'
+     ends share; `r5_d157x.py`): (A) the same route as ours — every external end frame's 300k sample (reading 4's 159),
+     its Zhu–Bridson exterior and display, against the corrected and the raw mesh; (B) each mesh method's own end mesh
+     (B14 ISD / 4Deform, Buonomo et al., NISE, ARAP, B12 Large Steps / FlexiCubes; all seeds) against the raw mesh — no
+     sample anywhere. Our rows are D157's (B1's L 97 / 99 / 101 (+ 103 / 105)); one replication row (our L97 through
+     `r5_d157x.py`) must equal D157's. Read on D157's three recommended measures (Boundary IoU at 1024 px over the
+     held-out views, F at 0.5 pitch, held-out PSNR) plus Chamfer-L1 and normal consistency, per mesh against ours'
+     seed range. To check (observed, not a gate): ARAP's last frame is the target mesh itself (its bounding box equals
+     the referee's), so its route (B) is the referee against itself and its route (A) a perfect sample.
+     *Expected.* Route (A): ours ahead of every method but ARAP on F at 0.5 and Boundary IoU on all six; level with ARAP
+     (a perfect sample) on the smooth meshes. Route (B): the exact surfaces of ISD and Large Steps (b) ahead of our route
+     (A) on F at 0.5 on the smooth meshes (bunny, bob, homer), behind on thin parts and the dragon.
+  3. *The price of the run after the render's floor on all six meshes.* On B1's L97 kept frames of teapot, bob,
+     armadilo and homer: the yardstick on every kept frame and the display on every second one (0.1 s) and the last
+     (`t3_` / `e3_`, as bunny and dragon have); then `r4_tail.py` on all six, and the change of the yardstick silhouette,
+     shading and display front per wall minute in the last 50 / 25 / 10 % of the wall.
+     *Expected.* As on bunny and dragon: 90 % of the tail's gain with a quarter to two fifths of the wall still to go.
   **B9b, gravity with the floor through the scene path with one body (pre-registered 2026-10-17 17:10 CDT server
   clock, before any run; the user approved the rerun on 2026-10-17; code `wip/b9b` f0a26d5 = `wip/d147` 5dbcf6e + two
   scene-spec fields and the probes, server copy `repo_b9b`; `scripts/probes/b9b/`; `output/gpu/b9b/runs/`; local
