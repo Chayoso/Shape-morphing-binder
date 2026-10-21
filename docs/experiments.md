@@ -15282,7 +15282,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the render frames after both videos exist (`cleanup.log`); the render arms' kept frames stay until the deliverable is
   accepted.
 - **D158, why the render loss inside the run does not write the relief D115's display layer writes (a measurement; no
-  run of the pipeline, no default changed; pre-registered 2026-10-21 16:10 CDT server clock, before any computation of
+  run of the pipeline, no default changed; pre-registered 2026-10-21 16:07 CDT server clock [the stamp first read 16:10,
+  three minutes ahead of the server clock: corrected; the runner started at 16:07:52, waiting for a card], before any computation of
   it; the user, 2026-10-21: can the in-loop render loss do the job of the post-process
   `render_deliverable.py +fit=1 +steps=15 +carry=h +decay=1`, so that the detail is physical; scratch copy of the
   tag's renderer `tmp/d158/d158_fit.py` (repo_freeze1015, the fit unchanged), results `output/gpu/d158/`, local
