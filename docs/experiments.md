@@ -15817,6 +15817,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   run's own on average). The 40k gallery level (a pixel of 1.06–1.26 pitches; the relief below a 40k pitch is small).
   The prediction is a modest, real gain; a null result is possible, and it would name the window's rest (D107) as the
   next limit.
+  *Amendment 1 (17:33 CDT, before any gate or run; the chain waits for a card).* The regions' eye check
+  (`output/gpu/d159/step0/regions_*_b10.8.png`, `_b5.4.png`): with the amplitude of the relief below 10.8 pitches the
+  top quarter is dominated by ridges and creases (the dragon's mane and dorsal ridge, the bunny's neck folds). Scales
+  and wrinkles are one to two spacings across (D12), so the amplitude is taken of the part below 5.4 pitches
+  (r_5.4 = n · (p − G_1(p)), the local standard deviation over 1.5 pitches); all else as written. Fixed:
+  bunny 153 913 samples, thin 16.0 %, region 21.0 % (the lower body, the haunch and the chest's folds, the ears' rims),
+  threshold 0.041 a; dragon 239 532 samples (its mesh not watertight after closing two loops: the three-ray sign),
+  thin 24.9 %, region 18.8 % (the head and mane, the belly scutes, the claws, patches of the flanks; the flank scales are
+  faint in this mesh at these bands), threshold 0.048 a (`regions_{mesh}_b5.4.npz`, `regions.jsonl`). The time course
+  (R2) and the coordinator's region readings use these masks.
 
 ## To run next, in order
 
