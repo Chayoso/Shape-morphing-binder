@@ -5829,6 +5829,125 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   closer to rest (end kinetic × 4.7 / × 4.0 → × 3.5 / × 2.2). B9: the bunny's gravity failures 1 → 2 of 3 render arms;
   the dragon the same. A6, B1-every-frame and B10 have no pre-tag reading.
   **Pending.** B7 (RG97's dumps and λ = 0 counterfactual); the external baselines (B14 seeds 2–3 run now).
+  **D145 post-tag reading 3: B14 (ISD, 4Deform), B15 (NISE) and the methods table of every external method beside ours
+  (read 2026-10-20 22:45 – 2026-10-21 10:10 CDT server clock by the post-tag reader; the pool's queue empty; readers
+  `scripts/probes/paper/posttag/` — `ext_end145.py` (every method's end frame read the same way), `harness145t.py`
+  (D145's harness with `--grid-from`, so that the external methods share the grid B13 read the tag's L97 on),
+  `vol145n.py` (vol145.py skipping unfillable frames), `pieces145.py` (now one pass per set, and a collapsed body's frames
+  skipped and counted), `ext_table145.py`, `ext_yard145.py`, drivers `ext_gpu_t1020.sh`, `ext_cpu_t1020.sh`,
+  `pieces_bobrest.sh`; three card jobs under the lock protocol (agent D145r, each card idle in eleven looks a minute
+  apart, 23:02–23:20 on GPUs 0–2); `output/gpu/d145_ext/`; local `output/results_2026-10-20/d145_external/`).**
+  *Operations.* No queue edit. Two B14 runs had stopped with rc 1 (bob ISDn2, dragon ISDn3): conversion and end check
+  had finished, vol145.py failed on frame 14, which the sampler could not fill (NaN, named in the runs' JSON); read now
+  by `vol145n.py`. The volume pass first stopped at bunny / dragon L99 (their kept frames had been removed after their
+  every-frame readings, `cleanup.log` 10-17) and was completed by hand. The piece reader was stopped twice, each time by
+  the exact PID of my own process: at 23:18 because its per-set loop was quadratic on Xu et al.'s 1e5 apart particles
+  (rewritten as one pass; the bunny's 11 rows kept, identical by construction), and on 10-21 at 09:58 after ~10 h on
+  one archive, bob ISDn1, whose body ISD shrinks to a ball (volume 0.001–0.008 of the target in 9 of 21 frames): 300k
+  points at a fifth of the pitch make ~1e9 neighbour pairs at 1.5 pitches. Such frames are now skipped and counted.
+  *What is read and how (every method, every mesh, one reader each).* End: the last fillable frame against the
+  independent 300k sample (silhouette IoU, chamfer) and one thin set per mesh (`physmorph.thin` on the independent
+  sample, the shape's cell 0.3085 wu, ref_n 40000: ours is scored on the same set as every baseline), with the floor (a
+  second sample of the mesh) for all three. Seeds: ours L97 / 99 / 101 (+ 103 / 105 on bunny and dragon), Xu et al. 97 /
+  99 / 101, Buonomo et al. 1–3, NISE 1, ISD and 4Deform 1–3 (`CORR=none`; the radial-matching arm seed 1 on bunny and
+  dragon), ARAP and OT one each, Large Steps and FlexiCubes three view-set seeds in arm (a) (our 18 views at 188 px) and
+  (b) (25 views at 512 px). Topology from the converters' per-frame mesh records (B14: the largest component's genus;
+  Buonomo et al. / NISE: the closed frames' genus from components and Euler characteristic; ARAP: one mesh of the
+  target's connectivity, libigl's self-intersecting pairs; B12: its own record). Self-intersection is not defined for
+  the implicit methods (one level set is embedded) and not for particles. Volume: D145's one routine. Trajectory:
+  the harness at matched progress on one grid per mesh (each method's first seed), and pieces off the body at ≥ 5
+  pitches over every frame. Wall: the method's own optimisation (ours and Xu et al.: the run; Buonomo et al. and NISE:
+  the morph training plus the reconstruction, the SDF fits of 20–39 min a shape apart; ISD / 4Deform: training plus
+  evaluation; ARAP: the CMCF map plus the interpolation; Large Steps / FlexiCubes: the net optimisation; OT not timed).
+  **The master table (per mesh the median over seeds, then the range over the meshes; `ext_table.md` has every mesh).**
+
+  | method | meshes | sil IoU (ind.) | 1 − IoU over the floor's | chamfer over the floor's | thin uncovered % (floor 2.9–8.1) | ours apart-ahead on sil IoU | end genus = target | volume over the frames | p = 0.75 reached | apart at p 0.5 | frames with a piece ≥ 5 pitches off | wall |
+  |---|---|---|---|---|---|---|---|---|---|---|---|---|
+  | ours (tag) | 6 | 0.9864–0.9899 | 1.1–1.3 | 0.97–0.98 | 4.1–6.1 | – | (particles) | 0.96–1.09 | 6 of 6 | 0–2622 | 0–8 % | 8.8–33.7 min |
+  | Xu et al. TVCG 2025 | 6 | 0.9396–0.9754 | 2.2–7.4 | 1.03–2.20 | 30.2–48.4 | 6 of 6 | (particles) | 0.72–1.35 | 6 of 6 | 788–45009 | 7–98 % | 2.3–6.8 min |
+  | Buonomo et al. SGP 2025 | 6 | 0.9163–0.9688 | 3.8–9.2 | 1.05–1.66 | 29.8–45.1 | 6 of 6 | 0 of 4 (2 ends open) | 0.73–1.47 | 5 of 6 | 31–7302 | 0–71 % | 45–47 min |
+  | NISE ICCV 2023 | 6 | 0.9660–0.9830 | 1.9–3.0 | 1.01–1.02 | 20.1–35.2 | 6 of 6 | 3 of 3 (3 ends open) | 0.67–1.01 | 6 of 6 | 18–708 | 0–24 % | 13 min |
+  | ISD ICLR 2025 | 6 | 0.9822–0.9901 | 1.2–1.6 | 1.00–1.01 | 12.2–18.1 | 3 of 6 | 5 of 6 | 0.00–5.09 | 6 of 6 | 1–448 | 5–38 % | 27–39 min |
+  | 4Deform CVPR 2025 | 6 | 0.4955–0.7628 | 26–57 | 2.8–10.3 | 67.5–81.5 | 6 of 6 | 3 of 6 | 0.24–2.10 | 0 of 6 | – | 0–10 % | 68–138 min |
+  | ISD, radial matching | 2 | 0.9816–0.9862 | 1.3–1.7 | 1.01 | 14.3–19.0 | 1 of 2 | 1 of 2 | 0.36–3.99 | – | – | – | 27–34 min |
+  | 4Deform, radial matching | 2 | 0.9329–0.9784 | 2.0–6.0 | 1.04–3.94 | 22.7–32.2 | 2 of 2 | 0 of 2 | 0.86–1.48 | – | – | – | 69–75 min |
+  | ARAP (genus-0 targets) | 3 | 0.9849–0.9884 | 1.2–1.3 | 1.01 | 9.7–16.8 | 1 of 3 | 3 of 3 | 0.86–1.02 | 3 of 3 | 24–59 | 0 % | 0.2–12 min |
+  | OT displacement | 2 | 0.9306–0.9440 | 5.0–6.5 | 1.04–1.11 | 24.0–24.7 | 2 of 2 | (particles) | 0.96–1.28 | 2 of 2 | 1543–4042 | 76–81 % | not timed |
+  | Large Steps (a) | 6 | 0.9777–0.9881 | 1.2–2.0 | 1.01–1.46 | 9.7–17.7 | 3 of 6 | 3 of 6 | 0.85–1.74 | 6 of 6 | 18–485 | 0 % | 18–33 s |
+  | Large Steps (b) | 6 | 0.9807–0.9897 | 1.2–2.1 | 1.01–1.17 | 9.6–16.3 | 3 of 6 | 3 of 6 | 0.84–1.62 | 6 of 6 | 14–288 | 0 % | 27–53 s |
+  | FlexiCubes (a) | 6 | 0.8307–0.9315 | 7.5–20.7 | 1.21–6.64 | 53.5–70.8 | 6 of 6 | 0 of 6 | 0.76–1.10 | 1 of 6 | 182–813 | 67–86 % | 10–21 s |
+  | FlexiCubes (b) | 6 | 0.9055–0.9803 | 2.2–11.6 | 1.02–3.61 | 31.2–60.8 | 6 of 6 | 0 of 6 | 0.73–1.20 | 5 of 6 | 173–806 | 57–90 % | 17–28 s |
+
+  "Apart-ahead" = ours' seed range lies above the method's on that mesh. No method's range lies above ours on any mesh.
+  **The end.** Silhouette IoU: ours is apart-ahead of every external method on the dragon, teapot and armadilo, and
+  overlaps the best three on the bunny (ISD radial 0.9862, Large Steps 0.9868–0.9875, ARAP 0.9874 against 0.9860–0.9891),
+  bob (ISD 0.9894–0.9911, Large Steps (b) 0.9893–0.9899 against 0.9883–0.9908) and homer (ISD 0.9825–0.9878, Large Steps
+  (b) 0.9880–0.9888, ARAP 0.9884 against 0.9869–0.9890). Thin uncovered: ours 4.1–6.1 % against the floor's 2.9–8.1 % and
+  every baseline's ≥ 9.2 % (Large Steps (b) 9.2–16.4, ARAP 9.7–16.8, ISD 10.5–22.1, NISE 20–35, Buonomo et al. 26–62,
+  Xu et al. 29–49, FlexiCubes 29–73, 4Deform 30–98). Chamfer: ours sits below the floor on every mesh (0.97–0.98 ×) — an
+  evenly spaced particle set against a random sample of the mesh — so it is read against the floor, not against ours;
+  ISD, ARAP and NISE are at 1.00–1.02 ×. On our own exterior measures, where the pool read them (`ext_yard.md`): bunny
+  yardstick silhouette 7.0–7.7e-4 against ARAP 10.7, ISD 20.5–20.8, 4Deform radial 50.9, Xu et al. 90–99, Buonomo et
+  al. 106, OT 214; dragon 5.0–5.8 against ISD 31–45, Xu et al. 68–71, OT 157, Buonomo et al. 401; display front 1 − IoU
+  0.92–0.98 % (bunny) against ARAP 0.96, ISD radial 1.18, ISD 2.33; on armadilo and homer ARAP is level on the display
+  (1.28 / 0.79 % against ours 1.20–1.29 / 0.73–0.84 %) and behind on the yardstick silhouette (7.7 / 4.6 against 5.5–7.5 /
+  2.7–3.7).
+  **Topology.** Ours is one MPM body with exact mass; it has no mesh, so genus and self-intersection are not read for it.
+  ISD's end has the target's genus on 5 of 6 meshes (the median seed; not the dragon: genus 1 against 15; the bunny 0–2
+  a seed), but 6–21 of its 21 frames have more than one component and 6–19 are watertight. Large Steps stays genus 0
+  in every frame (the dragon's 15 loops, the teapot's handle and bob's ring are never opened) and self-intersects at
+  the end in 31 of 36 runs; FlexiCubes ends at genus 4–58 (up to 68 over the frames) on targets of genus 0–15, with
+  4–149 components; ARAP keeps the target's connectivity (genus-0 targets only) and self-intersects in 13–19 of 21
+  frames; Buonomo et al. and NISE end open on 2 and 3 meshes, with up to 546 components (one bunny seed of Buonomo et al.).
+  **The way there.** Volume (one routine) over the frames: ours 0.96–1.09 (the high end the dragon's early transient at
+  τ ≈ 0.1), ARAP 0.86–1.02, NISE 0.67–1.01, Large Steps 0.84–1.74, Buonomo et al. 0.73–1.47 (five runs hold a static
+  field at 1.10–1.47: the teapot's three seeds, the bunny's and homer's seed 2), Xu et al. 0.72–1.35, OT 0.96–1.28,
+  FlexiCubes 0.73–1.20, 4Deform 0.24–2.10, and ISD 0.001–5.09: in every ISD run the body shrinks in mid-run, to 0.1–65 %
+  of the target a run (bob, dragon and homer down to 0.1–0.3 %), and on bob and armadilo it swells to 5 ×; it ends at
+  0.98–1.03.
+  Matched progress: p = 0.75 is reached by ours on 6 of 6, Large Steps 6 of 6, NISE 6, ISD 6 (by the collapse: its p
+  jumps past 0.25, 0.5 and 0.75 within one frame on five meshes), ARAP 3 of 3, FlexiCubes (a) 1, (b) 5 of 6, Buonomo et
+  al. 5 (not the teapot, p 0.035), 4Deform 0. Apart particles at p 0.5: ours 0 (armadilo), 2 (dragon, bob), 6 (homer),
+  93 (bunny), 2622 (teapot); ARAP 24–59, Large Steps 14–485, NISE 18–708, ISD 1–448, Buonomo et al. 31–7302, OT
+  1543–4042, Xu et al. 788–45009. Pieces ≥ 5 pitches off the body: ours in 0–8 % of the read frames, at most 14
+  particles in them; the mesh methods that cannot split (Large Steps, ARAP) none; NISE 0–24 %; ISD 5–38 % (up to all
+  300k when the body splits in two around its collapse on bob; 9 collapsed frames there, not read); Buonomo et al.
+  0–71 %; FlexiCubes 57–90 %; OT 76–81 %; Xu et al. 7–98 %.
+  **Wall (one RTX 6000 Ada).** Large Steps 18–53 s and FlexiCubes 10–28 s a run, ARAP 12 s (homer) to 12 min (bunny, its
+  CMCF map), Xu et al. 2.3–6.8 min, NISE 13 min, ours 8.8–33.7 min, ISD 27–39 min, Buonomo et al. 45–47 min (plus the
+  SDF fits), 4Deform 68–138 min.
+  **B14 and B15 against their registrations.** ISD (`CORR=none`) fits the end, as expected (bunny 0.983–0.986), and in
+  between the body is neither one piece nor the volume (2026-09-23's collapse repeated on all six meshes). 4Deform does
+  not leave the sphere without correspondences, as expected (silhouette IoU 0.26–0.82, the harness's p at the end
+  −0.03…0.28); with the radial matching it reaches 0.978 (bunny) and 0.933 (dragon). NISE is 3.4 × faster than
+  Buonomo et al. (13 against 45 min, expected 0.17–0.6 ×) and ends above it on all six (0.966–0.983 against 0.916–0.969),
+  with its volume 0.67–1.01 (expected wider than Buonomo et al.'s; it is narrower on the bunny and teapot, wider on the
+  dragon). Recorded as found.
+  **The render's influence (standing rule).** Unchanged from readings 1–2: every ours row here is the render arm L of B1
+  (g_share 0.333 in every committed window, λ from the balancer); its twin is not in this table. The exterior measures
+  (yardstick, display) are where the render acts (reading 2: −31…−57 % against the twin); against the external methods
+  they carry the widest margins (the yardstick silhouette, bunny: ARAP 1.4 ×, ISD 2.7–3.0 ×, the others 7–220 ×;
+  dragon: ISD 5.4–9 ×, the others 12–600 ×), while the particle silhouette IoU, which the
+  render does not move (D152: 72–89 % sampling floor at 128 px), carries the narrowest.
+  **Where the numbers leave us level or behind, and the next step for each (proposals; none run).**
+  - *Speed.* Large Steps, FlexiCubes, ARAP and Xu et al. are 10–100 × faster. Measured lead: the render arm's own
+    silhouette term crosses its sampling floor at 2.2–12.0 s (D152) while the runs go on to 12–31 s of simulated time.
+    Next: read, from the records, the share of windows and minutes after that crossing (an end condition at the floor
+    is a definition change for the user); and the exact runtime levers of the 10-minute goal (rt1 −5 % is in).
+  - *The particle silhouette IoU against ISD, Large Steps (b) and ARAP on bunny, bob and homer (level).* The metric is
+    mostly sampling floor for every method (1 − IoU at 1.1–1.3 × the floor's for ours, ISD, ARAP, Large Steps). Next:
+    run the yardstick and the display — the measures that resolve the surface — on every method's end frame of all six
+    meshes (one card job, as `t3end` / `e3end`; today they exist only on bunny / dragon and for ARAP, Xu et al.).
+  - *Topology and watertightness are not read for ours.* Next: the same mesh readers on our display surface — the
+    Zhu–Bridson field of every kept frame through marching cubes (genus, components, watertight, self-intersection) —
+    so that ours has the topology columns too; a reader, no change to the method.
+  - *Early apart particles on the teapot (2622 at p 0.5) and the bunny (93), where Large Steps and ARAP have 33–85.*
+    These are mostly u's near-surface bumps (D148: ~90 % bumps of about half a pitch). Next: count them on the display
+    surface above (a bump that the display closes is not a piece); if pieces remain, the next physical method is a
+    momentum-exact form of D151's layer link (D151 failed only on momentum: its one-sided hold broke the pairwise
+    symmetry D149 restored for the spacing push; a pairwise-symmetric hold is the same correction D149 made).
+  - *Chamfer is not comparable as read (ours below the floor by construction).* Next: score every method's surface
+    the same way — our display mesh above sampled by the pipeline's stratified sampler, as the baselines' meshes are.
   **B9b, gravity with the floor through the scene path with one body (pre-registered 2026-10-17 17:10 CDT server
   clock, before any run; the user approved the rerun on 2026-10-17; code `wip/b9b` f0a26d5 = `wip/d147` 5dbcf6e + two
   scene-spec fields and the probes, server copy `repo_b9b`; `scripts/probes/b9b/`; `output/gpu/b9b/runs/`; local

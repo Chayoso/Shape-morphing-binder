@@ -12,7 +12,9 @@ the largest set (the nearest particle pair, in pitches). One JSON row per run:
         in them in one frame, frames with a far piece of >= 10 particles, frames with any piece of >= 10 particles,
         and the per-frame timeline [t, far pieces, their particles, the largest, the farthest gap, pieces >= 10,
         far pieces >= 10].
-10 particles and 5 pitches are the coordinator's marks for a serious floating piece (the 2026-10-16 brief), not a gate."""
+10 particles and 5 pitches are the coordinator's marks for a serious floating piece (the 2026-10-16 brief), not a gate.
+A frame whose median 8th-neighbour distance is below half a pitch (a baseline's body collapsed to a small ball) is not
+read (its neighbour pairs would number ~1e9) and is counted in collapsed_frames / collapsed_s."""
 import argparse
 import json
 
@@ -34,9 +36,11 @@ def pieces(x, a, threads):
     out = []
     if len(off):
         d = cKDTree(x[lab == big]).query(x[off], workers=threads)[0] / a
-        for c in np.unique(lab[off]):
-            m = lab[off] == c
-            out.append((int(c), int(m.sum()), float(d[m].min())))
+        cnt = np.bincount(lab[off], minlength=len(sizes))      # per set, in one pass (a loop over the sets is
+        gmin = np.full(len(sizes), np.inf)                     # quadratic when a method leaves 1e5 particles apart)
+        np.minimum.at(gmin, lab[off], d)
+        for c in np.flatnonzero(cnt):
+            out.append((int(c), int(cnt[c]), float(gmin[c])))
     return lab, big, out
 
 
@@ -54,9 +58,16 @@ def main():
         a = 0.708 * float(np.median(cKDTree(tgt).query(tgt, 9, workers=args.threads)[0][:, 8]))
         K = len(raws)
         ks = sorted(set(range(0, K, max(1, args.every))) | {K - 1})
-        off_masks, run_big, run_far, timeline = {}, (0, None), (0.0, None), []
+        off_masks, run_big, run_far, timeline, collapsed = {}, (0, None), (0.0, None), [], []
         for k in ks:
-            lab, big, pc = pieces(np.asarray(fr[k], np.float64), a, args.threads)
+            xk = np.asarray(fr[k], np.float64)
+            sub = xk[:: max(1, len(xk) // 4000)]
+            d8 = float(np.median(cKDTree(xk).query(sub, 9, workers=args.threads)[0][:, 8]))
+            if d8 < 0.5 * a and k != K - 1:       # a collapsed body (a baseline's level set shrunk to a ball): 300k
+                collapsed.append(round(float(raws[k]) / 240.0, 3))   # points at a fifth of the pitch make ~1e9 pairs
+                off_masks[k] = np.zeros(len(xk), bool)                # at 1.5 pitches; skipped and counted, not read
+                continue
+            lab, big, pc = pieces(xk, a, args.threads)
             off_masks[k] = lab != big
             t = float(raws[k]) / 240.0
             far = [p for p in pc if p[2] >= 5.0]
@@ -86,7 +97,8 @@ def main():
                     else:
                         break
             listed.append(dict(size=s, gap_a=round(g, 2), off_since_s=None if since is None else round(since, 3)))
-        row = dict(run=name, path=path, pitch=a, frames_read=len(ks), end_s=float(raws[K - 1]) / 240.0,
+        row = dict(run=name, path=path, pitch=a, frames_read=len(ks), collapsed_frames=len(collapsed), collapsed_s=collapsed,
+                   end_s=float(raws[K - 1]) / 240.0,
                    end_pieces=len(end_pc), end_particles=int(sum(p[1] for p in end_pc)),
                    end_largest=max((p[1] for p in end_pc), default=0),
                    end_farthest_a=round(max((p[2] for p in end_pc), default=0.0), 2),
