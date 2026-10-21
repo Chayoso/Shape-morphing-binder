@@ -22,7 +22,14 @@ the final target, as the objective measures them at the first window) and the ru
 step, u's carried moments). Their layer relaxation has no relief (the mesh's relief is the final shape's, D147). Costs
 are compared within one target only (run/selection.new_epoch, as for a change of the render pictures): each new pack
 opens a selection epoch, so the ramp's windows are never rejected for a merit read against another target, and the
-run's stop and delivery read the final target's epoch."""
+run's stop and delivery read the final target's epoch.
+
+D155b (morph_u_final, --morph_u_gate final): u's transport gate reads the body's arrival at the FINAL target (the tag's
+gate: a layer particle within layer_gate_ot_cells MPM cells of its transport image on the final target), not at the
+moving one. D155's 40k gate found u's gate open on 93-100 % of the layer from the first window on the moving target
+(the body is always within a cell of it), and with it 2-6x the tag's apart particles in windows 3-12, nearly all bumps
+of u's relief on the in-between surfaces (u off removed them). The packs on the way also skip the particle cloud's
+pictures the run never reads with its render terms on the exterior (SKIP_UNUSED_PICTURES, exact)."""
 from __future__ import annotations
 
 import time
@@ -37,6 +44,10 @@ from ..render_loss import d_exterior, d_pbr, d_render
 from ..target import build_target
 
 CALIBRATED = ("unit_ratio", "unit_grad_ratio", "ot_scale")        # measured once at the source on the final target
+# D155b (exact): the packs on the way do not draw the particle cloud's pictures, which a run with its render terms on the
+# exterior never reads (window/objective.render_terms reads tgt.sils / tgt.shade only when tgt.ext is None); a proof
+# sets it False to compare the runs bit for bit
+SKIP_UNUSED_PICTURES = True
 RUN_STATE = ("settled_step", "u_adam", "force_ratio", "gap_rep")    # the run's state kept on the target pack
 
 
@@ -100,9 +111,13 @@ class MorphTarget:
         else:
             with torch.no_grad():
                 Z = [(Y + (1.0 - s) * D).contiguous() for Y, D in zip(self.samples, self.D)]
-                new = build_target(Z[0], self.prm, self.cfg, draws=Z[1:] or None)
+                new = build_target(Z[0], self.prm, self.cfg, draws=Z[1:] or None,
+                                   particle_pictures=not (SKIP_UNUSED_PICTURES and self.cfg.render_exterior))
             for k in CALIBRATED:
                 setattr(new, k, getattr(self.final, k))
+            if self.cfg.morph_u_final:                 # D155b: u reads its arrival at the final target, as on the tag
+                f = self.final
+                new.gate_ref = f.gate if f.gate is not None else (f.grid, f.ldx, f.ldims)
         for k in RUN_STATE:                            # the run's state on the target goes with it
             setattr(new, k, getattr(self.cur, k))
         torch.cuda.synchronize()

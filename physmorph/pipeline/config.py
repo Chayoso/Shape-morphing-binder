@@ -162,6 +162,8 @@ class PipelineConfig:
                                     #   for the transport and the render pictures alike (run/morph.py); the run script sets it
                                     #   to the body's elastic period (--morph_ramp elastic); 0 = the final target from the
                                     #   first window (the frozen path)
+    morph_u_final: bool = False     # D155b A/B: with morph_time > 0, u's gate reads the arrival at the FINAL target (as without
+                                    #   the ramp), not at the moving one; False = the window's own target (D155's option A as run)
 
     # ---- outer acceptance ----
     outer_merit_tol: float = 1e-4   # a repeated rejected merit within this is a replay

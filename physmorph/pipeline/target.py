@@ -73,6 +73,8 @@ class TargetPack:
     force_ratio: float | None = None    # B13 (baseline force*): |grad_f phys| / |grad_dFc phys| at the source (the first
                                         #   gradient), the step control's constants in the force leaf's units
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
+    gate_ref: tuple | None = None       # D155b: the u gate reads this (grid, dx, dims) in place of its own: the FINAL target's
+                                        #   gate on the moving target's packs (run/morph.py, morph_u_final); None = its own
     ext: Exterior | None = None         # the render terms' exterior, when they are read on it
     relief: object = None               # window/layer.TargetRelief: the relaxation's reference, from the target's surface
     xu: tuple | None = None             # cfg.baseline "xu": (the target mass on the simulation grid, its origin, dx, dims)
@@ -105,11 +107,13 @@ def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
     return relief
 
 
-def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> TargetPack:
+def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, particle_pictures: bool = True) -> TargetPack:
     """draws: further independent samples of the target in its frame. The render term's target pictures are then the
     mean of the pictures the operator draws of every sample: what it draws of the mesh in expectation. Drawn from
     the one sample, a render arm fitted that sample's noise as well, and half its measured lead over the
-    physics-only twin was that fit (D90, D91)."""
+    physics-only twin was that fit (D90, D91). particle_pictures False (D155b, the moving target's packs): the pictures
+    of the particle cloud (sils, shade), which the run reads only when its render terms are not on the exterior, are not
+    drawn (None); with cfg.render_exterior every number the run reads is the same."""
     set_kernel("cic")
     tgt_t = gpu.tensor(target_x)
     samples = [tgt_t] + [gpu.tensor(d) for d in (draws or [])]
@@ -138,7 +142,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
     views = make_views(cfg.render_views, cfg.render_elevs)
     geom = tgt_t
     extent = float(geom.abs().max()) * 1.25
-    sils = mean([target_silhouettes(s, views, cfg.render_res, extent, cfg.sil_k) for s in samples])
+    sils = (mean([target_silhouettes(s, views, cfg.render_res, extent, cfg.sil_k) for s in samples])
+            if particle_pictures else None)
     # shading: the morph's normals on a render-pixel grid blurred by the renderer's 1.5 target
     # spacings; the target image is drawn by the same operator at the target (matched), so
     # the loss compares the operator with itself and no target/operator bias enters
@@ -146,8 +151,9 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
     pdx = 2.0 * extent / cfg.render_res
     pdims = tuple(int(np.ceil((dmax - dmin).max() / pdx)) for _ in range(3))
     pblur = 1.5 * sp_t / pdx
-    shade = mean([shade_targets(s, views, cfg.render_res, extent, lgmin, pdx, pdims,
-                                cfg.sil_k, cfg.pbr_ambient, blur_cells=pblur) for s in samples])
+    shade = (mean([shade_targets(s, views, cfg.render_res, extent, lgmin, pdx, pdims,
+                                 cfg.sil_k, cfg.pbr_ambient, blur_cells=pblur) for s in samples])
+             if particle_pictures else None)
     print(f"[target] shading target: spacing {sp_t:.4f}, normal grid {pdims[0]}^3 at {pdx:.4f} wu "
           f"({pdx / sp_t:.2f} spacings), blur {pblur:.2f} cells", flush=True)
     ext = None

@@ -127,6 +127,10 @@ def parse_args(argv=None):
                          "t over the body's elastic period from the discretisation), for the transport and the render "
                          "pictures alike (physmorph/pipeline/run/morph.py); off (the default) = the final target from "
                          "the first window, the frozen path")
+    ap.add_argument("--morph_u_gate", default="window", choices=["window", "final"],
+                    help="D155b A/B, read with --morph_ramp elastic: final = u's transport gate reads the arrival at the FINAL "
+                         "target (as without the ramp), so u acts only where the final shape is reached; window (the "
+                         "default) = the window's own moving target, D155's option A as run")
     ap.add_argument("--morph_ref_n", type=int, default=0,
                     help="D155 diagnostic for --morph_ramp elastic: the elastic period of the same body sampled with this "
                          "many particles (the unit particle mass makes the density, and so the period, grow as sqrt(N): "
@@ -270,7 +274,8 @@ def run_config(args, cfg0, prep):
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale,
-                              morph_time=morph_time(args, prep))
+                              morph_time=morph_time(args, prep),
+                              morph_u_final=args.morph_ramp == "elastic" and args.morph_u_gate == "final")
     if args.baseline.startswith("xu"):     # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     return cfg

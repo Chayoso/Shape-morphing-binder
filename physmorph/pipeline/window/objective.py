@@ -81,6 +81,8 @@ class Objective:
         # surface. Recomputed at every window start.
         t0 = time.perf_counter()
         g_grid, g_dx, g_dims = tgt.gate if tgt.gate is not None else (tgt.grid, tgt.ldx, tgt.ldims)
+        if tgt.gate_ref is not None:              # D155b: on the moving target u reads its arrival at the FINAL target
+            g_grid, g_dx, g_dims = tgt.gate_ref
         with timed("gate_ot"):
             disp = grid_transport_displacement(x0, tgt.m, g_grid, tgt.lgmin, g_dx, g_dims,
                                                eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
