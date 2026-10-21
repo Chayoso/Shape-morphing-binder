@@ -6628,7 +6628,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       the upright pose (the twins stand as well; that is the world target's doing) and the late motion (twins 0.026
       / 0.031 a).
     - *The side renders* (1080p, studio look with the floor, az 90, el 18, a still camera over the whole run):
-      `bunny300k_L97_side1080.mp4`, `dragon300k_L97_side1080.mp4` (see the render line below when the card frees).
+      `bunny300k_L97_side1080.mp4`, `dragon300k_L97_side1080.mp4` (rendered 15:42-15:43 on GPU 0 after a 2.6 h wait for
+      a card idle 10 min; 168 / 251 frames, 20 fps real time). Both bodies stand upright at the standing height from
+      the sag on (bunny 8 s, dragon 12 s), unlike B9b's body-frame runs, where the bunny pitched forward and the dragon
+      fell onto its side.
     - *What fails V1's rest bar, and why (measured): the sag is rebuilt in every window.*
       - Over the last 2 s the material frame still turns 0.4–1.1°/s, the deformation speed holds at 0.03–0.05 wu/s
         and the height stays fixed (−0.04 … −0.19 pitches). The shape is still and its material flows: a steady state,
