@@ -9499,6 +9499,57 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   in-between surfaces (inferred, the uncertain item); the skip SAME; a build without the particle pictures 30–50 %
   cheaper (inferred). If (2) or (5) fails: a frame-level forensic (which particles, which update) and the next
   definition, before any "limitation".
+  **D155b read (runs 2026-10-20 23:03–23:53 CDT on GPU 3, the build bench 2026-10-21 00:02–00:05 on GPU 3; read
+  2026-10-21 10:00–10:40 CDT; `output/gpu/d155/gate/` (`gate_all.jsonl`, `summary_b/`, `forensic_b.log`,
+  `spots_b.log`, `ownfit_b.log`, `relief_b.log`, `build_bench_*.log`); local
+  `output/results_2026-10-17/d155_together/gate40k_b/`). FAIL by the letter on item 2 only (the end, by small
+  margins); items 1, 3, 4, 5 and the render lead hold on 5 of 5; the end's shortfall traced to one definition.**
+  *Gates:* deterministic 40k against the tag's run A SAME (556 history fields); the skip on against off: every result
+  field SAME (frames12 4 arrays, 37 metrics; of 576 history fields only `morph_build_s`, a clock, differs); pinned
+  references exit 0; full suite 441 passed, 2 skipped, exit 0. All ten runs rc 0.
+  *The items (A3G render arm against the tag's three seeds; A3 beside it):* (1) movement after 1 s 0.81–0.90 (tag
+  0.14–0.60; A3 0.81–0.91), physics P90 2.25–2.58 s, render 0.15–0.42 s after it: 5 of 5. (5) apart in windows 3–12 3–30
+  (tag 21–188; A3 65–860), visible bumps in windows 3–10 2–4 (tag 26–262; A3 38–901), blobs 0: 5 of 5 each. u's gate over
+  the first second 0.00–0.46 of the layer (tag 0.00–0.75; A3 0.97–1.00), half open at 1.0–3.2 s. (3) at rest, (4) peak
+  kinetic energy 0.04–0.24 of the tag's smallest: 5 of 5. The ramp's physics-render cosine 0.16–0.27 (A3 0.25–0.38; the
+  tag over the same span 0.12–0.19): above the tag on 4 of 5, homer within it. (2) The end, not below the tag's worst
+  seed: IoU against the independent sample 4 of 5 (armadilo 0.9703 against 0.9717), yardstick silhouette 2 of 5 (bunny
+  +0.1 %, dragon +0.7 %, homer at the worst seed's value, 0.8093 against 0.8090), shading 3 of 5 (dragon +5 %, armadilo
+  +0.8 %), display 3 of 5 (armadilo +1 %, homer +5 %), thin 3 of 5 (bunny 0.056 against 0.053, armadilo 0.049 against
+  0.047); teapot passes every item. Against A3 the end came most of the way back (IoU 1 → 4 of 5, the worst yardstick
+  excess +18 % → +0.7 %); the twins' ends stay behind the tag's twins (yardstick silhouette +4…+29 %). Momentum as the
+  tag's. Minutes 2.4–3.3 (tag 1.1–3.4, A3 2.5–4.9).
+  *The cheaper build:* the bench (`d155_build_bench.py`, bunny and dragon, a pack at u = 0.3 / 0.6, three repeats) puts
+  98 % of a pack in the exterior's lattice disc search over the eight samples (`Lattice.discs`: 4.4 s at u = 0.3, 2.5 s
+  at u = 0.6), the particle pictures 0.16 s (3–6 %), everything else 0.07 s. The exact skip is that 3–6 %; no incremental
+  update of a pack is exact (its discs are the zero set of a field of the moved points). Cheaper only by a definition
+  change (the user's call, not done): the pictures on the way from the run's own sample alone (D147's scene did so; about
+  1/8 of the search, inferred ≈ 0.4–0.6 s a pack) or a pack every second window (the target then jumps about 0.9 pitch at
+  the ramp's peak).
+  *Where the end falls short (frame level).* Against the independent sample the end outer layer's normal offset is
+  3–4 % larger (homer 0.372 against the tag's 0.352–0.359 pitch, dragon 0.439 against 0.418–0.426), spread over rim,
+  thin parts and the rest alike. The excess is not a residue of the ramp: at the ramp's end the body is nearer than the
+  tag at its arrival, equal 1 s later, then converges more slowly (homer +5 s 0.380 against 0.370); the places off by
+  more than half a pitch where no tag seed is (2.3–3.4 % of the layer) are scattered spots of 2–5 reference points that
+  form after the ramp and drift away (dragon −0.03 → −0.83 pitch, homer +0.10 → +0.57), carried by particles that settled
+  at 3–4 s. It is not a fit to the run's own sample (the end is farther from it too: homer 0.362 against 0.340–0.352), nor
+  the relief's amplitude or the surface's sampling (relief rms and nearest-neighbour spread as the tag's), nor the step
+  (smaller for the first second after the ramp, equal after). What differs is the body's volume: the in-between targets'
+  own sampling spacing (the logs' `[target] shading target: spacing`) says the volume each asks for: 0.90–0.97 of the
+  body's at the start (the blurred image of the sphere), +3.3 % (bunny), +9.4 % (dragon), +14 % (homer) at 1.7–2.0 s,
+  back to 1 at s = 1 — McCann's interpolation inflates the in-between shapes (displacement convexity; Brunn–Minkowski).
+  The volume-conserving body follows: its mean J reaches +2.9 / +9.9 / +5.7 % at 1.7–2.3 s (the tag +1.1 / +2.8 / 0 %), the
+  volume assimilation (D135) makes it rest volume (dragon det Fp p99 1.55 at the ramp's end against the tag's 1.29 at 3
+  s), and the end keeps part of it (mean J +1.2 / +3.9 / +0.5 % against +0.45 / +1.4 / −0.3 %; J p99 1.20 / 1.55 / 1.23
+  against 1.13–1.15 / 1.39–1.41 / 1.15–1.17). The excess orders with the misses (teapot's is the smallest, +0.04 on p99,
+  and it passes everything). D132 found the same mechanism for the source: the volume-conserving body cannot reach a
+  target sample of another density.
+  *Next definition (D155c, proposed, not run):* every in-between target carries the body's density, as D132 matched the
+  source's to the target's: Z_s rescaled about its centroid by k_s = sp(Y) / sp(Z_s), sp the pipeline's own median
+  8th-neighbour spacing (the estimator build_target already computes); k_1 = 1 (Z_1 = Y). No constant; about 10 ms a
+  pack. Predictions: the body's mean J on the ramp within the tag's (≤ +3 %), the end's J and item 2 within the tag's
+  range, items 1, 3, 4, 5 as D155b. What it does not address: the local density variation inside Z_s (the J quantiles'
+  spread beyond the mean), to be read in its gate. Cost: the same 40k gate, about 1 card-hour.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

@@ -50,10 +50,14 @@ def val(m, arm, path, nd=3):
     return "–" if x is None else f"{x:.{nd}f}"
 
 
-# ---------------- criteria (A3, render arm) ----------------
-crit = {}
-for m in MESH:
-    a3 = R.get(f"{m}40k_A3L97")
+# ---------------- criteria (render arm of an arm: A3 for D155, A3G for D155b) ----------------
+yes = lambda b: "–" if b is None else ("yes" if b else "NO")  # noqa: E731
+
+
+def judge(arm, item5):
+  crit = {}
+  for m in MESH:
+    a3 = R.get(f"{m}40k_{arm}L97")
     if a3 is None:
         continue
     c = {}
@@ -65,32 +69,45 @@ for m in MESH:
         tv, x = tag(m, "V", path), g(a3, path)
         q[path] = None if (not tv or x is None) else (x >= min(tv) if better == "high" else x <= max(tv))
     c["2 end"] = q
-    p3 = R.get(f"{m}40k_A3P97")
+    p3 = R.get(f"{m}40k_{arm}P97")
     c["2 lead"] = (None if p3 is None or g(a3, "end.yard_sil") is None or g(p3, "end.yard_sil") is None
                    else g(a3, "end.yard_sil") < g(p3, "end.yard_sil"))
     tk = tag(m, "V", "kin_end")
     c["3 rest"] = bool(tk) and a3["kin_end"] <= 1.25 * max(tk)
     tp = tag(m, "V", "kin_peak")
     c["4 peak kinetic"] = bool(tp) and a3["kin_peak"] <= 0.5 * min(tp)
+    if item5:
+        ta, tb = tag(m, "V", "apart_w3_12.max"), tag(m, "V", "visible_w3_10.bump_max")
+        c["5 apart"] = None if not ta or g(a3, "apart_w3_12.max") is None else g(a3, "apart_w3_12.max") <= max(ta)
+        c["5 bumps"] = (None if not tb or g(a3, "visible_w3_10.bump_max") is None
+                        else g(a3, "visible_w3_10.bump_max") <= max(tb))
     crit[m] = c
-p("## Criteria (A3 render arm against the tag's three seeds, V)")
-p("| mesh | 1 timing | 2 IoU (ind.) | 2 yardstick sil. | 2 yardstick shading | 2 display | 2 thin | 2 lead over A3 twin | 3 at rest | 4 peak kinetic |")
-p("|---|---|---|---|---|---|---|---|---|---|")
-yes = lambda b: "–" if b is None else ("yes" if b else "NO")  # noqa: E731
-for m, c in crit.items():
+  p(f"## Criteria ({arm} render arm against the tag's three seeds, V)")
+  p("| mesh | 1 timing | 2 IoU (ind.) | 2 yardstick sil. | 2 yardstick shading | 2 display | 2 thin | 2 lead over its twin | 3 at rest | 4 peak kinetic |"
+    + (" 5 apart w3-12 | 5 visible bumps w3-10 |" if item5 else ""))
+  p("|---|---|---|---|---|---|---|---|---|---|" + ("---|---|" if item5 else ""))
+  for m, c in crit.items():
     q = c["2 end"]
     p(f"| {m} | {yes(c['1 timing'])} | {yes(q['end.ind_sil'])} | {yes(q['end.yard_sil'])} | {yes(q['end.yard_pbr'])} | "
-      f"{yes(q['end.display'])} | {yes(q['end.thin'])} | {yes(c['2 lead'])} | {yes(c['3 rest'])} | {yes(c['4 peak kinetic'])} |")
-n_ok = lambda f: sum(1 for c in crit.values() if f(c))  # noqa: E731
-verdict = {"1": n_ok(lambda c: c["1 timing"]),
-           **{k: n_ok(lambda c, k=k: c["2 end"][k]) for k in ("end.ind_sil", "end.yard_sil", "end.yard_pbr",
-                                                               "end.display", "end.thin")},
-           "lead": n_ok(lambda c: c["2 lead"]), "3": n_ok(lambda c: c["3 rest"]), "4": n_ok(lambda c: c["4 peak kinetic"])}
-p()
-p("counts of 5: " + json.dumps(verdict))
-passed = all(v >= 4 for v in verdict.values()) and len(crit) == 5
-p(f"verdict: {'PASS' if passed else 'FAIL'} (each item on >= 4 of 5)")
-p()
+      f"{yes(q['end.display'])} | {yes(q['end.thin'])} | {yes(c['2 lead'])} | {yes(c['3 rest'])} | {yes(c['4 peak kinetic'])} |"
+      + (f" {yes(c['5 apart'])} | {yes(c['5 bumps'])} |" if item5 else ""))
+  n_ok = lambda f: sum(1 for c in crit.values() if f(c))  # noqa: E731
+  verdict = {"1": n_ok(lambda c: c["1 timing"]),
+             **{k: n_ok(lambda c, k=k: c["2 end"][k]) for k in ("end.ind_sil", "end.yard_sil", "end.yard_pbr",
+                                                                 "end.display", "end.thin")},
+             "lead": n_ok(lambda c: c["2 lead"]), "3": n_ok(lambda c: c["3 rest"]), "4": n_ok(lambda c: c["4 peak kinetic"])}
+  if item5:
+      verdict.update({"5 apart": n_ok(lambda c: c["5 apart"]), "5 bumps": n_ok(lambda c: c["5 bumps"])})
+  p()
+  p("counts of 5: " + json.dumps(verdict))
+  passed = all(v >= 4 for v in verdict.values()) and len(crit) == 5
+  p(f"verdict: {'PASS' if passed else 'FAIL'} (each item on >= 4 of 5)")
+  p()
+
+
+judge("A3", False)
+if any(k.endswith("A3GL97") for k in R):
+    judge("A3G", True)
 # ---------------- tables ----------------
 p("## Timing (render arm L / its twin P; the tag: three seeds V / W)")
 p("| mesh | move after 1 s: tag L / A1 L / A3 L | after 3 s: tag / A1 / A3 | physics P90 (s, final target) tag / A1 / A3 | render P90 (s) | A_lin tag / A1 / A3 | A_log tag / A1 / A3 | T_e A1 / A3 (s) |")
@@ -176,6 +193,37 @@ for m in ("bunny", "dragon"):
           f"{g(r, 'visible_w3_10.apart_max')} / {g(r, 'visible_w3_10.blob_max')} | {g(r, 'end.ind_sil') or float('nan'):.4f} | "
           f"{(g(r, 'end.yard_sil') or float('nan')) * 1e3:.3f} | {g(r, 'end.display') or float('nan'):.4f} | "
           f"{g(r, 'end.thin') or float('nan'):.3f} | {r['windows']} | {r['minutes']:.2f} |")
+if any(k.endswith("A3GL97") for k in R):
+    p()
+    p("## D155b: A3G (u reads the final target) against A3 and the tag, render arm (twin rows: P)")
+    p("| mesh | move after 1 s tag / A3 / A3G | physics / render P90 s A3 / A3G | ramp cos A3 / A3G | u gate open, mean over 0-1 s: tag / A3 / A3G; first window over half (s) | apart w3-12 tag / A3 / A3G | visible bumps / blobs w3-10 tag / A3 / A3G | peak kinetic A3 / A3G | delivered kinetic 1e-5 tag / A3G | abs(L) max tag / A3G | minutes tag / A3 / A3G | build s A3 / A3G |")
+    p("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    for m in MESH:
+        a, b = R.get(f"{m}40k_A3L97") or {}, R.get(f"{m}40k_A3GL97") or {}
+        f_ = lambda r, k, nd=3: "–" if g(r, k) is None else f"{g(r, k):.{nd}f}"  # noqa: E731
+        p(f"| {m} | {rng(tag(m, 'V', 'move_after_1s'))} / {f_(a, 'move_after_1s')} / {f_(b, 'move_after_1s')} | "
+          f"{f_(a, 'lin.P90_s', 2)} {f_(a, 'lin.R90_s', 2)} / {f_(b, 'lin.P90_s', 2)} {f_(b, 'lin.R90_s', 2)} | "
+          f"{f_(a, 'ramp.raw_cos')} / {f_(b, 'ramp.raw_cos')} | {rng(tag(m, 'V', 'u_gate_1s', R), 2)} / {f_(a, 'u_gate_1s', 2)} / "
+          f"{f_(b, 'u_gate_1s', 2)}; {f_(b, 'u_gate_half_t', 2)} | {tag(m, 'V', 'apart_w3_12.max')} / {g(a, 'apart_w3_12.max')} / "
+          f"{g(b, 'apart_w3_12.max')} | {tag(m, 'V', 'visible_w3_10.bump_max')} {tag(m, 'V', 'visible_w3_10.blob_max', R)} / "
+          f"{g(a, 'visible_w3_10.bump_max')} {g(a, 'visible_w3_10.blob_max')} / {g(b, 'visible_w3_10.bump_max')} "
+          f"{g(b, 'visible_w3_10.blob_max')} | {f_(a, 'kin_peak')} / {f_(b, 'kin_peak')} | "
+          f"{rng([x * 1e5 for x in tag(m, 'V', 'kin_end')], 2)} / {(g(b, 'kin_end') or float('nan')) * 1e5:.2f} | "
+          f"{rng(tag(m, 'V', 'L_max'), 1)} / {f_(b, 'L_max', 1)} | {rng(tag(m, 'V', 'minutes'), 2)} / {f_(a, 'minutes', 2)} / "
+          f"{f_(b, 'minutes', 2)} | {f_(a, 'build_s_mean', 2)} / {f_(b, 'build_s_mean', 2)} |")
+    p()
+    p("| mesh, arm | IoU ind. tag / A3 / A3G | yardstick sil. 1e-3 | yardstick shading 1e-3 | display | thin |")
+    p("|---|---|---|---|---|---|")
+    for m in MESH:
+        for t_, x in (("V", "L"), ("W", "P")):
+            row = []
+            for path, k, nd in (("end.ind_sil", 1, 4), ("end.yard_sil", 1e3, 3), ("end.yard_pbr", 1e3, 3),
+                                ("end.display", 1, 4), ("end.thin", 1, 3)):
+                tv = [v * k for v in tag(m, t_, path)]
+                va, vb = g(R.get(f"{m}40k_A3{x}97"), path), g(R.get(f"{m}40k_A3G{x}97"), path)
+                row.append(f"{rng(tv, nd)} / {'–' if va is None else f'{va * k:.{nd}f}'} / "
+                           f"{'–' if vb is None else f'{vb * k:.{nd}f}'}")
+            p(f"| {m} {x} | " + " | ".join(row) + " |")
 md.close()
 
 # ---------------- figure ----------------
@@ -192,7 +240,8 @@ if show:
     for j, m in enumerate(show):
         for name, col, lab, lw in ([(f"{m}40k_V{s}", MUTED, "the tag (three seeds)" if s == 97 else None, 1.0)
                                     for s in SEEDS] + [(f"{m}40k_A1L97", AQUA, "A1: ramp over the run's own T_e", 1.8),
-                                                       (f"{m}40k_A3L97", ORANGE, "A3: ramp over the 300k body's T_e", 2.0)]):
+                                                       (f"{m}40k_A3L97", ORANGE, "A3: ramp over the 300k body's T_e", 2.0),
+                                                       (f"{m}40k_A3GL97", BLUE, "A3G: A3, u reads the final target", 2.0)]):
             r = R.get(name)
             if r is None or "curves" not in r:
                 continue

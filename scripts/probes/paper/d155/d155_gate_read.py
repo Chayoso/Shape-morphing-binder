@@ -137,9 +137,15 @@ def read(name, d):
     if vis:
         vw = [v for v in vis if isinstance(v.get("window"), (int, float)) and 3 <= v["window"] <= 10]
         out["visible_w3_10"] = dict(apart_max=max(v["apart"] for v in vw), blob_max=max(v["blob"] for v in vw),
+                                    bump_max=max(v["bump"] for v in vw),
                                     side_blob_max=max(v.get("side_blob", 0) for v in vw)) if vw else None
     out["curves"] = dict(t=t.tolist(), move=move.tolist(), kin=kin.tolist(), raw_cos=[h.get("g_raw_cos") for h in hist],
-                         merit_share=(lam * R / (Pc + lam * R)).tolist(), Pc=Pc.tolist(), R=R.tolist())
+                         merit_share=(lam * R / (Pc + lam * R)).tolist(), Pc=Pc.tolist(), R=R.tolist(),
+                         u_gate=[h.get("u_gate") for h in hist])
+    ug = [(tt, h.get("u_gate")) for tt, h in zip(t, hist) if h.get("u_gate") is not None]
+    out["u_gate_1s"] = float(np.mean([u for tt, u in ug if tt <= 1.0 + 1e-9])) if ug else None
+    out["u_gate_ramp"] = float(np.mean([u for tt, u in ug if tt <= t_e + 1e-9])) if ug else None
+    out["u_gate_half_t"] = next((float(tt) for tt, u in ug if u >= 0.5), None)
     bs = [h.get("morph_build_s") for h in hist if (h.get("morph_build_s") or 0) > 0 and (h.get("morph_s") or 1) < 1]
     ta = [h.get("t_attempt") for h, r in zip(hist, ramp) if r and h.get("t_attempt")]
     out.update(build_s_mean=float(np.mean(bs)) if bs else None, ramp_attempt_s=float(np.mean(ta)) if ta else None)
