@@ -20,15 +20,18 @@ G = "/data/relcfd/chayo/physmorph_v2/output/gpu"
 out = Path(sys.argv[1])
 out.mkdir(parents=True, exist_ok=True)
 for spec in sys.argv[2:]:
-    mesh, seed = spec.split(":")
+    # MESH:SEED (300k, B1's end1 archive) or MESH:SEED:N:NPZ (any N, the run's own target sample read from NPZ)
+    mesh, seed, *rest = spec.split(":", 3)
     seed = int(seed)
+    n = int(rest[0]) if rest else 300000
+    own_npz = rest[1] if rest else f"{G}/d145t_b1/{mesh}300k_L{seed}_end1.npz"
     path = f"assets/{mesh}.obj"
     fill_src, fill_tgt, frame = {}, {}, {}
-    _, v_src = load_normalized("assets/isosphere.obj", 300000, seed, return_volume=True, sample="stratified",
+    _, v_src = load_normalized("assets/isosphere.obj", n, seed, return_volume=True, sample="stratified",
                                fill=fill_src)
-    tgt, _ = load_normalized(path, 300000, seed + 1, match_volume=v_src, sample="stratified", return_volume=True,
+    tgt, _ = load_normalized(path, n, seed + 1, match_volume=v_src, sample="stratified", return_volume=True,
                              frame=frame, fill=fill_tgt)
-    own = np.asarray(np.load(f"{G}/d145t_b1/{mesh}300k_L{seed}_end1.npz")["tgt"], np.float32)
+    own = np.asarray(np.load(own_npz)["tgt"], np.float32)
     maxdiff = float(np.abs(tgt - own).max())
     same = maxdiff <= 1e-6                     # bit for bit, or float32 rounding of the volume match (<= 4.8e-7 wu seen)
     m = load_mesh(path)
@@ -38,7 +41,7 @@ for spec in sys.argv[2:]:
         V = V @ rotation(o).T
     V = (V - frame["offset"]) * frame["scale"]
     t = trimesh.Trimesh(V, np.asarray(m.faces), process=True)        # duplicate vertices merged (armadilo is a soup)
-    row = dict(mesh=mesh, seed=seed, same_as_run_target=same, maxdiff_wu=maxdiff, bit_for_bit=bool(maxdiff == 0.0), faces=len(t.faces), verts=len(t.vertices),
+    row = dict(mesh=mesh, seed=seed, n=n, same_as_run_target=same, maxdiff_wu=maxdiff, bit_for_bit=bool(maxdiff == 0.0), faces=len(t.faces), verts=len(t.vertices),
                watertight=bool(t.is_watertight), winding_consistent=bool(t.is_winding_consistent), orient=o,
                offset=[float(v) for v in frame["offset"]], scale=float(frame["scale"]),
                volume=float(t.volume) if t.is_watertight else None)

@@ -8859,6 +8859,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Otherwise in between. The other measures are reported alongside.
   - Prediction: 300k gave an outline V / W of 0.68–0.86 on six meshes. At 40k the pitch is twice as coarse and the
     render pictures are 96 px; inferred 0.75–0.92.
+  **Result (3), read 2026-10-20 23:07 CDT (45 states, 2 readers at nice 10, PIDs 2162954 / 2162955, about 10 min;
+  `g40_table.json`; local `output/results_2026-10-20/d154_gallery40k/`).** The frames reproduce each run's target
+  sample (15 of 15 mesh-seeds to 4.8e-7 wu), and V and W of a seed share it. Per mesh V / W, median over seeds 97 / 99 /
+  101 with the range; armadilo / bunny / dragon / homer / teapot:
+  - Outline-shape error: 0.880 (0.864–0.931) / 0.877 (0.798–0.909) / 0.916 (0.910–0.979) / 0.883 (0.882–0.913) /
+    0.889 (0.865–0.920), so −8…−12 %. V is lower in 15 of 15 mesh-seed pairs (Wilcoxon p = 6.1e-5, the smallest
+    possible with 15 pairs) and in 5 of 5 mesh medians (p = 0.0625, the smallest with 5). Both arms are below a
+    perfect sample on all five (W / own 0.82–0.98: at 40k the ends are smoother than a sample), so W has no excess
+    over the perfect sample and the share is undefined.
+  - Exact 1 − IoU at 1024 px: 1.003 / 1.041 / 1.000 / 0.994 / 0.988; V lower in 6 / 15, p = 0.49. At 96 px:
+    1.004 / 1.037 / 0.994 / 0.994 / 0.964, 9 / 15, p = 0.76. The bunny's arm is 4 % worse at both resolutions. The
+    shares (W − V) / (W − own) scatter (−0.2…1.0).
+  - Normals at the nearest mesh point: 0.979 / 0.975 / 0.987 / 0.976 / 0.978 (−1.3…−2.5 %); V lower in 14 / 15,
+    p = 1.8e-4; both arms below a perfect sample.
+  - Yardstick against exact-mesh discs: silhouette 1.006 / 1.049 / 0.990 / 0.991 / 0.987 (8 / 15, p = 0.93); shading
+    0.982 / 1.020 / 0.982 / 0.975 / 0.961 (12 / 15, p = 0.048). Exact headlight shading: 0.98–1.03 (12 / 15, p = 0.25).
+  - The mean offset outside the mesh is the same in both arms (V / W 0.99–1.02).
+  Reading by the pre-registered rule: the outline-shape V / W is ≤ 0.90 on 4 of 5 (dragon 0.916) with p = 6.1e-5:
+  "only the binary IoU is blind", inside the prediction (0.75–0.92). But at 40k the reason differs from 300k. Even an
+  exact silhouette with no sampling floor, at 1024 px, sees no lead: the render term does not move the silhouette's
+  area at 40k. It changes the outline's shape (−8…−12 %) and a little the normals (−2 %), less than at 300k (outline
+  −14…−33 %, exact IoU −4…−12 %). So the 40k lead is real, and of a kind the IoU cannot register by construction (area
+  overlap), and it is smaller than 300k's. Scope: five of the 19 meshes (the only 40k frames left), D155's replicates
+  of B3's runs; the other 14 need their runs again (about 2.7 card-hours), the coordinator's decision.
+  Paper wording (proposed): "At 40k the render term leaves the silhouette's area unchanged against the exact mesh
+  (exact 1 − IoU at 1024 px: V / W 0.99–1.04, not significant), which is why the gallery's binary IoU barely moves.
+  It reshapes the outline instead: the outline-shape error against the exact mesh falls 8–12 % (15 of 15 mesh-seed
+  pairs, Wilcoxon p = 6 × 10⁻⁵), and the normals come about 2 % closer (14 of 15, p = 2 × 10⁻⁴), less than at 300k
+  (14–33 %)."
 - **D153, the runtime on the tag freeze-2026-10-15: where an attempt's time goes, two exact levers (merged as
   freeze-2026-10-15-rt1), how much the late windows buy, and a fixed 5–6 s horizon (opened 2026-10-16 11:26 CDT server
   clock; the user: "속도를 현재 더 줄일 수는 없을까"; at 11:35 the user's follow-up, relayed by the coordinator: "뒤로

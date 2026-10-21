@@ -30,7 +30,9 @@ orthographic box (1.25 x the independent sample's largest |x|).
     both are hit (state minus mesh along the ray, pitches; > 0 = the state's surface behind the mesh's).
 (C) `dist`: from the 384-px casts, the visible surface points of each against the other surface: the state's to the
     mesh (signed by the mesh's inside, five-ray majority), the mesh's to the state's triangle mesh, in pitches.
-`yard` as the last argument: (A) only."""
+`yard` as the last argument: (A) only. Environment: D154_REF=own takes the constants (pitch, box, lattice) and the
+sample reference of (A) from the run's own target sample in NPZ (the 40k gallery, no independent sample there);
+D154_MESHES the directory of the meshes in their runs' frames; D154_THREADS the threads of every CPU kernel."""
 import json
 import sys
 import time
@@ -55,7 +57,9 @@ torch.set_grad_enabled(False)
 import os                                                      # noqa: E402
 NT = int(os.environ.get("D154_THREADS", "6"))                 # threads of every CPU kernel here (a shared server)
 torch.set_num_threads(NT)
-MESHES = f"{G}/d154/meshes"
+MESHES = os.environ.get("D154_MESHES", f"{G}/d154/meshes")   # the meshes in their runs' frames (mesh_frames.py)
+REF_OWN = os.environ.get("D154_REF", "ind") == "own"            # the constants and the sample reference from the run's own
+                                                                 #   target sample (no independent sample, the 40k gallery)
 RES = (96, 384, 1024)
 cfg = PipelineConfig()
 res_y = cfg.render_res_hi                                      # the yardstick's 96 px (repo_r77)
@@ -234,9 +238,10 @@ class Ref:
     _ind, _seed = {}, {}
 
     @classmethod
-    def mesh_const(cls, mesh):
-        if mesh not in cls._ind:
-            ind = np.asarray(np.load(f"{G}/d90/{mesh}_ind300k.npz")["tgt"], np.float32)
+    def mesh_const(cls, mesh, seed=None, npz=None):
+        ck = (mesh, seed) if REF_OWN else mesh
+        if ck not in cls._ind:
+            ind = np.asarray(np.load(npz if REF_OWN else f"{G}/d90/{mesh}_ind300k.npz")["tgt"], np.float32)
             tgt = torch.as_tensor(ind)
             extent = float(tgt.abs().max()) * 1.25
             sp_t = median_kth_spacing(ind, 8, 20000)
@@ -247,15 +252,15 @@ class Ref:
             c = dict(ind=ind, extent=extent, pitch=pitch, lattice=lattice, h=h)
             p, n = discs(c, tgt)
             c["e_ind"] = exterior_targets(p, n, views, res_y, extent, cfg.sil_k, AMB)
-            cls._ind[mesh] = c
-        return cls._ind[mesh]
+            cls._ind[ck] = c
+        return cls._ind[ck]
 
     @classmethod
-    def seed_const(cls, mesh, seed):
+    def seed_const(cls, mesh, seed, npz=None):
         key = (mesh, seed)
         if key not in cls._seed:
             cls._seed.clear()                                  # one mesh-seed at a time (the casts are large)
-            c = cls.mesh_const(mesh)
+            c = cls.mesh_const(mesh, seed, npz)
             z = np.load(f"{MESHES}/{mesh}_{seed}.npz")
             surf = Surface(z["V"], z["F"])
             casts = {r: surf.cast(c["extent"], r) for r in ((1024,) if yard_only else RES)}
@@ -328,7 +333,7 @@ with open(out_path, "a") as out:
     for mesh, seed, label, npz, raw in jobs:
         t0 = time.time()
         seed = int(seed)
-        c, s = Ref.mesh_const(mesh), Ref.seed_const(mesh, seed)
+        c, s = Ref.mesh_const(mesh, seed, npz), Ref.seed_const(mesh, seed, npz)
         xs = state_x(npz, raw, mesh)
         x = torch.as_tensor(xs)
         a = c["pitch"]
@@ -337,7 +342,7 @@ with open(out_path, "a") as out:
         n = nnf.normalize(g, dim=1)
         yi = d_exterior(p, n, *c["e_ind"], views, res_y, c["extent"], cfg.sil_k, cfg.w_hole, cfg.w_spray, AMB)
         ym = d_exterior(p, n, *s["e_mesh"], views, res_y, c["extent"], cfg.sil_k, cfg.w_hole, cfg.w_spray, AMB)
-        row = dict(mesh=mesh, seed=seed, label=label, raw=raw, npz=npz.split("/")[-1], pitch=a, discs=len(p),
+        row = dict(mesh=mesh, seed=seed, label=label, raw=raw, ref="own" if REF_OWN else "ind", npz=npz.split("/")[-1], pitch=a, discs=len(p),
                    mesh_discs=s["mesh_discs"],
                    yard_ind=dict(sil=float(yi[0]), pbr=float(yi[1])), yard_mesh=dict(sil=float(ym[0]), pbr=float(ym[1])))
         row["t_yard"], t1 = time.time() - t0, time.time()
