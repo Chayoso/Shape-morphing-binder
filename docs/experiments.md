@@ -11671,8 +11671,11 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
        sampling noise that eight seeds would average, and halving the cost doubles the steps the budget allows.
        Every final score keeps eight seeds.
      - A trial that moves no voxel centre of any of the four draws is identical to the current state. It is refused
-       without evaluation, and the level ends, because a smaller step of the same direction moves a subset of those
-       centres, so none.
+       without evaluation, and the halving goes on.
+       - Amendment, 01:27 CDT, before any run. The first text ended the level here, on the claim that a smaller step
+         moves a subset of the centres. That is false where neighbouring vertices move in opposite directions and are
+         clamped at different steps.
+       - D156f's rule (halve down to 1e-3 pixel) is kept instead, at no cost.
   5. The run ends after the last level, after 300 accepted steps, or at 6 h (reported as the budget).
   *The score.*
   - The final d is turned into a mesh by marching cubes of depth − d(π) on the half-pitch grid. At d = 0 this is
