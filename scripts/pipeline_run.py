@@ -51,6 +51,13 @@ def parse_args(argv=None):
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
+    ap.add_argument("--proximity_berth", action=argparse.BooleanOptionalAction, default=False,
+                    help="D161b A/B (off by default): the surface proximity counts a target point as covered when a body "
+                         "particle lies within the near band's berth (its floor K(berth) in place of K(sp) / 2)")
+    ap.add_argument("--render_tgt", default=None,
+                    help="D156 (off by default): the mesh the render's target pictures are drawn from (and the frame, the "
+                         "cameras'), in place of --tgt's; --tgt is then the transport's and the body's target, sampled in "
+                         "that frame (prepare.prepare)")
     # the defaults below are the frozen recipe (tag freeze-2026-10-09b, D139; it supersedes freeze-2026-10-09): D105's,
     # whose render arm is ahead of its physics-only twin on every display measure read against an independent sample
     # (D91, D92; the minimum spacing D70/D72, the exterior D62, the layer relief D105), with the render weight at the
@@ -222,7 +229,7 @@ def prepared(args, seed: int):
                    draws=args.render_target_draws,
                    match_density=args.match_density,
                    cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0,
-                   mesh=args.render_target == "mesh_shell")
+                   mesh=args.render_target == "mesh_shell", render_tgt=getattr(args, "render_tgt", None))
     return cfg0, prep
 
 
@@ -267,7 +274,7 @@ def run_config(args, cfg0, prep):
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,
                               cleanup_in_phys=args.cleanup_in_phys,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
-                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump,
+                              nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth, grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale)
@@ -301,7 +308,7 @@ def run_main(args, prep, src, tgt, prm, cfg):
         out["provenance"]["appearance"] = app.params
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
                        on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
-                       mesh=prep.tgt_mesh, appearance=app)
+                       mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

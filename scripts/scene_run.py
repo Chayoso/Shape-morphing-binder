@@ -65,7 +65,7 @@ def main():
         cfg0, prep = prepared(base, seed)
         cfg_b = run_config(base, cfg0, prep)
         cfg = cfg or cfg_b
-        tgt = build_target(prep.tgt, prep.prm, cfg_b, draws=prep.tgt_draws, mesh=prep.tgt_mesh)
+        tgt = build_target(prep.tgt, prep.prm, cfg_b, draws=prep.tgt_draws, mesh=prep.tgt_mesh, render_x=prep.render_x)
         if prep.tgt_surface is not None:
             tgt.relief = target_relief(tgt.pts, prep.tgt_surface, cfg_b)
         X = np.asarray(prep.src, np.float64)

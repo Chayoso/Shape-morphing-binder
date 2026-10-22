@@ -20,7 +20,7 @@ from . import gpu
 from .mpm.discretisation import derive, report
 from .mpm.state import MPMParams
 from .sampling import load_normalized
-from .sampling.mesh import draws_in_frame, mesh_in_frame, surface_in_frame
+from .sampling.mesh import draws_in_frame, fill_volume_in_frame, mesh_in_frame, sample_in_frame, surface_in_frame
 
 
 @dataclass
@@ -40,6 +40,9 @@ class Prepared:
     cell_shape: float | None = None     # D137 (cell_ref_n, above it): the shape's MPM cell (diag / cell_diag, as derived
                                         #   before), kept for the u gate and the thin set; None = prm.dx is the shape's cell
     tgt_mesh: tuple | None = None       # D159 (mesh): (V, F) of the target mesh in the target's frame (the render's shell)
+    render_x: np.ndarray | None = None  # D156 (render_tgt): the render target's own sample in the target's frame, the first
+                                        #   of the samples the render's pictures are drawn from (tgt_draws are then its
+                                        #   further draws); None = the pictures from tgt and its draws, the frozen path
 
 
 def sampling_berth(target: np.ndarray) -> float:
@@ -60,7 +63,14 @@ def sampling_berth(target: np.ndarray) -> float:
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
-            draws: int = 1, match_density: bool = False, cell_ref_n: int = 0, mesh: bool = False) -> Prepared:
+            draws: int = 1, match_density: bool = False, cell_ref_n: int = 0, mesh: bool = False,
+            render_tgt: str | None = None) -> Prepared:
+    """render_tgt (D156; None = the frozen path): the mesh the render's target pictures are drawn from, in place of the
+    target's. The target (tgt_path: the transport's, the body's) is prepared exactly as without it; the render target's
+    mesh is sampled by the same sampler in the target's frame (sampling.mesh.sample_in_frame: the same operations that
+    put the target's cloud there, so it stays where it lies relative to the target), at the target sample's number
+    density (D132: n x its fill volume / the target's, in the frame), with the target's seeds (seed + 1 and the draws'
+    seed + 1 + 100 k). With render_tgt = tgt_path its samples are the target's and its draws bit for bit."""
     fill_src, fill_tgt = ({}, {}) if match_density else (None, None)
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified", fill=fill_src)
     frame = {}
@@ -84,12 +94,20 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
             f"{k_src:.5f}")
     # surface > 0: that many points of the target mesh's own surface, for the relaxation's reference
     tgt_surface = surface_in_frame(tgt_path, frame, surface) if surface > 0 else None
+    render_x, n_r = None, n
+    if render_tgt is not None:                # D156: the render target's own sample in the target's frame
+        f_t = fill_tgt["volume"] if fill_tgt is not None else fill_volume_in_frame(tgt_path, frame, n)
+        n_r = int(round(n * fill_volume_in_frame(render_tgt, frame, n) / f_t))
+        render_x, _ = sample_in_frame(render_tgt, frame, n_r, seed + 1)
+        log(f"[v2run] render target (D156): {render_tgt}, {n_r} particles in the target's frame (the target sample's "
+            f"number density; the target {tgt_path}, {n})")
     # draws > 1: that many samples of the target in all, the pipeline's and draws - 1 further independent ones (seeds
-    # seed + 1 + 100 k; seed + 2 is left to the evaluation's independent reference), for the render's target
-    tgt_draws = (draws_in_frame(tgt_path, frame, n, [seed + 1 + 100 * k for k in range(1, draws)])
+    # seed + 1 + 100 k; seed + 2 is left to the evaluation's independent reference), for the render's target (D156:
+    # of the render target, when it is given)
+    tgt_draws = (draws_in_frame(render_tgt or tgt_path, frame, n_r, [seed + 1 + 100 * k for k in range(1, draws)])
                  if draws > 1 else None)
     # mesh (D159): the target mesh's own triangles in the same frame, for the render's shell target (target.shell_pictures)
-    tgt_mesh = mesh_in_frame(tgt_path, frame) if mesh else None
+    tgt_mesh = mesh_in_frame(render_tgt or tgt_path, frame) if mesh else None   # D162: the render target's, when given
     floor_y = None
     if floor:                                 # both shapes stand on one floor, at the source's lowest point
         floor_y = float(src[:, 1].min())
@@ -102,6 +120,9 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
             d[:, 1] += lift
         if tgt_mesh is not None:
             tgt_mesh[0][:, 1] += lift
+        if render_x is not None:              # D156: the render's sample keeps its place relative to the target
+            render_x = render_x.copy()
+            render_x[:, 1] += lift
         log(f"[v2run] floor at y = {floor_y:.3f} wu; the target stands on it")
     log(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
         f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})")
@@ -156,4 +177,4 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
                     tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape,
-                    tgt_mesh=tgt_mesh)
+                    tgt_mesh=tgt_mesh, render_x=render_x)

@@ -88,6 +88,8 @@ class PipelineConfig:
     dt_clamp_frac: float = 2.0      # DT clamp, in target extents
     w_nn: float = 0.2               # near-band pull to the nearest target point, between the berth and one loss cell
     nn_berth_k: float = 1.0         # berth in target spacings (the prepare stage resolves it)
+    proximity_berth: bool = False   # D161b A/B: the surface proximity counts a target point covered within the berth (its floor
+                                    #   K(berth) in place of K(sp) / 2: the near band's free radius); off = the frozen path
 
     min_spacing: float = 0.0        # the position update keeps particles this far apart, in pitches of the rest
                                     #   volume (0: off; 0.9 is the spacing of a Poisson-disk sample of that density, D70)
