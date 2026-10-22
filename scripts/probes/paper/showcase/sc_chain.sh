@@ -77,26 +77,40 @@ wait_file() { until [ -e "$1" ]; do sleep 60; done; }
 cpu_slot() { while true; do for k in 1 2; do mkdir $T/cpu_slot_$k 2>/dev/null && { echo $k; return; }; done; sleep 60; done; }
 
 render_one() {   # NAME AZ EL VIEW [DIST]
+  # the video covers the first CAP_S seconds (default 12 s; the shape is set by then and the late tail moves by sub-pitch
+  # amounts), the end state rendered as its own frame for the stills and the sheet (2026-10-22: the long runs' full-length
+  # renders took 45-60 min a card)
   local name=$1 az=$2 el=$3 view=$4 dist=${5:-1} F=$D/${1}_frames12.npz
   local pair=$(cat $D/pair_$name) out=$R/${1}_$4
   local dense=$D/ind/${pair}_dense15.npz
+  local nk=$($PYB -c "import json; print(json.load(open('$D/mid/$name.json'))['frames'])" 2>/dev/null)
+  local mid=$($PYB -c "import json; print(json.load(open('$D/mid/$name.json'))['mid'])" 2>/dev/null)
+  [ -n "$nk" ] || nk=$($PYB -c "import numpy as np; print(len(np.load('$F')['raws']))")
+  local last=$((nk - 1)) cap=$((${CAP_S:-12} * 20)) range=""
+  [ -n "$mid" ] || mid=$((nk / 2))
+  [ $nk -gt $cap ] && range="+frames=0-$((cap - 1))"
   wait_file $dense
   ( export PHYSMORPH_RUN_REPO=$B/repo_t1s; source $B/repo_t1s/scripts/ops/hyde06_env.sh > /dev/null 2>&1
     source $B/tmp/d146/cache_env.sh; rm -rf $out; t0=$(date +%s)
     CUDA_VISIBLE_DEVICES=$CARD $PY scripts/render_deliverable.py $F $dense $out +stride=1 +video=1 +fit=0 +field=zbs \
-      +az=$az +el=$el +dist=$dist > $out.log 2>&1 < /dev/null
-    echo "$? $(( $(date +%s) - t0 ))" > $R/rc_${name}_$view )
-  log "render ${name}_$view az $az el $el dist $dist rc/wall $(cat $R/rc_${name}_$view)"
+      +az=$az +el=$el +dist=$dist $range > $out.log 2>&1 < /dev/null
+    rc=$?
+    if [ $rc = 0 ] && [ -n "$range" ]; then
+      CUDA_VISIBLE_DEVICES=$CARD $PY scripts/render_deliverable.py $F $dense $out +stride=1 +video=1 +fit=0 +field=zbs \
+        +az=$az +el=$el +dist=$dist +frames=$last-$last >> $out.log 2>&1 < /dev/null
+      rc=$?
+    fi
+    echo "$rc $(( $(date +%s) - t0 ))" > $R/rc_${name}_$view )
+  log "render ${name}_$view az $az el $el dist $dist ${range:-full} + end frame $last rc/wall $(cat $R/rc_${name}_$view)"
   [ "$(cut -d' ' -f1 $R/rc_${name}_$view)" = 0 ] || return
   ffmpeg -loglevel error -y -framerate 20 -i $out/frames/%04d.jpg -vf hflip -c:v libx264 -crf 18 -pix_fmt yuv420p \
     $V/${name}_${view}_4k.mp4 < /dev/null
   ffmpeg -loglevel error -y -framerate 20 -i $out/frames/%04d.jpg -vf hflip,scale=1920:1080:flags=lanczos -c:v libx264 \
     -crf 18 -pix_fmt yuv420p $V/${name}_${view}_1080p.mp4 < /dev/null
-  local n=$(ls $out/frames | wc -l) last mid ks="" k
-  last=$((n - 1)); mid=$($PYB -c "import json; print(json.load(open('$D/mid/$name.json'))['mid'])" 2>/dev/null || echo $((n / 2)))
+  local ks="" k
   mkdir -p $D/stills/${name}_$view
   for k in 0 5 10 15 20 30 50 $last $mid; do
-    [ $k -le $last ] && ffmpeg -loglevel error -y -i $out/frames/$(printf %04d $k).jpg -vf hflip -q:v 2 $D/stills/${name}_$view/$(printf %04d $k).jpg < /dev/null
+    [ -e $out/frames/$(printf %04d $k).jpg ] && ffmpeg -loglevel error -y -i $out/frames/$(printf %04d $k).jpg -vf hflip -q:v 2 $D/stills/${name}_$view/$(printf %04d $k).jpg < /dev/null
   done
   for k in 0 5 10 15 20 30 50; do [ $k -lt $last ] && ks="$ks,$k"; done
   ks="${ks#,},$last"

@@ -24,6 +24,8 @@ job cvgate repo_scv $PY -m pytest -q -p no:cacheprovider tests/test_cell_from_vo
 # A: the twins
 run maxplanck300k_P97 isosphere maxplanck - - --render_weight_scale 0
 run fandisk300k_P97 isosphere fandisk - - --render_weight_scale 0
+# SHOWCASE-CV run (the gate passed: cvgate rc 0, 24 passed, 2026-10-22 01:09)
+run armadilo2homer300k_CV97 armadilo homer 25 12 repo=repo_scvs --cell_from_volume
 # B: shape to shape, render arm, seed 97
 run teapot2bob300k_L97 teapot bob 35 18
 run spot2cow300k_L97 spot cow 35 18
