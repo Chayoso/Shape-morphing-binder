@@ -291,7 +291,7 @@ for j, mesh in enumerate(("bunny", "dragon")):
         share = [c[1] ** 2 / max(c[1] ** 2 + c[2] ** 2, 1e-60) for c in S["course"]]
         a_.plot(w, share, color=col, lw=2, label=lab)
     a_.set_ylim(0, 1)
-    a_.set_title(f"{mesh} 300k: the render's share of the push on the outer layer's detail band (< 10.8 pitches)", fontsize=9)
+    a_.set_title(f"{mesh} 300k: render's share of the detail-band push (outer layer)", fontsize=10)
     a_.set_xlabel("window")
     a_.grid(axis="y", color=GRID, lw=0.8)
     for sp in ("top", "right"):

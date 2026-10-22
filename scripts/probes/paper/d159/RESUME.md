@@ -79,7 +79,7 @@ Regions (fixed before any run): output/gpu/d159/step0/regions_{bunny,dragon}_b5.
 - Running:
   - chain 2247716 (T97 pair, then readcpu detached, then X renders);
   - drop_g.sh;
-  - the close-up waiter 2247793 (starts when the chain has exited).
+  - the close-up waiter 3280248 (starts when the chain has exited; replaced 2247793).
 - Next by hand:
   1. Run d159_table.py (output/gpu/d159/table): table.txt, course.png, relief.png, holds.png.
   2. Copy the figures, videos (output/gpu/d159/video/*.mp4) and close-up sheets (output/gpu/d159/closeups/*.jpg)
@@ -89,3 +89,53 @@ Regions (fixed before any run): output/gpu/d159/step0/regions_{bunny,dragon}_b5.
   5. Proposal to the user (via the coordinator): the render authority after arrival (the frozen lambda rule), together
      with D159 pictures and exterior radius 2.5. D161bs proximity reach is not the main detail-band gradient at 300k
      (R5: the near band is the largest detail-band term).
+
+## D159c (pre-registered 01:04, commit f65e8574): STAGED, NOT LAUNCHED
+- What: D159 pictures + --lambda_ema 0 (lambda held from the first window), 300k bunny/dragon seed 97, term dumps.
+  The runs are named bunny300k_C97 / dragon300k_C97.
+- Launch ONLY when D160c (output/gpu/d160/gate_H/) shows the colour still moving after arrival with lambda held, or
+  when the coordinator says so. If D160c shows no movement, do NOT launch.
+- Launch command (one card, lock protocol inside):
+  `cd /data/relcfd/chayo/physmorph_v2/tmp/d159 && (setsid nohup ./d159c.sh > d159c.out 2>&1 < /dev/null & echo $! > d159c.pid)`
+- When the runs end, d159c_read.sh MESH starts by itself. It writes R1 relief_c_*, R2 course_c_*, R5 terms_* (the dumps
+  are deleted after reading), R6 window_c.jsonl, pieces and visible blobs.
+- Then add C97 to d159_table.py (R5 names, R1/R2 labels) and read P1c-P3c.
+
+## Close-ups (updated 01:04)
+- The waiter is now PID 3280248; it adds a DISPLAY READING pair (bunny wrinkles and dragon scutes at 4 s and the end, tag
+  and D159) drawn through the r = 2.5 field.
+- The sheets are closeups/bunny_wrinkles25.jpg and dragon_scales25.jpg. Label them as a display reading only.
+- The M97 term dumps were deleted at 01:03 (logged); their R5 is in read/terms_{bunny,dragon}.jsonl.
+
+## 2026-10-22 02:52 CDT
+- D159 second reading committed (c3b4c64a); the launch note for D159c is 3d2a3305 (settled-base).
+- D160c after-arrival reading: the colour keeps falling after arrival in all 10 held-lambda runs (12-67 %) -> D159c ARMED:
+  d159c_after.sh PID 4161998 (d159c.pid) waits for chain 2247716 (X renders on gpu3) and the close-up waiter 3280248,
+  then execs d159c.sh (claims ONE card, runs bunny300k_C97 + dragon300k_C97, read300, then d159c_read.sh on the CPU).
+- After D159c: read with d159c_read.sh outputs, delete output/gpu/d159/terms/*C97* and *_C97_frames12.npz after reading,
+  log in output/gpu/cleanup.log. Also delete bunny/dragon300k_M97_frames12.npz after the close-ups.
+- Still to do locally: re-run d159_table.py (short holds.png titles), copy videos + closeups + figures to
+  output/results_2026-10-21/d158_render_detail/d159/, finish README_ko.md D159 section.
+
+## CHECKPOINT 2026-10-22 03:57 CDT (local shutdown)
+Running, all detached (PPID 1, own session, no tty):
+- 2247716 d159_chain.sh V R X G: X step on gpu3 (lock gpu_locks/gpu3.lock "agent D159"); bunny side-by-side + video done
+  (output/gpu/d159/video/bunny300k_tag_vs_d159_1080p.mp4), dragon renders done 03:55, dragon side-by-side + video next,
+  then the 4K frames removed and gpu3 released. G already ran (nothing left after X).
+- 3280248 d159_closeups.sh: waits for 2247716, claims ONE card (free 900 s, never GPU 2), sheets in
+  output/gpu/d159/closeups/{bunny_ears,bunny_wrinkles,dragon_head,dragon_scales,bunny_wrinkles25,dragon_scales25}.jpg
+  (the *25 pair = r = 2.5 field, labelled DISPLAY READING).
+- 4161998 d159c_after.sh: waits for 2247716 and 3280248, then execs d159c.sh (ONE card; bunny300k_C97 + dragon300k_C97,
+  --render_target mesh_shell --lambda_ema 0 --term_dump; read300 on the card; then d159c_read.sh bunny/dragon on the CPU,
+  which deletes the C97 term dumps and logs it). Launch condition read and committed (3d2a3305).
+Progress: tail output/gpu/d159/status.txt (lines "D159c ... rc/wall", "D159c readcpu MESH done").
+After D159c (reader commands, python = /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python, CPU only):
+- R6 / R1 / R2 / R5 land in output/gpu/d159/read/{window_c.jsonl, relief_c_*.jsonl, course_c_*.jsonl, terms_*.jsonl}.
+- Add C97 to tmp/d159/d159_table.py (R5 names, R1/R2 labels), then
+  $PY tmp/d159/d159_table.py output/gpu/d159/table ; read P1c-P3c of the D159c pre-registration (docs/experiments.md).
+- At rest / pieces: output/gpu/d159/pieces.jsonl (run bunny300k_C97 / dragon300k_C97), pulse_/apart_/vis_ logs.
+Cleanup after reading: output/gpu/d159/{bunny,dragon}300k_{M97,C97}_frames12.npz (after the close-ups), log in
+output/gpu/cleanup.log. /data/relcfd/chayo at 467 GB at 02:50 (limit 500).
+Local (when back): copy video/*.mp4, closeups/*.jpg, table/* to
+output/results_2026-10-21/d158_render_detail/d159/ ; bunny video already copied; README_ko.md D159 section updated
+through the D159c launch.
