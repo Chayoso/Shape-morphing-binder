@@ -10,6 +10,7 @@ deliverable ends at the best window.
 from __future__ import annotations
 
 import dataclasses
+import time
 
 import numpy as np
 import torch
@@ -45,7 +46,8 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "active_set", "ctrl_mag", "ctrl_rough", "prof",
                 "sup_E", "sup_B", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio",
                 "ext_discs", "ext_builds")
-_FLOOR_FIELDS = ("lam_rule", "lam0", "render_L", "render_floor", "render_excess")   # D162 (1), floor mode only
+_FLOOR_FIELDS = ("lam_rule", "lam0", "render_L", "render_floor", "render_excess",   # D162 (1) / D162b, those modes only
+                 "render_b", "render_b_se", "render_b_floor", "t_shape")
 _NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason",
                 "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason")
@@ -76,7 +78,7 @@ class _AttemptClock:
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
                  on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None,
-                 mesh=None, appearance=None, render_x=None, floor_x=None):
+                 mesh=None, appearance=None, render_x=None, floor_x=None, target_fill=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
@@ -91,7 +93,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     None = the frozen path): the render's own target sample in the target's frame, from which (and from draws, then its
     further draws) the pictures are drawn in place of the target's (target.build_target). floor_x (D162 (1), cfg.render_weight_ref
     "floor"; None = the pictures' own first sample, render_x or else target_x): the sample whose render term is the
-    render's floor (target.render_floor): what a body that reaches that sample scores, the floor the physics can reach."""
+    render's floor (target.render_floor): what a body that reaches that sample scores, the floor the physics can reach.
+    target_fill (D162b, cfg.render_weight_ref "shape"): the volume the target sample represents (D132's fill volume, wu^3),
+    for the shape reading's number density; mesh is then the render target's own mesh (pipeline/shape_read.py)."""
     gpu.require_cuda()
     cfg = dataclasses.replace(cfg)
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
@@ -121,6 +125,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # the relative cap: 20x the first raw ratio (the same meaning in any loss unit)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, None, cap_rel=20.0)
     lo, hi = domain_bounds(prm)
+    shape = None
+    if cfg.render_weight_ref == "shape":           # D162b: the weight's excess read on the body's shape
+        from ..shape_read import ShapeRead
+        if mesh is None or target_fill is None:
+            raise ValueError("render_weight_ref shape needs the render target's mesh and the target's fill volume")
+        fx = floor_x if floor_x is not None else (render_x if render_x is not None else target_x)
+        alb = None
+        if appearance is not None:
+            alb = appearance.tgt if (floor_x is None and render_x is None) else appearance.albedo_at(np.asarray(fx))
+        shape = ShapeRead(tgt, cfg, fx, mesh, float(target_fill), N, (lo, hi), alb, log)
+        tgt.render_b_floor = shape.b_floor
+    shape_at = None                                 # the state b was last read at (a retried window starts there again)
     x = src.clone()
     vol0 = compute_rest_volumes(src, 1.0, prm, cfg.device)
     coh_nbr = gpu.knn(src, cfg.coh_k + 1)[1][:, 1:]    # frozen source-material neighbours
@@ -159,10 +175,17 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             n_frag = int(frag.sum())
         if a % 10 == 0 or n_frag:
             log(f"[v2] anim {a + 1}: fragments {n_frag} particles")
+        t_shape = None
+        if shape is not None and (shape_at is None or not torch.equal(shape_at, x_start)):
+            t0s = time.time()
+            tgt.render_b, tgt.render_b_se, _ = shape.read(x_start, None if appearance is None else appearance.src)
+            shape_at, t_shape = x_start.clone(), time.time() - t0s
         res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer,
                               vol0, (coh_nbr, bond_rest, frag.float()), dfc_init=dfc_prev,
                               alpha_scale=sel.anneal, on_iter=on_iter, log=lambda *_: None)
         stats = res.stats
+        if shape is not None:
+            stats["t_shape"] = t_shape                # the shape reading's seconds at this window (None: reused)
         dfc_prev = stats["dfc"]
         if res.commit is None:
             if stats.get("invalid_selection"):
@@ -302,8 +325,8 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
            "Jmin_traj": commit.jmin_traj, **counts,
            "selection_merit": stats["selection_merit"], "transport_energy": energy, **diag,
            **{k: v for k, v in stats.items() if k.startswith("force_")}}    # B13's records (baseline force*), else none
-    if getattr(cfg, "render_weight_ref", "residual") == "floor":   # D162 (1): the weight's reference, a record (that path only)
-        rec.update({k: stats.get(k) for k in _FLOOR_FIELDS})
+    if getattr(cfg, "render_weight_ref", "residual") in ("floor", "shape"):   # D162 (1) / D162b: the weight's reference,
+        rec.update({k: stats.get(k) for k in _FLOOR_FIELDS})                  # a record (those paths only)
     if thin is not None and cfg.work_telemetry:
         m = thin_metrics(x, thin)
         rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))

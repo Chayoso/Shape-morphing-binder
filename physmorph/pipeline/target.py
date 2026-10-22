@@ -82,7 +82,10 @@ class TargetPack:
     gap: tuple | None = None            # D148 (gap_split): (plane_m, plane_n) per MPM node of mpm/gap_split.GapPlanes (torch)
     gap_walls: dict | None = None       # D148c (gap_split walls): gap_walls.BoxPieces' arrays (torch)
     gap_rep: object = None              # D148c: each particle's representative cell from the window before (state)
-    render_floor: float | None = None   # D162 (1): the render term of an independent sample of the render target (render_floor)
+    render_floor: float | None = None   # D162 (1): the render term of the pictures' own first sample (render_floor)
+    render_b: float | None = None       # D162b: the shape reading b at the current window's start (shape_read.ShapeRead)
+    render_b_se: float | None = None    #   its standard error over the eight resamples
+    render_b_floor: float | None = None  #   the floor sample read the same way, once a run
 
 
 def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):

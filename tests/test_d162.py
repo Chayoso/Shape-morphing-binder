@@ -94,3 +94,61 @@ def test_a_floor_run_records_its_reference_and_holds_lambda_to_it():
         assert r["render_L"] > 0.0
         assert r["render_excess"] == pytest.approx(max(0.0, 1.0 - r["render_floor"] / r["render_L"]))
         assert r["lambda"] == pytest.approx(r["lam0"] * r["render_excess"] * cfg.render_weight_scale)
+
+
+def test_shape_reference_needs_the_exterior():
+    with pytest.raises(ValueError):
+        PipelineConfig(render_weight_ref="shape")
+    PipelineConfig(render_exterior=True, render_weight_ref="shape")
+
+
+def _box_scene():
+    import numpy as np
+    import trimesh
+    rng = np.random.default_rng(11)
+    src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
+    tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    box = trimesh.creation.box(extents=(3.9, 2.4, 3.0))
+    return src, tgt, (np.asarray(box.vertices), np.asarray(box.faces)), 3.9 * 2.4 * 3.0
+
+
+@cuda
+def test_a_shape_run_records_b_and_holds_lambda_to_its_excess():
+    """D162b on the contracts' small cloud (its target: uniform in a 3.9 x 2.4 x 3 box): every committed window records
+    b, one b_floor a run, the excess max(0, 1 - b_floor / b), and the weight lambda_0 x that excess; the reading's
+    seconds where the window started from a new state."""
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import run_pipeline
+    src, tgt, mesh, fill = _box_scene()
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, animations=3, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                         render_res=24, dt_res=32, patience=3, render_exterior=True, render_weight_ref="shape")
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None, mesh=mesh, target_fill=fill)
+    rows = [r for r in res["history"] if r.get("frame_end") and not r.get("null_commit")]
+    assert rows
+    assert len({r["render_b_floor"] for r in rows}) == 1 and rows[0]["render_b_floor"] > 0.0
+    assert len({r["lam0"] for r in rows}) == 1
+    for r in rows:
+        assert r["render_b"] > 0.0 and r["render_b_se"] >= 0.0
+        assert r["render_excess"] == pytest.approx(max(0.0, 1.0 - r["render_b_floor"] / r["render_b"]))
+        assert r["lambda"] == pytest.approx(r["lam0"] * r["render_excess"] * cfg.render_weight_scale)
+    assert rows[0]["t_shape"] is not None and rows[0]["t_shape"] > 0.0
+
+
+@cuda
+def test_a_shape_reading_repeats_and_ignores_the_particle_order():
+    """The resample lattice and its jitter are fixed for the run: the same particles read the same b, in any order."""
+    import numpy as np
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline.shape_read import ShapeRead
+    from physmorph.pipeline.target import build_target
+    from physmorph.pipeline.window.setup import domain_bounds
+    _, tgt, mesh, fill = _box_scene()
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5), render_res=24, dt_res=32,
+                         render_exterior=True, render_weight_ref="shape")
+    pack = build_target(tgt, prm, cfg)
+    sr = ShapeRead(pack, cfg, tgt, mesh, fill, len(tgt), domain_bounds(prm), log=lambda *_: None)
+    b1, _, n1 = sr.read(tgt)
+    b2, _, n2 = sr.read(tgt[np.random.default_rng(0).permutation(len(tgt))])
+    assert b1 == pytest.approx(sr.b_floor, rel=1e-3) and b2 == pytest.approx(b1, rel=1e-3) and n1 == n2 > 0   # (atomics)
