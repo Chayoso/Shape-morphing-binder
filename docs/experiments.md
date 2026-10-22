@@ -16855,6 +16855,120 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - No early printing of features on the source surface: D139's printing came with a cell of 23 particles, and this
       option restores the gallery's 183, not a finer one.
     - If the lace remains, its frames say why; the next definition follows from that.
+  **SHOWCASE and SHOWCASE-CV result.**
+  - *Read:* 2026-10-22 10:20–10:40 CDT, CPU only.
+  - *Runs:* 2026-10-21 12:29 to 2026-10-22 07:13 on gpu 0–3 by the lock protocol: two cards until 23:00, then one.
+    Every run has rc 0.
+  - *Readers:* `sc_table.py`, `sc_topo.py`, `sc_thin.py`, `sc_montage.py`.
+  - *Where:* `output/gpu/showcase/`; locally `output/results_2026-10-21/showcase300k/`, with a Korean README.
+  - *Tables:* `data/showcase_table.md` (every reading per run, the twin leads), `data/topo.jsonl`, `data/maxplanck_thin*.json`.
+  - *Deliverables:* 28 renders (1080p, 4K, stills, contact sheets) and a montage of 27 examples, every picture mirrored
+    back (`hflip`).
+    - The renders after 02:55 cover the first 12 s; the end frame is rendered on its own for the sheets. The shape is
+      set by then.
+    - The long runs' full-length renders had taken 45–60 min a card.
+  - *A, the gallery (sphere → 13 meshes).* rc 0 on all 13.
+    - Silhouette IoU against the independent sample: 0.9838–0.9901 on the 12 that ran to the end; C 0.9813.
+      - The prediction (0.975–0.990 on ≥ 11 of 13) holds on 12 of 13; fandisk is 0.9901, just above.
+      - beast 0.9838 and ogre 0.9842 are among the lowest, as predicted.
+    - Thin: highest on C 0.075, maxplanck 0.065, heart 0.050 and beast 0.049. The prediction (beast, ogre, cheburashka)
+      holds only for beast.
+    - Minutes: 7.8–27.8.
+    - Pieces at the end: none of ≥ 10 particles that is also ≥ 5 pitches off on any run.
+    - Visible blobs at the end: 1–32 (C 32, cow 25, A 15, cheburashka 15).
+    - Rest: 5e-8 to 3e-6, except C.
+    - Momentum: the centre of mass moves at most 2e-4 pitches (C at seed 99: 8e-4); angular net / gross ≤ 0.044.
+  - *C, both seeds stop early.*
+    - Seed 97 ends at window 28 (7.8 min), seed 99 at window 27 (7.9 min).
+    - Rest 9.3e-4 / 5.6e-4 (the others ~1e-6); IoU 0.9813 / 0.9806; 293 / 352 end pieces, 3 / 2 of ≥ 10 particles.
+    - Correction of the amendment above: `reversal_cos` is the cosine between a window's displacement and the previous
+      one's (`selection.py`), so +0.4 … +0.9 means the motion continues in the same direction. It is not a reversal.
+    - The motion read on the CPU:
+      - The kinetic record falls monotonically by about 15–20 % a window (seed 97: 0.0075 → 0.0009 over windows 21–32).
+        There is no sign change: heart's last windows read −0.05 … −0.49, the jitter of a body at rest.
+      - At the end the body flows at a median 0.7 pitch/s.
+      - The fastest 5 % slide along the target surface: the cosine with the direction to the nearest target point is
+        −0.03; their directions are incoherent (0.1–0.2); they sit at the body's usual distance from the target (0.62 a
+        against 0.59 a).
+      - The released halves lose about 25 % of the motion per 20 steps (stab_end / stab 0.72–0.77): left with zero
+        controls the body would come to rest by itself in about 2–4 s.
+    - The stop path:
+      - Windows 26 and 28 had no accepted step (null commits), which latches the plateau gate.
+      - Then windows with a gain below the tolerance are rejected (29, 31, 32).
+      - The third rejection ends the run.
+      - The motion is mostly passive decay, so no control step lowers the merit further.
+    - The question for the user (the coordinator):
+      - (a) a null commit while the body moves above the rest level settles it with zero controls and is not stale;
+      - (b) the stop rule requires rest.
+  - *Twins: the render arm L against its λ = 0 twin P.* The calibration's render share is 1/3 in every committed window
+    of every L run.
+
+    | | yardstick silhouette | display front 1 − IoU | independent 1 − IoU | thin |
+    |---|---|---|---|---|
+    | bunny → dragon | −58 % | −34 % | −7 % | −8 % |
+    | teapot → bob | −57 % | −36 % | −8 % | +12 % |
+    | maxplanck against P97 | −41 % | −36 % | −4 % | +45 % |
+    | maxplanck against P97k | −41 % | −21 % | −2 % | +15 % |
+    | fandisk | −30 % | −21 % | −6 % | +3 % |
+
+    - Predictions: the yardstick 30–55 % ahead held with two beyond it; the display 15–30 % held, beyond it on three;
+      the IoU within ±0.002 held.
+    - Behind:
+      - thin on maxplanck, teapot → bob and fandisk;
+      - fandisk's angular net / gross 0.029 against 0.017;
+      - visible end blobs: fandisk 7 against 3, bunny → dragon 7 against 4;
+      - minutes +42 % on maxplanck and +13 % on bunny → dragon.
+    - The twin is not bit-reproducible across these two runs: maxplanck P97k (the twin again, same code and seed, on
+      gpu0 instead of gpu3) diverges at window 2, where one run had a null commit and the other an accepted step.
+      Its end thin is 5.65 % against P97's 4.47 %.
+    - The maxplanck thin forensic with P97k's frames:
+      - Both arms' uncovered thin points are single points scattered over the head, 1.53–1.90 spacings from the body,
+        none beyond 2 spacings.
+      - L's share is 60 % at 0 s, 15 % at 1 s, 8 % at 1.4 s and 6.5 % at the end.
+      - P97k's share is 60 %, 15 %, 6.7 % and 5.65 % at the same times.
+      - The end-uncovered points have been uncovered since a median 8.6 s (L) and 5.4 s (P): sub-pitch jitter across
+        the 1.5-spacing threshold.
+      - L's "+45 %" is within the twin's own rerun spread (4.5–5.7 %).
+      - Proposed for the paper: report thin at 1.5 and at 2 spacings (`thin_uncovered_2sp`, already recorded).
+  - *B, shape to shape.*
+    - Silhouette IoU: bunny → dragon 0.9875 (27.7 min), teapot → bob 0.9888 (19.2), spot → cow 0.9832 (23.7),
+      spotx → cow 0.9853 (12.3), armadillo → homer 0.9867 (13.6), bunny → happy 0.9874 (32.4).
+    - Predictions: IoU ≥ 0.97 held on all; armadillo → homer is not lower; the minutes are above the gallery's median
+      on four of six.
+    - Topology (`sc_topo.py`, tunnels of the particles' occupancy). The operator is the median 8th-neighbour distance
+      on a grid of the median spacing, one closing, holes filled. It is calibrated on the target samples: happy 6,
+      bob 1, A 1, dragon 3; the covering radius without closing reads 16–77 micro-tunnels of sampling noise.
+      - teapot → bob: 1 tunnel at 0.5 s (the handle), 0 at 1 s, 17 transient at 2 s, then 1 at 4 s and the end:
+        the handle's hole closes and bob's opens through a membrane at about 2.5 s. The prediction ("within the first
+        second") held for the closing only.
+      - bunny → happy: 4 of 6. sphere → happy: 7 against the target's 6 (every hole open).
+      - bunny → dragon and sphere → dragon: 2 against 5 / 4. A: 1 against 3. bob: 1 of 1.
+      - B1's sphere → teapot: 0 throughout (target 2), so the handle never opens. D145 reading 5 found that
+        `--cell_follows_n` opens it.
+    - spot → cow: spot faces +z and the cow +x, so the head's mass crosses over the back (a plate above it at
+      1.0–1.5 s). spotx → cow (spot yawed +90°, a scene choice):
+      - the head now moves forward;
+      - a flattened plate of the old head still forms at 0.75–1.0 s;
+      - 12.3 against 23.7 min; visible blobs 291 against 555; IoU 0.9853 against 0.9832.
+  - *SHOWCASE-CV, armadillo → homer with `--cell_from_volume`.*
+    - Gate passed: 24 tests, exit 0, 01:09.
+    - The cell is 0.188 wu against 0.304 (183.5 particles a cell, exactly the sphere's, against 749); the loss grid
+      100³ against 65³.
+    - 24.5 against 13.6 min (1.8×; the prediction ≤ 2× held).
+    - The lace: transient tunnels 5 against 17 at 1 s and 19 against 63 at 2 s. Visible blobs over the run 860 against
+      1283, −33 % (the prediction ≥ 50 % fails).
+    - The frames: the tall sheets above the head at 0.5–1.0 s remain. They are the armadillo's raised arms streaming
+      up to homer's head, so the transport plan, not the cell, makes them. The perforation of those sheets at 1.5–2.5 s
+      is mostly gone; one strand remains at 1.5 s.
+    - End: IoU 0.9865 against 0.9867; yardstick silhouette 3.8e-4 against 2.8e-4 (+38 %, behind); shading 2.1e-4
+      against 2.5e-4; display front 0.0068 against 0.0074; rest 6e-7 against 2.4e-6; angular net / gross 0.038
+      against 0.086.
+    - Thin is not comparable: the thin set is defined by the cell, so 3221 against 6628 points.
+    - Reading: the coarse cell causes the lace but not the sheets. The option is not proposed for adoption on this
+      evidence: one pair, +38 % yardstick, 1.8× time. The sheets' source is the transport's long paths from thin raised
+      features, the thin-feature transport question.
+  - *Disk.* Kept frames are removed after these readings (`cleanup.log`). Kept: the end frames (`*_end1.npz`), the
+    stills, the videos and every log.
 - **D158, why the render loss inside the run does not write the relief D115's display layer writes (a measurement; no
   run of the pipeline, no default changed; pre-registered 2026-10-21 16:07 CDT server clock [the stamp first read 16:10,
   three minutes ahead of the server clock: corrected; the runner started at 16:07:52, waiting for a card], before any

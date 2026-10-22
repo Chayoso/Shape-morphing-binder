@@ -118,7 +118,7 @@ for r in rows:
     tl = (" / ".join(pct(r.get(k)) for k in ("lead_yard_sil", "lead_disp_front", "lead_1miou_ind", "lead_thin"))
           if r.get("twin") else "")
     lines.append("| " + " | ".join([
-        r["title"] or r["example"], fmt(r.get("sil_ind"), ".4f"), fmt(r.get("yard_ext_sil"), ".2e"),
+        f"{r['title']} `{r['example']}`" + (f" vs `{r['twin']}`" if r.get("twin") else ""), fmt(r.get("sil_ind"), ".4f"), fmt(r.get("yard_ext_sil"), ".2e"),
         fmt(r.get("disp_front_1miou"), ".4f"), fmt(r.get("thin"), ".3f"), fmt(r.get("kin_last"), ".1e"),
         f"{fmt(r.get('com_largest_a'), '.1e')} / {fmt(r.get('ang_net_gross_largest'), '.1e')}",
         f"{r.get('pc_end_pieces', '–')} / {r.get('pc_end_ge10', '–')} / {r.get('pc_end_ge5a', '–')}",

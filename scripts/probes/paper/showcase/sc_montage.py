@@ -1,6 +1,6 @@
 """sc_montage.py OUT_JPG COLS TILE NAME[=LABEL] [...] -- SHOWCASE: the gallery montage (CPU only). Per example its
 start, middle (the first kept frame with progress >= 0.5, mid/NAME.json) and end, from the render's stills
-(output/gpu/showcase/stills/NAME_main/NNNN.jpg), each cropped to the centred square of the 16:9 frame (the studio
+(output/gpu/showcase/stills/NAME_main/NNNN.jpg), each cropped to the centred 4:3 part of the 16:9 frame (the studio
 camera frames the body's bounding sphere to the picture's height) and scaled to TILE pixels; the three side by side
 under the example's label, COLS examples a row."""
 import json
@@ -18,7 +18,8 @@ try:
 except OSError:
     font = small = ImageFont.load_default()
 lab_h, gap = tile // 6, tile // 12
-cell_w, cell_h = 3 * tile + gap, tile + lab_h + gap
+tw = tile * 4 // 3                      # a 4:3 crop of each 16:9 frame (the wide bodies, cow and fandisk, fit)
+cell_w, cell_h = 3 * tw + gap, tile + lab_h + gap
 rows = (len(specs) + cols - 1) // cols
 sheet = Image.new("RGB", (cols * cell_w + gap, rows * cell_h + gap), (22, 24, 28))
 dr = ImageDraw.Draw(sheet)
@@ -27,7 +28,8 @@ dr = ImageDraw.Draw(sheet)
 def square(path):
     im = Image.open(path).convert("RGB")
     w, h = im.size
-    return im.crop(((w - h) // 2, 0, (w + h) // 2, h)).resize((tile, tile), Image.LANCZOS)
+    c = h * 4 // 3
+    return im.crop(((w - c) // 2, 0, (w + c) // 2, h)).resize((tw, tile), Image.LANCZOS)
 
 
 for i, (name, label) in enumerate(specs):
@@ -40,7 +42,7 @@ for i, (name, label) in enumerate(specs):
     y0 = gap + (i // cols) * cell_h
     dr.text((x0, y0), label or (D / f"title_{name}").read_text().strip(), fill=(235, 235, 235), font=font)
     for j, (k, cap) in enumerate(picks):
-        sheet.paste(square(sd / f"{k:04d}.jpg"), (x0 + j * tile, y0 + lab_h))
-        dr.text((x0 + j * tile + 8, y0 + lab_h + 6), cap, fill=(255, 255, 255), font=small)
+        sheet.paste(square(sd / f"{k:04d}.jpg"), (x0 + j * tw, y0 + lab_h))
+        dr.text((x0 + j * tw + 8, y0 + lab_h + 6), cap, fill=(255, 255, 255), font=small)
 sheet.save(out, quality=92)
 print("wrote", out, sheet.size)
