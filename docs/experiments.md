@@ -17694,6 +17694,81 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     colour converges, or a longer run), not the weight.
   - D fails C2 with a surface offset above L's: the colour term's own geometric effect (through the albedos' kernel
     weights) moves the surface. Measure that path before any change.
+  **D160d read (gates and runs 04:03–04:55, readers to 05:29 CDT on GPU 1; read 2026-10-22 10:25 CDT): C1 PASSES on
+  all five scenes, the best colour of D160 / D160c / D160d. The gate FAILS on C2 (12 of 80 cells, against D160c's 40),
+  C3 (7 of 10 runs above the kinetic bound, ×1.1–4.2; G3 passes on all) and C4 (one piece of 10 particles, the dragon,
+  as the tag's own dragon V99).**
+  *Code.* 963cd2b1 = the pre-registered d3aa85e9 plus two changes off the path: appearance_weight read with its
+  default where test_runtime_ab's stand-in config lacks it (try 1 stopped at V1), and the held weight's line printed
+  (the runner gives the optimiser a silent log; try 2 stopped at V4's log check, its trajectories already TH = T0, DH ≠
+  S1).
+  *Gates.* V1 447 passed (exit 0); V2 15 passed; V3 the defaults and white SAME as rt1's S1 (556 history fields); V4
+  the held twin's trajectory SAME as the plain twin's, the held arm acting. λ_col, the render weight's first value:
+  bunny 97 0.311, bunny 99 0.222, dragon 0.678 / 0.686.
+  *C1, colour.* r for D160d; in brackets D160c (λ held) and D160 (the rule's λ).
+
+  | scene | r 97 / 99 | mis twin → D | held-out colour PSNR twin → D | ΔE twin → D |
+  |---|---|---|---|---|
+  | half (control) | 0.97 / 0.97 (0.89 / 0.79; 0.04 / 0.07) | 0.057 → 0.004 / 0.059 → 0.004 | 18.80 → 22.66 / 18.73 → 22.74 | 9.8 → 6.5 / 10.0 → 6.4 |
+  | band | 1.00 / 0.99 (0.91 / 0.93; 0.06 / 0.09) | 0.099 → 0.006 / 0.104 → 0.007 | 16.77 → 22.36 / 16.64 → 22.24 | 12.4 → 6.5 / 12.6 → 6.6 |
+  | ears | 0.74 / 0.67 (0.19 / 0.40; 0.04 / 0.03) | 0.128 → 0.037 / 0.128 → 0.045 | 16.28 → 19.59 / 16.23 → 19.13 | 13.8 → 8.1 / 13.9 → 8.6 |
+  | turn | 0.75 / 0.69 (0.63 / 0.63; 0.01 / 0.02) | 0.433 → 0.119 / 0.436 → 0.142 | 10.70 → 16.20 / 10.67 → 15.42 | 32.0 → 15.1 / 32.2 → 16.4 |
+  | dragon band | 0.94 / 0.93 (0.73 / 0.34; 0.03 / 0.03) | 0.195 → 0.015 / 0.192 → 0.018 | 15.22 → 21.17 / 15.30 → 20.99 | 16.5 → 7.5 / 16.3 → 7.7 |
+
+  - Band and half reach their floor. The dragon's sheet matches the target paint's boundary; the twin's red runs
+    down the neck and flank.
+  - The colour is still falling at the delivered end on ears, turn and dragon (0.002–0.004 of the surface a second
+    over the last second; turn needs 15–17 s). It has converged on half and band (≤ 0.001).
+  - LPIPS: band 0.089 → 0.051, turn 0.168 → 0.096–0.102, dragon 0.092 → 0.043.
+  *C2, the cells (worse than the tag's worst V by more than its spread).*
+  - F at 0.5 pitch (D157's, corrected): half D97 0.934 against the bound 0.934 (a hair); band D97 0.933 (−0.002);
+    turn 0.862 / 0.899 (−0.07 / −0.04); dragon 0.811 / 0.808 (−0.010 / −0.013).
+  - Turn also misses Boundary IoU (0.108 / 0.099 against 0.088), studio PSNR (34.27 / 34.80 against 34.83) and, on
+    D97, the yardstick silhouette (0.0032 against 0.0029).
+  - Ears D97 misses thin (0.067 against 0.065).
+  - None on IoU, yardstick shading or display. Turn holds 7 of the 12 cells.
+  *The surface reading (`surfdisp.jsonl`, pitches; floor = twin against twin).*
+  - The exterior surface's offset from the twin's (rms):
+    - D 0.15–0.19 on half, band and ears; 0.24–0.28 on turn; 0.29–0.32 on the dragon;
+    - L (the rule) 0.13–0.15 and 0.21–0.23 (dragon); H (λ held) 0.20–0.29 and 0.48–0.69 (dragon);
+    - floor 0.06–0.13 (bunny), 0.15–0.21 (dragon).
+    - D's mean offset is +0.01 to +0.09 (L's +0.01 to +0.04; H's +0.07 to +0.45, an outward swelling).
+  - The outer layer's displacement from the twin:
+    - D normal 0.6–0.8 (turn 2.4–2.7, dragon 1.5–1.6) and tangential 1.3–1.8 (turn 4.3–4.6, dragon 3.4);
+    - about H's, against L's 0.3 / 0.65 and the floor's 0.06–0.5 / 0.14–1.1.
+  - So the colour is routed by a circulation of the outer material, in and out as well as along (red buried, white
+    raised), under a surface that moves 1.1–1.4 times L's offset on half / band / ears and 1.4–1.9 times on dragon /
+    turn.
+  - The pre-registered reading: within 1.5 × L's on half, band, ears and the dragon; turn above it. Where the surface
+    moves, F at 0.5 pitch misses (turn, dragon): the circulation leaves the surface rougher at the half-pitch scale.
+  *C3 and C4.*
+  - The runs above the kinetic bound are those whose colour is still moving at the end: turn ×4.2 / ×2.3, ears D97
+    ×1.9, D99 ×1.2, dragon ×1.1 / ×1.2.
+  - Half D97 is ×1.1 with a nearly converged colour; band is ×0.4 / ×1.0.
+  - The body is still rearranging at the delivered window, as the timeline says.
+  - The runs are longer than L's (37–102 windows against 32–53): the colour keeps the merit falling. The stop rule
+    ends the long scenes before the colour has converged.
+  - C4: one piece of 10 particles within 5 pitches on dragon D97, the tag's dragon V99 having the same.
+  *Reading.*
+  - Splitting the weight by what each part competes with works for the colour. It routes material by colour (half /
+    band / dragon to their floor, turn and ears two thirds to three quarters of the way) while the render terms keep
+    the rule's weight. Geometry falls 40 → 12 cells, and the surface stays within 1.4 × L's except where the routing
+    is longest.
+  - What remains is the end: the long scenes stop while the colour still flows, which is C3, and the turn's
+    half-pitch surface, which is most of C2.
+  - Both come from a colour term whose weight never fades: it is held, so the body keeps working on the colour at
+    the delivered window.
+  - The colour's weight should follow the colour's own remaining error. That is high while the layout is far from the
+    target paint, and it goes to nothing at the paint's own floor (the target sample's own colour error, D160's
+    floor 0.003–0.012). The body then comes to rest when the colour is done, and the stop rule reads a converged
+    colour.
+  - This is the definition D162 proposes for the render weight (the render term's excess above its own measured
+    floor). D160d's numbers are the reference for D162 on these scenes: D162 has to keep the colour's weight
+    independent of |g_phys| (the measured limiter) and gain C3 by the fade.
+  *Files.* `output/gpu/d160/`: runs `runs40/*_D{97,99}*`, `gate_D/`, `surfdisp.jsonl`, `read_colour_D.jsonl`,
+  `video/*_97_D/`, `gates_d/`. The read kept frames of D160's L, D160c's H and step 1's diagnostic runs were deleted
+  after reading (`cleanup.log`). The twins P and D160d's D are kept, for D162. Local:
+  `output/results_2026-10-21/d160_appearance/d160d/`.
 
 - **D161, the render carves a relief that only its pictures carry: the 3D target a smooth mesh, the render's target
   pictures the same mesh with embossed letters (pre-registered 2026-10-21 22:51 CDT server clock, before any run of
