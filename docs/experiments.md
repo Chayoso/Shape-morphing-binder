@@ -18446,6 +18446,49 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the coin: the twins end at 3.1–3.3e-3 (e ≈ 0.19–0.23, λ ≈ 0.06 at arrival), the rule's full arm at 1.76e-3 and the held
   arm at 1.34e-3, both below this floor: under F the render fades once the coin matches its pictures as well as the
   relief sample does. The gates rerun in full on 2e42f6e before any run (the chain refuses the runs otherwise).
+  *Amendment 3 (11:40 CDT, before any D162 run).* Gate try 2 (03:45–04:13, 2e42f6e, gpu0): V2–V4 passed (V3 SAME,
+  bit for bit under Warp's deterministic atomics against rt1's S1, 556 history fields). V1 had one failure:
+  `test_null_windows_add_no_simulated_time_and_are_not_delivered`. The test's stub needs the first real window to
+  commit, and it came back with no commit (`null_reason` commit_replay).
+  - The diagnosis: that test alone, `-vv`, on gpu1 and gpu3, 10:20–11:24.
+    - The tag as tagged (6c9b0e9, deployed as repo_d162tag): 0/60 failures.
+    - wip/d162: 5/45 on gpu1 and 0/35 on gpu3, the gate's 1/1 on gpu0.
+    - d161 (tag + D156's render target): 2/20. Its changed lines on this path all sit behind `render_x is None` and
+      compute what the tag computes.
+    - d159 0/5, d160 0/5, the older rt1 tree 0/30.
+  - Every failure is the same event. The accepted candidate's commit rollout lands 2.5–11 float32 ulps (3e-7 to
+    1.3e-6 relative) above its line-search value. The tolerance is max(ls_noise_rel 1e-7, 10 × replay_rel), where
+    replay_rel is one pair of rollouts at the start control. At the first window the body is at rest there, so the
+    pair agrees bit for bit or to one ulp (replay_rel 0 or 1.16e-7).
+  - So the tolerance falls below the noise of the moving candidate's own rollout. This is a definition in the
+    frozen commit check (solve.py commit / replay_noise), unchanged by every merged branch. It is not a merge
+    interaction, and the stub is not wrong.
+  - The same check in production: in the tag's own runs (d145t_b1, 40 runs), 222 of 5370 windows judged (4.1 %)
+    were nulled by commit_replay, median mismatch 3.7e-7 relative, max 2.2e-5. In D160/D161's 40k runs it was
+    103 of 3014 (3.4 %), none at the first window.
+  - Not changed here (frozen; the user's call). Reported to the coordinator. The test is unchanged and the gates
+    rerun as they are.
+  Two changes since 2e42f6e, both before any run.
+  - (i) The floor mode's per-window records (lam_rule, lam0, render_L, render_floor, render_excess) were in the
+    window's stats but not in the history (the runner's field whitelist). They are now copied in floor mode only,
+    the default history unchanged. tests/test_d162.py checks it on the contracts' small cloud: one floor a run,
+    and λ = λ_0 × excess per window.
+  - (ii) The coordinator's request after D156h/h2: at the tag's 300k ends the full arm's render term lies at
+    0.46–0.79 of the uniform floor, so arrangement alone could drive L_r to the floor. Step X (d162_arrange.py)
+    reads coin F / TC / FC 97 and band F / TC 97, about 30 kept frames each:
+    - (a) the render term on the state, read by target.render_floor, the weight's own scale;
+    - (b) the mean over eight uniform resamples (the run's sampler, the target's number density) of the state's
+      solid, extracted by D156h's rule (zb zero set at 0.708 spacings, taken back by the floor sample's offset c,
+      marching cubes at half a pitch);
+    - e_a = 1 − L_floor / a (what the weight reads), e_b = 1 − b_floor / b, where b_floor is the floor sample put
+      through the same extraction. In the smoke b_floor was 4.67e-3 (coin) and 4.46e-3 (band), against uniform
+      true-mesh samples at 3.39e-3 / 2.06e-3; the extraction loses that much itself.
+    - The descent's shape share (b_0 − b) / (a_0 − a).
+    Reading: at the first kept frame with e_a ≤ 0.05 (the weight at most 5 % of λ_0), e_b above 0.05 by more than
+    two standard errors means arrangement ate the floor: the weight vanished with shape work left. Then the next
+    definition is named, with no tuning. Within that band, the weight vanished with the shape at its floor.
+  - Run plan: card α runs the gates, list A1 (the 24 scene runs) and X, then A2 (26 gallery runs); card β runs
+    list B after the gate verdict. The scene read starts after A1. Code wip/d162 539b52a.
 
 ## To run next, in order
 
