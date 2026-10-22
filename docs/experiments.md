@@ -18817,6 +18817,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (`plq300k_S_97`) if S carves at 40k (share ≥ 0.5 of the ceiling, with P2); its video then beside H's. Prediction
   (D162b's): λ ≈ 0.1–0.2 λ_0 at arrival, a carve between F's and H's (0.3–0.6 of the ceiling at 40k), P4 holding if the
   shape excess reaches zero before the stop rule.
+  **300k read (T97 14:35–15:01, H97 15:02–15:09, both on gpu0; read 15:14–15:57 and the video 15:17–16:13 on the CPU;
+  `output/gpu/d163/after/summary_p300early.md`, `windows_p300early.md`, `video/p300_H_T/`; local
+  `output/results_2026-10-22/d163_text_relief/300k/`): with the weight held the render writes both words into the
+  particles at 300k. P1, P2 and P5 hold, P3 and P4 miss, and the video takes H.**
+  - The ceiling (the relief mesh's own 300k samples) reads A 1.16–1.23 a at corr 0.59–0.60; the floor (the smooth target
+    sample) +0.005.
+  - T97 ("dF_c + layer u"): A −0.050 a (share −0.04, corr −0.05), display −0.02. The plaque is smooth. 112 committed windows
+    to 18.7 s, transport energy 7e-6, v_mean 2.0e-4, sil_iou 0.9919, thin_uncovered 0.032.
+  - H97: A 0.689 a, share 0.58, corr 0.50 (0.84 of the ceiling's); per face 0.67 / 0.55 (SIGGRAPH) and 0.74 / 0.50
+    (VANDERBILT); on the display surface 0.73 a, corr 0.43 (the ceiling's display 1.22 / 0.64). The carve over time: 0.55 a
+    at 1.85 s, 0.75 at 3.7 s.
+    - P1 passes (share ≥ 0.5, corr ≥ 0.5 × 0.595, the twin −0.04 / −0.05).
+    - P2 passes: the letters' held-out shading error is −40 % against the twin (the spread, by the 40k rule, 1.4 %).
+    - P3: held-out 1 − IoU holds (+0.0001). It misses Chamfer-L1 (+0.088 a, spread 0.011), sil_iou (−0.0068, spread
+      0.0017) and thin_uncovered (0.110 against 0.032, spread 0.006).
+    - P4: v_mean 0.096, 479 × the twin's. P5 holds.
+  - Render → control → outcome (`windows_p300early.md`). λ is held at 1.34, window 0's rule value. The render's share of
+    the step is 0.80 by window 3 and 0.94–0.99 from window 6 on (λ |g_render| 2–5e-3 against |g_phys| 3–9e-5: the push is
+    40–100 × the physics gradient). The transport energy falls to 2–4e-3 by 2 s and stays there, where the twin goes on to
+    7e-6. Late windows move the body 0.15–0.5 a (the twin's 1e-4). The run ends at 4.0 s after three outer rejections (24
+    committed windows, 6.1 min). The letters appear from about 2 s; the plaque's ends are still unfilled at the end
+    (thin_uncovered 0.11).
+  - The ceiling sample itself, displayed (`p300_ceiling_quick.jpg`), shows the words with the stratified sampler's
+    roughness; H's end surface is smoother, its words about as legible (`closeup/`, `p300_end_quick.jpg`).
+  - R97 (the rule) at 300k died of a CUDA allocation failure at 26.7 min. It was near window 160, still running, with λ
+    2.8e-4 = λ_0 / 4800; another user's new job had taken 32 GB of gpu0 at 15:35. It is requeued under the claim
+    protocol, which needs a card with no other user's job; at 16:10 each card carries that user's 29–33 GB job, more than
+    a 300k run leaves free. S (amendment 2) is queued behind D162b's gates (V1 one failure at 15:51, V2 passed at 16:06)
+    and the same claim. Their reads are armed (`d163_after.sh p300`, `p40S`).
+  - What it means. With its weight held, the render alone puts the words into the body: 0.58 of the ceiling at 0.84 of
+    the ceiling's correlation, legible on the display surface in the video. The price is that after 1 s the held weight is
+    40–100 × the physics gradient. The arrival stalls (transport energy 300 × the twin's end), the ends stay unfilled,
+    the body never settles, and the stop rule ends the run at 4 s. The weight needed holds while the shape lacks the
+    letters and fades once they are carved. F's floor cannot be it: at 40k F's λ was zero from 3 s with the letters
+    absent, because arrangement beat the floor. D162b's S reads the excess on the shape, so it is the next run (queued).
 
 - **D164, the commit check's replay noise measured on the window's own replays (the user's decision of 2026-10-22, "fix
   it", relayed by the coordinator after D162's amendment 3; a change of the frozen pipeline, gated and measured; no tag
