@@ -6770,8 +6770,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       - Gate it as this one: the same 40k seeds, P1–P3, and the frozen check (no gravity, at window level and run
         level).
   - **The loads' own effect removed from the assimilation, with the recipe's drag in the standing frame: the 40k gate
-    (the coordinator's go 2026-10-21 night; an experiment, not adopted); pre-registered 2026-10-21 22:52 CDT server
-    clock, before any run** (code `wip/b9b` d02c865 = 5985187 + a fix to the card claim's yield; server copy `repo_b9l`;
+    (the coordinator's go 2026-10-21 night; an experiment, not adopted); pre-registered 2026-10-21 22:51 CDT server
+    clock, before any run** (pushed 22:51:17; the chain started at 22:51:32 and waits for its card claim, at least 10
+    min, before the suite and the first run. The first version of this line said 22:52, written ahead of the clock.)
+    (code `wip/b9b` d02c865 = 5985187 + a fix to the card claim's yield; server copy `repo_b9l`;
     `output/gpu/b9b/load/`; chain `chainload.sh`).
     - *The definition.* Two parts, both from existing definitions; no new constant.
       1. `SceneSpec.assim_load` (off by default; scene path only). At every commit the assimilation reads
