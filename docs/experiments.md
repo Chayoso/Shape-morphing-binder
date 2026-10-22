@@ -18029,6 +18029,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   them, the combination (the geometry terms at the floor-referenced weight, the colour term at its own excess over its
   own floor) is the next arm, pre-registered then with both results; if F holds rest and shape, the split is not needed.
   Reported beside D162's tables: D160c / D160d's r, C2, C3 rows for band and ears.
+  *Amendment 2 (03:32 CDT, before any D162 run).* The gates' first try (03:04–03:31 on gpu0) stopped at V1: three
+  test_runtime_ab tests drive WindowOptimizer.gradient with a SimpleNamespace config that has no render_weight_ref
+  (AttributeError); the options are now read with getattr, the default path unchanged (2e42f6e). The rest of that try,
+  on the code before the fix: V2 39 passed (exit 0), V3 SAME against rt1's S1 (556 history fields), V4 exit 0 on all
+  five. The floors measured in V4 (the pictures' own first sample, read as the body): bunny 1.98e-3, bunny band
+  (colour) 1.78e-3, the coin relief 2.53e-3, the bunny with the shell pictures (D159) 3.12e-3. Against D161's records on
+  the coin: the twins end at 3.1–3.3e-3 (e ≈ 0.19–0.23, λ ≈ 0.06 at arrival), the rule's full arm at 1.76e-3 and the held
+  arm at 1.34e-3, both below this floor: under F the render fades once the coin matches its pictures as well as the
+  relief sample does. The gates rerun in full on 2e42f6e before any run (the chain refuses the runs otherwise).
 
 ## To run next, in order
 
