@@ -11295,9 +11295,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Note added 2026-10-22 11:50 CDT (D156i's silhouette diagnostic, D156j): the hull used here under-fills every
   training silhouette.* hull_carve.py put each view's zero half-way between an inside and an outside pixel node and
   meshed at the picture pitch.
-  - The hull lies up to half a pixel inside the true silhouettes along 35–42 % of the mesh's surface. 10–13 % of the
-    mesh's sample is outside it (this entry's own hull record; "the mesh's surface lies inside the hull up to the
-    half-pixel discretisation" above).
+  - The hull lies up to half a pixel inside the true silhouettes along 35–42 % of the mesh's surface (this entry's own
+    hull record; "the mesh's surface lies inside the hull up to the half-pixel discretisation" above).
+    - Corrected 12:05 (D156j): the record's "10–13 % of the mesh's sample outside the hull" is no evidence of this.
+      The sampler's jitter in its surface voxels puts 13–26 % of the mesh's own sample outside the mesh itself.
   - In the render's soft silhouette that is a hole along every rim: the hull's hole mass is 3.2–7.7 × the mesh
     floor's (bunny, dragon, bob; D156i).
   - Readings of D156 this confounds:
@@ -12115,8 +12116,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Its spray is 247 / 361 / 185 px, against 119 / 106 / 82 (2.1 / 3.4 / 2.3 times).
     - The silhouette term at the hull is 3.4 / 7.2 / 2.4 times its floor, and that excess is **mostly missing
       material**.
-    - This agrees with D156's own hull record: 10.0 / 13.3 / 9.8 % of the mesh's sample and 38 / 42 / 35 % of its
-      surface lie outside the hull, by at most 0.48 / 0.58 / 0.46 pixel.
+    - This agrees with D156's own hull record: 38 / 42 / 35 % of the mesh's surface lies outside the hull, by at most
+      0.48 / 0.58 / 0.46 pixel.
+    - Corrected 12:05 (D156j): the record's 10.0 / 13.3 / 9.8 % of the mesh's sample outside the hull is no evidence.
+      13–22 % of that sample lies outside the mesh itself (the sampler's surface-voxel jitter).
     - The hull was carved with each view's signed distance at the half-way point between an inside and an outside
       pixel node, and meshed at the picture pitch. It therefore lies up to half a pixel inside the true silhouettes,
       and the render's soft silhouette counts that as holes along every rim.
@@ -12172,6 +12175,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     into the hollows, and D156's path falls slowly.
   *If check 1 passes:* propose (not start) the rerun of D156's 36 40k runs (L and P, seeds 97 / 99, the nine meshes)
   on the conservative hulls, for the coordinator's card queue. *If stage 1 passes:* ask before any card run.
+
+  **The hulls and the two checks (11:52–11:59 CDT, CPU; `output/gpu/d156j/assets_hull/hulls_c_r96.jsonl`,
+  `d156i_sil.jsonl`, `overhang.jsonl`).**
+  - Implementation note. At half pitch, the zero on pixel nodes puts exact zeros on many grid nodes. Marching cubes at
+    level 0 (and at −1e-6) then gave non-manifold edges, so the hull was not watertight (bunny, checked in a scratch
+    run). The level is −1e-3 pixel: a thousandth of a pixel, on the conservative side. All nine are watertight.
+  - **Check 1: FAIL by the letter, on its first criterion; that criterion was mis-specified.**
+    - The surface criterion holds on 9 of 9. 0.00–0.40 % of the mesh-surface points are outside the hull, the 99.9th
+      percentile is −0.13 … +0.22 pixel against the ¼-pixel bar, and the largest is +1.1 pixel (cow; one point in
+      10⁵).
+    - The sample criterion (≤ 1 % of the mesh's 40k sample outside) fails on 9 of 9: 2.5–5.3 % is outside.
+    - Measured after the reading (`d156j_overhang.py`): **13–26 % of the mesh's own sample lies outside the mesh
+      itself** (bunny 12.8, dragon 21.6, bob 13.8, armadilo 18.5, homer 16.0, cow 13.7, cheburashka 15.0, C 20.5,
+      A 25.9 %). The stratified sampler keeps every surface voxel and jitters within it. So no hull that hugs the mesh
+      can pass that criterion, and the mesh itself would fail it.
+    - The conservative hull leaves out 2.5–5.3 %, a fifth to a third of the mesh's own overhang. D156's hull left out
+      10–17 %.
+    - Containment of the surface, the substantive check, holds.
+    - The hulls are fatter: hull / mesh 1.18–1.52 and excess 14–38 % of the hull, against D156's 1.04–1.34 and 7–31 %.
+  - **Check 2: PASS on 3 of 3.**
+    - Hole mass: 14 / 35 / 1 pixels (bunny / dragon / bob), against the floor's 136 / 144 / 89 plus its
+      reproducibility 8 / 11 / 3.
+    - Spray mass: 1 778 / 2 012 / 1 343, against the floor's 119 / 106 / 82. That is 13–19 times the floor, not the
+      predicted 1.5–3 times.
+    - The conservative hull overshoots every outline by up to a pixel. The silhouette term at d = 0 is now spray, so
+      it asks to carve the rims.
+  - The carves (D156i, then D156g, each mesh one chain) started at 11:59.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**

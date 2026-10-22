@@ -1,7 +1,8 @@
 """d156i_sil.py OUT_DIR HULL_DIR N RES MESH -- D156i's silhouette diagnostic (after its reading): where does the visual
 hull's silhouette term exceed the floor? D156g's frame and pictures (the mean over the eight samples of the mesh); the
 alpha pictures (exterior_targets' silhouettes) of the hull file's eight held-out draws (seeds 95 + 100 k) and of the
-mesh's eight floor draws (99 + 100 k), each averaged over its draws; per view and summed, the hole mass (target alpha
+mesh's eight floor draws (99 + 100 k; D156j: and a second eight, 96 + 100 k, for the floor's reproducibility), each
+averaged over its draws; per view and summed, the hole mass (target alpha
 above the state's: material missing) and the spray mass (the state's above the target's: material in excess), in pixels.
 One JSON line per mesh in OUT_DIR/d156i_sil.jsonl. CPU."""
 import json
@@ -46,13 +47,15 @@ def main(out_dir, hull_dir, N, RES, mesh):
     target = alpha([tgt] + draws_in_frame(path, frame, N, [SEED + 1 + 100 * k for k in range(1, 8)]))
     n_vh = int(round(N * fill_volume_in_frame(hpath, frame, N) / fill_volume_in_frame(path, frame, N)))
     states = dict(hull_file=alpha(draws_in_frame(hpath, frame, n_vh, [95 + 100 * k for k in range(8)])),
-                  floor=alpha(draws_in_frame(path, frame, N, [SEED + 2 + 100 * k for k in range(8)])))
+                  floor=alpha(draws_in_frame(path, frame, N, [SEED + 2 + 100 * k for k in range(8)])),
+                  floor2=alpha(draws_in_frame(path, frame, N, [96 + 100 * k for k in range(8)])))   # D156j: reproducibility
     row = dict(mesh=mesh, res=RES, views=len(views))
     for name, A in states.items():
         hole = [float(np.clip(t - a, 0, None).sum()) for t, a in zip(target, A)]
         spray = [float(np.clip(a - t, 0, None).sum()) for t, a in zip(target, A)]
         row[name] = dict(hole_px=float(sum(hole)), spray_px=float(sum(spray)), hole_per_view=[round(v, 1) for v in hole],
                          spray_per_view=[round(v, 1) for v in spray], target_px=float(sum(float(t.sum()) for t in target)))
+    row["check2"] = bool(row["hull_file"]["hole_px"] <= row["floor"]["hole_px"] + abs(row["floor"]["hole_px"] - row["floor2"]["hole_px"]))
     print(json.dumps(row), flush=True)
     with open(out_dir / "d156i_sil.jsonl", "a") as fo:
         fo.write(json.dumps(row) + "\n")
