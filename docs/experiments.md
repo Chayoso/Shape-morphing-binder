@@ -11738,6 +11738,69 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - Anything else is "partly", with the numbers.
   *Predictions (inferred).* r_ref > 1, because the extraction costs (D156f: +10 to +60 % at 40k). r_L > r_P. Shape
   share 0.3–0.7.
+
+  **Read (runs 01:24–01:55 CDT, CPU; `output/gpu/d156h/d156h.jsonl`).**
+  - **The reproduction check.** The run's target sample was reproduced bit for bit for both meshes. The pitch and
+    lattice equal the runs' logs (0.0480 / 0.54 and 0.0476 / 0.66).
+  - **The term** (e-3; sil + pbr; (b) is the mean of eight seeds, SE ≤ 4e-5):
+
+    | mesh | state | (a) own particles: total (sil / pbr) | (b) resampled solid | r = b / a | solid volume / mesh |
+    |---|---|---|---|---|---|
+    | bunny | reference (uniform mesh sample) | 1.328 (0.778 / 0.550) | 2.744 | 2.07 | 45.20 / 44.61 |
+    | bunny | P97 | 1.890 (1.189 / 0.701) | 4.036 | 2.14 | 46.11 |
+    | bunny | L97 | **0.743** (0.288 / 0.454) | 3.260 | 4.39 | 45.98 |
+    | dragon | reference | 1.082 (0.657 / 0.425) | 3.636 | 3.36 | 39.23 / 39.23 |
+    | dragon | P97 | 2.163 (1.320 / 0.843) | 3.297 | 1.52 | 40.95 |
+    | dragon | L97 | **0.771** (0.272 / 0.499) | 2.900 | 3.76 | 40.70 |
+
+  - **The pre-registered reading.**
+    - Bunny: r_L − r_P = 2.25 (SE 0.02); shape share 0.68 ± 0.02. Reading: **"partly"**.
+    - Dragon: r_L − r_P = 2.24 (SE 0.03); shape share 0.28 ± 0.03. Reading: **"the full arm partly games the render
+      through arrangement"**.
+  - **What the extraction can and cannot say.** Its own cost is large at 300k: r_ref = 2.07 and 3.36.
+    - On the dragon it ranks the true shape worst after extraction (3.64 against 3.30 for P and 2.90 for L). Taking
+      the exterior back by one constant c erodes the mesh's thin parts more than the run bodies' fatter ones (+4 %
+      volume).
+    - So (b) is not a clean shape score, and the dragon's shape share 0.28 is a lower bound only in a loose sense.
+  - **The extraction-free fact** (not in the pre-registered rule, read off column (a)).
+    - The full arm's own term ends **44 % (bunny) and 29 % (dragon) below what an independent uniform sample of the
+      true mesh scores** (0.743 against 1.328; 0.771 against 1.082). The twin ends 42 % and 100 % above it.
+    - Most of that is the silhouette: L 0.29 / 0.27 against the sample's 0.78 / 0.66. The shading is −17 % on the
+      bunny and +17 % on the dragon.
+    - A body of the true shape, sampled uniformly, does not get below that floor, and no other shape should in
+      expectation (inferred: the pictures are the eight draws' mean, so the expected picture of the true shape is the
+      optimum for uniform samples).
+    - What gets below it is an exterior smoother than any random draw, i.e. an ordered surface layer: arrangement.
+    - So **at least 51 % (bunny) and 22 % (dragon) of the full arm's render-term lead over its twin is arrangement**,
+      the part of the lead below the uniform floor. Whether the rest is shape is what (b) was meant to say, and (b)
+      is biased.
+    - This is one floor sample at one seed. D156h2 below puts the floor's own spread and the other seeds on it.
+  - **For the paper.**
+    - The render term is not a shape metric for the full arm. Its minimum is the expected picture, which an ordered
+      surface reaches better than any uniform sample of the true shape.
+    - Shape claims must rest on measures that do not reward that ordering: held-out views of a mesh made from the
+      body, distances to the mesh. They must not rest on the training render term.
+    - The ordering itself is real, and it is what only the render does (the physics objective cannot see sub-cell
+      arrangement). It is a smoother exterior, not a different shape.
+- **D156h2, the extraction-free reading of D156h (pre-registered 2026-10-22 01:58 CDT server clock, before it was run;
+  written after D156h's seed-97 numbers above, so its seed-97 floor is a check of a seen number and seeds 99–105 are
+  unseen; CPU, one process, chained after the first D156g process ends so at most three run; `d156h_floor.py`,
+  `output/gpu/d156h/d156h2.jsonl`).**
+  - For each run seed 97 / 99 / 101 / 103 / 105 of the bunny and the dragon (the tag's B1 runs): the run's own
+    render term, rebuilt as in D156h for that seed's pictures, on
+    - L's end frame,
+    - P's end frame,
+    - eight independent uniform samples of the mesh at seeds seed + 2 + 100 k: the uniform floor, with its mean,
+      standard error and minimum.
+  - Readings:
+    - L / floor and P / floor;
+    - how many floor standard errors L is below the floor;
+    - whether L is below every one of the eight draws;
+    - the share of L's lead over P that lies below the floor.
+  - **Pre-registered statement:** "the full arm reaches its render term partly by arrangement" holds at a seed if L
+    is below the minimum of the eight uniform draws. It holds for the claim if it holds at 5 of 5 seeds on both
+    meshes.
+  - Prediction (inferred): it holds at every seed; L / floor 0.5–0.75.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
