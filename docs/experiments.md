@@ -16297,6 +16297,154 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - C2 failing: measure the render gradient's split among the silhouette, the grey shading and the colour before any
     change.
 
+- **D161, the render carves a relief that only its pictures carry: the 3D target a smooth mesh, the render's target
+  pictures the same mesh with embossed letters (pre-registered 2026-10-21 22:51 CDT server clock, before any run of
+  it; the user, 2026-10-21: "색이나 surface를 깎아서 진짜 그걸 만들게 하는 건 어때"; the coordinator's additions the same
+  evening: the dragon's scales and the bunny's wrinkles placed on the response curve, the blocking definition named
+  at 40k and 300k, and a definition change as a second arm D161b run after the plain arm; code: branch `wip/d161` =
+  `wip/d156` fa115a5 (freeze-2026-10-15-rt1 + `--render_tgt`, default off; D156's gates (suite, digest, deterministic
+  SAME) passed on these pipeline files, which D161 leaves byte for byte: `git diff fa115a5 -- physmorph
+  scripts/pipeline_run.py tests` is empty) + scripts `scripts/probes/paper/d161/`; server `repo_d161` / `repo_d161s`
+  (+ `tmp/d145/patch_s.py`, kept frames), `tmp/d161/` (RESUME.md), `output/gpu/d161/`; local
+  `output/results_2026-10-21/d161_relief/` with a Korean README).**
+  *Why.* The render's pictures have so far carried what the 3D target carries, so the render only polished rims
+  (D152–D157); an image-only target could not carve concavities (D156, D156b, D156c); the in-loop pictures are as
+  blurred as the run's own surface (D158). Here the 3D target (transport, surface proximity, near band, spray cleanup,
+  the relaxation's relief reference) stays smooth, and only the render's pictures (drawn by the same operators from
+  the render target's samples, `--render_tgt`) carry an embossed pattern. "dF_c + layer u" (the λ = 0 twin) must end
+  smooth; "dF_c + layer u + render loss (full)" must carve the pattern into its own particles. Sub-pitch relief from
+  the physics, not a display layer (the user, 2026-10-07): this is that test, with a relief no other term asks for.
+  *Papers (read before the design).* Alexa and Matusik 2010 (Reliefs as Images): a relief reads through its slopes; a
+  sub-pixel relief is fragile; the target's mean brightness must equal the flat surface's, else the fit moves the whole
+  shape (our relief is volume-neutral, h = δ (P − P̄)). Weyrich et al. 2007 (digital bas-relief): shape is perceived
+  in the gradients; readability is the slope 2πδ/w, not the depth. Mitra and Pauly 2009 (Shadow Art): a silhouette
+  sees relief only where it crosses the rim, and only above a pixel. Belhumeur et al. 1999 (bas-relief ambiguity) and
+  Pentland 1990: under a headlight a front-facing patch's shading is second order in the slope (the same for h and
+  −h), first order only under an oblique light; the loss's light is each view's headlight, so a patch reads at first
+  order only in the views that see it obliquely (a face of the coin below is seen by 9 of the 18 views, obliquely (34–81°) by 8). Nicolet et
+  al. 2021 (Large Steps): a Laplacian penalty costs k² a mode, a bi-Laplacian k⁴, and per-coordinate Adam undoes a
+  smoothing of the gradient; the outer-layer relaxation (d − d̄ relaxed at 1/T a step) is such a bi-Laplacian
+  low-pass in spacings. Expected before measuring: a band-pass, the short wavelengths cut by the field, the pictures
+  and the relaxation, the long ones held by the transport.
+  *Step 1, the response curve (measured before this entry; `d161_curve.py`, the pipeline's own operators at the
+  frozen recipe's flags, N = 40k and 300k, seed 97, one card by the lock protocol 19:00–20:02, `output/gpu/d161/
+  curve/`; reading `d161_curve_table.py`, `d161_blockers.py` → `curve_read/{table,blockers}.md`, `curve.png`).* The
+  arrived state X0 is an independent sample of the smooth target (seed + 2). A relief state X(ds) = X0 + ds·a·Φ, Φ the
+  incompressible relief field of one wavelength w (exp(−kd)[P n + ∇_s P / k]: material moved, not compressed), a the
+  field's pitch; the render's target pictures drawn from the target sample and its seven draws displaced by dt·a·Φ.
+  Meshes: a coin (below; planar stripes over the whole coin, exact on its flat faces), the bunny (stripes inside a
+  1.8-wu window on its flank), a sphere (zonal cos mθ; its units are noise-calibrated, see the scenes). Per (w, dt): each
+  physics term at nine ds and its derivative along Φ, the render term against the relief pictures, the exterior's and
+  the layer's relief at X(1), one window of the relaxation (R: what it leaves of the layer's relief; G: what one
+  window of u = 1 pitch writes), the minimiser ds* of physics + λ render, λ the tag's late windows' (median of the
+  last ten committed windows of B1/D155's render arm at that N: 2.45e-3 at 40k, 1.35e-3 at 300k) and λ_adapt (the
+  same times the ratio of the render gradient norms, smooth/relief pictures; within 1 % of it). Readings:
+  - The pictures carry the relief and ask for all of it. The render term alone is minimised at ds_r = 0.9–1.1 dt for
+    every w = 4–32 pitches and dt = 0.25–2 at both N (the coin: the relief pictures cost the arrived smooth body
+    +42 % … +2760 % over its own floor; the bunny's window, a small part of each picture: +0.4 … +66 %). D158's T does
+    not arise here: the pictures and the state pass through the same field.
+  - The physics holds it. The minimiser of physics + λ render is ds* ≤ 0.15 pitch at every (w, dt) on the coin and
+    the bunny at both N, mostly 0.02–0.10 a (λ_adapt; 0.05–0.10 a at w ≤ 8 a on the coin), almost independent of dt (share
+    ds*/dt 0.14–0.32 at dt = 0.25 for w ≤ 16 a on the coin, 0.02–0.10 at dt = 1, ≤ 0.03 at dt = 2). Per pitch of relief the physics' hold is
+    10–200 times the render's push (coin 40k, w = 8, dt = 1: the render's push λ dL_r/dds at 0 is 6.3e-5, the hold at
+    one pitch 1.8e-3: transport 3.2e-4, surface proximity 1.2e-3, near band 1.8e-4, spray 6e-5).
+  - Which term (leave-one-out minimisers, dt = 1; the share at dt = 0.25 in brackets): with every term, coin 40k
+    0.07–0.09 (0.23–0.26) at w = 4–8; without the transport 0.08–0.14; without the proximity 0.10–0.14; with the
+    transport alone (proximity, near band and spray removed) 0.57 / 0.23 / 0.12 at w = 4 / 6 / 8 (0.64 / 0.37 / 0.27);
+    at 300k 0.72 / 0.43 / 0.20 (0.76 / 0.66 / 0.44). Beyond w ≈ 11 a the transport alone holds it (0.02–0.09) and so
+    does the proximity alone (0.15–0.22). So: below about two loss cells (w ≤ 6 a; the loss cell 3.2 a at both N, the
+    transport's blur) the relief is held by the three placement terms together, the surface proximity the largest
+    (43–73 % of the hold at one pitch at w ≤ 11 a on the coin at both N; at 300k the near band a quarter); above two to three
+    loss cells by the transport as well, which resolves it and reads it as mass moved off the smooth target.
+  - The scale the blocking definition acts at: the proximity counts a target outer point as uncovered when its nearest
+    body particle is beyond 1.53 of the target's nearest spacings, 1.1 a: a placement to within one sampling pitch of
+    the target SAMPLE, inside the near band's berth (1.44 a, where the near band and the relaxation's reference already
+    leave the surface alone) and a third of the loss cell, where the target itself, a stratified sample, holds no
+    surface detail beyond its own noise (an independent smooth sample already pays it: 5.4e-6 on the bunny at 40k).
+  - The window (the relaxation and u's rate). R of the layer's relief per window: 0.51–0.59 at w = 4, 0.60–0.65 at 6,
+    0.75–0.83 at 8, 0.84–0.94 at 11, ≥ 0.98 from 16 (the discs, which also read the layer below, 0.8–0.99); G 0.54–0.91.
+    With the step of the tag's late windows (iters × alpha_last: 0.19 a at 40k, 0.73 a at 300k) the relief the
+    relaxation lets u hold is A_ss = G u_win / (1 − R): 0.21–0.35 a at w ≤ 6, 0.55–2.4 at 8–11 (40k); 0.85–1.4 at
+    w ≤ 6 and more beyond (300k). Not the binding limit at the physics' ds*; it binds at 40k for w ≤ 6 once the
+    placement terms let go. PCGrad's projection keeps the render's push along the relief whole for dt ≤ 1 (cos with
+    the physics gradient +0.09); at dt = 2 it removes 10–45 %.
+  *The real features on the curve (`d161_features.py`, `features/features.json`; the mesh's own relief by D107's
+  bands, h_2s − h_s minus its mean at 4s, over 60k points; top = where the band's local energy is in its top decile).*
+  Bunny wrinkles: 300k pitches, band 5.4–10.8 a rms 0.067 (top 0.13), 10.8–21.6 a 0.11 (0.24), 21.6–43 a 0.23 (0.58);
+  dragon scales: 0.12 (0.24), 0.20 (0.41; p99 0.66), 0.45 (1.10); at 40k half these amplitudes at half these
+  wavelengths (bunny 0.03–0.12 a40, dragon 0.06–0.20 a40 at 2.7–10.6 a40); the meshes' own edges 1.19 a300 (bunny),
+  0.70 a300 (dragon). At 40k they lie below the sample's own surface noise and below the pictures' signal (the curve
+  at dt = 0.25 is already near the pictures' floor on the bunny): not representable at 40k by any term. At 300k the
+  part the 3D sample does not carry (D105/D122: a 300k sample carries 0.55–0.74 of the mesh's relief at 5.4 pitches)
+  is in D161's situation: by the curve (bunny / coin 300k, dt = 0.25, w = 6–22 a) the physics keeps at most 32 % of it
+  (≤ 0.08 a), held at w = 6–8 a by the surface proximity (leaving it out raises the share to 0.42–0.51) and at
+  w ≥ 11 a by the transport (leaving it out: 0.38–0.49 on the coin). The u rate and the relaxation do not bind there at 300k
+  (A_ss ≥ 1.2 a).
+  *The scenes (chosen from the measurements).*
+  - The coin in place of the sphere. With the sphere as the target the source is the target: the run calibrates its
+    units at the source and read sampling noise there (sphere→sphere: unit_ratio 1428 against the bunny's 14 500 and the
+    coin's 12 950; ot_scale 1.09 against 0.41), so the cleanups would weigh ten times their usual share. The coin
+    (`assets/d161coin.obj`: the points within 0.9 of a flat disc of radius 1.85, flat faces and a round rim, marching
+    cubes of its exact distance, watertight; 5.8 × 5.8 × 2.0 wu at 40k) is a real morph from the sphere with a flat
+    canvas, the bas-relief case of Weyrich et al.
+  - The bunny's flank on a smoothed bunny (`d161smooth_bunny.obj`: Taubin λ 0.5, μ −0.51, 300 iterations; the scan's
+    fine bumps out, the shape kept: median move 0.12 a40). Its coarser lumps (about 1 wu) remain and the letters read
+    faintly on it in a still (`assets/look_L40bunny*.png`); the reading below is by correlation with the pattern, which
+    the lumps do not share.
+  - The pattern (`d161_mesh.py`, `d161_pattern.py`): "PM" in DejaVu Sans Bold, em 20 a (stem 3.8 a, so the strokes'
+    wavelength ≈ 7.6 a, about 2.4 loss cells: where the curve has the placement terms and the transport both
+    holding), edges a Gaussian of 1 a, embossed δ = 1 a along the smooth mesh's normals, volume-neutral (h = δ (P −
+    P̄)); on both flat faces of the coin (each read from outside), on the bunny's +x flank (orthographic, the faces
+    that see that side). Meshes subdivided 4-way until the longest edge is 0.21 / 0.19 a (no slivers, no T-junction):
+    `d161L40coin.obj` (1.39M faces, watertight, volume +0.003 %), `d161L40_bunny.obj` (4.4M faces; the base is open as
+    the bunny is). The 300k scale is the coordinator's call after the 40k reading.
+  *Runs (40k, `repo_d161s`, kept frames; `d161_chain.sh R`, one card by the lock protocol with a 90-s courtesy wait).*
+  coin40k_{full,twin}_{97,99}: `--tgt d161coin.obj --render_tgt d161L40coin.obj --n 40000 --seed S` (twin: +
+  `--render_weight_scale 0`); bunny40k_{full,twin}_{97,99}: `--tgt d161smooth_bunny.obj --render_tgt
+  d161L40_bunny.obj`. Everything else the frozen recipe's defaults.
+  *Readings (`d161_read.py`, CPU; tested on the tag's bunny V97/W97 with a test pattern).* (1) The relief in the run's
+  own particles: the pipeline's outer layer (offset from the mean of the 32 nearest ≥ 0.5 spacing), each layer
+  particle's outward offset h from the smooth mesh at its foot, over the pattern's region (within 2 s_bg of P > 0.05,
+  s_bg = em / 2 = 10 a) and |h| < 3 a; h and P high-passed by the same Gaussian of s_bg over those points; the carved
+  amplitude A = ⟨h̃, P̃⟩ / ⟨P̃, P̃⟩ (pitches; the relief mesh has δ = 1) and corr = Pearson(h̃, P̃). The ceiling: the
+  same reading on the relief mesh's own 40k samples (seed + 1, + 2); the floor: the smooth target's samples. On every
+  kept frame, and at the end also on the display surface (zbs). (2) Held-out shading: D157's studio look on the 46
+  held-out views at 384 px, the display surface against the relief mesh: the mean squared error over the pattern's
+  pixels and over all covered pixels. (3) Geometry against the smooth mesh: orthographic 1 − IoU at 512 px (training,
+  held-out), the display surface's Chamfer-L1 and F at 0.5 / 1 a (D157's d3_metrics), the run's own sil_iou, chamfer,
+  thin_uncovered. (4) Rest: the last committed window's v_mean, kin, stab_end. (5) Pieces at the end: particles outside
+  the largest component at radius 2 × the median nearest distance, the largest piece. (6) Render → physics over time:
+  at each kept frame, full vs twin at one seed (the same source particles), each twin layer particle's distance to its
+  full-arm counterpart (median, p90; in the region / elsewhere) and the two layers' surface distance, against the
+  twin97–twin99 surface distance (the seed floor). Records: λ, g_share, windows, wall time.
+  *Pass (per scene; both seeds).* P1 A_full ≥ 0.5 × the ceiling's A and corr_full ≥ 0.5, while the twin's A ≤ 0.1 ×
+  the ceiling's and |corr_twin| ≤ 0.2. P2 the held-out shading error in the pattern's pixels against the relief mesh:
+  full below twin on both seeds by more than |twin97 − twin99|. P3 geometry against the smooth mesh: full not worse than
+  twin by more than the larger of the two arms' seed spreads (held-out 1 − IoU, Chamfer-L1, sil_iou, thin_uncovered).
+  P4 the end's v_mean ≤ 2 × the twin's. P5 no piece of ≥ 10 particles beyond the twin's count. PASS: P1–P5 on both
+  scenes; PARTIAL: P1 at A ≥ 0.2 × the ceiling and corr ≥ 0.3 on ≥ 3 of the 4 scene-seeds with P3–P5; FAIL otherwise.
+  *Predictions (from the curve; the letters' main wavelength ≈ 7.6 a, δ = 1 a).* The full arm carves A ≈ 0.07–0.10 a on
+  the coin (0.08–0.12 of a ceiling near 0.8–0.9), corr 0.2–0.4; the bunny less (0–0.07 a, corr ≤ 0.2). The twin 0 ± the
+  floor. P1 fails on both scenes; P2 holds on the coin (a tenth of the relief lowers the pattern pixels' error a
+  little), not on the bunny; P3–P5 hold. FAIL by P1, PARTIAL not reached. The full-vs-twin distance in the region above
+  the seed floor by a tenth of a pitch at most after arrival.
+  *D161b (pre-registered now as a definition; run after D161 at 40k with the same eight runs, the plain arm the
+  baseline; an option, default off, `--proximity_berth`, to be written on `wip/d161`).* The surface proximity counts a
+  target outer point as covered when a body particle lies within the berth (prepare's sampling-scale berth
+  `nn_berth_k` × the target's nearest spacing, the near band's inner edge): its floor is K(berth) in place of K(sp)/2,
+  so the free radius goes from 1.53 sp (1.1 a) to the berth (about 2 sp, 1.44 a). The two placement terms then share
+  one free radius, inside which the surface's shape is left to the render and the relaxation. No new constant.
+  Prediction from the curve: a modest gain, bounded by the curve's "without the proximity" column (coin 40k at w ≈ 8:
+  ≤ 0.14 a at dt = 1, against 0.08), because the near band, the spray cleanup and the transport hold the rest; D161b
+  is expected to FAIL P1 too, and to show by how much the proximity alone holds. Risk: thin features' gaps of 1.6–2
+  spacings were the proximity's reason (R-series, 2026-09-30); read thin_uncovered against the plain arm.
+  *What the curve says is needed beyond D161b (a proposal, not pre-registered).* With the transport alone the curve
+  keeps 0.57–0.72 of the relief at w = 4 a, 0.23–0.43 at 6 a, 0.12–0.20 at 8 a: the render can own the band the 3D
+  target does not resolve (below about two loss cells) only if all three placement terms read the body at the
+  transport's resolution, not at the sampling pitch; letters in that band need strokes of 2–3 a, legible at 300k
+  ("SIGGRAPH" at em ≈ 13 a fits a coin face). Above two loss cells the smooth 3D target and the relief contradict
+  each other, and the transport holds the target's shape as it should.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
