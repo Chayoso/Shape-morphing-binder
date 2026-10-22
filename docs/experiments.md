@@ -6709,6 +6709,66 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       - With no gravity, the share does move the frames beyond the rule's own difference: a moving body's
         uncontrolled continuation is not the identity, so its own elastic recovery is not assimilated. This is a
         change to the frozen rule, reported and not adopted.
+  - **The controls' share, the 40k read: GATE FAIL (read 2026-10-21 22:30–22:45 CDT; chain 17:23–19:38 on GPU 2, renders
+    on GPU 0; `share/read_share.md`; local `output/results_2026-10-21/b9b_gravity_world/share_40k/`).**
+    - *Proofs.* The first attempt stopped at 17:20 on its own suite: the new continuation test's precondition (6 steps
+      under g 3 moved the stored F by 5e-7). The test was given a load that deforms F (g 50 over 40 steps, pressed into
+      the floor; 88dba56); the second suite passed (456, 2 skipped), the pinned references included.
+    - *By the letter it fails on:* the dragon's end motion (median 0.0357 against the no-gravity level 0.0082); V1 rest
+      on 1 of 8 gravity runs (bunny L97 only); the dragon arms' silhouette IoU (0.9725–0.9751 against option 1's worst,
+      0.9752), thin (up to 7.6 %), yardstick silhouette (24–30e-4 against 20e-4) and shading; bunny L101's thin
+      (5.29 % against 4.73 %).
+    - *What it did as designed.* The assimilation reads far less: per-window p99 of 0.006–0.018 against the frozen
+      reading's 0.067–0.098 on the same states. On the bunny the end motion falls (render arms' median 0.0077 against
+      option 1's 0.0149; the no-gravity Z level is 0.0114, the D147 V0 level about 0.0035), and shape, height (within
+      0.05 pitches), shape tilt (≤ 0.67°), IoU and yardstick hold.
+    - *Why the end does not come to rest: measured (`tmp/b9b/rock.py`, `decay.py`, CPU).*
+      - Option 1's end motion is a steady one-way creep. After 4 s the material frame turns +0.5 to +0.9°/s in every
+        2-s band. The window records' angular velocity keeps one direction (the magnitude of its mean equals its mean
+        magnitude, 0.005–0.010 rad/s; no reversals). This is the assimilation's per-window sinking and the controls'
+        rebuilding (the option-1 300k reading).
+      - The share removes that creep but leaves an elastic oscillation that hardly decays. On the dragon the material
+        frame turns back and forth with alternating sign, band by band: L97 +2.9, −2.7, +1.6, −0.4, −0.4°/s; L101
+        +3.9, −3.3, +2.4, −1.4, +1.2°/s. The centroid's height oscillates with a 4.05-s period at twice option 1's
+        amplitude (std 0.013–0.028 pitches against 0.004–0.022).
+      - The angular velocity is 4–5× option 1's (mean |ω| 0.024–0.036 rad/s against 0.005–0.008), and its direction
+        wanders: the magnitude of its mean is only 0.001–0.007. That is a rocking on the floor, not a turn. The
+        deformation speed is 30–50 % higher (0.056–0.075 wu/s).
+      - On the bunny the same oscillation decays inside the run (L99: |ω| 0.050 → 0.036 → 0.008 rad/s; L97 reaches V1
+        rest).
+      - The cause in plain terms: the frozen reading's 0.07–0.10 of strain made rest shape every window was also the
+        body's only dissipation of the elastic energy the weight stores. The share keeps that energy elastic, so the
+        body is a soft spring on the floor. It rocks, with the soft response's period (about 4 s; B9b's Z5 sag
+        oscillated at about 5 s). The scene's damping acts on the deformation velocity only, so it leaves the rocking's
+        rigid part undamped; only the world target's velocity terms brake it, through the floor.
+    - *The frozen question: the share does move the unloaded body.* With no gravity (bunny, standing frame, g 0), the
+      RMS position difference is 0.32 / 0.68 / 0.68 pitches at 1 s / largest / end for the share against the current
+      rule. The current rule against itself gives 0.16 / 0.42 / 0.42. The share also reads 6× less in the unloaded body
+      (p99 0.0052 against 0.031): a moving body's uncontrolled continuation is not the identity, so its own recovery is
+      not assimilated. Ported as it is, it would change the frozen algorithm. Reported, not adopted.
+      - A confound to state: the no-gravity standing runs cannot reach the lifted target's height (nothing pulls the
+        centroid down: they end 1.6 pitches high, own IoU 0.955). So their end motion (0.0095–0.0114 bunny, 0.0082
+        dragon) is not a clean no-gravity level. D147's V0 runs (no gravity, no floor) give about 0.0035 (bunny) and
+        0.0075 (dragon) in the same pitch; against either level the dragon fails P1.
+    - *The render's influence.* Weight: g_share 0.333 in every window, λ median 0.0059 (bunny) / 0.0100 (dragon).
+      Against the twin at seed 97, the arm ends its silhouette term at ×0.37 (bunny) / ×0.29 (dragon), with yardstick
+      silhouette 3.43 against 4.10e-3 and 2.44 against 5.32e-3, and silhouette IoU +0.0029 / +0.0055. What it does not
+      change: the rest, the rocking and the assimilation's reading (the twins rock alike: dragon P97 |ω|R 0.058).
+    - *The next definition (a proposal; no card run without the coordinator).* Both parts take only existing
+      definitions or constants.
+      1. Remove only the loads' own effect from the assimilation's reading: the uncontrolled continuation with the
+         loads, set against the same continuation without them (zero control in both). Without loads the two are
+         equal, so the reading is the frozen one exactly; this makes the rule frozen-safe by construction, where the
+         share was not. One more rollout a window.
+      2. In the standing frame (a world-fixed target, a body resting on a floor), use the single-body recipe's drag on
+         the whole velocity (m v, 0.9 /s, B9's own dynamics; the existing `SceneSpec.drag = 0.9`, which sets the
+         deformation-only damping to zero). Rigid rocking on the floor is part of the world target's error, and only
+         this damping acts on it.
+      - Predicted: the 4-s rocking decays with an e-fold of about 1.1 s, so the end motion falls to the no-gravity
+        level and V1 rest holds on most runs. The creep stays gone (part 1 removes the load's strain as the share
+        did), and with no gravity the frames equal the current rule's to its run-to-run difference.
+      - Gate it as this one: the same 40k seeds, P1–P3, and the frozen check (no gravity, at window level and run
+        level).
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
