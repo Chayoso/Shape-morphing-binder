@@ -145,6 +145,36 @@ for mesh in ("bunny", "dragon"):
             lo, hi = rng([v for v in vals if isinstance(v, (int, float))])
             M["R4"][k] = dict(M97=m.get(k), L97=vals[0], lo=lo, hi=hi)
             txt.append(f"  {k:20s} {m.get(k)} | {vals[0]} | {lo}-{hi}")
+# ---- R5
+for mesh in ("bunny", "dragon"):
+    rows = jl(R / f"terms_{mesh}.jsonl")
+    if not rows:
+        continue
+    res[mesh]["R5"] = {}
+    txt.append(f"=== {mesh}: R5 the detail band (< 10.8 pitches) of each term's normal gradient on the outer layer: rms, its share of the"
+               f" term's energy, the cosine with the render's detail part; mean over the last 10 windows and at the end")
+    for name in ("M97", "T97"):
+        rr = [r for r in rows if r["name"] == name]
+        if not rr:
+            continue
+        last10 = rr[-10:]
+        S = {}
+        for t in ("ot", "surf", "near", "spray", "rend", "physics"):
+            det = np.mean([r["terms"][t]["detail_rms"] for r in last10])
+            rest = np.mean([r["terms"][t]["rest_rms"] for r in last10])
+            cs = [r["terms"][t]["cos_with_render"] for r in last10 if r["terms"][t]["cos_with_render"] is not None]
+            S[t] = dict(detail_rms=float(det), detail_share=float(det ** 2 / max(det ** 2 + rest ** 2, 1e-60)),
+                        cos_with_render=float(np.mean(cs)) if cs else None,
+                        detail_rms_end=rr[-1]["terms"][t]["detail_rms"], detail_rms_region_end=rr[-1]["terms"][t]["detail_rms_region"])
+        S["relaxation"] = rr[-1].get("relaxation")
+        S["course"] = [(r["window"], r["terms"]["rend"]["detail_rms"], r["terms"]["physics"]["detail_rms"]) for r in rr]
+        res[mesh]["R5"][name] = S
+        txt.append(f"  {name}: " + " | ".join(f"{t} {v['detail_rms']:.2e} (share {v['detail_share']:.2f}, cos {v['cos_with_render'] if v['cos_with_render'] is None else round(v['cos_with_render'], 2)})"
+                                          for t, v in S.items() if t not in ("relaxation", "course")))
+        if S["relaxation"]:
+            rx = S["relaxation"]
+            txt.append(f"     relaxation at the end: removes {rx['residual_detail_rms_a']:.3f} a a step in the band ({rx['residual_detail_rms_region_a']:.3f} in the region),"
+                       f" cos with the render's push {rx['cos_removal_with_render']:+.2f}; its reference rms {rx['ref_rms_a']:.3f} a")
 # ---- 40k
 g40 = jl(R / "g40_m97.jsonl")
 if g40:
@@ -250,3 +280,26 @@ fig.tight_layout()
 fig.savefig(out / "relief.png", dpi=130, bbox_inches="tight")
 plt.close(fig)
 print("wrote", out)
+fig, ax = plt.subplots(1, 2, figsize=(12, 3.8), sharey=True)
+for j, mesh in enumerate(("bunny", "dragon")):
+    a_ = ax[j]
+    for name, col, lab in (("M97", "#2a78d6", "D159 full arm"), ("T97", "#eb6834", "tag full arm (re-run)")):
+        S = res.get(mesh, {}).get("R5", {}).get(name)
+        if not S:
+            continue
+        w = [c[0] for c in S["course"]]
+        share = [c[1] ** 2 / max(c[1] ** 2 + c[2] ** 2, 1e-60) for c in S["course"]]
+        a_.plot(w, share, color=col, lw=2, label=lab)
+    a_.set_ylim(0, 1)
+    a_.set_title(f"{mesh} 300k: the render's share of the push on the outer layer's detail band (< 10.8 pitches)", fontsize=9)
+    a_.set_xlabel("window")
+    a_.grid(axis="y", color=GRID, lw=0.8)
+    for sp in ("top", "right"):
+        a_.spines[sp].set_visible(False)
+    if j == 0:
+        a_.set_ylabel("render / (render + physics), energy")
+        a_.legend(frameon=False, fontsize=9)
+fig.tight_layout()
+fig.savefig(out / "holds.png", dpi=130, bbox_inches="tight")
+plt.close(fig)
+print("wrote holds.png")

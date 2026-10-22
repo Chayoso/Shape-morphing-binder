@@ -16594,6 +16594,75 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   and the relief reference rebuilt as `window/layer.py` builds them: its per-step move, pitches) in its own unit.
   (iii) If D159 fails P1 with P2–P4 held, the next arm combines `--render_target mesh_shell` with D161b's definition
   change of the proximity's reach, pre-registered then with D161's definition as the coordinator passes it on.
+  *Amendment 4 (2026-10-22 00:30 CDT, after the M97 runs, before the T97 runs and every other reading; the coordinator
+  relaying D160's finding that lambda falls about 120 times after arrival).* R6, is the render starved after arrival:
+  per window of the run's history (`d159_window.py`), lambda, lambda |g_render| against |g_phys| on the controls, the
+  render's share, the step taken (the accepted step size times the gradient norm; `step_norm` is a telemetry field),
+  the body's move per window, and the decisions (accepted / rejected iterations, null commits, outer rejections, the
+  stop); arrival is the first window by which 90 % of the run's whole move is made (the same rule for every run).
+  **First reading (2026-10-22 00:59 CDT; the gates 23:30–23:38 on gpu3, the M97 and P99 runs 23:38–00:54, the T97 pair
+  running; `output/gpu/d159/read/{relief_tag,relief_early,course_tag,course_early,course_floor,terms_early,window}_*`).**
+  Gates: V1 the full suite exit 0 (442 passed, 2 skipped; the rewritten CUDA test among them), V2 the digest exit 0, V3
+  SAME against rt1's S1, V4 the D159 arm runs (40k bunny, c median 0.868 pitch). Runs (300k, two on one card): bunny
+  M97 20.6 min, 89 windows, silhouette IoU against its own sample 0.9877, chamfer 0.0551 (B1's L97: 0.9884, 0.0551,
+  102 windows); dragon M97 34.1 min, 153 windows, 0.9872, 0.0546; the twins at seed 99: 0.9875 / 0.9889. The shell
+  pictures' log line as in step 0 (c median 0.879 / 0.916 pitch; their difference from the samples' pictures 2.05e-4 /
+  2.03e-4 silhouette, 4.96e-4 / 4.93e-4 shading).
+  R1, the relief carried in the region by band (below 2.7 / 2.7–5.4 / 5.4–10.8 pitches; all below 10.8 in brackets):
+
+  | | outer layer (the particles) | exterior (the surface the loss reads) |
+  |---|---|---|
+  | bunny D159 M97 | 0.75 / 0.85 / 0.87 (0.87) | −0.13 / 0.41 / 0.67 (0.40) |
+  | bunny tag L97; L97–L105 range | 0.78 / 0.84 / 0.87; 0.76–0.81 / 0.82–0.86 / 0.85–0.88 | −0.02 / 0.43 / 0.65; −0.13…−0.02 / 0.39–0.44 / 0.64–0.67 |
+  | bunny twin P97; own sample | 0.79 / 0.86 / 0.88; 0.70 / 0.75 / 0.82 | −0.02 / 0.43 / 0.66; 0.11 / 0.55 / 0.74 |
+  | dragon D159 M97 | 0.83 / 0.82 / 0.82 (0.83) | −0.26 / 0.43 / 0.67 (0.40) |
+  | dragon tag L97; L97–L105 range | 0.83 / 0.81 / 0.81; 0.80–0.83 / 0.80–0.81 / 0.80–0.81 | −0.34 / 0.40 / 0.65; −0.40…−0.19 / 0.36–0.44 / 0.64–0.67 |
+  | dragon twin P97; own sample | 0.83 / 0.81 / 0.81; 0.69 / 0.71 / 0.75 | −0.07 / 0.48 / 0.67; −0.45 / 0.36 / 0.61 |
+
+  At 4 s D159 and the tag are alike too (bunny layer 0.74 / 0.82 / 0.85 against 0.74 / 0.82 / 0.85). The particles
+  carry about four fifths of the mesh's relief in the region with or without the new pictures, more than their own
+  300k sample; the exterior of radius 3 hides it.
+  R2, the arm's surface from the twin's (P97's layer, pitches; the floor = the seed-99 twin against P97):
+
+  | t (s) | 0.5 | 1 | 2 | 4 | end |
+  |---|---|---|---|---|---|
+  | bunny D159, all / detail band | 0.364 / 0.084 | 0.275 / 0.112 | 0.180 / 0.087 | 0.134 / 0.070 | 0.115 / 0.064 |
+  | bunny tag | 0.368 / 0.086 | 0.359 / 0.123 | 0.172 / 0.088 | 0.128 / 0.071 | 0.111 / 0.064 |
+  | bunny floor | 0.108 / 0.071 | 0.261 / 0.126 | 0.162 / 0.096 | 0.136 / 0.080 | 0.125 / 0.075 |
+  | dragon D159 | 0.738 / 0.231 | 0.650 / 0.227 | 0.305 / 0.159 | 0.204 / 0.107 | 0.135 / 0.078 |
+  | dragon tag | 0.820 / 0.280 | 0.850 / 0.327 | 0.551 / 0.252 | 0.202 / 0.111 | 0.137 / 0.077 |
+  | dragon floor | 0.170 / 0.065 | 0.294 / 0.078 | 0.267 / 0.145 | 0.190 / 0.107 | 0.136 / 0.080 |
+
+  During the arrival the full arm moves the surface far beyond the seed floor (the render steers the arrival, D155),
+  in the detail band too on the dragon (0.28–0.33 against 0.065–0.078 at 0.5–1 s); after arrival both arms fall to the
+  floor (end: detail band 0.064 / 0.078 against the floor's 0.075 / 0.080). D159 departs less than the tag on the
+  dragon early and as much afterwards. The particles themselves end 2.2 / 7.7 pitches from the twin's (the same
+  material goes elsewhere), the surfaces within the floor.
+  R5 (M97; `--term_dump`), the outer layer's detail band: the render's normal gradient 9e-6 / 2e-5 at window 0, about
+  1e-8 / 7e-9 from window 10–20 on; the physics' 4–15 times that (the near band the largest, then spray, proximity,
+  transport), each nearly orthogonal to the render's (|cos| ≤ 0.13; transport −0.13 / −0.08 at the end); the relaxation
+  at the end removes 0.040 / 0.050 pitch a step in the band (0.050 / 0.060 in the region), against the render's push
+  (cos −0.16 / −0.11). Proximity is not the largest detail-band gradient at 300k; the render's own detail push is small.
+  R6 (`read/window.jsonl`): arrival at window 8 of 89 (bunny) and 20 of 153 (dragon). Before → after arrival (medians):
+  lambda 0.026 → 0.0015 and 0.011 → 0.0016; |g_phys| 2.3e-4 → 5.9e-6 and 9.9e-5 → 4.6e-6, lambda |g_render| at half of
+  it throughout (the share 1/3 by the rule); the step 2.7e-6 → 3.9e-8 and 1.2e-6 → 6.6e-8; the body's move 1.5 → 0.009
+  and 1.4 → 0.021 target spacings a window (after arrival 1.8 and 4.7 spacings in all, over 80 and 133 windows); no
+  rejected iteration after arrival (624 / 952 accepted), 4 / 16 null commits, 2 / 3 outer rejections, the stop rule
+  ending the run. The tag's L97 and the twin show the same pattern (bunny after arrival: 0.008 spacing a window, lambda
+  0.0016). After arrival the render is starved: its weight follows the physics' gradient down 40–20 times and each
+  window moves the body about a hundredth of a spacing, so what the new pictures ask for there barely happens.
+  P1: failed. R1 in the region is within the tag's five-seed range on the bunny in every band and beyond it on the
+  dragon in the 5.4–10.8 band only (0.816 against at most 0.806; L97 + the range's width 0.811), and R2's detail band at
+  the end is not above the floor on either mesh. With P1 failed the arm is not a candidate whatever P2–P4 give;
+  the 40k gallery (P4, read for adoption only) is therefore not run, and the card is left to D160 / D161 (`drop_g.sh`
+  stops the chain after the renders). Pending (detached, `tmp/d159/RESUME.md`): T97 (the tag's path with the term
+  dumps), the CPU readings (R1–R3 with every state, R5 on T97, pieces, visible blobs), the renders, the close-ups.
+  Reading: neither the target pictures nor the proximity's hold is what keeps the relief off the particles' surface;
+  the particles already carry about four fifths of the region's relief (more than their own 300k sample), the exterior
+  of radius 3 hides it, and after arrival the render moves nothing in the detail band beyond the seed floor because
+  its weight and the step collapse with the physics' gradient. Next definition (a proposal to the user; a change of the
+  frozen render-weight rule): after arrival the render's authority must not follow the physics' gradient down; with it,
+  D159's pictures and the exterior field's radius (D123, 2.5) as the render's path to u.
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`
