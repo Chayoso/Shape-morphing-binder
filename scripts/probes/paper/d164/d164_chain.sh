@@ -2,9 +2,9 @@
 # d164_chain.sh STEPS -- D164 on hyde06 (docs/experiments.md, D164), on ONE card by the agents' lock protocol
 # (gpu_locks/gpuN.lock by mkdir with an info file "agent D164 ...", released by the trap). A card is eligible with no
 # lock, no other user's compute process, < 2000 MiB, utilisation <= 5 %, for 10 minutes; then a 90-s courtesy wait.
-# D162 and D163 go first: no claim while either one's chain reports waiting for a card (its status.txt's latest
+# D162 (and D162b) go first: no claim while its chain reports waiting for a card (its status.txt's latest
 # 'waiting:' line within 20 min and newer than its latest 'claimed'). Cards in the order 3 1 0 2 (GPU 2 last: another
-# user's desktop runs there; D162 / D163 never take it). The card is held for the chain's steps and released by the trap.
+# user's desktop runs there; D162 never takes it). D163 was dropped from the yield by the coordinator (2026-10-22 17:3x). The card is held for the chain's steps and released by the trap.
 #   P    step 0, the pilot (measurement only): 40k bunny and dragon, seed 97, the full arm, repo_d164s with
 #        --replay_noise start under tmp/d164/replay_probe.py -> output/gpu/d164/pilot/
 #   V    the gates: V1 the full suite on repo_d164; V2 the contracts test 20x on repo_d164 (gate) and on repo_d164_start
@@ -23,9 +23,9 @@ S=$O/status.txt
 log() { echo "$(date '+%m-%d %H:%M:%S') $*" >> $S; }
 STEPS=${1:-"P"}
 CARD=""
-render_waiting() {        # a D162 / D163 chain waiting for a card: its latest 'waiting:' within 20 min, after its latest claim
+render_waiting() {        # a D162 / D162b chain waiting for a card: its latest 'waiting:' within 20 min, after its latest claim
   local now=$(date +%s) f w c
-  for f in $G/d162/status.txt $G/d163/status.txt; do
+  for f in $G/d162/status.txt $G/d162b/status.txt; do      # D163 dropped from the yield (the coordinator, 17:3x)
     [ -e $f ] || continue
     w=$(grep 'waiting:' $f | tail -1 | cut -c1-14); c=$(grep 'claimed gpu' $f | tail -1 | cut -c1-14)
     [ -z "$w" ] && continue
