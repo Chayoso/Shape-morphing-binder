@@ -294,7 +294,7 @@ class WindowOptimizer:
         independent perfect sample scores, and fades to zero as it reaches that floor."""
         bal = self.balancer
         lam = bal.update(_norm(gp), _norm(gr))
-        if self.cfg.render_weight_ref == "floor":
+        if getattr(self.cfg, "render_weight_ref", "residual") == "floor":   # (getattr: test stubs carry older configs)
             if bal.lam0 is None:
                 bal.lam0 = lam
             L = float(lr) if lr is not None else 0.0
@@ -532,7 +532,7 @@ class WindowOptimizer:
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
                  "dfc": self.leaves[0].detach()[:cfg.T].clone(),       # (B13: the force, the next warm start's)
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
-        if cfg.render_weight_ref == "floor":           # D162 (1): the weight's reference, recorded only on that path
+        if getattr(cfg, "render_weight_ref", "residual") == "floor":   # D162 (1): the weight's reference, recorded on that path only
             stats.update({k: self.tele.get(k) for k in ("lam_rule", "lam0", "render_L", "render_floor", "render_excess")})
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))

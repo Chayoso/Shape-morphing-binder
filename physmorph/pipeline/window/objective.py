@@ -130,7 +130,7 @@ class Objective:
         self.m_dt = m_dt
         # the near band: between the sampling berth and one loss cell from the target (the transport's blur length;
         # farther out the transport owns the particle)
-        if cfg.placement_at_cell:                     # D162 (2): the berth is the loss cell, so the band is empty
+        if getattr(cfg, "placement_at_cell", False):   # D162 (2): the berth is the loss cell, so the band is empty
             self.berth = float(tgt.ldx)
             self.nn_idx = torch.zeros(len(x0), dtype=torch.long, device=x0.device)
             self.nn_elig = torch.zeros(len(x0), device=x0.device)
@@ -146,7 +146,7 @@ class Objective:
         """The spray cleanup's isolation gate at a state (frozen at the window start for the term, read at the state
         for the selection merit's form): the ramp dt_iso_lo..hi of the 8th-neighbour distance over its median."""
         return isolation_gate(x, self.cfg.dt_iso_lo, self.cfg.dt_iso_hi,
-                              scale=float(self.tgt.ldx) if self.cfg.placement_at_cell else None)   # D162 (2): in loss cells
+                              scale=float(self.tgt.ldx) if getattr(self.cfg, "placement_at_cell", False) else None)   # D162 (2)
 
     # ---- terms ----
     def dvol_density(self, xT):
