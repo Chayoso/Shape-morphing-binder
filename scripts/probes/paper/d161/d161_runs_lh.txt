@@ -1,0 +1,4 @@
+coin40k_full_97_lh --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97 --lambda_ema 0
+bunny40k_full_97_lh --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 97 --lambda_ema 0
+coin40k_full_99_lh --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 99 --lambda_ema 0
+bunny40k_full_99_lh --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 99 --lambda_ema 0

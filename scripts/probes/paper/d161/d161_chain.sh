@@ -85,9 +85,9 @@ if [[ " $STEPS " == *" R "* ]]; then
     ( envr repo_d161s; $PY scripts/pipeline_run.py $flags --out $O/runs40/$name > $O/runs40/$name.log 2>&1 < /dev/null
       echo $? > $O/runs40/$name.rc )
     log "R $name exit $(cat $O/runs40/$name.rc): $(grep -m1 'ARM render_full_dt_iso_nn:' $O/runs40/$name.log | cut -c1-160)"
-  done < $W/d161_runs.txt
+  done < $W/${RUNS_FILE:-d161_runs.txt}
   release_card
-  log "R done"
+  log "R done (${RUNS_FILE:-d161_runs.txt})"
 fi
 # B: D161b (pre-registered 2026-10-21 22:51 CDT with D161): the gates on repo_d161b / repo_d161bs (wip/d161 with
 # --proximity_berth, default off), then the eight 40k runs of d161_runs.txt with --proximity_berth (NAME_pb)
