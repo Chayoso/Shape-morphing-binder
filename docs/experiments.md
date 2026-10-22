@@ -6188,6 +6188,168 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
      (`t3_` / `e3_`, as bunny and dragon have); then `r4_tail.py` on all six, and the change of the yardstick silhouette,
      shading and display front per wall minute in the last 50 / 25 / 10 % of the wall.
      *Expected.* As on bunny and dragon: 90 % of the tail's gain with a quarter to two fifths of the wall still to go.
+  **D145 post-tag reading 5, read (2026-10-21 13:21 – 22:55 CDT server clock; drivers and readers
+  `scripts/probes/paper/posttag/r5_*` — `r5_gpu.sh` (one card for the chain, a PAUSE file; GPU 1 14:33–14:46 and
+  17:10–20:48), `r5_runcpu.sh`, `r5_timeline.sh`, `r5_late.sh`, `r5_far.py`, `r5_queue.sh` (three CPU slots, nice 10),
+  `r5_d157x.py` / `.sh` (D157's reader imported unchanged), `r5_jobs.py`, `r5_tail.py`, `r5_table.py`, `r5_resume.sh`;
+  runs `output/gpu/d145t_cell/`, readings `output/gpu/d145_ext/r5/` (`r5_tables.md`, `r5_tail.md`); local
+  `output/results_2026-10-20/d145_external/` (`r5_*`)).**
+  *Operations.*
+  - The chain waited for a card from 13:21 to 14:33 (all four were locked).
+  - The coordinator asked for the cards for the user's 17:00 demo.
+    - After teapot LC97 had finished, I stopped the chain loop by its own PID 2565002 (SIGKILL, so that its trap
+      could not drop the lock under a running reading) and let the run's GPU readings finish.
+    - I released the lock at 14:46 and resumed at 17:00 (`r5_resume.sh`); the resumed chain did LC97's end reading
+      first.
+  - D157's reader on Xu et al.'s homer XU101 grew past 80 GB of the server's memory.
+    - I stopped it by its PID and added a guard: an end with more than 1 % of its particles outside the largest linked
+      set is recorded and not read.
+    - 12 of 304 route-(A) states were not read: Xu et al. on bob, dragon and homer, OT's dragon, 4Deform bob FDn3 and
+      dragon FDn2.
+  - One inline late-timeline task lost its topology step to an unexpanded variable; it was redone by `r5_late.sh`.
+  - No queue edit; no other process touched.
+
+  **(1) The cell-size evidence** (one run per arm against B1's seeds 97 / 99 / 101).
+  The run cell, `--cell_follows_n`: dx 0.1555 wu, 3.2 pitches, about 24 particles a cell. The shape's cell: 0.3047 wu,
+  about 183 particles a cell.
+
+  | mesh, arm | end genus (target) | yardstick sil / shading e-4 | display front % | thin % | D157 BIoU err / F@0.5 / PSNR | end kinetic | wall min / windows / s per attempt / GPU GB | far-piece frames / most particles |
+  |---|---|---|---|---|---|---|---|---|
+  | teapot L, shape (B1) | 0 / 0 / 0 (1) | 6.9–7.9 / 4.0–4.4 | 0.83–0.92 | 2.6–4.6 | 0.068–0.073 / 0.81–0.84 / 34.8–35.3 | 0.4–1.5e-6 | 13.2–14.3 / 117–124 / 6.0 / 20 | 0 / 0 |
+  | teapot LC97 | **1** (1) | **5.59 / 3.33** | **0.795** | 4.2 | **0.0545 / 0.893 / 35.70** | 4.2e-7 | 12.0 / 90 / 6.8 / 20 | 0 / 0 |
+  | teapot P, shape | 0 (P97) | 10.8–13.8 / 5.9–6.8 | 1.09–1.29 | – | 0.080–0.082 / 0.80–0.81 / 34.5–34.6 | 0.6–1.1e-6 | 12.3–14.2 / 108–129 / 6.0 / 20 | – |
+  | teapot PC97 | **1** | **7.42 / 4.30** | **0.965** | 5.5 | **0.0567 / 0.896 / 35.76** | 1.2e-6 | 9.4 / 77 / 6.7 / 20 | 0 / 0 |
+  | homer L, shape | 0 / 1 / 2 (0) | 2.65–3.69 / 1.98–2.08 | 0.73–0.84 | 5.2–6.2 | 0.050–0.064 / 0.92–0.93 / 38.4–38.7 | 1.4–4.9e-6 | 24.3–34.6 / 156–237 / 8.0–8.4 / 22–23 | 1 / 1 (L97) |
+  | homer LC97 | 1 | 2.71 / **1.78** | 0.728 | 6.9 | **0.0381 / 0.946 / 38.82** | 1.8e-6 | **17.2** / 97 / 9.2 / 26 | **18 / 88** |
+  | homer P, shape | 2 (P97) | 4.51–5.66 / 2.52–2.72 | 1.02–1.07 | – | 0.067–0.069 / 0.87–0.88 / 37.5–37.7 | 2.5–6.5e-6 | 20.6–22.9 / 134–152 / 8.2–8.5 / 22 | – |
+  | homer PC97 | 1 | 5.47 / **2.43** | **0.909** | 7.2 | **0.0460 / 0.896 / 38.30** | 2.0e-6 | 17.4 / 92 / 9.8 / 25 | 1 / 1 |
+  | dragon L, shape | 2 / 2 / 2 (15) | 5.28–5.79 / 4.55–4.64 | 0.88–0.99 | 4.0–4.7 | 0.078–0.081 / 0.85–0.86 / 34.1–34.2 | 0.9–1.3e-5 | 27.9–29.6 / 164–186 / 8.8–9.1 / 19–20 | 6–12 / 4–10 |
+  | dragon LC97 | 3 | **4.70 / 3.84** | **0.826** | 5.2 | **0.0655 / 0.900 / 34.73** | 1.1e-5 | **44.1** / 118 / **20.3** / **35** | **19 / 49** |
+  | dragon P, shape | 2 (P97) | 10.7–13.6 / 6.3–7.3 | 1.19–1.40 | – | 0.087–0.093 / 0.81–0.83 / 33.5–33.6 | 0.7–1.7e-5 | 23.9–29.4 / 143–178 / 8.8–9.1 / 19–22 | 9–13 / 10–21 |
+  | dragon PC97 | 2 | **8.02 / 5.18** | **1.13** | 4.9 | **0.0726 / 0.888 / 34.37** | 8.2e-6 | 24.4 / 118 / 10.7 / 21 | 1 / 1 |
+
+  Bold: outside B1's three-seed range, on the better side. A perfect sample reads on D157's measures: teapot 0.066 /
+  0.86–0.87 / 34.1; homer 0.036–0.037 / 0.962 / 37.0–37.1; dragon 0.060–0.062 / 0.916–0.918 / 33.6–33.7.
+  - *Genus.*
+    - The teapot's handle opens on the finer cell in both arms. The handle plane's enclosed opening is 20.2 pitches²
+      in LC97 and 16.4 in PC97; the target has 30.2, and B1 has none in any arm.
+    - It opens late: genus 0 to 6.0 s, 1–2 from 6.5–7.0 s on in LC97; 1–3 from 7.0 s in PC97.
+    - Its extra-material cluster in the eye shrinks from 127–140 particles (B1) to 24–28.
+    - The dragon's loops do not open: genus 3 / 2 against B1's 2, a perfect sample's 9–12, the target's 15. The
+      crevice fills shrink (largest extra cluster 29–37 particles against 100–204), but its loops stay closed.
+    - Homer: genus 1 in both arms. The target is 0 and the display route itself gives 2 for a perfect sample, so
+      there is no change against B1's 0–2.
+  - *End quality.* On the finer cell, LC / PC against B1's median of the same arm:
+    - The teapot is better on every measure in both arms: yardstick −20 / −37 %, shading −20 / −33 %, display −7 /
+      −13 %, D157's Boundary IoU error −21 / −31 %, F@0.5 +0.07 / +0.09.
+      - LC97 is past a perfect sample: F@0.5 0.893 against 0.86–0.87, Boundary IoU 0.0545 against 0.066.
+    - The dragon is better on the exterior: yardstick −13 / −38 %, shading −16 / −26 %, display −8 / −10 %;
+      Boundary IoU −18 / −17 %, F@0.5 +0.05 / +0.07.
+    - Homer:
+      - D157's Boundary IoU −36 / −33 % (LC97 at a perfect sample's 0.036–0.037), F@0.5 +0.02 / +0.02, shading
+        −11 / −7 %;
+      - the yardstick silhouette within B1's range in both arms; the display within it (LC) and below it (PC).
+    - Thin uncovered: +0.7–1.7 points on homer and dragon (6.9–7.2 against 5.2–6.2; 4.9–5.2 against 4.0–4.7);
+      within B1's range on the teapot.
+    - At rest: the end kinetic energy is within B1's ranges, apart from teapot PC97 at 1.2e-6 against 0.6–1.1e-6.
+  - *Cost.*
+    - Fewer windows on every run: 77–118 against 108–237.
+    - Seconds per attempt: +12–20 % on teapot, homer and the dragon twin, but ×2.3 on the dragon render arm (20.3 s
+      against 8.8–9.1; GPU memory 35 GB against 19–20).
+    - Wall: teapot 12.0 / 9.4 min against 12.3–14.3, homer 17.2 / 17.4 against 20.6–34.6, dragon LC97 44.1 against
+      27.9–29.6, PC97 24.4 against 23.9–29.4.
+  - *The trajectory (the user's reason for keeping D135's cell).* Over 0–3 s the finer cell's display is more porous:
+    - Teapot: fewer cavities than B1 (168 against 284 at 0.3 s).
+    - Homer: genus up to 92 and 279 display components at 1.0–2.1 s, against ≤ 16 and ≤ 63. PC97 is the same (90 /
+      316), so this is the cell, not the render.
+    - Dragon over 1.5–2.6 s: genus 102 → 4 and up to 721 components, with 1–4 separate drawn pieces holding particles
+      at 1.85–2.6 s. B1 has genus ≤ 31 and none; D137's tear window.
+    - Far pieces (`r5_far.py`), render arm only. The twins have 1 frame of 1 particle. On B1's cell: the render arm
+      up to 12 frames and 10 particles, its twin up to 13 frames and 21 particles (dragon).
+      - Homer LC97: particles ≥ 5 pitches off the linked body at 0.95–1.95 s, at most 155 at 1.15 s in 49 sets
+        (largest 41 particles; 5–13 pitches off). They sit at the head's top (y 0.97–0.99 of the box) and the feet
+        (y 0.02–0.03). The same particles followed: 68 % still apart at 1.5 s, none ≥ 5 pitches after 1.6 s, all back
+        in the body by 2.55 s, none apart at the end.
+      - Dragon LC97: 0.95–2.15 s, at most 73 at 1.35 s (largest set 22), at the horns / head (y 0.85–0.94) and the
+        feet; all back by 2.25 s.
+      - These are D137's arrival-phase population of the render arm, arriving earlier with the finer cell.
+  - *Against the expectations:*
+    - Teapot eye: expected open in perhaps two in five runs; it opened in both runs (late, as expected).
+    - Dragon: expected 6–12 loops; it got 3 (not as expected).
+    - Homer: expected genus 0; it got 1.
+    - Cost: better than expected on the teapot and homer, worse on the dragon render arm (×2.3 per attempt).
+    - Thin: as expected (−1…+2 points). GPU memory: 20–35 GB against the expected 35–40.
+  - *Render → control → outcome on the finer cell (LC against PC).*
+    - The arm's lead holds: yardstick −25 / −50 / −41 %, shading −23 / −27 / −26 %, display −18 / −20 / −27 %
+      (teapot / homer / dragon). B1's L against P is −40 / −41 / −59 % on the yardstick.
+    - D157: level on the teapot; ahead on homer (Boundary IoU 0.038 against 0.046) and the dragon (0.066 against
+      0.073).
+    - What the render does not change: the genus (the teapot's eye opens in the twin too; the dragon's loops stay
+      closed in both) and the porous early display.
+    - What it adds: the early far pieces (homer 18 frames / up to 155 particles, dragon 25 / 73; the twins 1 / 1) and,
+      on the dragon, the doubled seconds per attempt.
+
+  **(2) D157's reader on the external methods** (route pts: every method's end sample through our display against the
+  corrected mesh, as D157 reads ours; route mesh: their own end meshes against the raw mesh; replication row for our L97
+  identical to D157's to every digit).
+  - ARAP's end is the target mesh itself: its vertices are within 7e-6 pitch of the referee, so its route-(A) state is a
+    perfect sample.
+  - Counts (meshes where the method is ahead / level / behind ours' seed range; from ours' side "behind" means ours is
+    better):
+
+    | method | route | BIoU err | F@0.5 | held-out PSNR |
+    |---|---|---|---|---|
+    | a perfect sample (own target sample) | pts | 4 / 2 / 0 | 5 / 1 / 0 | 0 / 0 / 6 |
+    | ISD | pts | 1 / 3 / 2 | 1 / 4 / 1 | 0 / 0 / 6 |
+    | Large Steps (b) | pts | 1 / 2 / 3 | 3 / 0 / 3 | 0 / 0 / 6 |
+    | ARAP (3 meshes) | pts | 2 / 1 / 0 | 3 / 0 / 0 | 0 / 0 / 3 |
+    | ISD | mesh | 3 / 3 / 0 | 4 / 2 / 0 | 4 / 2 / 0 |
+    | Large Steps (b) | mesh | 4 / 0 / 2 | 3 / 1 / 2 | 4 / 1 / 1 |
+    | Large Steps (a) | mesh | 1 / 2 / 3 | 3 / 1 / 2 | 3 / 1 / 2 |
+    | NISE, Buonomo et al., Xu et al., OT, 4Deform, FlexiCubes, our twin | both | 0 ahead anywhere | 0 (NISE mesh level once) | 0 |
+
+  - Read the same way (route pts), ours leads every method on the held-out studio images (PSNR) on all six meshes.
+    On the outline (Boundary IoU) it is level with or ahead of ISD and Large Steps on 5–6 of 6.
+  - Ours is behind a perfect sample on Boundary IoU on 4 and on F@0.5 on 5. ARAP and Large Steps (b) are effectively
+    perfect samples on the smooth meshes (armadilo 0.042–0.043 against ours 0.049–0.051). This is D157's outward bias
+    of the render arm's outline.
+  - Read as their own meshes (no sample anywhere), ISD and Large Steps (b) lead on the smooth meshes, e.g. bob ISD
+    0.015–0.017 / 0.99–1.00 / 47 dB against ours 0.044–0.047 / 0.97–0.98 / 38 dB. A perfect 300k sample read through the
+    display is behind them too, so this gap is the particle display's.
+  - The finer cell of (1) closes much of the route-(A) gap: teapot LC97 is past a perfect sample, homer LC97 at it.
+
+  **(3) The price of the run after the render's floor, all six meshes** (`r5_tail.md`; every-frame yardstick and
+  display now on all six L97s; bunny and dragon on three seeds).
+  - Over the stretch after the crossing:
+    - with every-frame readings: yardstick silhouette × 0.51–0.89, shading × 0.58–0.82, display front × 0.64–0.94;
+    - 90 % of each measure's gain comes with a median 34 % (yardstick), 31 % (shading) and 39 % (display) of the wall
+      still to go.
+  - The last part of the wall (the end measure's worsening had the run stopped there, median over 10 runs):
+
+    | last part of the wall | yardstick silhouette | shading | display front |
+    |---|---|---|---|
+    | 50 % | +14 % (1–32 %) | +9 % (0–30 %) | +5 % (−4…+10 %) |
+    | 25 % | +4 % (−3…+10 %) | +3 % (−1…+8 %) | +1 % (−4…+3 %) |
+    | 10 % | −1 % (−4…+4 %) | 0 % (−3…+2 %) | 0 % (−4…+1 %) |
+
+    The last 10 % of the wall (0.9–3.4 min) changes nothing measurable. The last quarter (2.2–8.4 min) gives 1–10 %
+    (homer 10 %, the dragon 5–8 %). The last half gives 5–14 % (median).
+
+  **Next steps (proposals; none run).**
+  - *The cell for the next freeze (the user's decision).*
+    - The finer cell is better on the teapot (genus and every quality measure), and on the exact-mesh measures on all
+      three meshes. It is faster on teapot and homer, and costs thin coverage on homer and the dragon, the dragon render
+      arm's ×2.3 seconds per attempt, a porous early display, and early far pieces that rejoin.
+    - Evidence still missing before a default change: the same pair on bunny, bob and armadilo (D137's bob rim shift,
+      +48 % yardstick, was on D135's code) and seeds 99 / 101 on the three meshes. That is 12–18 runs, one card,
+      about 5–7 h.
+    - Also: the dragon render arm's seconds per attempt traced to its step (profile one window).
+  - *The dragon's loops.* They stay closed at 3.2 pitches. Next: measure each loop's opening width against the
+    cell. D137 had the neck–body hole open, so read which of the 15 loops open at all.
+  - *The outline's outward bias (behind a perfect sample on F@0.5)*: D157's item (4), the 2:1 deficit weighting, read as
+    an A/B on the finer cell (the user's decision).
+  - *The end rule.* The last 10 % of every run is measurably free and the last 25 % worth 1–10 %; an end at 90 % of
+    the wall would save 1–3.4 min a run. A definition change for the user.
   **B9b, gravity with the floor through the scene path with one body (pre-registered 2026-10-17 17:10 CDT server
   clock, before any run; the user approved the rerun on 2026-10-17; code `wip/b9b` f0a26d5 = `wip/d147` 5dbcf6e + two
   scene-spec fields and the probes, server copy `repo_b9b`; `scripts/probes/b9b/`; `output/gpu/b9b/runs/`; local
