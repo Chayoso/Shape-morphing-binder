@@ -18701,6 +18701,143 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   mirror, flipped back at the image), the full arm above its twin over the morph, then the end turned to show both
   faces; close-ups of the words at the end; a contact sheet; `output/results_2026-10-22/d163_text_relief/`.
 
+- **D164, the commit check's replay noise measured on the window's own replays (the user's decision of 2026-10-22, "fix
+  it", relayed by the coordinator after D162's amendment 3; a change of the frozen pipeline, gated and measured; no tag
+  is cut here; pre-registered 2026-10-22 14:21 CDT server clock, before any D164 gate or run; code: branch `wip/d164`
+  003075a = freeze-2026-10-15-rt1 (6c9b0e9) + this change, the new measure the branch's default, `--replay_noise start`
+  the tag's; server `repo_d164` / `repo_d164s` (+ `tmp/d164/patch_s164.pl`, kept frames only, the tag's form),
+  `tmp/d164/`, `output/gpu/d164/`; scripts `scripts/probes/paper/d164/`; local `output/results_2026-10-22/d164_replay/`).**
+  *Why.* The commit check nulls a window when the commit rollout of the accepted controls lands above the line search's
+  value by more than max(ls_noise_rel 1e-7, 10 × replay_rel) × max(|E|, floor), with replay_rel from one pair of
+  rollouts at the start control (E3, 2026-09-02). At the first window the body rests there and the pair agrees to 0 or
+  one ulp, while the moving candidate's rollouts differ by a few ulps of the transfers' atomics: D162 found the contracts
+  test failing that way (`test_null_windows_add_no_simulated_time_and_are_not_delivered`: 0/60 on the tag, 5/80 on
+  wip/d162, 2/20 on d161) and the tag's own production runs nulling 4.1 % of their windows so (d145t_b1). Read again for
+  this entry (`tmp/d164/nulls_scan.py`, the runs' JSON): 300k (d145t_b1, 44 runs) 240 of 5882 judged windows (4.08 %),
+  mismatch median 4.2e-7 relative = 5 float32 ulps of E (p90 37, max 362 ulps), the start pair exactly 0 in 98 of them;
+  40k (the tag-equivalent gallery V / W × 97 / 99 / 101 of d155/gate and d154/g40runs, 114 runs) 202 of 5783 (3.49 %),
+  median 33 ulps = 2.7e-6 (p90 208, max 561 = 5.6e-5), the start pair 0 in 48. None in the first window; most fall
+  late (median window index 63 at 300k, 23 at 40k), where the line search accepts decreases near the noise. At 40k the
+  median mismatch is about 40 times the start pair's median (7e-8): step 0 below reads whether that is the noise of
+  the moving state or a share the commit and the line search do not have in common.
+  *What the check exists for (the history above: E3, D4, D129, D130 (1), the 2026-09-24 eval-trajectory lesson).* The
+  commit rollout is what the runner promotes and delivers; it must be the accepted candidate. Two rollouts of one control
+  differ only by the order of the atomic sums (bit for bit under Warp's run-to-run deterministic atomics, D141); anything
+  more means the commit read a state or a cache the line search's evaluation did not (D129 / D130: the render term read
+  on discs a later trial had found, 3.9e-5 relative; the source windows' commits 5e-6 to 3.4e-4 above). The check is E3's
+  rule: null a commit whose E exceeds the accepted value by more than ten times what two rollouts of one control differ
+  by. The defect is only where that "what two rollouts differ by" is measured.
+  *The definition (`cfg.replay_noise` "window", `solve.WindowOptimizer.window_replay_noise`).* The replay noise of a
+  window is the largest relative difference among the replay pairs the window already computes, and never below the
+  float32 resolution of the compared quantity:
+  noise = max(start pair, taped pairs, ulp(E_accept) / max(|E_accept|, floor)), tolerance = max(ls_noise_rel, 10 × noise)
+  × max(|E_accept|, floor). The taped pairs: each accepted candidate against the next iteration's taped rollout of the
+  same control (the next gradient's point is the accepted candidate; its value `cur` is computed anyway). They are pairs
+  at the window's own moving states, up to iters − 1 = 7 a window, and one is at the committed control itself whenever
+  the window ends by an exhausted search or by convergence. The ulp: E's physics part is one float32 sum, so a pair that
+  reads 0 says the noise is below one ulp of E, not zero; the tag's 1e-7 floor is below one ulp for E in the lower half
+  of its binade (D162's failure: tolerance 7.8e-10 against an ulp of 9.3e-10, mismatch 2.5 ulps). Unchanged: the 10 and
+  ls_noise_rel (E3's rule), the start pair (still measured: D47 / D50 build on its rollouts), every evaluation and its
+  order (no rollout added, none moved), and the selection's rejected-merit replay test (`selection.rejected` keeps the
+  start pair; its floor outer_merit_tol 1e-4 is about 100 × any measured noise, and that test compares two windows'
+  merits, not two rollouts of one control; outside the user's decision). The new tolerance is never below the tag's (the
+  start pair is one of the pairs): the change can only remove nulls.
+  *Why this measure and not the alternatives.* (i) One extra rollout of the accepted control before the commit: one more
+  rollout and two transport solves a window (D50 removed one such evaluation for −4 % of a window), and still a single
+  draw: a pair reads exactly 0 in 6–36 % of repeats (R-series (b)) and the tag's start pair read 0 in 146 of its 442
+  nulls. The taped pairs are free and several. (ii) A bound from float32 ulp × summation depth: the replay difference is
+  not E's own rounding but the trajectory's (atomic sums at every node over 2T steps of the dynamics, then the objective);
+  any worst-case bound through 2T steps is far above the measured noise (the measured median is 5–33 ulps of E) and
+  above the structural mismatches the check has caught (5e-6 relative), so the check would stop catching them; with
+  depth one it is the resolution floor used here. (iii) Deterministic atomics: an exact check, but 9–14 × a window
+  (D141), not adopted. (iv) A larger constant: a tuned number, refused.
+  *Why it still catches a non-replayable commit.* The taped pairs are replays of one control by the window's own
+  evaluations (same discs, same transport potentials by D47, same proximity lists by D153): under deterministic atomics
+  they read 0 bit for bit (test (3) below). A commit that reads a state or cache the line search did not share, of the
+  sizes seen so far (≥ 5e-6), still exceeds ten times them unless the window's own replays already differ by that much,
+  where no output check can tell it from noise. Test (4): a commit rollout that forgets the controls is nulled under
+  both measures.
+  *Records (no trajectory effect).* Every judged window logs a `[replay]` line (accepted and committed E, the mismatch,
+  the start pair, the largest taped pair, the pair count, the ulp, the measure, the tolerance, the tag's verdict on the
+  same window, the null reason). Null windows carry the same fields; a committed window carries them, with
+  `replay_rescued`, only where the tag's measure would have nulled it. So a deterministic run's history is the tag's.
+  Tests: `tests/test_d164_replay.py` ((1) the measure on stubs, (2) a pair for each accepted candidate the next gradient
+  starts from, finite and noise-sized, (3) `tests/d164_det_runs.py`: under deterministic atomics every pair and every
+  commit mismatch 0, (4) a commit that is not the accepted candidate nulled, both measures); `tests/test_frozen_recipe.py`
+  gains the switch (D135's and the tag's argument sets at "start", the default "window"; the reason: a new switch, the
+  user-approved default, the tag one switch back).
+  *Step 0, the pilot (measurement only, before the gates; one card, about 20 min; `tmp/d164/replay_probe.py`).* 40k bunny
+  and dragon, seed 97, the full arm, repo_d164 with `--replay_noise start` (the tag's decisions). The probe evaluates
+  the committed control once more with the commit's own protocol (eval_terms: a fresh transport solve, a fresh proximity
+  search, the scored discs restored after it) just before the commit, so each window has three evaluations of one
+  control: a (the line search's), x (the probe's) and c (the commit), each with its terms (lv geometry, lk kinetic, lr
+  render, lstab, cleanup), plus the taped pairs and the start pair.
+  - P0a: the share of committed-control comparisons with c − a above 10 × the D164 measure (D164's false-null rate) and
+    above 10 × the start pair (the tag's).
+  - P0b: whether the fresh pair |c − x| lies within 10 × the D164 measure (the taped pairs reuse the potentials and
+    lists: do they miss a fresh solve's own noise?).
+  - P0c: per term, where c − a lies.
+  - Stop rules (pre-registered). If the median |c − a| exceeds ten times the median |c − x| on either mesh, the
+    mismatch is not replay noise but a share the commit and the line search do not have in common: D164 stops before the
+    gates, the term is named, and the next definition (that state shared) goes to the coordinator. If |c − x| exceeds
+    10 × the D164 measure in more than 1 % of windows, the measure misses the fresh solve's noise: the definition is
+    amended (the fresh pair added, option (i) and its cost) and pre-registered before the gates.
+  - Predictions: the tag's measure would null 3–5 % of these windows, D164's at most 0.5 %; |c − x| and the taped pairs
+    of the same order (medians within 3×); c − a positive on average (the line search keeps the trial whose value came
+    out low: a selection, not a mismatch) and spread over lv and lr at a few ulps.
+  *Gates (`d164_chain.sh V`, one card, before any run; a failure stops the chain).*
+  - V1: the full suite on repo_d164 (exit status, not a pipe).
+  - V2: `test_null_windows_add_no_simulated_time_and_are_not_delivered` 20 times on repo_d164: 0 failures. Reported
+    beside it, not gates: the same 20 times on `repo_d164_start` (repo_d164 with the config default "start", the tag's
+    check on this tree, a byte copy otherwise), and the two other contracts tests known to be lost to commit_replay nulls
+    (`test_a_nonfinite_window_cost_cannot_commit`, `test_the_commit_scores_the_accepted_candidate_on_its_own_discs`)
+    20 times each on both.
+  - V3: the pinned references and the switch's tests (`test_refreeze_reference.py`, `test_frozen_recipe.py`,
+    `test_d164_replay.py`): exit 0. The digest (`refreeze_pipeline_ref.json`) is not updated: the definition does not
+    require it (under deterministic atomics no pair or mismatch is nonzero, no decision changes, and the added history
+    fields appear only on null and rescued windows, of which that run has none). If it fails, the chain stops and the
+    difference is read before anything is changed.
+  - V4: Warp's run-to-run deterministic mode (`tmp/rt/det_run.py`), 40k bunny seed 97, four windows, repo_d164s at the
+    defaults, run twice on the same card: the two runs SAME (`det_cmp12.py`; the run-to-run determinism) and SAME against
+    rt1's S1 (`output/gpu/d153/rt1/S1`; bit for bit the tag's deterministic run).
+  *Runs (repo_d164s, kept frames, one card by the lock protocol with D162 / D163 first; `d164_runs40.txt`,
+  `d164_runs300.txt`).* (1) The 40k gallery: the 19 meshes of D145 / D154 (A, armadilo, beast, bimba, bob, bunny, C,
+  cheburashka, cow, dragon, fandisk, heart, homer, maxplanck, nefertiti, ogre, spot, teapot, V) × seeds 97 / 99 × "dF_c +
+  layer u + render loss (full)" (L) and "dF_c + layer u" (P, `--render_weight_scale 0`): 76 runs, about 2.4 card-hours
+  at B3's mean. (2) 300k bunny and dragon, seed 97, L and P (4 runs), each followed on the card by B1's GPU readings
+  (the end frame, the yardstick `t3end`, the display `e3end`, momentum `m_`).
+  References (the tag): 40k V / W × 97 / 99 / 101 (`d155/gate` for armadilo, bunny, dragon, homer, teapot; `d154/g40runs`
+  for the other 14; their D154 (3) / (3b) readings `d154/tables40/g40_table.json`); 300k B1's L / P × 97 / 99 / 101
+  (`d145t_b1`, with its t3end / e3end / m_ / pieces readings).
+  *Readings (`d164_read.py`, CPU, nice 10).* (R1) The null-window fraction by reason, before (the tag's references) and
+  after, per arm and N; inside the D164 runs the counterfactual (windows the tag's measure would have nulled:
+  `replay_rescued` plus the start verdicts of null windows), with the window index of each. (R2) Run length: judged and
+  committed windows, minutes, minutes per committed window. (R3) The standard readings: sil_iou, thin_uncovered,
+  chamfer (the run's metrics); at rest (the last committed window's v_mean); pieces of ≥ 10 particles at the delivered
+  end (D162's rule); the 40k yardstick and display by `d154_mesh_read.py` with `D154_REF=own` on the last kept frame
+  (outline-shape error, exact 1 − IoU at 1024 px, normals, the yardstick silhouette / shading against exact-mesh discs),
+  against g40_table's tag rows; at 300k t3end (silhouette / shading against D90's independent sample), e3end (display
+  front 1 − IoU), momentum, pieces. (R4) The render→control→outcome summary (g_share, λ, L against P on every reading,
+  as the tag's). (R5) Trajectory or bookkeeping: the readings against the tag's three-seed range; the rescued windows'
+  timing; wall time.
+  *Criteria (an adoption candidate if all hold; adoption is the coordinator's and the user's call).*
+  - C1 (the fix): commit_replay nulls at most 0.5 % of judged windows in each arm at 40k and at 300k (from 3.5 / 4.1 %);
+    every remaining one listed with its mismatch and measure.
+  - C2 (the purpose): V3's test (4) and the deterministic case (3) pass; V4 SAME twice.
+  - G (the generalise rule, per arm against the same arm of the tag, D162's rule): a mesh misses a reading (sil_iou,
+    thin_uncovered, chamfer, yardstick silhouette, yardstick shading, outline-shape error) if its two-seed mean is worse
+    than the tag's worse seed of 97 / 99 by more than the tag's |97 − 99|; rest misses if the larger end v_mean exceeds
+    1.25 × the tag's larger; pieces miss if it has more pieces of ≥ 10 particles than the tag's larger count. G holds if
+    at most a tenth of the reading cells miss, at most one mesh misses rest and none misses pieces; every miss is listed,
+    and each is read against the tag's own third seed (101: does the tag's run itself fall that far?).
+  - 300k: L and P within B1's 97 / 99 / 101 range on sil_iou, chamfer, thin, the yardstick, the display, at rest and
+    pieces, or no worse than its worst seed; the render arm's lead over its twin as the tag's.
+  *Predictions.* C1 holds (0–0.3 % left, the windows whose own replays read below the commit's tail). The trajectories
+  change only from the first rescued window on, mostly late (where the tag's nulls fell), so the runs are the tag's in
+  distribution: 0–5 % more committed windows, the same or a slightly later stop (a false null spends a window attempt,
+  anneals the step and counts towards patience), wall time within ±5 %, readings inside the tag's three-seed range on
+  at least 17 of 19 meshes per arm, G holds; at 300k inside B1's range. Mostly bookkeeping, a little trajectory late.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
