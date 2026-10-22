@@ -17080,6 +17080,42 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   dragon's scutes at 4 s and the end, tag | D159, drawn through the field of radius 2.5 (D123, offset 0.8 × 2.5 / 3):
   a display reading only (the loss reads radius 3), to show how much of the relief the particles hold today (R1: about
   four fifths) that the radius-3 surface hides.
+  **D159, second reading (2026-10-22 02:47 CDT; the T97 pair 00:54–01:35, the CPU readings 01:36–02:00, the 40k gallery
+  01:51–02:34 and its reading 02:45; `output/gpu/d159/table/table.txt`, `table.json`, `course.png`, `relief.png`,
+  `holds.png`; the T97 term dumps read and deleted, `cleanup.log`).** The gallery ran: the chain runs its steps in the
+  order of its file, which put G before X, so `drop_g.sh` (waiting for X's end) never fired; at 02:00 the 19 short runs
+  were a third done and were left to finish; P4 is read below although P1 had already failed. T97, the tag's path
+  again with the dumps: bunny own-sample IoU 0.9880 (B1's L97 0.9884), dragon 0.9874; its R5 as M97's within a few
+  per cent (the render's detail push 1.1e-8 / 5.2e-9, the physics' 4.7e-8 / 3.8e-8, |cos| ≤ 0.1, the relaxation 0.040 /
+  0.046 pitch a step, cos −0.20 / −0.21): D159's pictures did not change who pushes the detail band.
+  R3, D157's decision set (14 measures; held-out views at 1024 px against the corrected referee, 3D on the exterior,
+  studio images), D159 M97 against the tag's five seeds: **bunny better than the whole range on 13 of 14, within on
+  one** (contour Chamfer 0.130 against 0.150–0.156 pitch, HD95 0.385 against 0.406–0.420, BIoU error 0.047 against
+  0.052–0.055, 3D Chamfer-L1 0.239 against 0.256–0.266, F@0.5 error 0.087 against 0.090–0.102, normal-consistency error
+  0.0200 against 0.0207–0.0216, every image measure); **dragon better on the 6 image measures, worse on 6** (BIoU
+  0.0815 against 0.0779–0.0809, boundary F, HD95 0.640 against 0.584–0.616, F@0.5, F@1, Chamfer-L1 0.321 against
+  0.307–0.320), within on 2. Read with its caveat: the corrected referee is the mesh grown by the own sample's mean
+  offset, close to D159's target surface, so a gain there is partly a fit to the referee's shell; the image measures
+  are the least tied to it.
+  R4 (B1's readers; the tag's five seeds): yardstick silhouette within (bunny 7.74e-4 at the range's top, dragon
+  5.52e-4), yardstick shading above the range on both (4.86e-4 against ≤ 4.77e-4; 4.87e-4 against ≤ 4.70e-4: the
+  yardstick is the independent 300k sample's pictures, which D159 no longer aims at); display front 1 − IoU 0.0088
+  (bunny, better than the range) and 0.0093 (within); back 0.0084 (within) and 0.0095 (above 0.0093); thin 0.0437 /
+  0.0378 (above the range's 0.0406 / 0.0358, within its + 0.005); the end's kinetic record 1.10e-6 (within) and
+  9.45e-6 (above the range's 7.91e-6); pieces at the end 61 / 120 (tag 44–59 / 99–143), none of ≥ 10 particles or ≥ 5
+  pitches (the tag's dragon L97 one of 11); visible blobs over the run 113 / 276 (within 88–140 / 243–294); minutes
+  20.6 / 34.1 with two runs sharing a card (not comparable with B1's single runs).
+  40k gallery (D154's reader, M97 against the tag's V97 / V99; worse = above max + the two runs' gap): 7 of 19 meshes
+  worse (thin on A, heart; 1 − IoU at 1024 px on fandisk, V; both on armadilo and dragon; the outline shape on
+  maxplanck); the outline shape against the exact mesh below both tag runs on 15 of 19 and the normal angle at the
+  nearest mesh point on 15 of 19.
+  Verdict by the letter: P1 failed (first reading), P2 passed on the bunny and failed on the dragon (6 of 14 worse,
+  three of them 3D), P3 failed (the yardstick's shading on both; the dragon's end above the kinetic range), P4 failed
+  (7 meshes). Not a candidate. What it does show: with the same physics and the same render weight, pictures drawn
+  from the mesh move the end surface toward the exact mesh's outline and normals (bunny 300k in every D157 measure,
+  the 40k gallery's outline and normals on 15 of 19 meshes) and away from the 300k sample's pictures (the yardstick's
+  shading, the thin share, the silhouette area on some meshes); the detail band itself, which forms after arrival, is
+  not moved (R1, R2, R5, R6). D159c (held lambda) waits for D160c's after-arrival reading.
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`

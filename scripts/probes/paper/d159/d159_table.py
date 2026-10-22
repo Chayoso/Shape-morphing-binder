@@ -135,7 +135,7 @@ for mesh in ("bunny", "dragon"):
             m.update(vis_run_blob=rgv[-1]["blob"])
         if win:
             m.update(vis_end_blob=win[-1]["blob"])
-        pc = [p for p in jl(O / "pieces.jsonl") if p.get("label", p.get("name", "")).endswith("M97")]
+        pc = [p for p in jl(O / "pieces.jsonl") if p.get("run") == f"{mesh}300k_M97"]
         if pc:
             m.update(pc_end_pieces=pc[-1]["end_pieces"], pc_end_ge10=pc[-1]["end_ge10"])
         M["R4"] = {"M97": {k: m.get(k) for k in R4K}}
