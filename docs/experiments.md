@@ -15935,6 +15935,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   exterior through its field, the layer through its 8 nearest layer particles, D158's weighting), as the code's
   docstring says. Also corrected: the seed-99 twins' re-run is a replicate of B1's P99, not equal to it bit for bit
   (production runs are not run-to-run deterministic; rt1 = the tag was shown under Warp's deterministic mode).
+  *Amendment 3 (22:44 CDT, before any run; the gate chain that started 21:04 stopped at V1, the one restarted 22:36 was
+  stopped at 22:41 by its PID before it had a card).* (i) V1's failure: `test_the_default_path_ignores_the_mesh...`
+  asked two GPU builds of the same input for bit equality; the pictures are sums by `index_add` (CUDA atomics), equal
+  only to float rounding, and the code never reads the mesh on the default path. The test asked for determinism,
+  not for its claim: it now hands the default path a mesh that fails on any read and compares the pictures within the
+  operator's own run-to-run spread measured from two identical builds (< 1e-5; `wip/d159` 0480659; CPU part passes,
+  the full suite reruns as V1). (ii) The coordinator relaying D161's response curve (40k bunny): the physics' hold on
+  sub-cell relief is about 180 times the render's push per pitch, mostly the surface proximity, which pulls the
+  surface onto the target SAMPLE's (as blurred as a 300k sample) — detailed pictures may be held flat by it. Added
+  reading R5, the per-term hold on the detail band: the M97 runs get `--term_dump` (each term's per-particle position
+  gradient at every committed window: transport, surface proximity, near band, spray cleanup, the λ-weighted render;
+  read-only), and the tag's path is run again at seed 97 with the same dumps (bunny300k_T97, dragon300k_T97, also a
+  replicate of B1's L97). Per window and at the end, on the outer layer: each term's normal component split on the
+  layer's graph at σ = 2 pitches, its rms below 10.8 pitches, in the region and on the whole layer, against the render's;
+  the relaxation, a position edit and not a term, read at the end state by its own operator (the window's layer graph
+  and the relief reference rebuilt as `window/layer.py` builds them: its per-step move, pitches) in its own unit.
+  (iii) If D159 fails P1 with P2–P4 held, the next arm combines `--render_target mesh_shell` with D161b's definition
+  change of the proximity's reach, pre-registered then with D161's definition as the coordinator passes it on.
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`
