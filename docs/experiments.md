@@ -11469,6 +11469,46 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     excess, median 0.5 pitch).
   - Passes on 2 of 3.
   - r = 1.5 and r = 3 end the same.
+  **Stage-1 check (read 23:52 CDT; CPU at nice 10, no card; `output/gpu/d156e/`, `assets_hull/sfse_r96.jsonl`):
+  FAIL on 3 of 3 by the rule. The level ratio does not matter. The cause is the disc surrogate itself.**
+  - Per mesh at r = 2: levels / accepted steps; the disc loss from the hull to the end; the means over eight seeds
+    of the solid's samples, of the hull's and of the mesh's (the floor), on the pipeline's own sampler; the share
+    of the way; the excess removed; the over-carve; Spearman of the smoothed d with the true excess.
+
+    | mesh | levels / steps | discs, e-3 | solid / hull / floor, e-3 | way | excess removed | mesh outside: hull → solid | ρ |
+    |---|---|---|---|---|---|---|---|
+    | bunny | 7 / 473 | 7.74 → 5.91 | 8.42 / 7.95 / 2.31 | −0.08 | 0.64 | 0.101 → 0.118 | 0.74 |
+    | dragon | 7 / 129 | 14.45 → 11.61 | 14.78 / 14.67 / 2.15 | −0.01 | 0.56 | 0.137 → 0.183 | 0.69 |
+    | bob | 7 / 144 | 4.60 → 2.71 | 4.20 / 4.80 / 1.59 | 0.19 | 0.18 | 0.115 → 0.122 | 0.73 |
+
+  - The ratio check on the bunny (r = 1.5 / 2 / 3) ends the same: FAIL each time; way −0.06 / −0.08 / −0.02;
+    excess 0.63 / 0.64 / 0.61; disc loss 5.92 / 5.91 / 5.92; ρ 0.74 each. The dyadic choice is not a sensitive one.
+  - Bob's hull scores 4.80e-3 on the pipeline's sampler (the eight-seed mean), in line with its carried sample,
+    so the D156d mismatch is gone.
+  - Where the surrogate's gain comes from (`d156e_split.py`). Silhouette / shading / total e-3 for bunny, dragon,
+    bob:
+    - hull discs 5.22 / 2.52 / 7.74, 10.35 / 4.10 / 14.45, 2.42 / 2.18 / 4.60;
+    - the solved surrogate 4.45 / 1.45 / 5.91, 8.73 / 2.87 / 11.61, 1.82 / 0.89 / 2.71;
+    - positions alone 4.45 / 2.36 / 6.82 (dragon 12.47, bob 3.83);
+    - normals alone 5.22 / 1.76 / 6.99 (dragon 13.79, bob 3.55);
+    - the discs the true operator finds on the solid's samples 6.24 / 2.19 / 8.42, 11.06 / 3.72 / 14.78,
+      2.30 / 1.86 / 4.15.
+  - Two things in the surrogate have no counterpart in a solid.
+    - (1) Its normals tilt freely: 26–29° at the 90th percentile, 45–51° at the 99th. The solid's exterior normals
+      lie as far from the surrogate's as from the hull's (median 15°, 90th percentile 29–44°). The field smooths
+      the surface over three pitches, so those tilts cannot be realised, and most of the shading gain goes with them.
+    - (2) It keeps every disc, so the silhouette's coverage stays as the surface moves in. The operator, finding
+      discs on the smaller solid, finds fewer where the carve went, and the solid's silhouette term is worse than
+      the hull's on the bunny and the dragon (6.24 against 5.22; 11.06 against 10.35).
+    - The descent fits the surrogate, not a body. The solid's discs lie within 0.23 px of the surrogate's at the
+      median, so the place is right (ρ 0.69–0.74), but the shape the pictures score is not the solid's.
+  - Next definition (D156f, proposed): the same descent read through the pipeline's own path, with no surrogate.
+    - d moves the visual hull sample's particles, not discs, along a smooth inward field: Sobolev coarse to fine,
+      bounded by the thickness.
+    - The pictures come from the exterior the operator finds on those particles: the tracked discs of
+      Objective.render_terms, differentiable in the particles.
+    - Every accepted step is then one a sample of the solid would show, and stage 1 is read the same way.
+    - CPU only; the coordinator to decide.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
