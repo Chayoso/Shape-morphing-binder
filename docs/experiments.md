@@ -18446,7 +18446,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the coin: the twins end at 3.1–3.3e-3 (e ≈ 0.19–0.23, λ ≈ 0.06 at arrival), the rule's full arm at 1.76e-3 and the held
   arm at 1.34e-3, both below this floor: under F the render fades once the coin matches its pictures as well as the
   relief sample does. The gates rerun in full on 2e42f6e before any run (the chain refuses the runs otherwise).
-  *Amendment 3 (11:40 CDT, before any D162 run).* Gate try 2 (03:45–04:13, 2e42f6e, gpu0): V2–V4 passed (V3 SAME,
+  *Amendment 3 (11:27 CDT server clock, before any D162 run; the gates restarted then).* Gate try 2 (03:45–04:13, 2e42f6e, gpu0): V2–V4 passed (V3 SAME,
   bit for bit under Warp's deterministic atomics against rt1's S1, 556 history fields). V1 had one failure:
   `test_null_windows_add_no_simulated_time_and_are_not_delivered`. The test's stub needs the first real window to
   commit, and it came back with no commit (`null_reason` commit_replay).
