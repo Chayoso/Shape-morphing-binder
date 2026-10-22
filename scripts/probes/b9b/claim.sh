@@ -4,9 +4,10 @@
 L=/data/relcfd/chayo/physmorph_v2/gpu_locks
 CARD=""
 RENDER_CARDS=" 3 1 0 "
-# YIELD_RENDER=1 (the coordinator, 2026-10-21 night: the render experiments D159 / D160 / D161 first): no claim of a
-# card they take (RENDER_CARDS: their claim rules, d159_claim.sh, d160_chain.sh, d161_chain*.sh, try 3, 1, 0 and never
-# GPU 2) while any of their scripts (d159_*.sh, d160_*.sh, d161_*.sh) is alive and holds no lock: waiting for a card,
+# YIELD_RENDER=1 (the coordinator, 2026-10-21 night and 2026-10-22: the render experiments D159 / D160 / D161 / D162
+# first): no claim of a card they take (RENDER_CARDS: their claim rules, d159_claim.sh, d160*_chain.sh, d161_chain*.sh,
+# d162_chain.sh, try 3, 1, 0 and never GPU 2) while any of their scripts (d159*.sh, d16N*.sh) is alive and holds no
+# lock: waiting for a card,
 # or between its card phases. A script's subshells carry its command line: a process counts as holding when it or one
 # of its ancestors is a lock's pid. Read from ps's list and the lock files only; nothing is signalled.
 render_waiting() {
@@ -16,7 +17,7 @@ render_waiting() {
   while read -r pid ppid args; do
     par[$pid]=$ppid
     case "$args" in
-      *d159_*.sh*|*d160_*.sh*|*d161_*.sh*) chains="$chains $pid" ;;
+      *d159*.sh*|*d16[0-9]*.sh*) chains="$chains $pid" ;;
     esac
   done < <(ps -u "$(id -un)" -o pid=,ppid=,args= | grep -v " grep ")
   for pid in $chains; do
