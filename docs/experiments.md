@@ -12202,6 +12202,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - The conservative hull overshoots every outline by up to a pixel. The silhouette term at d = 0 is now spray, so
       it asks to carve the rims.
   - The carves (D156i, then D156g, each mesh one chain) started at 11:59.
+
+  **D156i on the conservative hull: partial reading at 16:50 CDT.** Bob's D156i and all three D156g are still running,
+  three processes, each under its 6-hour wall. The decision is already fixed: **stage 1 FAIL**, because at most bob can
+  pass, which is 1 of 3. Totals are e-3 over the eight held-out seeds.
+
+  | mesh | steps / refused (shading · silhouette · both) / min | d = 0 mesh → solid | hull file | floor | way (≥ 0.5) | from hull file | shading way | excess removed (≥ 0.25) | over-carve (≤ +1 pt) | ρ |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | bunny | 23 / 76 (31 · 28 · 17) / 58 | 11.533 → 5.828 | 11.150 | 2.308 | **0.618** | 0.602 | 0.462 | **0.409** | +3.8 (3.8 → 7.6 %) | 0.14 |
+  | dragon | 5 / 75 (9 · 9 · 57) / 45 | 14.194 → 14.022 | 14.135 | 2.145 | 0.014 | 0.009 | 0.005 | 0.000 | +0.0 | −0.13 |
+  | bob | running (level 4, step 151 at 16:28) | | | | | | | | | |
+
+  - **The bunny passes way and excess, and fails by the letter on the over-carve bar.** That bar counts the mesh
+    sample's share outside the solid, which includes the sampler's own overhang. A solid equal to the mesh would score
+    12.8 %; the bunny's solid scores 7.6 %. The sampler-free reading (`d156j_vol.py`: the volume removed inside and
+    outside the mesh) runs when a slot frees.
+  - Against D156's hull (7.774), the bunny's solid (5.828) is 0.36 of the way to the floor. D156i on D156's hull reached
+    7.560.
+    - The silhouette falls 7.95 → 3.55 (floor 1.55); the shading 3.58 → 2.27 (floor 0.75).
+    - ρ with the true excess is 0.14, so most of the gain is the conservative overshoot removed (d median 0.33, p90
+      0.58 pixel), not the hollows.
+  - **The dragon does not move.** Its conservative hull is 1.52 times the mesh's volume. 57 of its 75 refusals raised
+    both terms.
+  - D156g on the conservative hull, read alongside: still running. The descent's own paired means at 16:48 are, for the
+    bunny, about 4.3e-3 at level 6, step 117; for the dragon, about 5.7e-3, still at level 0, step 103, from about
+    14.1. These are not the held-out score.
+  - With a hull that does not under-fill, the silhouette is no longer a rim guard: the sum direction carves at the
+    coarsest level. This bears out D156i's revised root cause.
+  - **Proposal (D156's rerun).**
+    - Check 1 failed only on its mis-specified sample criterion; the surface criterion holds on 9 of 9.
+    - So the rerun of D156's 36 40k runs on the conservative hulls is proposed, conditional on the coordinator taking
+      the surface criterion as the containment check. It has not been started.
+    - Caveat for its reading: the conservative hull overshoots every outline by up to a pixel (spray 13–19 × the
+      floor; hull / mesh 1.18–1.52). L against P will then also contain the overshoot's removal at the rims. The
+      decision must rest on D156's inside-the-hull measures (surf_deep, Δ_vol in R), as before.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
