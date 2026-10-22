@@ -11626,6 +11626,106 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - A step is accepted iff the eight-seed mean of the new solid's uniform resample falls.
     - Every accepted state is a uniformly sampled solid, so no arrangement or density can carry a gain.
     - Stage 1 is D156f's: the same three meshes, rule, floor and seeds.
+- **D156g, the carve whose state is a uniform solid (pre-registered 2026-10-22 01:23 CDT server clock, before any run
+  of it; the coordinator's go; CPU only, no card, at most three processes at nice 10; `d156_sfs_g.py`, server
+  `output/gpu/d156g/`).**
+  *Why.* In D156f the descent's gain lived in the compressed arrangement. Here every state the descent can accept is a
+  uniformly sampled solid, so only shape can carry a gain.
+  *The state.* The visual hull minus a carve depth d ≥ 0 defined at the hull mesh's vertices (11–15 k), read at a
+  point through the barycentric weights of its closest hull point.
+  - The solid is {x : depth_hull(x) > d(π(x))}, with π(x) the closest point of the hull's surface. Depth and π are
+    fixed (the hull does not move), so they are computed once on a half-pitch grid and at the sampler's voxel
+    centres.
+  - The cap is d_v ≤ t_v, the hull's thickness under the vertex along −n_v (an open3d cast to the far side). The
+    construction also keeps each side's carve on its own side of the medial axis, because a point is judged by
+    its closest side.
+  - At d ≡ 0 the solid is the hull.
+  *A uniform sample of a state.* The run's sampler (stratified: one jittered particle per fill voxel, the voxel's
+  centre inside) draws the hull at the mesh sample's density (n_hull, D156c's), seed by seed. The state's sample is
+  that draw restricted by the sampler's own rule: a particle is dropped iff its voxel centre c lies in the carved
+  layer, d(π(c)) > 0 and depth(c) < d(π(c)). This is uniform at the target's density, with no compression; at d ≡
+  0 it is the hull's draw bit for bit.
+  - Why the restriction, and not the sampler run on each state's mesh. The sampler re-indexes its whole draw when
+    one voxel changes.
+    - Two states would then be compared on unrelated draws, with noise σ√(2/J): about 1.2e-4 for the bunny at J =
+      8 (D156f's eight-seed spread).
+    - D156f's mean gain per accepted step was 1.3e-5, so the test would accept by chance.
+    - The restriction keeps the sampler's lattice, jitter and voxel rule and pairs the two states exactly: only the
+      voxels the step moves differ.
+  - Every reported score is the run's sampler itself (below).
+  *Each step.*
+  1. Fresh seeds s_t,j = 100 000 + 4t + j (j = 0..3): the hull's draws and the current state's restriction of them.
+  2. The gradient on draw 0, through the true operator (Objective.render_terms' path: the Zhu–Bridson field, tracked
+     discs found at the sample, read differentiably).
+     - Each particle gives g_i = −(∂L/∂x_i) · ν(π(x_i)) (an inward move of the material under its hull point).
+     - These are scattered to the vertices by π's barycentric weights and divided by the vertex areas (the L²
+       representative).
+  3. Smoothing by (I + ℓ² L) g_S = g on the hull's vertex graph, (L f)_v = (4 / Σ_j |Δx_vj|²) Σ_j (f_v − f_j),
+     symmetrised. This is the surface form of D156f's 6 / Σ|Δx|² (2 × dimension, from the neighbourhood's second
+     moment).
+     - Coarse to fine, ℓ_k = box / 2^k down to one picture pixel, as in D156e/f.
+  4. The trial d_t = clamp(d − s px g_S / max|g_S|, 0, t), steps as in D156f (start at one pixel, then twice the last
+     accepted; halve on a refusal).
+     - **Accepted iff the mean loss over the four paired draws falls.**
+     - This is four seeds and not eight (the coordinator's allowance, pre-registered here): the pairing removes the
+       sampling noise that eight seeds would average, and halving the cost doubles the steps the budget allows.
+       Every final score keeps eight seeds.
+     - A trial that moves no voxel centre of any of the four draws is identical to the current state. It is refused
+       without evaluation, and the level ends, because a smaller step of the same direction moves a subset of those
+       centres, so none.
+  5. The run ends after the last level, after 300 accepted steps, or at 6 h (reported as the budget).
+  *The score.*
+  - The final d is turned into a mesh by marching cubes of depth − d(π) on the half-pitch grid. At d = 0 this is
+    D156f's second extraction's base: the hull remeshed.
+  - The mesh is resampled by the run's sampler (draws_in_frame in mesh coordinates, n = n_hull × fill(solid) /
+    fill(hull)).
+  - **Every score is the mean over eight held-out seeds 95 + 100 k** that the descent never saw: the pictures use 98
+    + 100 k, the floor 99 + 100 k, the descent 100 000 +.
+  - The base (the d = 0 mesh) and the hull file are scored the same way.
+  - Also reported: the restricted draws' own score at the held-out seeds at the start (the hull file's draws) and
+    at the end; Spearman of d at the vertices with the true excess under them (the vertex's distance to the mesh);
+    steps; refusals; time.
+  *Stage-1 rule (D156f's, on bunny, dragon, bob; passes on 2 of 3).*
+  - The solid's score lies at least halfway from the d = 0 mesh's to the floor.
+  - It removes at least a quarter of the excess volume.
+  - Its over-carve is at most +1 point over the base's.
+  - The way from the hull file is reported beside it. The d = 0 mesh differs from the hull file by the remesh (D156f:
+    +4 / +12 / −10 %).
+  *Predictions (inferred).*
+  - The restricted score falls at every level on all three meshes. The run's sampler keeps most of it (shape only).
+  - Way 0.2–0.4 on the bunny and bob, below 0.15 on the dragon.
+  - FAIL by the halfway bar on at least two meshes. If so, the gap between the restricted and the run's sampler's
+    score says whether the remaining loss is the sampler's voxel alignment or the pictures' limit.
+  *If it passes:* ask the coordinator before any card run.
+- **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
+  pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
+  processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
+  *The states.* The tag's 300k end frames (`d145t_b1`, the delivered end, `*_end1.npz`): bunny and dragon, the full
+  arm L97 and its twin P97 ("dF_c + layer u").
+  - The reference is an independent uniform sample of the mesh: seed 99 (the run's seed + 2, the evaluation's
+    independent sample), in the run's frame.
+  *The term.* The run's own render term on the exterior, rebuilt as the run built it.
+  - The frame comes from prepare's calls (source seed 97, the target at seed 98 matched to its volume), checked
+    against `end1.npz`'s target bit for bit.
+  - The pictures are the mean over the eight samples (seed 98 and draws 198 … 798), each drawn by the run's exterior:
+    pitch 0.708 × the median 8th-neighbour distance, the lattice, h, 188 px.
+  - The term is sil + w_pbr · pbr (d_exterior; discs found at the state), with sil and pbr also reported apart.
+  *(a)* The term on the state's own particles.
+  *(b)* The term on the state's solid, made by D156f's δ = 0 extraction rule.
+  - The exterior's zero-set mesh (field_mesh "zb" at the pitch) taken back by c, the target sample's own measured
+    exterior offset from the mesh: {x : sd_exterior(x) < −c}, marching cubes at half a pitch.
+  - Resampled by the run's sampler at the target sample's number density, n = N × fill(solid) / fill(mesh).
+  - The mean over eight seeds 95 + 100 k, with its standard error.
+  *The readings.*
+  - r = (b) / (a) for L, P and the reference. r_ref is the extraction's own cost on a uniform sample.
+  - The lead: Δa = a_P − a_L and Δb = b_P − b_L; the shape share Δb / Δa; its standard error from the eight seeds.
+  *The plain reading (pre-registered).*
+  - **The full arm partly games the render through arrangement** if r_L − r_P > 2 SE and the shape share is below
+    0.5.
+  - **The lead is shape** if |r_L − r_P| ≤ 2 SE and the shape share is at least 0.8.
+  - Anything else is "partly", with the numbers.
+  *Predictions (inferred).* r_ref > 1, because the extraction costs (D156f: +10 to +60 % at 40k). r_L > r_P. Shape
+  share 0.3–0.7.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
