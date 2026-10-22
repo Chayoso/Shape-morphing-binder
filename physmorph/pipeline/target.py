@@ -39,6 +39,8 @@ class Exterior:
     field: str = "zb"                   # D140: "zb" Zhu and Bridson's field, "aniso" the anisotropic one
     albedo: torch.Tensor | None = None  # D160 (appearance): the body particles' fixed albedos (N, C), carried by index
     albedo_ref: torch.Tensor | None = None  #   and their mean (C,), about which the discs' albedos are written
+    shade_rgb: list | None = None       # D160d (appearance_weight held): the colour pictures, one (C,res,res) per view; the
+                                        #   render's shade above is then the tag's grey one
 
 
 @dataclass
@@ -76,6 +78,8 @@ class TargetPack:
                                         #   gradient), the step control's constants in the force leaf's units
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
     ext: Exterior | None = None         # the render terms' exterior, when they are read on it
+    lam_col: float | None = None        # D160d (appearance_weight held): the colour term's weight, the render weight's first
+                                        #   calibrated value (set at the first window, then held)
     relief: object = None               # window/layer.TargetRelief: the relaxation's reference, from the target's surface
     xu: tuple | None = None             # cfg.baseline "xu": (the target mass on the simulation grid, its origin, dx, dims)
     draws: list | None = None           # further samples of the target whose pictures the render's targets average
@@ -170,7 +174,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, appe
         center = geom.mean(0)
         lattice = Lattice(center, 2.8 * float((geom - center).norm(dim=1).max()))
         h = min(extent / cfg.render_res, 0.92 * pitch * (radius / 3.0))
-        per = []
+        per, per_rgb = [], []
+        held = appearance is not None and cfg.appearance_weight == "held"
         b_alb = b_ref = None
         if appearance is not None:            # D160: the body's albedos, their mean, and each target sample's
             b_alb = gpu.tensor(np.asarray(appearance.src, np.float32))
@@ -184,11 +189,17 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, appe
                                  device_field=cfg.exterior_field == "zbs")
                 p_t, g_t, _, _ = lattice.discs(fld, h, refine=False)
                 c_t = None if appearance is None else found_disc_albedo(fld, p_t, t_alb[i], b_ref, pitch)
-            per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
-                                        extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t))
+            n_t = torch.nn.functional.normalize(g_t, dim=1)
+            if held:                          # D160d: the tag's grey pictures for the render, the colour ones apart
+                per.append(exterior_targets(p_t, n_t, views, cfg.render_res, extent, cfg.sil_k, cfg.pbr_ambient))
+                per_rgb.append(exterior_targets(p_t, n_t, views, cfg.render_res, extent, cfg.sil_k, cfg.pbr_ambient,
+                                                albedo=c_t)[1])
+            else:
+                per.append(exterior_targets(p_t, n_t, views, cfg.render_res, extent, cfg.sil_k, cfg.pbr_ambient,
+                                            albedo=c_t))
         e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
         ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset, cfg.exterior_field,
-                       albedo=b_alb, albedo_ref=b_ref)
+                       albedo=b_alb, albedo_ref=b_ref, shade_rgb=mean(per_rgb) if held else None)
         if appearance is not None:
             print(f"[target] appearance (D160): scene {appearance.scene}, {b_alb.shape[1]} channel(s); body albedo "
                   f"mean {[round(float(v), 4) for v in b_ref]}, target discs' (last sample) mean "

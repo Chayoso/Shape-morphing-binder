@@ -314,5 +314,17 @@ def d_exterior(p: torch.Tensor, n: torch.Tensor, sils, shade, views, res: int, e
                 (s - torch.stack(list(shade), 0)).pow(2).mean(dim=(1, 2)).mean())
     s, _ = shaded_discs(p, n, views, res, extent, k, ambient, albedo=albedo)       # (C,V,res,res)
     sil = d_render(p, sils, views, res, extent, k, w_hole, w_spray)
+    return sil, _colour_mse(s, shade)
+
+
+def _colour_mse(s, shade):
+    """(1/C) sum_c mean (s_c - t_c)^2 of colour pictures s (C,V,res,res) against the views' (C,res,res) targets."""
     t = torch.stack(list(shade), 0).movedim(1, 0).contiguous()                     # (C,V,res,res)
-    return sil, sum((s[c] - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)
+    return sum((s[c] - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)
+
+
+def d_colour(p: torch.Tensor, n: torch.Tensor, shade, views, res: int, extent: float, k: float, ambient: float,
+             albedo: torch.Tensor):
+    """D160d: the colour pictures' term alone (d_exterior's shading term with albedos, no silhouette)."""
+    s, _ = shaded_discs(p, n, views, res, extent, k, ambient, albedo=albedo)
+    return _colour_mse(s, shade)

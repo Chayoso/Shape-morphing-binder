@@ -46,10 +46,10 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # w_dt, each recorded there at the value that ran the frozen path; plus D140's exterior_field (added after; "zb" is the
 # field D135 ran with) and the A/B switches of D142, D143, D146, D146b and D149 (ot_warm_trials, cleanup_in_phys,
 # relax_driven, u_adam_carry, spacing_symmetric), off: the path D135 ran; and B13's force_scale, read only by the force
-# baselines (--baseline force, force_mf); and D160's appearance, "" (off): the path D135 ran
+# baselines (--baseline force, force_mf); and D160's appearance, "" (off), and its weight, "rule": the path D135 ran
 D135_RUN_ARGS = {
-    "animations": 300, "appearance": "", "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0,
-    "cell_follows_n": False,
+    "animations": 300, "appearance": "", "appearance_weight": "rule", "assim": None, "assim_volume": True,
+    "baseline": "", "cell_diag": 26.0, "cell_follows_n": False,
     "drag": None, "exterior_field": "zb", "exterior_radius": 3.0, "f_ext": None, "floor": False, "floor_friction": 0.0, "grad_dump": "",
     "force_scale": 1.0, "lambda_ema": 1.0, "layer_relief": True, "live_dir": "", "live_port": 0, "loss_follows_n": True,
     "cleanup_in_phys": False, "match_density": True, "min_spacing": 0.9, "ot_iters": 1600, "ot_warm_trials": False,

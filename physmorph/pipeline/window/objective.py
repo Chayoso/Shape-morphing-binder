@@ -23,7 +23,7 @@ from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement, gri
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
 from ...render.exterior import make_field, tracked
-from ..render_loss import d_exterior, d_pbr, d_render
+from ..render_loss import d_colour, d_exterior, d_pbr, d_render
 from .setup import Window
 
 
@@ -52,6 +52,7 @@ class Objective:
         cfg, tgt, prm = win.cfg, win.tgt, win.prm
         self.win, self.cfg, self.tgt = win, cfg, tgt
         self.discs, self.ext_builds = None, 0         # the exterior's discs and how often this window looked for them
+        self._col_geom = None                         # D160d: (the disc set, its points, its normals) the colour term holds
         x0 = win.x0
         eps = float(tgt.ldx) ** 2                     # blur: one loss cell
         self.xu = cfg.baseline in ("xu", "xu_spray")
@@ -197,7 +198,7 @@ class Objective:
                     d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
                           cfg.sil_k, cfg.pbr_ambient, t.pblur))
         e = t.ext
-        if e.albedo is not None:                      # D160: the discs' colours from the particles' fixed albedos
+        if e.albedo is not None and cfg.appearance_weight == "rule":   # D160: the discs' colours in the render's shading
             return self._render_terms_albedo(xT, e)
         if self.discs is not None:
             p, n, move = self.discs.read(xT)
@@ -239,6 +240,37 @@ class Objective:
         return e.lv + e.lstab
 
     def cleanup(self, xT, common_geometry=False):
+        """The cleanup (_cleanup); with D160d's colour term beside it when the appearance's weight is held."""
+        L = self._cleanup(xT, common_geometry)
+        e = self.tgt.ext
+        if self.cfg.appearance_weight == "held" and e is not None and e.shade_rgb is not None:
+            return L + self.colour_term(xT, common_geometry)
+        return L
+
+    def colour_term(self, xT, common_geometry=False):
+        """D160d: the colour pictures' error, weighted by the render weight's first calibrated value held (tgt.lam_col;
+        zero before it is set and in the twin). Its geometry is held: the points and normals of the window's disc set
+        as first read in this window (refreshed when the set is looked for again), so the term is a function of the
+        particles through the discs' albedos alone; common_geometry (the selection merit) reads them at the state
+        itself. Fixed-weight, outside the render balance and PCGrad, beside the cleanup: the colour lives in the
+        physics objective's null space."""
+        cfg, t = self.cfg, self.tgt
+        e, lam = t.ext, t.lam_col
+        if not lam:
+            return xT.sum() * 0.0
+        if self.discs is None:
+            self.render_terms(xT)                     # the discs, found as the render terms find them
+        p, n, _, c = self.discs.read(xT, e.albedo, e.albedo_ref)
+        if common_geometry:
+            pw, nw = p.detach(), n.detach()
+        else:
+            if self._col_geom is None or self._col_geom[0] is not self.discs:
+                self._col_geom = (self.discs, p.detach(), n.detach())
+            _, pw, nw = self._col_geom
+        return lam * cfg.w_pbr * d_colour(pw, nw, e.shade_rgb, t.views, cfg.render_res, t.extent, cfg.sil_k,
+                                          cfg.pbr_ambient, c)
+
+    def _cleanup(self, xT, common_geometry=False):
         """Fixed-weight one-signed cleanup (not lambda-scaled, not in phys_core): the spray cleanup (the W1 pull of
         isolated particles down the target's distance field, summed on the isolation gate's support) and the near
         band. common_geometry: the form the selection merit reads, a function of the committed state alone: the

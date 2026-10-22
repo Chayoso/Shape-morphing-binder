@@ -97,6 +97,11 @@ def parse_args(argv=None):
                          "render's shading term compares colour pictures of the target's paint (physmorph/pipeline/"
                          "appearance.py: the scenes); the physics never reads it; \"\" (the default) = the frozen path; "
                          "white = one channel of ones against a white target, the frozen path bit for bit")
+    ap.add_argument("--appearance_weight", default="rule", choices=["rule", "held"],
+                    help="D160d (with --appearance): rule (the default) = the colour in the render's shading term on the "
+                         "rule's weight (D160); held = the render terms are the tag's (silhouette, grey shading) on the "
+                         "rule's weight and the colour is its own term beside the cleanup on the render weight's first "
+                         "calibrated value, held")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
@@ -256,6 +261,7 @@ def run_config(args, cfg0, prep):
                               gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
                                       if args.gap_split in ("interface", "walls") else 0.0),
                               u_adam_carry=args.u_adam_carry,
+                              appearance_weight=args.appearance_weight,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,

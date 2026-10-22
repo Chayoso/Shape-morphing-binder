@@ -258,3 +258,28 @@ def test_the_bunny_scenes_paint_the_ears_and_the_head_side():
     h = np.asarray(BUNNY_HEAD) / np.linalg.norm(BUNNY_HEAD)
     far = tgt[np.argmax(tgt @ h)][None]
     assert bool(target_red(turn.params, far)[0]) and not bool(target_red(turn.params, -far)[0])
+
+
+def test_d160d_colour_term_is_the_shading_term_of_the_colour_pictures():
+    """D160d's colour term alone (render_loss.d_colour) is d_exterior's shading term with albedos, bit for bit, and with
+    the points and normals held its gradient reaches the particles through the discs' albedos alone."""
+    from physmorph.pipeline.render_loss import d_colour
+    set_kernel("cic")
+    x, tr = _tracked()
+    views, res, extent = make_views(4, (0., .5)), 32, 10.
+    a_body, a_tgt = _paint(x, 0.), _paint(x, -1.5)
+    ref = a_body.mean(0)
+    p, n, _, _ = tr.read(x, a_body, ref)
+    c_t = found_disc_albedo(ZhuBridson(x, 1.), tr.p0, a_tgt, ref, 1.)
+    sils, shade = exterior_targets(p, n, views, res, extent, albedo=c_t)
+    xg = x.clone().requires_grad_(True)
+    pg, ng, _, cg = tr.read(xg, a_body, ref)
+    _, col = d_exterior(pg, ng, sils, shade, views, res, extent, albedo=cg)
+    assert torch.equal(d_colour(pg, ng, shade, views, res, extent, 1.5, .25, cg), col)
+    held = d_colour(pg.detach(), ng.detach(), shade, views, res, extent, 1.5, .25, cg)
+    g_held, = torch.autograd.grad(held, xg, retain_graph=True)
+    xr = x.clone().requires_grad_(True)
+    c_only = tr.read(xr, a_body, ref)[3]
+    g_route, = torch.autograd.grad(d_colour(p.detach(), n.detach(), shade, views, res, extent, 1.5, .25, c_only), xr)
+    torch.testing.assert_close(g_held, g_route, rtol=1e-10, atol=1e-14)
+    assert float(g_held.abs().max()) > 0

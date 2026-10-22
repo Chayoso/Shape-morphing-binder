@@ -2,7 +2,8 @@
 appearance "white" (one channel of ones against a white target) is the frozen path bit for bit, trajectory and every
 history field; (2) the null space in a whole run: with the render weight at 0 (the twin) the trajectory is the same bit
 for bit with no paint and with two different paints, so the physics never reads which material carries which colour;
-(3) with the render weight at its rule the paint changes the trajectory (the colour acts through the render alone)."""
+(3) with the render weight at its rule the paint changes the trajectory (the colour acts through the render alone); (4)
+D160d (appearance_weight held): the twin is still blind to the paint, and the held colour term acts in the full arm."""
 from __future__ import annotations
 
 import json
@@ -30,3 +31,5 @@ def test_the_appearance_reduces_to_the_frozen_path_and_the_twin_is_blind_to_the_
     assert r["white"]["full"] == r["plain"]["full"], r                     # (1) bit for bit, history included
     assert r["twinA"]["traj"] == r["twin0"]["traj"] == r["twinB"]["traj"], r   # (2) the twin is blind to the paint
     assert r["fullA"]["traj"] != r["plain"]["traj"], r                     # (3) the colour acts through the render
+    assert r["twinH"]["traj"] == r["twin0"]["traj"], r                     # (4) D160d: the held colour weight is zero in
+    assert r["fullH"]["traj"] not in (r["plain"]["traj"], r["fullA"]["traj"]), r   # the twin; it acts in the full arm

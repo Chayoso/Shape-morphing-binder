@@ -7,6 +7,8 @@ run-to-run deterministic atomics and torch's deterministic algorithms (a CUDA ru
   twinA   render_weight_scale 0, paint A (two albedos, random by particle; the target red for x_0 > 0)
   twinB   render_weight_scale 0, paint B (another random paint; the target red for x_1 > 0)
   fullA   the render weight at its rule, paint A
+  twinH   render_weight_scale 0, paint A, D160d's held colour weight (zero in the twin)
+  fullH   paint A, D160d: the render terms the tag's, the colour term on the first window's weight held
   plain2  plain again (the deterministic mode holds)
 Prints one JSON line: per run the trajectory digest (every delivered frame and the plastic deformation), the full digest
 (the trajectory and every history field but the clocks) and the committed windows."""
@@ -46,11 +48,12 @@ def paint(seed, src, tgt, axis):
     return Appearance(f"paint{seed}", two(rng.uniform(size=len(src)) < .5), two(tgt[:, axis] > 0), [], {})
 
 
-def run(appearance=None, scale=1.0):
+def run(appearance=None, scale=1.0, weight="rule"):
     prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
     src, tgt = cloud()
     cfg = PipelineConfig(T=4, iters=2, animations=4, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
-                         render_res=24, dt_res=32, patience=3, render_weight_scale=scale, **REFREEZE)
+                         render_res=24, dt_res=32, patience=3, render_weight_scale=scale, appearance_weight=weight,
+                         **REFREEZE)
     app = appearance(src, tgt) if callable(appearance) else appearance
     res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None, appearance=app)
     hist = [json.dumps({k: v for k, v in r.items() if k not in CLOCKS}, sort_keys=True, default=str)
@@ -70,5 +73,7 @@ if __name__ == "__main__":
     out = dict(plain=run(), white=run(lambda s, t: make_appearance("white", s, t)),
                twin0=run(None, 0.0), twinA=run(lambda s, t: paint(1, s, t, 0), 0.0),
                twinB=run(lambda s, t: paint(2, s, t, 1), 0.0), fullA=run(lambda s, t: paint(1, s, t, 0)),
+               twinH=run(lambda s, t: paint(1, s, t, 0), 0.0, "held"),
+               fullH=run(lambda s, t: paint(1, s, t, 0), 1.0, "held"),
                plain2=run())
     print(json.dumps(out))

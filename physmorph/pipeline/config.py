@@ -128,6 +128,10 @@ class PipelineConfig:
                                     #   "aniso" the anisotropic density field (render/exterior.Anisotropic, D140) or "zbs" Zhu
                                     #   and Bridson's with Solenthaler et al.'s correction (ZhuBridsonSolenthaler, D144),
                                     #   read by the target's pictures and the render terms alike
+    appearance_weight: str = "rule"  # D160 (with an appearance): "rule", the colour is in the render's shading term on the
+                                    #   rule's weight (D160); "held" (D160d), the render terms are the tag's (silhouette and grey
+                                    #   shading) on the rule's weight and the colour is its own term, beside the cleanup, on the
+                                    #   render weight's first calibrated value held (its geometry held at the window's discs)
     u_off: bool = False             # D124 A/B (ablation): u's gate is zero on every particle, so u never acts; the leaf
                                     #   stays (zero gradient) and everything else is as it is
     render_views: int = 6           # azimuths per elevation ring
@@ -194,6 +198,8 @@ class PipelineConfig:
             raise ValueError("gap_split must be \"off\", \"on\", \"interface\", \"soft\", \"fine\" or \"walls\"")
         if self.gap_split in ("interface", "walls") and not self.gap_vp > 0:
             raise ValueError("gap_split interface reads the node volume: gap_vp must be the volume per particle")
+        if self.appearance_weight not in ("rule", "held"):
+            raise ValueError("appearance_weight must be \"rule\" or \"held\"")
         if self.exterior_field not in ("zb", "aniso", "zbs"):
             raise ValueError("exterior_field must be \"zb\", \"aniso\" or \"zbs\"")
         if self.exterior_field == "aniso" and self.exterior_radius != 3.0:
