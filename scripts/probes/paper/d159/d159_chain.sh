@@ -11,7 +11,9 @@
 #   R   300k on repo_d159s (kept frames), two at a time on the card, only once the regions are fixed
 #       (output/gpu/d159/regions_ok, written by the step-0 reader before any run): bunny300k_M97 / dragon300k_M97
 #       (--render_target mesh_shell, seed 97), then bunny300k_P99 / dragon300k_P99 (the twin again with kept frames,
-#       --render_weight_scale 0, seed 99); each followed by B1's GPU readings (read300.sh ... end 1).
+#       --render_weight_scale 0, seed 99), then bunny300k_T97 / dragon300k_T97 (the tag's path again, seed 97); M97 and
+#       T97 with --term_dump (each term's per-particle gradient at every committed window, amendment 3); each run followed
+#       by B1's GPU readings (read300.sh ... end 1).
 #   G   the 40k gallery: MESH40k_M97 for the 19 meshes (--render_target mesh_shell, seed 97), three at a time.
 #   X   the studio renders (render_deliverable.py +fit=0 +field=zbs, repo_freeze1015, 4K, az 35 el 18 dist 1) of the tag's
 #       L97 and D159's M97, bunny and dragon, the 1080p side-by-side (d159_sbs.py) and its video; the 4K frames removed
@@ -105,13 +107,17 @@ if [[ " $STEPS " == *" R "* ]]; then
   [ -e $O/regions_ok ] || { release_card; log "R waits for the regions (regions_ok)"; while [ ! -e $O/regions_ok ]; do sleep 60; done; }
   [ -n "$CARD" ] || claim_card "300k runs"
   log "R pair 1 start (regions: $(head -c 200 $O/regions_ok))"
-  run300 bunny300k_M97 bunny 97 --render_target mesh_shell
+  run300 bunny300k_M97 bunny 97 --render_target mesh_shell --term_dump $O/terms/bunny300k_M97
   sleep 30
-  run300 dragon300k_M97 dragon 97 --render_target mesh_shell
+  run300 dragon300k_M97 dragon 97 --render_target mesh_shell --term_dump $O/terms/dragon300k_M97
   wait
   run300 bunny300k_P99 bunny 99 --render_weight_scale 0
   sleep 30
   run300 dragon300k_P99 dragon 99 --render_weight_scale 0
+  wait
+  run300 bunny300k_T97 bunny 97 --term_dump $O/terms/bunny300k_T97          # the tag's path again, with the term dumps
+  sleep 30
+  run300 dragon300k_T97 dragon 97 --term_dump $O/terms/dragon300k_T97
   wait
   log "R done"
   release_card

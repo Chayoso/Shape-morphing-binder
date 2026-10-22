@@ -32,7 +32,7 @@ nice -n 10 $PY $W/d159_relief.py $R/relief_$mesh.jsonl $mesh M97=$F M97_4s=$F@$k
   L97_4s=$G/d145t_b1/${mesh}300k_L97_frames12.npz@$k4 P97=$G/d145t_b1/${mesh}300k_P97_end1.npz \
   L99=$G/d145t_b1/${mesh}300k_L99_end1.npz:99 L101=$G/d145t_b1/${mesh}300k_L101_end1.npz:101 \
   L103=$G/d145t_b1/${mesh}300k_L103_end1.npz:103 L105=$G/d145t_b1/${mesh}300k_L105_end1.npz:105 \
-  P99re=$O/${P99}_frames12.npz:99 own=$G/d145t_b1/${mesh}300k_L97_end1.npz@tgt > $R/relief_$mesh.log 2>&1 < /dev/null
+  P99re=$O/${P99}_frames12.npz:99 T97=$O/${mesh}300k_T97_frames12.npz own=$G/d145t_b1/${mesh}300k_L97_end1.npz@tgt \n  > $R/relief_$mesh.log 2>&1 < /dev/null
 log "readcpu $mesh: R1 rc $?"
 nice -n 10 $PY $W/d159_course.py $R/course_$mesh.jsonl $mesh $G/d145t_b1/${mesh}300k_P97_frames12.npz M97=$F \
   P99=$O/${P99}_frames12.npz:99 > $R/course_$mesh.log 2>&1 < /dev/null
@@ -41,3 +41,17 @@ log "readcpu $mesh: R2 rc $?"
   echo "$mesh 97 300k M $O/${M}_end1.npz end" > $R/d157_jobs_$mesh.txt
   nice -n 10 $PY d157_read.py $R/d157_$mesh.jsonl $R/d157_jobs_$mesh.txt > $R/d157_$mesh.log 2>&1 < /dev/null )
 log "readcpu $mesh: R3 (D157) rc $?"
+# R5 (amendment 3): the per-term hold on the detail band, from the term dumps of M97 and T97 (the tag's path again);
+# then the dumps deleted (logged), the disk being near its limit
+for arm in M97 T97; do
+  TD=$O/terms/${mesh}300k_$arm
+  [ -d $TD ] || continue
+  nice -n 10 $PY $W/d159_terms.py $R/terms_$mesh.jsonl $mesh $arm $TD > $R/terms_${mesh}_$arm.log 2>&1 < /dev/null
+  rc=$?
+  log "readcpu $mesh: R5 $arm rc $rc"
+  if [ $rc = 0 ]; then
+    sz=$(du -sm $TD | cut -f1); n=$(ls $TD | wc -l); rm -rf $TD
+    echo "$(date '+%Y-%m-%d %H:%M') D159: deleted the term dumps of ${mesh}300k_$arm ($n files, ${sz} MB, output/gpu/d159/terms), read into read/terms_$mesh.jsonl" >> $G/cleanup.log
+  fi
+done
+log "readcpu $mesh: done"
