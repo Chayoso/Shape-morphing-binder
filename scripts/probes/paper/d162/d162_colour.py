@@ -2,7 +2,7 @@
 and seed, the mis-coloured share of the twin P / TC, the tag's rule L, the held weight H (D160c), D162's F and FC, the
 recovered share r = (mis_twin - mis_arm) / (mis_twin - floor) (F against D160's P, FC against its own twin TC, L and H
 against P), and the held-out colour PSNR / LPIPS of each arm against its twin. C1 per scene: r >= 0.5, PSNR above and
-LPIPS below the twin's at both seeds."""
+LPIPS below the twin's at both seeds. D162b: D160d's D and D162b's S (against P) as well, when their lines are given."""
 import json
 import sys
 
@@ -18,7 +18,8 @@ for sc in ("band", "ears"):
         P = rows.get(f"bunny40k_{sc}_P{s}")
         TC = rows.get(f"bunny40k_{sc}_TC_{s}")
         for arm, name, twin in (("L (rule)", f"bunny40k_{sc}_L{s}", P), ("H (held)", f"bunny40k_{sc}_H{s}", P),
-                                ("F", f"bunny40k_{sc}_F_{s}", P), ("FC", f"bunny40k_{sc}_FC_{s}", TC)):
+                                ("F", f"bunny40k_{sc}_F_{s}", P), ("FC", f"bunny40k_{sc}_FC_{s}", TC),
+                                ("D (D160d)", f"bunny40k_{sc}_D{s}", P), ("S (D162b)", f"bunny40k_{sc}_S_{s}", P)):
             a = rows.get(name)
             if a is None or twin is None:
                 continue
