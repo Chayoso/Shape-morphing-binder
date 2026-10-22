@@ -95,6 +95,14 @@ if [[ " $STEPS " == *" P "* ]]; then
         --replay_noise start --out $O/pilot/$name > $O/pilot/$name.log 2>&1 < /dev/null; echo $? > $O/pilot/$name.rc )
     log "P $name exit $(cat $O/pilot/$name.rc): $(grep -c '^\[probe\]' $O/pilot/$name.log) probe lines; $(grep -m1 'ARM render_full_dt_iso_nn:' $O/pilot/$name.log | cut -c1-120)"
   done
+  # the pre-registered stop rules, read mechanically before any gate: a STOP or an AMEND ends the chain here
+  ( envr repo_d164; $PY $W/d164_pilot_read.py $O/pilot/bunny40k_probe97.log $O/pilot/dragon40k_probe97.log \
+      > $O/pilot/pilot_read.txt 2>&1; echo $? > $O/pilot/pilot_read.rc )
+  log "P read exit $(cat $O/pilot/pilot_read.rc): $(grep 'P0a\|stop rule' $O/pilot/pilot_read.txt | tr '\n' ' ' | cut -c1-400)"
+  if [ "$(cat $O/pilot/pilot_read.rc)" != 0 ] || grep -q ': STOP\|: AMEND' $O/pilot/pilot_read.txt \
+     || [ "$(cat $O/pilot/bunny40k_probe97.rc)" != 0 ] || [ "$(cat $O/pilot/dragon40k_probe97.rc)" != 0 ]; then
+    log "P: a stop rule fired or a pilot run failed; the chain ends before the gates"; exit 1
+  fi
 fi
 if [[ " $STEPS " == *" V "* ]]; then
   V=$O/gates; rm -f $V/PASSED $V/FAILED
