@@ -3,10 +3,12 @@
 # shorter idles and so take a freed card first), mkdir lock + info, released by release_card (call it from a trap).
 L=/data/relcfd/chayo/physmorph_v2/gpu_locks
 CARD=""
-# YIELD_RENDER=1 (the coordinator, 2026-10-21 night: the render experiments D159 / D160 / D161 first): no claim while
-# one of their chains is alive and holds no lock (it is waiting for a card, or between its card phases). A chain's
-# subshells carry its command line: a process counts as holding when it or one of its ancestors is a lock's pid. Read
-# from ps's list and the lock files only; nothing is signalled.
+RENDER_CARDS=" 3 1 0 "
+# YIELD_RENDER=1 (the coordinator, 2026-10-21 night: the render experiments D159 / D160 / D161 first): no claim of a
+# card they take (RENDER_CARDS: their claim rules, d159_claim.sh, d160_chain.sh, d161_chain*.sh, try 3, 1, 0 and never
+# GPU 2) while any of their scripts (d159_*.sh, d160_*.sh, d161_*.sh) is alive and holds no lock: waiting for a card,
+# or between its card phases. A script's subshells carry its command line: a process counts as holding when it or one
+# of its ancestors is a lock's pid. Read from ps's list and the lock files only; nothing is signalled.
 render_waiting() {
   local held=" $(cat $L/gpu*.lock/info 2>/dev/null | awk '$1 == "pid" {printf "%s ", $2}')"
   local pid ppid args p hold chains=""
@@ -14,7 +16,7 @@ render_waiting() {
   while read -r pid ppid args; do
     par[$pid]=$ppid
     case "$args" in
-      *d159_chain.sh*|*d160_chain.sh*|*d161_chain.sh*) chains="$chains $pid" ;;
+      *d159_*.sh*|*d160_*.sh*|*d161_*.sh*) chains="$chains $pid" ;;
     esac
   done < <(ps -u "$(id -un)" -o pid=,ppid=,args= | grep -v " grep ")
   for pid in $chains; do
@@ -35,7 +37,7 @@ claim_card() {
       local used=$(nvidia-smi -i $g --query-gpu=memory.used --format=csv,noheader,nounits)
       if [ -d $L/gpu$g.lock ] || [ "$used" -gt 2000 ]; then since[$g]=""; continue; fi
       [ -n "${since[$g]}" ] || since[$g]=$now
-      if [ "${YIELD_RENDER:-0}" = 1 ] && render_waiting; then continue; fi
+      if [ "${YIELD_RENDER:-0}" = 1 ] && [[ "$RENDER_CARDS" == *" $g "* ]] && render_waiting; then continue; fi
       if [ $((now - ${since[$g]})) -ge $idle ] && mkdir $L/gpu$g.lock 2>/dev/null; then
         CARD=$g
         printf "agent B9b\nrun %s\npid %s\nstart %s\n" "$what" "$$" "$(date "+%Y-%m-%d %H:%M:%S %Z")" > $L/gpu$g.lock/info
