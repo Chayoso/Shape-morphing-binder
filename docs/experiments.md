@@ -7097,7 +7097,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       - Gate it as this one, with (2) kept: once the stored sag stays elastic, the share's rocking can return, and the
         drag on m v is the only damping of its rigid part.
   - **Step 1: the one-window load effect against the settled one (the coordinator's go 2026-10-22: step 1 only; a
-    measurement, no definition change); pre-registered 2026-10-22 02:34 CDT server clock, before its run** (code
+    measurement, no definition change); pre-registered 2026-10-22 02:33 CDT server clock, before its run** (pushed 02:33:00; the chain started 02:33:08 and runs only after its card claim, at least 10 min; the first version of this line said 02:34, written ahead of the clock) (code
     `wip/b9b` 60b7ba0, server copy `repo_b9t`; `output/gpu/b9b/settle/`; chain `chainsettle.sh`).
     - *The papers, read first* (the standing rule). Full text: Chen et al. 2014 (inverse elastic shape design, ANM),
       Hsu et al. 2022 (a general two-stage sag-free initialization: FEM, cloth, MPM, PBD), Hsu et al. 2023 (sag-free
