@@ -32,7 +32,8 @@ nice -n 10 $PY $W/d159_relief.py $R/relief_$mesh.jsonl $mesh M97=$F M97_4s=$F@$k
   L97_4s=$G/d145t_b1/${mesh}300k_L97_frames12.npz@$k4 P97=$G/d145t_b1/${mesh}300k_P97_end1.npz \
   L99=$G/d145t_b1/${mesh}300k_L99_end1.npz:99 L101=$G/d145t_b1/${mesh}300k_L101_end1.npz:101 \
   L103=$G/d145t_b1/${mesh}300k_L103_end1.npz:103 L105=$G/d145t_b1/${mesh}300k_L105_end1.npz:105 \
-  P99re=$O/${P99}_frames12.npz:99 T97=$O/${mesh}300k_T97_frames12.npz own=$G/d145t_b1/${mesh}300k_L97_end1.npz@tgt \n  > $R/relief_$mesh.log 2>&1 < /dev/null
+  P99re=$O/${P99}_frames12.npz:99 T97=$O/${mesh}300k_T97_frames12.npz own=$G/d145t_b1/${mesh}300k_L97_end1.npz@tgt \
+  > $R/relief_$mesh.log 2>&1 < /dev/null
 log "readcpu $mesh: R1 rc $?"
 nice -n 10 $PY $W/d159_course.py $R/course_$mesh.jsonl $mesh $G/d145t_b1/${mesh}300k_P97_frames12.npz M97=$F \
   P99=$O/${P99}_frames12.npz:99 > $R/course_$mesh.log 2>&1 < /dev/null
