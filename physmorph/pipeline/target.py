@@ -122,7 +122,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, rend
     mean = lambda per: [torch.stack(v).mean(0) for v in zip(*per)]   # noqa: E731  (per sample, a list over views)
     N = tgt_t.shape[0]
     m = m_t = torch.ones(N, device=gpu.DEVICE)                # the unit loss-side masses: the body's (tgt.m) and the target's
-    support = SurfaceProximity(tgt_t)                         # the fine geometry read from the target surface
+    support = SurfaceProximity(tgt_t, berth_k=cfg.nn_berth_k if cfg.proximity_berth else None)   # the fine geometry (D161b: the berth)
     # the loss grid covers the MPM domain (scalar geometry, float32 like the grid itself)
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
