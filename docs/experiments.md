@@ -7200,6 +7200,38 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       - If the loaded continuation's motion is instead rigid (a topple), the smoothing is not the reason, and that is
         reported.
     - *Cards* as in step 1. The step 1 and step 1b numbers go to the coordinator in Korean before any step 2.
+  - **Step 1b, read: the smoothing is why the loaded continuation does not settle, and a settled L is not the committed
+    state's load strain (ran 04:53–04:55 CDT on GPU 2; read 2026-10-22 10:15–10:25; `settle_diag/diag.json`,
+    `diag_read.txt` (`tmp/b9b/diag_read.py`); the re-run's frames deleted after reading, `cleanup.log`).**
+    - *As it is* (windows 25 / 30 / 35):
+      - The loaded zero-control continuation first sinks (centroid speed up to 0.14–0.15 wu/s at 4–8 windows). It then
+        turns: from 16 windows on, its motion is mostly rigid rotation (|ω|R 0.10–0.18 wu/s against a deformation
+        speed of 0.026–0.045 and a centroid speed of 0.013–0.028).
+      - At 8 s its centroid has dropped 0.38–0.41 wu (3.5–3.8 pitches) and is still dropping. It sinks and topples; it
+        does not settle.
+      - Its read removes 18–19 % at 1 window, 46–54 % at 8–16 windows, and 38–46 % at 48.
+    - *With the F smoothing off in the continuations:*
+      - The loaded continuation settles within about 4–5 s: at 24–32 windows its speeds are about 1e-3 wu/s, and at 48
+        windows 5e-4–1e-3.
+      - It drops only 0.066–0.077 wu (0.6–0.7 pitch), 5–6× less.
+      - So the smoothing is the cause of the deep sag and of the non-settling (confirmed).
+      - Its L (p99 0.069) is not a reading for the smoothed committed F. The read then removes −21 % to 0 % at 48
+        windows: the two integrators' F do not compare. This was a diagnostic of settling only.
+    - *What it implies.*
+      - Under the frozen integrator, the zero-control loaded body has no static state near the committed one. Its
+        stress keeps 4.5 % of each increment, so it sinks about 4 pitches and topples before it settles. A settled L
+        therefore describes another, collapsed shape. That is why longer chains over-correct.
+      - Dynamic relaxation is ruled out as the way to the loads' static strain. It does not settle, choosing a chain
+        length would be a new constant, and the carried pair drifts.
+      - The loads' static strain has to be taken at the committed configuration itself, with the body not allowed to
+        move: the global step of Hsu et al. 2022 / 2023. Solve for the least-norm stress that balances gravity and the
+        floor at every grid node of the committed state (the floor's normal degrees of freedom removed). Take each
+        particle's load strain from that stress through the constitutive model. Read the committed F with it removed.
+      - No settling is involved, so the smoothing's creep plays no part. Without loads the stress is zero and nothing is
+        computed: the identity is exact.
+      - The cost is one linear solve on the grid per commit. It is new code: a conjugate-gradient solve with the MPM's
+        own stress-to-node operator and its transpose.
+      - A proposal for the coordinator. Nothing is implemented or run before the answer.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
