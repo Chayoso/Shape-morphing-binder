@@ -19213,6 +19213,51 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - The D162 gallery (lists B's rest and A2) restarted at 18:31 on a normal claim (d162_gal.sh); its G read follows.
     Disk: the 8 S archives thinned after their reads (cleanup.log); /data/relcfd/chayo 429 GB.
 
+- **D162c, where the render's push goes: normal or tangential, the stroke band or the sub-pitch band (a measurement,
+  no new definition run; pre-registered 2026-10-22 ~19:10 CDT before any number is computed; the coordinator's go
+  after D162b's read; scripts `scripts/probes/paper/d162/d162c_*.py`, outputs `output/gpu/d162c/`).**
+  *Question.* When the render succeeds (it carved or placed), is its push normal to the surface and at or above the
+  stroke scale? When it fails, does it go tangential or sub-pitch, i.e. into arrangement?
+  *Runs.*
+  - Failing: D162's F (coin, bunny relief, band) and D162b's S (coin, bunny relief, band), seeds 97 / 99.
+  - Succeeding:
+    - D161c, the λ-held full arm: coin and bunny relief at 40k, 47–58 % of the ceiling.
+    - D163's 300k plaque H (λ held, seed 97): its read is D163's.
+    - D160d's band D97 / D99: colour r 0.99–1.00.
+  - Contrast twins: D161's twins, D160's P and D163's T.
+  - None of these records holds per-particle render gradients (no `--grad_dump`). So (A) is read from the kept
+    positions on the CPU, and (B) is regenerated at the kept states on one card under the protocol (no rollout).
+  *The outer particles at a state x.*
+  - Those whose signed distance to the zero set of x's Zhu–Bridson field is at least −(0.8 pitch + 0.5 spacing): the
+    outermost layer. The zero set is D157's field mesh at 0.708 target spacings (pipeline/shape_read.zero_set); 0.8
+    pitch is the field's offset.
+  - Each one's normal n_i: the field's gradient at it, normalised.
+  *The two quantities, per state.*
+  - (A) the realized motion v_i = x_i(t + 48 frames) − x_i(t): about one window, the thinned archives' step.
+  - (B) the render's push v_i = −∂L_r/∂x_i at x(t). L_r is the render term (silhouette + w_pbr shading; with the
+    particles' paint on band) on the run's own pictures, read as the window reads it: a field found at x, the
+    tracked discs, d_exterior. The run's TargetPack is rebuilt from its provenance.
+  *The decomposition.*
+  - The band part v_band,i: the mean of v over the outer particles within half a stroke width of x_i, itself included.
+    The stroke is D161's letters' 3.8 pitches, so the radius is 1.9 pitches. This keeps what a neighbourhood moves in
+    common.
+  - The sub-pitch part: v_sub = v − v_band, what a particle does against its neighbours.
+  - Each part is split into normal and tangential: (v·n) n and the rest.
+  - Four energies over the outer particles: band-normal, band-tangential, sub-normal, sub-tangential, as shares of
+    their sum.
+  - Phases: before arrival (the first window whose transport energy is below 2 × its final value) and after it.
+    Medians per phase and run.
+  *Reading.*
+  - Success shape: the after-arrival band-normal share of (B), and of (A) beyond the twin's, is higher on the
+    succeeding runs than on the failing ones, beyond the seeds' spread.
+  - Failure shape: the failing runs' extra share is tangential (band or sub) or sub-pitch normal.
+  - The definition the data names:
+    - mostly tangential → a render push along the surface normal only;
+    - mostly sub-pitch normal → a render push limited to the stroke band;
+    - neither, if succeeding and failing runs decompose alike → the path is not the discriminant (then the weight's
+      size, which separates them, is reported).
+  - No run of a new definition before this is reported.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
