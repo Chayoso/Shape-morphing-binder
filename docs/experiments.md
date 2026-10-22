@@ -12236,6 +12236,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Caveat for its reading: the conservative hull overshoots every outline by up to a pixel (spray 13–19 × the
       floor; hull / mesh 1.18–1.52). L against P will then also contain the overshoot's removal at the rims. The
       decision must rest on D156's inside-the-hull measures (surf_deep, Δ_vol in R), as before.
+  - **Post-hoc correction of check 1 (the coordinator, 16:55 CDT).** The surface criterion is accepted as the
+    containment check, so check 1 PASSES on 9 of 9 by that criterion.
+    - Reason: the sample criterion (≤ 1 % of the mesh's 40k sample outside the hull) is ill-posed. The mesh's own
+      sample fails it: 13–26 % of that sample lies outside the mesh itself, through the stratified sampler's
+      surface-voxel jitter.
+    - This correction was made after the check was read, and is recorded as such.
+  - **The rerun of D156's 36 runs on the conservative hulls is on hold (the coordinator, 16:55).** Every render arm so
+    far is limited by the λ coupling (D160, D161, D162), so a rerun under the frozen rule would mostly re-measure
+    that starvation. D156 is rerun once D162b gives a weight definition that works.
+  - **The volume reading** (`d156j_vol.py`, written after the bunny's D156i row; on the solids themselves, free of the
+    sampler). Uniform points of the d = 0 mesh are split by the true mesh and by depth below the d = 0 mesh. Shallow
+    means less than one picture pixel deep; that is where the conservative overshoot lies.
+
+    | mesh / run | excess of the base | excess removed | shallow removed | deep removed (deep share) | mesh volume cut | mesh surface > ¼ px outside the solid |
+    |---|---|---|---|---|---|---|
+    | bunny D156i | 14.7 % | 0.37 | 0.48 | **0.008** (0.23) | 0.5 % | 2.9 % |
+    | bunny D156g | 14.7 % | 0.49 | 0.62 | **0.040** (0.23) | 0.8 % | 4.6 % |
+    | dragon D156i | 35.4 % | 0.00 | 0.00 | 0.000 (0.30) | 0.0 % | 0.1 % |
+
+    - The carve removes the shallow excess, the overshoot and the excess within a pixel of the hull. **It removes
+      almost none of the deep excess, the hollows: 1–4 %.**
+    - Its cut into the mesh is small: 0.5–0.8 % of the mesh's volume, but 3–5 % of the mesh surface ends more than a
+      quarter pixel outside the solid. The stage-1 over-carve (+3.8 / +5.1 points of the sample) overstates the
+      volume cut, because it counts the sampler's overhang.
+  - **Bunny D156g (finished 16:51; read alongside).** 117 steps, 233 min, ended by the levels.
+    - Total score: 11.444 → 4.467 (floor 2.308). Way 0.764, from the hull file 0.756, restricted 0.807.
+    - Excess removed 0.537; over-carve +5.1 points (3.8 → 8.9 %), so it fails by the letter; ρ 0.43.
+    - Its solid is the lowest any D156 carve reached: 0.60 of the way from D156's hull file (7.774) to the floor.
+      By the volume reading, that is the overshoot and the shallow excess, not the hollows.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
