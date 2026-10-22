@@ -16594,8 +16594,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   and the relief reference rebuilt as `window/layer.py` builds them: its per-step move, pitches) in its own unit.
   (iii) If D159 fails P1 with P2–P4 held, the next arm combines `--render_target mesh_shell` with D161b's definition
   change of the proximity's reach, pre-registered then with D161's definition as the coordinator passes it on.
-  *Amendment 4 (2026-10-22 00:30 CDT, after the M97 runs, before the T97 runs and every other reading; the coordinator
-  relaying D160's finding that lambda falls about 120 times after arrival).* R6, is the render starved after arrival:
+  *Amendment 4 (written 2026-10-22 00:59 CDT with the first reading; asked by the coordinator at about 00:30, relaying
+  D160's finding that lambda falls about 120 times after arrival, and computed then, after the M97 runs and their early
+  R1, R2 and R5 readings, before the T97 runs).* R6, is the render starved after arrival:
   per window of the run's history (`d159_window.py`), lambda, lambda |g_render| against |g_phys| on the controls, the
   render's share, the step taken (the accepted step size times the gradient norm; `step_norm` is a telemetry field),
   the body's move per window, and the decisions (accepted / rejected iterations, null commits, outer rejections, the
