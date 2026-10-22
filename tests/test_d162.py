@@ -67,3 +67,30 @@ def test_isolation_gate_in_loss_cells():
     assert torch.equal(a, b)
     c = isolation_gate(x, scale=1.0)                                                 # in units of 1.0 (a "loss cell")
     assert float(c[-1]) == 1.0 and float(c[:-1].max()) == 0.0                        # only the far particle is isolated
+
+
+@cuda
+def test_a_floor_run_records_its_reference_and_holds_lambda_to_it():
+    """D162 (1) on the contracts' small cloud: every committed window's record carries the floor (one value a run, the
+    pictures' own first sample read as the body), the render term it was read against, the excess, the first weight,
+    and the window's weight is that first weight times the excess (times render_weight_scale)."""
+    import numpy as np
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import run_pipeline
+    rng = np.random.default_rng(11)
+    src = rng.uniform(-1.5, 1.5, (300, 3)).astype(np.float32)
+    tgt = (rng.uniform(-1.5, 1.5, (300, 3)) * np.array([1.3, 0.8, 1.0])).astype(np.float32)
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, animations=3, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                         render_res=24, dt_res=32, patience=3, render_exterior=True, render_weight_ref="floor")
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    rows = [r for r in res["history"] if r.get("frame_end") and not r.get("null_commit")]
+    assert rows
+    floors = {r["render_floor"] for r in rows}
+    assert len(floors) == 1 and next(iter(floors)) > 0.0
+    lam0 = {r["lam0"] for r in rows}
+    assert len(lam0) == 1
+    for r in rows:
+        assert r["render_L"] > 0.0
+        assert r["render_excess"] == pytest.approx(max(0.0, 1.0 - r["render_floor"] / r["render_L"]))
+        assert r["lambda"] == pytest.approx(r["lam0"] * r["render_excess"] * cfg.render_weight_scale)

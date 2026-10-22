@@ -45,6 +45,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "active_set", "ctrl_mag", "ctrl_rough", "prof",
                 "sup_E", "sup_B", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio",
                 "ext_discs", "ext_builds")
+_FLOOR_FIELDS = ("lam_rule", "lam0", "render_L", "render_floor", "render_excess")   # D162 (1), floor mode only
 _NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason",
                 "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason")
@@ -301,6 +302,8 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
            "Jmin_traj": commit.jmin_traj, **counts,
            "selection_merit": stats["selection_merit"], "transport_energy": energy, **diag,
            **{k: v for k, v in stats.items() if k.startswith("force_")}}    # B13's records (baseline force*), else none
+    if getattr(cfg, "render_weight_ref", "residual") == "floor":   # D162 (1): the weight's reference, a record (that path only)
+        rec.update({k: stats.get(k) for k in _FLOOR_FIELDS})
     if thin is not None and cfg.work_telemetry:
         m = thin_metrics(x, thin)
         rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))

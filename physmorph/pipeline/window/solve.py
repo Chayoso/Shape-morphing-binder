@@ -289,9 +289,9 @@ class WindowOptimizer:
         thirds of the merit (D73, D81). The selection rescales its references when the weight moves.
         D162 (1), cfg.render_weight_ref "floor": the weight is referenced to the render's own excess over its floor,
         lambda = lambda_0 max(0, 1 - L_floor / L_r), lambda_0 the rule's value at the run's first calibration, L_r the
-        render term at the window's first evaluation (lr), L_floor the render term of an independent sample of the
-        render target (target.render_floor): the render keeps its first weight while the pictures ask for more than an
-        independent perfect sample scores, and fades to zero as it reaches that floor."""
+        render term at the window's first evaluation (lr), L_floor the render term of the pictures' own first sample
+        (target.render_floor, D162 amendment 2): the render keeps its first weight while the pictures ask for more than
+        that sample scores, and fades to zero as it reaches that floor."""
         bal = self.balancer
         lam = bal.update(_norm(gp), _norm(gr))
         if getattr(self.cfg, "render_weight_ref", "residual") == "floor":   # (getattr: test stubs carry older configs)

@@ -1,0 +1,25 @@
+# D162 list A1: the relief (coin, bunny flank) and colour (band, ears) scenes, arms F (--render_weight_ref floor), FC (+ --placement_at_cell), TC (the FC twin); 40k, seeds 97/99
+coin40k_F_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97 --render_weight_ref floor
+coin40k_FC_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+coin40k_TC_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97 --render_weight_scale 0 --placement_at_cell
+bunny40k_F_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 97 --render_weight_ref floor
+bunny40k_FC_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+bunny40k_TC_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 97 --render_weight_scale 0 --placement_at_cell
+bunny40k_band_F_97 --tgt assets/bunny.obj --appearance band --n 40000 --seed 97 --render_weight_ref floor
+bunny40k_band_FC_97 --tgt assets/bunny.obj --appearance band --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+bunny40k_band_TC_97 --tgt assets/bunny.obj --appearance band --n 40000 --seed 97 --render_weight_scale 0 --placement_at_cell
+bunny40k_ears_F_97 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 97 --render_weight_ref floor
+bunny40k_ears_FC_97 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+bunny40k_ears_TC_97 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 97 --render_weight_scale 0 --placement_at_cell
+coin40k_F_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 99 --render_weight_ref floor
+coin40k_FC_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+coin40k_TC_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 99 --render_weight_scale 0 --placement_at_cell
+bunny40k_F_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 99 --render_weight_ref floor
+bunny40k_FC_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+bunny40k_TC_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 99 --render_weight_scale 0 --placement_at_cell
+bunny40k_band_F_99 --tgt assets/bunny.obj --appearance band --n 40000 --seed 99 --render_weight_ref floor
+bunny40k_band_FC_99 --tgt assets/bunny.obj --appearance band --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+bunny40k_band_TC_99 --tgt assets/bunny.obj --appearance band --n 40000 --seed 99 --render_weight_scale 0 --placement_at_cell
+bunny40k_ears_F_99 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 99 --render_weight_ref floor
+bunny40k_ears_FC_99 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+bunny40k_ears_TC_99 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 99 --render_weight_scale 0 --placement_at_cell

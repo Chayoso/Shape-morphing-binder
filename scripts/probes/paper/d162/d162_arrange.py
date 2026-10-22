@@ -88,6 +88,11 @@ def one(out, runs, run_dir, name):
     js = json.load(open(run_dir / f"{name}.json"))
     com = windows_of(js)
     L_floor_run = next((h.get("render_floor") for h in com if h.get("render_floor") is not None), None)
+    if L_floor_run is None and (run_dir / f"{name}.log").exists():    # records before d162 0c: the run's log line
+        for line in open(run_dir / f"{name}.log"):
+            if "L_floor = " in line:
+                L_floor_run = float(line.split("L_floor = ")[1].split()[0])
+                break
 
     V, F = mesh_in_frame(rt, frame)
     tc, _ = D7.close_holes(V, F)

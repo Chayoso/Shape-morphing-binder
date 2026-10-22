@@ -21,7 +21,7 @@ claim_card() {
   local last_report=0
   while [ -z "$CARD" ]; do
     local now=$(date +%s) reasons=""
-    for g in 3 1 0; do
+    for g in ${CARDS:-3 1 0}; do                 # CARDS: the candidate cards, in order (default 3 1 0)
       local used=$(nvidia-smi -i $g --query-gpu=memory.used --format=csv,noheader,nounits)
       local uuid=$(nvidia-smi -i $g --query-gpu=uuid --format=csv,noheader)
       local other=$(nvidia-smi --query-compute-apps=gpu_uuid,pid --format=csv,noheader | grep "$uuid" | while IFS=', ' read -r u p; do
@@ -88,7 +88,7 @@ if [[ " $STEPS " == *" V "* ]]; then
   for k in F C FC_coin F_band F_shell; do [ "$(cat $V/$k.rc)" = 0 ] || ok=0; done
   for k in F FC_coin F_band F_shell; do grep -q "L_floor" $V/$k.log || ok=0; done
   if [ $ok = 1 ]; then log "V gates passed"; touch $O/gates/PASSED; else log "V STOP: a gate failed"; touch $O/gates/FAILED; fi
-  release_card
+  :   # the card is kept for the next step; the EXIT trap releases it
 fi
 # T: the contract test that failed in the gates, TREPS times on each repo of TREPOS (the merge, its parts and the tag), with
 #    the full stats printed (-vv), to tell a merge interaction from a flaky test before changing anything; each failure's
@@ -106,7 +106,7 @@ if [[ " $STEPS " == *" T "* ]]; then
     done
     log "T$TTAG $repo: exits $exits| failures:$why"
   done
-  release_card
+  :   # the card is kept for the next step; the EXIT trap releases it
 fi
 if [[ " $STEPS " == *" R "* ]]; then
   [ -e $O/gates/PASSED ] || { log "R refused: the gates have not passed"; exit 1; }
@@ -120,19 +120,21 @@ if [[ " $STEPS " == *" R "* ]]; then
       echo $? > $O/runs40/$name.rc )
     log "R $name exit $(cat $O/runs40/$name.rc): $(grep -m1 'ARM render_full_dt_iso_nn:' $O/runs40/$name.log | cut -c1-150)"
   done < $W/${RUNS_FILE:-d162_runs.txt}
-  [[ " $STEPS " == *" X "* ]] || release_card     # X reads on the same card
+  :   # the card is kept for X; the EXIT trap releases it
   log "R done (${RUNS_FILE:-d162_runs.txt})"
 fi
 # X: arrangement vs shape (the coordinator's request after D156h2): per kept frame of XRUNS (default: the coin relief and
-#    the colour band, seed 97, arm F and its twin TC), the render term on the state and on uniform resamples of its solid
-#    (d162_arrange.py), on the card this chain holds; the solids and their samples are scratch, deleted by the reader
+#    the colour band, seed 97, arm F and its twin TC, and coin FC), the render term on the state and on uniform resamples of
+#    its solid (d162_arrange.py), on the card this chain holds; the solids and their samples are scratch, deleted by the
+#    reader. XFILE / XDIR / XOUT: the runs' flags, their archives and the output prefix (the smoke reads the V4 runs)
 if [[ " $STEPS " == *" X "* ]]; then
   [ -n "$CARD" ] || claim_card arrange
   mkdir -p $O/after
-  ( envr repo_d162; $PY $W/d162_arrange.py $O/after/arrange.jsonl $W/d162_runs_A.txt $O/runs40 \
+  XO=${XOUT:-$O/after/arrange}
+  ( envr repo_d162; $PY $W/d162_arrange.py $XO.jsonl ${XFILE:-$W/d162_runs_A.txt} ${XDIR:-$O/runs40} \
       ${XRUNS:-coin40k_F_97 coin40k_TC_97 bunny40k_band_F_97 bunny40k_band_TC_97 coin40k_FC_97} \
-      > $O/after/arrange.log 2>&1 < /dev/null; echo $? > $O/after/arrange.rc )
-  log "X arrange exit $(cat $O/after/arrange.rc): $(grep -c '"state": "frame"' $O/after/arrange.jsonl) frames read"
-  release_card
+      > $XO.log 2>&1 < /dev/null; echo $? > $XO.rc )
+  log "X arrange exit $(cat $XO.rc): $(grep -c '"state": "frame"' $XO.jsonl) frames read ($XO)"
+  :   # the EXIT trap releases the card
 fi
 log "chain done ($STEPS)"

@@ -1,0 +1,3 @@
+# D162: the V4 smoke runs' flags (gates/), for the arrangement reader's smoke (d162_chain.sh X with XFILE/XDIR)
+FC_coin --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97 --animations 4 --render_weight_ref floor --placement_at_cell
+F_band --tgt assets/bunny.obj --appearance band --n 40000 --seed 97 --animations 4 --render_weight_ref floor

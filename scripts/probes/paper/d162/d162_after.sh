@@ -1,6 +1,6 @@
 #!/bin/bash
-# d162_after.sh -- D162 on hyde06, CPU only: once run list A is done, read the relief and colour scenes; once B is done
-# too, the gallery; the per-window records of every run. Detached; logs in output/gpu/d162/after/.
+# d162_after.sh -- D162 on hyde06, CPU only: once list A1 (the scenes) is done, read the relief and colour scenes; once A2
+# and B (the gallery) are done too, the gallery; the per-window records of every run. Detached (from a copy); logs in output/gpu/d162/after/
 B=/data/relcfd/chayo/physmorph_v2; G=$B/output/gpu; O=$G/d162; W=$B/tmp/d162; R=$O/runs40; D=$O/after
 A1=$G/d161/assets; R1=$G/d161/runs40; R0=$G/d160/runs40
 mkdir -p $D
@@ -9,8 +9,8 @@ export CUDA_VISIBLE_DEVICES= PHYSMORPH_CACHE=$B/cache/samples OMP_NUM_THREADS=6 
 export PYTHONPATH=$B/repo_d162:$B/deps/d157_lpips
 PY=/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python
 log() { echo "$(date '+%m-%d %H:%M:%S') [after] $*" >> $O/status.txt; }
-until grep -q "R done (d162_runs_A.txt)" $O/status.txt; do sleep 60; done
-log "start (A done)"
+until grep -q "R done (d162_runs_A1.txt)" $O/status.txt; do sleep 60; done
+log "start (A1 done)"
 cd $B/repo_d162
 # relief: F against D161's twins, FC against its own twin TC
 for s in coin bunny; do
@@ -39,7 +39,7 @@ done; done
 wait
 cd $R && $PY $W/d162_windows.py $D/windows_scenes.md $(ls *40k_*_9?.json | grep -v "^gal_" | sed "s/.json//" | sed "s|^|$R/|") > /dev/null 2>&1
 log "scenes read"
-until grep -q "R done (d162_runs_B.txt)" $O/status.txt; do sleep 60; done
+until grep -q "R done (d162_runs_A2.txt)" $O/status.txt && grep -q "R done (d162_runs_B.txt)" $O/status.txt; do sleep 60; done
 cd $B/repo_d162
 nice -n 10 $PY $W/d162_gallery.py $D/gallery.md $D/gallery.json > $D/gallery.log 2>&1; log "gallery exit $?: $(tail -2 $D/gallery.log | tr '\n' ' ')"
 cd $R && $PY $W/d162_windows.py $D/windows_gallery.md $(ls gal_*.json | sed "s/.json//" | sed "s|^|$R/|") > /dev/null 2>&1
