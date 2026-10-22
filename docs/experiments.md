@@ -17460,6 +17460,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   stopping (patience against a render-dominated merit), floaters (D108: the render's push on protruding particles). A
   pass here says the physics lets the relief through when the render keeps its weight: the next definition is then the
   render weight's reference (the physics' stiffness or its residual at the source), the user's call.
+  **D161c result (runs 01:08–01:14 CDT on gpu1, read 01:14–01:35; `after_c/`, local `d161_relief/d161c/`): with the
+  render weight held, the render carves half of the relief into the particles, at the ceiling's own correlation, and it
+  shows on the display surface; the body does not come to rest and the shape leaves the smooth mesh: FAIL by the letter
+  (P3, P4), P1 reached on the relief.** Carved A (share of the ceiling, corr): coin 0.64 / 0.58 a (0.53 / 0.47, 0.56 /
+  0.54; the ceiling's own corr 0.55–0.56), bunny 0.51 / 0.47 a (0.58 / 0.54, 0.32 / 0.28; the ceiling's own 0.31–0.35:
+  P1's corr ≥ 0.5 is out of reach of the relief mesh's own sample on the lumpy bunny, a criterion fixed too high there).
+  On the display surface (zbs) 0.54–0.56 a (coin, corr 0.50–0.56) and 0.50–0.65 a (bunny): the letters show. The carve
+  is made on arrival and held: from 1 s on 0.44–0.70 a on the coin, 0.39–0.63 on the bunny. P2: coin −35 / −38 % in
+  the pattern's pixels; bunny within the twins' spread. P3: coin Chamfer-L1 +0.035 / +0.042 a against the smooth mesh
+  (spread 0.024), thin_uncovered +0.015 / +0.029; bunny held-out 1 − IoU +0.011 / +0.014 (spread 0.0023), Chamfer
+  +0.12 / +0.13 a. P4: the end's v_mean 7–11× the twin's (coin) and 3–11× (bunny): the render keeps 92–97 % of the step
+  after arrival (g_share), the transport energy stays at about 4e-4 (the plain arm 3e-5), the body keeps moving. P5
+  holds. The runs stop earlier (coin 30 / 31 windows, bunny 28 / 17). Predictions: the share right in kind, short of the
+  curve's 0.9–1.0 (the closed loop's own costs: the u step falls to 0.003–0.02 a an iteration, the window moves 0.03–0.05
+  a and the merit stalls); the D81 risks came true (not at rest, the shape leaves the target).
+  *What D161 shows (the three arms).* The pictures ask for the whole relief; the physics' hold against it (placement
+  terms below about two loss cells, the transport above) does not change on arrival, while the render weight's
+  reference, the physics residual, falls 100–400×. With the weight on the rule the render carves a tenth (D161), less
+  when a hold is weakened (D161b: the rule lowers λ with it), half when the weight is held (D161c), at the price of a
+  body that never settles. The next definition is the render weight's reference: a weight that keeps the render's say
+  on what the physics does not resolve, without driving what it does. Proposals, the user's call: (i) the render's push
+  measured over its own floor (the arrived smooth sample's render term against the same pictures, 0.0023 on the bunny's
+  curve), so the render weighs what the pictures still ask beyond sampling noise and stops pushing at it; (ii) the
+  placement terms at the transport's resolution (the curve's "transport alone" column) with the rule's λ; the two
+  together are what the curve says would carve sub-cell letters and still settle.
 
 ## To run next, in order
 
