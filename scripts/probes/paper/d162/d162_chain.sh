@@ -57,10 +57,11 @@ claim_card() {
 release_card() { [ -n "$CARD" ] && rm -rf $L/gpu$CARD.lock && log "released gpu$CARD"; CARD=""; }
 trap 'release_card' EXIT
 trap 'exit 1' INT TERM HUP
+envr() { export PHYSMORPH_RUN_REPO=$B/$1 PHYSMORPH_OUT=$G; source $B/$1/scripts/ops/hyde06_env.sh > /dev/null 2>&1; export TMPDIR=$W/tmpdir; cd $B/$1; }
 log "chain start pid $$ steps '$STEPS' runs '${RUNS_FILE:-}'"
 A161=$G/d161/assets
 if [[ " $STEPS " == *" V "* ]]; then
-  V=$O/gates
+  V=$O/gates; rm -f $V/PASSED $V/FAILED
   claim_card gates
   ( envr repo_d162; $PY -m pytest -q -p no:cacheprovider tests > $V/suite.log 2>&1 < /dev/null; echo $? > $V/suite.rc )
   log "V1 suite exit $(cat $V/suite.rc): $(tail -1 $V/suite.log)"
@@ -86,7 +87,7 @@ if [[ " $STEPS " == *" V "* ]]; then
   tail -1 $V/cmp_rt1_S1.txt | grep -q ": SAME$" || ok=0
   for k in F C FC_coin F_band F_shell; do [ "$(cat $V/$k.rc)" = 0 ] || ok=0; done
   for k in F FC_coin F_band F_shell; do grep -q "L_floor" $V/$k.log || ok=0; done
-  if [ $ok = 1 ]; then log "V gates passed"; touch $O/gates/PASSED; else log "V STOP: a gate failed"; fi
+  if [ $ok = 1 ]; then log "V gates passed"; touch $O/gates/PASSED; else log "V STOP: a gate failed"; touch $O/gates/FAILED; fi
   release_card
 fi
 if [[ " $STEPS " == *" R "* ]]; then
