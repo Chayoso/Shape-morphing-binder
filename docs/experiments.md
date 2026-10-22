@@ -18915,6 +18915,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     the body never settles, and the stop rule ends the run at 4 s. The weight needed holds while the shape lacks the
     letters and fades once they are carved. F's floor cannot be it: at 40k F's λ was zero from 3 s with the letters
     absent, because arrangement beat the floor. D162b's S reads the excess on the shape, so it is the next run (queued).
+  *Note (16:55 CDT): the R97 300k rerun is dropped on the coordinator's call.* At 40k the rule does not carve (0.26 of
+  the ceiling against the twins' 0.20–0.26), and the deliverable at 300k is H against its twin. The rerun's waiting chain
+  and its reader were stopped; neither held a card. S stays armed on D162b's `gates/GO` only (`startS40c.sh`). The
+  first waiter had exited on D162b's gate STOP at 16:17, and D162b may retry its gates.
 
 - **D164, the commit check's replay noise measured on the window's own replays (the user's decision of 2026-10-22, "fix
   it", relayed by the coordinator after D162's amendment 3; a change of the frozen pipeline, gated and measured; no tag
