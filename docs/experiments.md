@@ -7096,6 +7096,56 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
         carried L against the freshly settled one on the dumped windows.
       - Gate it as this one, with (2) kept: once the stored sag stays elastic, the share's rocking can return, and the
         drag on m v is the only damping of its rigid part.
+  - **Step 1: the one-window load effect against the settled one (the coordinator's go 2026-10-22: step 1 only; a
+    measurement, no definition change); pre-registered 2026-10-22 02:34 CDT server clock, before its run** (code
+    `wip/b9b` 60b7ba0, server copy `repo_b9t`; `output/gpu/b9b/settle/`; chain `chainsettle.sh`).
+    - *The papers, read first* (the standing rule). Full text: Chen et al. 2014 (inverse elastic shape design, ANM),
+      Hsu et al. 2022 (a general two-stage sag-free initialization: FEM, cloth, MPM, PBD), Hsu et al. 2023 (sag-free
+      initialization for hybrid MPM hair). Twigg & Kačić-Alesić 2011 is behind the ACM and EG libraries (both refused
+      the download), so it was read through its descriptions in Chen 2014, Hsu 2022 / 2023 and Takahashi & Batty 2024:
+      mass-spring rest lengths and angles optimised so that the force norm at the modelled shape under gravity is zero
+      (a nonlinear global solve, box constraints, contacts as penalties or fixed positions). What they say for this:
+      1. All four define sag-free by the static equilibrium under the full load. The rest configuration is set so that
+         the internal forces balance gravity (and contact) at the given shape: Chen eq. (1)–(2); Hsu 2022 §3.1; Hsu 2023
+         eq. (12), on the MPM grid nodes with v = C = 0. With no load the answer is the shape itself (Chen: λ = 0 gives
+         X = x). So the quantity to keep elastic is the static load strain, and the identity without load is exact.
+      2. Plasticity is what breaks it. Hsu 2022 leaves plasticity out of MPM "because plasticity can simply overwrite
+         the internal deformations we compute for maintaining static equilibrium". Hsu 2023 keeps the load-carrying
+         stress inside the yield surface, since otherwise it flows. The scene's assimilation is a flow without a yield
+         surface, so it overwrites the load-carrying strain each window: the B9b creep.
+      3. Two ways to reach the static state. One is to settle with damping (dynamic relaxation; Chen compares against
+         the kinetic-damping solver, 78–454 iterations). The other is a direct equilibrium solve on the MPM grid (Hsu
+         2022 / 2023): one global linear least-norm solve for stresses that balance gravity at every grid node, the
+         contact's normal degrees of freedom removed, then each particle's F from its stress through the constitutive
+         model. The second is the cost route for step 2 if settling is slow.
+      4. The static equilibrium need not be unique when the body is statically indeterminate (Hsu 2022: a rest shape
+         need not exist; they take the least-norm stress). Settling takes the one the dynamics reach from the current
+         state.
+    - *What is measured* (`settle_probe.py`, read-only on the run). The definition's 40k bunny L97 (specs/b9d_bunny.json,
+      seed 97) is run again to 6 s; its own assimilation is unchanged. At each committed window starting in [4, 6) s (12
+      windows), before the assimilation:
+      - the frozen read (the committed end F against the window's Fp);
+      - the definition's one-window read;
+      - the chained continuations: zero control and zero u from the window's start, with the loads (gravity, the floor
+        and its position constraint) and without (alone, no gravity, no floor). Each window is rebuilt from the
+        previous end as the scene builds one: the layer's data, the relief and the spacing neighbours from the new
+        positions; Fp, the bonds and the volumes are the window's. The chains run 48 windows (8 s); the drag 0.9 /s damps
+        by e⁻⁷.
+      - At k = 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 40, 48 windows it records: the read with L_k (p50 / p90 / p99 of each
+        particle's largest |log σ| of F_e); the size of L_k; each continuation's elastic stretch against Fp; its largest F
+        change over its last window and its RMS speed (the settle profile).
+      - A check: the chains' first window equals the definition's own continuations.
+      - Step 2's candidate, the carried pair. It is settled at the first measured window, then advanced one window per
+        commit with that commit's Fp, and read against the freshly settled pair.
+    - *References:* the frozen read on the same states; the no-gravity read (ZL97, 4–8.33 s: 0.0024–0.0030 p99); the
+      share's removal (90–98 %).
+    - *Predictions:* the one-window read removes 15–29 %, as in the gate. The settled read removes at least 80 % of the
+      frozen read, towards the share's, and settles within 3–5 s (20–30 windows). The carried read lies within 20 % of
+      the settled one.
+    - *What follows:* the numbers go to the coordinator in Korean before any step 2. Step 2's definition takes the
+      identity exactly where no load acts (no gravity and no floor: L is not computed), so F2 can pass.
+    - *Cards:* one, the lowest priority. GPU 2 by the 10-minute idle rule; cards 3, 1 and 0 only while none of
+      D159 / D160(c) / D161 / D162 waits (`claim.sh`, `YIELD_RENDER`). No suite run: no library code changed.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
