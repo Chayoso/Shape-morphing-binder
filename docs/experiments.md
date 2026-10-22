@@ -16877,6 +16877,92 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Files.* `output/gpu/d160/`: `runs40/`, `read_colour.jsonl`, `gate/` (`gate.json`, `table.md`, figures), `video/`
   (seed 97: full | twin | target paint, front and back), `pieces.jsonl`, `d157_L.jsonl`. Local:
   `output/results_2026-10-21/d160_appearance/` (`README_ko.md`, `figs/`, `sheets/`, `video/`, `data/`).
+  **D160 step 1, what limits the colour after arrival (measurement only; the coordinator's go 2026-10-22 00:20 CDT;
+  read 00:49 CDT).**
+  - Part A (CPU) read every run's window records (`tmp/d160/d160_limiter.py`, `output/gpu/d160/limiter_A.json`).
+    Arrival is the first window whose move is ≤ 5 % of the run's largest: 1.7–1.8 s on the bunny, 2.7 s on the dragon.
+  - Part B is a diagnostic re-run of band / ears / turn L97 with `--term_dump --telemetry` (`step1/`, 00:39–00:46 on
+    GPU 1). At every committed state the render's gradient is split by the run's own operators into the colour's push
+    (through the discs' albedos alone) and the geometric push (`tmp/d160/d160_split.py`; the split matches the dump's
+    g_rend to 10–30 %, the discs being found afresh).
+  - The forces are compared at the front: the outer particles read by mis-coloured discs.
+
+  The coordinator's items:
+  - (v) The stop rule is not the limiter. 23–40 windows run after arrival (3–5 simulated seconds), as many in the full
+    arm as in the twin. The stops are patience or reject_stop, with no early end.
+  - (iv) The outer decisions are not the render's either. 1–4 windows are rejected after arrival in either arm, every
+    one by the merit's non-render part (physics plus cleanup worse by 0.5–7 %; the render part changes by −0.4 to
+    +0.3 %).
+  - (iii) The step is the same in both arms: search length median 2.5–4e-3, anneal 0.5–1.0, a move of 0.008–0.02
+    pitches a window.
+  - (ii) λ falls 0.31 → 0.005–0.008 before arrival and only 2–3× after (end 0.0015–0.0054). λ |g_render| = 0.5 |g_phys|
+    by the rule at every window. The render part is 14–62 % of the end merit, so the colour is not worthless in the
+    merit.
+  - After arrival the colour changes alike in both arms. Ears: full 0.134 → 0.123, twin 0.139 → 0.128 (the ears'
+    forming). Turn: worse in both.
+  - (i) At the front, the per-particle gradients as the objective weighs them (the dump's weighting):
+    - The colour's push is the weakest force at every time:
+      - during the flow (0.2–0.7 s) it is 1/5–1/10 of the transport plus proximity, 1/6–1/10 of the render's own
+        geometric push and comparable to the cleanup;
+      - after arrival it is 1/5–1/10 of the physics and 1/8–1/25 of the cleanup.
+    - The transport and proximity do not push back: cos(colour, physics) −0.08 to +0.05, with 40–50 % of the front
+      particles opposed (orthogonal).
+    - Along the direction each front particle must travel (to the nearest target disc wanting its colour):
+      - the colour's push is always positive (toward its colour);
+      - after arrival the cleanup's is negative on band and ears, 1–4 times the colour's. The near band (0.1 % of
+        the particles, a constant pull) and the spray cleanup (2 %) are comparable in size; both weights are fixed;
+      - the total descent along it is about zero.
+    - Relative to the physics the colour/physics ratio stays 0.1–0.2 at every time (the λ rule keeps it). Relative
+      to the fixed-weight cleanup it falls 0.49 → 0.08.
+  - The numbers close. The colour-directed motion is (the colour's share of the front's force, 0.1–0.2) × (the move
+    a window: about 0.5–0.9 pitches during the flow, 0.01 after arrival) × the windows. That gives about 1 pitch over
+    the ~10 flow windows and 0.03–0.08 pitches over the 25–40 later ones; measured: the gain made during the flow, and
+    0.002–0.09 pitches after.
+  - The limiter, named. The colour's push is an order of magnitude below every other force on the same material.
+    Its direction is lost in the step, so it moves the material only in proportion to the body's motion, which stops
+    at arrival. After arrival the λ rule keeps the render at half the physics' gradient norm, while the fixed-weight
+    cleanup's push-back along the needed direction outweighs it.
+  - The coordinator's hypothesis: the λ coupling half holds (against the cleanup, not against the physics); the stop
+    rule does not hold. The push-back that exists is the cleanup's, not the transport's or the proximity's.
+- **D160c, the colour with the render weight calibrated at the first window and held (pre-registered 2026-10-22 00:49
+  CDT server clock, before any D160c run; the coordinator's step 2 for "λ coupling is the limiter"; no code change:
+  `--lambda_ema 0` on repo_d160s (209ba6d).**
+  - The balancer then keeps its first window's value, λ = (1 − 0) λ + 0 · target. That is the path before D81, where
+    the rule's weight and its average "were held after the first window" (D81's entry). It is an existing option; no
+    new constant.
+  - `tmp/d160/d160c_chain.sh`; results `output/gpu/d160/` (runs `*_H{97,99}`, `read_colour_H.jsonl`, `gate_H/`,
+    `video/*_97_H/`).
+  *What it asks.* With λ held at its first-window value (0.31–0.35), the colour's push after arrival is about 100
+  times D160's: 10–20 times the physics and several times the cleanup at the front. Does the colour front then move
+  after arrival, with the twin and every other definition unchanged?
+  *Runs.*
+  - bunny40k_{half,band,ears,turn}_H{97,99} and dragon40k_band_H{97,99}: `--appearance SCENE --lambda_ema 0`. One card,
+    lock protocol (ten idle minutes).
+  - The twins are D160's P runs (λ = 0: the weight's rule does not enter, the same definition).
+  - The same readers as D160: the card readers, `d160_read.py` with timelines, pieces145, D155's gate reader, D157's
+    reader on the H ends, and `d160_gate.py` with arm H (which also lists D160's L for each row).
+  - Videos: seed 97, H | P | target paint.
+  *Criteria.* D160's C1–C4 unchanged, read on H against the same P and the tag's V references. Reported beside them:
+  - H against D160's L (does holding λ move the colour?);
+  - the timeline after arrival (does the colour still fall at the end?);
+  - λ constant in the records;
+  - windows and minutes against L and P.
+  *Predictions (inferred from step 1 and D81).*
+  - λ at its first value throughout; the render 0.8–0.95 of the merit after arrival (D81: 0.63–0.88 at 300k with λ
+    held).
+  - The colour keeps falling after arrival (the new signature). r: band 0.15–0.5, ears 0.1–0.4, turn 0.03–0.15,
+    dragon 0.1–0.4. C1 passes on at most band.
+  - The run may end earlier than L (D81: the render term's ±3–7 % window-to-window fluctuation made the merit noisy
+    and the held-λ arm stopped at about half its twin's windows).
+  - Geometry: the render's geometric push is also ×100 after arrival. The yardstick silhouette is at L's or better,
+    but C3 (at rest) and C4 (pieces) are at risk: a strong render share drove particles out early in D105 / D120; here
+    it acts after arrival, so less.
+  *Reading for the next step.*
+  - If the colour moves after arrival (H's late timeline falling, r well above L's), the coupling is confirmed as the
+    limiter. The definition question goes to the user: the render's weight for what the physics cannot see, since
+    the weight rule is frozen.
+  - If it still does not move with a dominant push, the step's reach after arrival is the limit; then D160b (D155's
+    moving target, a longer flow) is the measured next.
 
 - **D161, the render carves a relief that only its pictures carry: the 3D target a smooth mesh, the render's target
   pictures the same mesh with embossed letters (pre-registered 2026-10-21 22:51 CDT server clock, before any run of
