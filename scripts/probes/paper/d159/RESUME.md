@@ -7,8 +7,8 @@ field radius (amendment 2). Pre-registration and amendments 1-2: docs/experiment
 Regions (fixed before any run): output/gpu/d159/step0/regions_{bunny,dragon}_b5.4.npz (amendment 1).
 
 ## Running
-- Chain PID 2121612 (restarted 22:42 after amendment 3; earlier chains 650919, 2079254 stopped): `tmp/d159/d159_chain.sh "V R X G"`, log output/gpu/d159/status.txt.
-  - Card: lock gpu_locks/gpuN.lock with info "agent D159". It claims a card free for 900 s, never GPU 2.
+- Chain PID 2247716 (restarted 22:56 with a card free 600 s: D159 now has the queued agents priority; earlier chains 650919, 2079254, 2121612 stopped before any card): `tmp/d159/d159_chain.sh "V R X G"`, log output/gpu/d159/status.txt.
+  - Card: lock gpu_locks/gpuN.lock with info "agent D159". It claims a card free for 600 s (D159_IDLE), never GPU 2.
   - It releases the card between phases V+R / X / G.
   - V: the full suite on repo_d159 (gates/suite.log, suite.rc), the digest, det S1 vs rt1 S1 (SAME), det M1 mesh_shell.
   - R: 300k bunny/dragon M97 (--render_target mesh_shell, seed 97, --term_dump output/gpu/d159/terms/NAME), then P99 twins
@@ -57,7 +57,7 @@ Regions (fixed before any run): output/gpu/d159/step0/regions_{bunny,dragon}_b5.
   definition from the coordinator.
 
 ## Close-ups (added 22:50)
-- tmp/d159/d159_closeups.sh is running as PID 2144242. It waits until the main chain (PID 2121612) has exited, then
+- tmp/d159/d159_closeups.sh is running as PID 2247793. It waits until the main chain (PID 2247716) has exited, then
   claims ONE card by the same rule (d159_claim.sh).
 - It renders the tag L97 and D159 M97 at kept frames 20, 40, 80 and the last:
   - bunny ears (look -0.316,0.71,0.15; az 35 el 18; dist 0.35);
@@ -65,3 +65,27 @@ Regions (fixed before any run): output/gpu/d159/step0/regions_{bunny,dragon}_b5.
   - dragon head and horns (-0.059,0.688,0.255; az 35 el 18; dist 0.35);
   - dragon belly scutes (0.29,-0.299,0.29; az 125 el 5; dist 0.3).
 - Sheets: output/gpu/d159/closeups/{bunny_ears,bunny_wrinkles,dragon_head,dragon_scales}.jpg (d159_closeup_sheet.py).
+
+## State at 2026-10-22 01:00 CDT (first reading in docs, commit a1545ff0)
+- Done:
+  - the gates (V1 442 passed exit 0, V2, V3 SAME, V4);
+  - the runs bunny/dragon300k_M97 and P99;
+  - the early readings in read/: relief_tag_*, relief_early_*, course_tag_*, course_early_*, course_floor_*,
+    terms_early_*, window.jsonl.
+- Verdict so far: P1 FAILED on both meshes.
+  - The particles carry about 4/5 of the region relief anyway; the exterior (r = 3) hides it.
+  - After arrival the render is starved: lambda and the step fall 20-70x and the body moves 0.01 spacing per window.
+  - The 40k gallery is NOT run. drop_g.sh (PID in tmp/d159/drop_g.pid) stops the chain after X while it waits for G.
+- Running:
+  - chain 2247716 (T97 pair, then readcpu detached, then X renders);
+  - drop_g.sh;
+  - the close-up waiter 2247793 (starts when the chain has exited).
+- Next by hand:
+  1. Run d159_table.py (output/gpu/d159/table): table.txt, course.png, relief.png, holds.png.
+  2. Copy the figures, videos (output/gpu/d159/video/*.mp4) and close-up sheets (output/gpu/d159/closeups/*.jpg)
+     to the local output/results_2026-10-21/d158_render_detail/d159/.
+  3. Finish the README D159 section and the docs reading: P2-P4 from R3/R4, T97s R5 against M97s.
+  4. Delete the frames12 of P99/T97 after reading and log it.
+  5. Proposal to the user (via the coordinator): the render authority after arrival (the frozen lambda rule), together
+     with D159 pictures and exterior radius 2.5. D161bs proximity reach is not the main detail-band gradient at 300k
+     (R5: the near band is the largest detail-band term).
