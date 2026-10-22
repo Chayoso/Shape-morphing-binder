@@ -7009,6 +7009,93 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       - The risk to state: the drag also slows the morph's own late flow. If the end motion stays above the level
         with the rocking gone, the remainder is that flow, and it is read by its kind (rigid or deformation) frame
         by frame before any next definition.
+  - **The loads' own effect, the 40k read: GATE FAIL (read 2026-10-22 01:54–02:20 CDT; chain 23:24–01:54 on GPU 2:
+    claim 23:50, suite to 23:58, runs 23:59–01:00, GPU readings to 01:49; `load/read_load.md`, the forensic readers'
+    output `load/assim_bands.txt` and `load/rock_decay.txt` (`tmp/b9b/assim_bands.py`, `rock.py`, `decay.py`); local
+    `output/results_2026-10-21/b9b_gravity_world/load_40k/`).**
+    - *Proofs.* The full suite passed (458, 2 skipped; exit 0; the pinned references included). F1 passes. Window 1
+      (from rest): the continuations with and without loads are 3.6e-7 apart (the frozen end's replay 7.2e-7), and Fp
+      is 4.95e-6 from the frozen rule's (its replay 4.89e-6; the step itself 3.7e-3). Window 2 (moving start; the
+      continuation moved F by 9.5e-3): 8.3e-7 (replay 8.3e-7), Fp 5.25e-6 (replay 5.0e-6).
+    - *By the letter it fails on:*
+      - End motion: the bunny's median 0.0253 against the no-gravity level 0.0021; the dragon's 0.0136 against
+        0.0042. V1 rest holds on 0 of 8 runs.
+      - F2: apart (below).
+      - P2: the bunny's thin on L97 / L99 / L101 (5.31 / 5.65 / 6.41 % against option 1's worst, 4.73 %); bunny L99's
+        yardstick (44.2 / 17.9 against 36.5 / 16.1e-4); dragon L99's IoU (0.9748 against 0.9752) and yardstick
+        silhouette (21.6 against 20.0e-4).
+      - The thin bar lies inside the spread of the three identical no-gravity runs (4.53–5.94 %). The end motion and
+        rest misses are 3–12× beyond any run-to-run spread.
+    - *What holds:* every window committed, no serious piece at the end, height within 0.23 pitches, shape tilt ≤ 0.63°
+      (the definition) and ≤ 0.93° ((1) alone). Minutes: 2.2–2.3 (bunny) and 3.3–3.7 (dragon), +10–15 % for the two
+      rollouts a window. The clean no-gravity level (frame fixed, no floor) is 0.0016–0.0023 (bunny) and 0.0042
+      (dragon), below the share gate's standing g-0 runs (0.0095–0.0114).
+    - *Which part does what* (the render arms' median end motion; the material frame's tilt at the end):
+      - option 1: bunny 0.0149, 4.1–12.1°; dragon 0.0184, 14.6–20.7°.
+      - (1) alone: bunny 0.0222, 4.9–12.5°; dragon 0.0169, 14.4–19.4°.
+      - (1)+(2): bunny 0.0253, 3.8–12.1°; dragon 0.0136, 7.2–10.5°.
+      - The share (for reference): bunny 0.0077; dragon 0.0357 (its rocking).
+      - Every (1) and (1)+(2) run turns one way over the last 4 s: no reversals, and the magnitude of the mean angular
+        velocity is 78–100 % of its mean magnitude (97–100 % on all but bunny A99; the share's dragon: 4–28 %). So the
+        share's rocking is absent, and option 1's creep is back. The material turn rate over the last 4 s is +0.68 to
+        +1.59°/s on the bunny and +0.47 to +0.51°/s on the dragon ((1)+(2)); (1) alone −0.16 to +0.76 and +0.67 to
+        +1.31; option 1's was +0.39 to +0.77 and +0.66 to +0.73.
+      - (1) changes nothing that the runs can tell from option 1. To first order it is option 1's load-free reading
+        written frozen-exactly: F_free(ctrl) ≈ F_ctrl − (F_zl − F_zf).
+      - (2) halves the dragon's material turn (end tilt 7–10.5° against 14–19°) and lowers its end motion by 20 % and
+        its early dip (−1.7 to −2.0 against −2.3 pitches). On the bunny the end motion is 14 % higher (0.0253 against
+        0.0222). The drag damps the rigid part, but it cannot stop a motion that the controls drive every window.
+    - *The measured root cause* (`assim_bands.txt`).
+      - In every band after 1 s, on both meshes and every seed, (1) removes only 15–29 % of the frozen read, and the
+        read stays at 0.029–0.046 (p99) to the end.
+      - Without gravity (ZL) the read falls to 0.0024–0.0030 after 4 s. Under gravity the assimilation therefore still
+        reads about 15× the unloaded level, and the one-window comparison does not see most of it.
+      - The share removed 90–98 % in the same bands. Its frozen read grew to 0.09–0.11, because it kept the sag
+        elastic.
+      - Why: both continuations start from the window's start state, which already carries the sag stored by the
+        earlier windows. In one window the unloaded continuation recovers only part of that stored strain. A window is
+        1/6 s and the elastic period 1.19 s at 40k, so undamped it recovers 1 − cos(2π · 0.167 / 1.19) ≈ 0.36 of it,
+        and less with damping. So F_zl F_zf⁻¹ is the loads' increment over the window, not their strain.
+      - The rest, at least 64 %, is read, and half of it becomes rest shape each window. The body sinks and the
+        controls rebuild it: option 1's creep.
+      - So (1) is frozen-exact but blind to the stored load strain. The share saw that strain, but it also removed the
+        unloaded body's own stored strain. What is needed is the loads' whole static strain on the current body.
+    - *F2, the run level.* At the window level the definition reads the unloaded body as the frozen rule does, to
+      rounding (F1). But the run's frames end 0.329–0.335 pitches from the current rule's, against 0.263–0.275 between
+      the current rule's own runs: apart by the letter.
+      - The one source in the definition: F_zf F_zl⁻¹ is the identity only to the rollouts' rounding (3.6e-7–8.3e-7 a
+        window, the replay's own size). That is a second rounding source each window beside the atomics, and the
+        chaotic run grows it.
+      - Without loads the exact value is the identity, and computing it only adds rounding. For the frozen path to
+        stay bitwise, the next definition takes the identity where no load acts.
+    - *The render's influence.*
+      - The weight: g_share 0.333 in every window, λ median 0.0068 (bunny) and 0.0071 (dragon).
+      - Against the twin at seed 97, the arm ends its silhouette term at ×0.42 (bunny, 1.12 against 2.68e-3) and ×0.33
+        (dragon, 0.69 against 2.09e-3). Silhouette IoU is +0.0032 / +0.0027; the yardstick silhouette is 3.64 against
+        4.67e-3 and 1.97 against 3.35e-3; shading is 1.55 against 1.78e-3 and 1.36 against 1.74e-3.
+      - The path: the render's gradient reaches dF_c and the layer's u, and through them the end shape.
+      - What it does not change: the creep and the rest. The twins creep alike (end motion 0.0183 / 0.0143 against
+        the arms' 0.0253 / 0.0136; V1 no on both), and the assimilation's read is the same (twin p99 0.0337 / 0.0351).
+        The assimilation's reading is a path the render does not enter.
+    - *The next definition (a proposal; no card run without the coordinator).* Remove the loads' static strain, not
+      their one-window increment.
+      - L∞ = F_l∞ F_f∞⁻¹, from the zero-control continuations with and without the loads run until they settle (F
+        changing by less than the rollouts' rounding over a window). The damping is the scene's drag; the settled state
+        does not depend on it.
+      - The reading is F_f∞ F_l∞⁻¹ F_ctrl, and L∞ is taken as the identity where no load acts (no gravity, no floor).
+      - This is the sag-free rest-shape idea: the stress that carries the weight stays elastic, and only what the
+        controls add becomes rest shape. References to read before implementing (the standing rule): Twigg &
+        Kačić-Alesić 2011 (sag-free simulation), Hsu et al. 2023 (sag-free initialization for hair), Chen et al. 2014
+        (inverse elastic shape design).
+      - Step 1, measure (one card, about 20 min at 40k). Dump bunny L97's committed windows at 4–6 s (`--dump`). Per
+        window, compute the one-window L and the settled L, the read with each, and the settle time, against the
+        no-gravity read. Predicted: the settled L removes at least 80 % (towards the share's 90–98 %); settling takes
+        3–5 s of simulation, about 20–30 windows of steps.
+      - Step 2, cost. Carry the settled pair across windows, one window of each continuation per commit, re-based on
+        the body's rest shape after each assimilation, so the cost stays at two rollouts a window. Step 1 checks this
+        carried L against the freshly settled one on the dumped windows.
+      - Gate it as this one, with (2) kept: once the stored sag stays elastic, the share's rocking can return, and the
+        drag on m v is the only damping of its rigid part.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
