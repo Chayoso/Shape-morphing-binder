@@ -18807,6 +18807,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *300k (the pre-registered choice: H carves the most, P2 holds).* T97 ran 14:35–15:01 (23.4 min; sil_iou 0.9919,
   Chamfer 0.0546), H97 from 15:02, then R97, all on gpu0; the video H over T. H's costs at 40k (rest, shape, the
   unfinished arrival) are expected at 300k and are reported with it.
+  *Amendment 2 (15:25 CDT server clock, before any S run; the 300k H97 has run, 15:02–15:09, unread).* Arm S added:
+  D162b's `--render_weight_ref shape` (λ_t = λ_0 · max(0, 1 − b_floor / b_t), b the render term of eight uniform
+  resamples of the body's solid, which arrangement cannot lower; D162's pre-registered option, `wip/d162` 2200b08 /
+  56ed3c8, gated by D162b's chain). It is the one pre-registered definition that keeps the render's weight while the
+  letters are not in the body's shape and releases it once they are, the pair H (carves, never settles) and R / F (settle,
+  never carve) leave open. Runs: `plq40k_S_97` (the 40k scene as above) on a byte copy of repo_d162bs once D162b's gates
+  pass (`output/gpu/d162b/gates/GO`), on the card D163 holds; read against T97 / T99 with the other arms' rules. At 300k
+  (`plq300k_S_97`) if S carves at 40k (share ≥ 0.5 of the ceiling, with P2); its video then beside H's. Prediction
+  (D162b's): λ ≈ 0.1–0.2 λ_0 at arrival, a carve between F's and H's (0.3–0.6 of the ceiling at 40k), P4 holding if the
+  shape excess reaches zero before the stop rule.
 
 - **D164, the commit check's replay noise measured on the window's own replays (the user's decision of 2026-10-22, "fix
   it", relayed by the coordinator after D162's amendment 3; a change of the frozen pipeline, gated and measured; no tag
