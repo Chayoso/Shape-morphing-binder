@@ -7146,6 +7146,60 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       identity exactly where no load acts (no gravity and no floor: L is not computed), so F2 can pass.
     - *Cards:* one, the lowest priority. GPU 2 by the 10-minute idle rule; cards 3, 1 and 0 only while none of
       D159 / D160(c) / D161 / D162 waits (`claim.sh`, `YIELD_RENDER`). No suite run: no library code changed.
+  - **Step 1, read: the chained load effect removes at most about half, and the loaded continuation does not settle
+    (read 2026-10-22 03:00–03:05 CDT).**
+    - *Runs.* The first attempt (claim 02:43) stopped at the first measured window: the probe recursed, because the
+      measurement called the runner's wrapped name. It was fixed (41766c6); this changes no measurement. The second run
+      went 02:56–03:00 on GPU 2. Output: `settle/settle.json`, `settle/settle_read.txt`; readers `settle_read.py`,
+      `zl_levels.py`.
+    - *Checks.*
+      - The chains' first window equals the definition's own continuations to 0.8–1.3e-6, the replay's rounding.
+      - The re-run reproduces the gate's L97 at 4–6 s: read p99 0.0300 against 0.0345, frozen read 0.0386 against
+        0.0426.
+    - *The one-window read* removes 22 % of the frozen read's p99 (18–25 % over the 12 windows), as predicted.
+    - *The chained read, by chain length.* Medians over the 12 windows: p99 removed / L's p99 / the loaded
+      continuation's RMS speed.
+      - 1 window: 22 % / 0.012 / 0.068 wu/s.
+      - 4 windows: 41 % / 0.020 / 0.15.
+      - 8 windows: 51 % / 0.027 / 0.17.
+      - 12 windows: 53 % / 0.031 / 0.13.
+      - 16 windows: 52 % / 0.032 / 0.10.
+      - 24 windows: 52 % / 0.034 / 0.074.
+      - 48 windows (8 s): 44 % / 0.037 / 0.061.
+      - The free continuation slows to 0.006 wu/s by 8 s, and its F changes by 1.8e-4 over its last window. The loaded
+        one's F still changes by 2.2e-3.
+    - *Against the predictions.*
+      - The chained read removes at most 53 % (at 2–2.7 s), not ≥ 80 %.
+      - The loaded continuation has not settled in 8 s. Its elastic stretch still grows (p99 0.022 → 0.037), and so
+        does L, by 0.001 every 8 windows.
+      - Longer chains read worse again (44 % at 8 s): L outgrows the load strain that the committed state carries.
+      - Everywhere the read stays above the no-gravity level. At 12 windows p50 / p90 / p99 are 0.0025 / 0.0077 /
+        0.0183, against ZL97's 0.0007 / 0.0015 / 0.0029 at 4–6 s and the frozen read's 0.0058 / 0.0161 / 0.0386.
+      - The carried pair, step 2's candidate, drifts from the freshly settled one. L's RMS difference grows from 0.003
+        to 0.025 over 11 windows, and its read from 0.020 to 0.049, above the frozen read (0.043) by window 36. As
+        designed, it fails.
+    - *A likely reason, read from the code (not yet measured): the frozen integrator's F smoothing.*
+      - `MPMParams.smoothing` is 0.955 in `kernels.k_update`, so the stored F keeps 4.5 % of each step's deformation
+        increment. D131 restores its volume, not its shape.
+      - The stress therefore sees about 1/22 of the geometric shear. Under its weight the body has to shear its geometry
+        about 22× the elastic strain before the stress carries the weight. This matches the sag of about 20× the elastic
+        G strain that B9b measured earlier.
+      - The body approaches that state by a slow creep. Step 1b measures this.
+  - **Step 1b, a diagnostic of step 1 (pre-registered 2026-10-22 03:05 CDT server clock, before its run; code
+    `wip/b9b` 3f617ca, `settle_diag.py`, `chaindiag.sh`, server copy `repo_b9t`; `output/gpu/b9b/settle_diag/`).**
+    - *What it runs.* The same run as step 1. At windows 25, 30 and 35 the two continuations are chained for 48 windows,
+      twice: with the integrator as it is, and with its F smoothing off in the continuations only (`smoothing` 0).
+      This is a diagnostic: nothing here proposes to change the frozen integrator.
+    - *What it records,* at each chain length and for each continuation: the motion by kind (|v_c|, |ω|R and the
+      deformation's RMS speed), the centroid's drop, the elastic stretch, the F change, and the read with each L.
+    - *Predicted, if the smoothing hypothesis holds.*
+      - As it is, the loaded continuation's motion is mostly deformation, not a rigid topple or slide, and its
+        centroid keeps dropping.
+      - With the smoothing off, it settles within about 2–3 s (the elastic period at 40k is 1.19 s, the drag's e-fold
+        1.1 s), with a far smaller drop, and its L converges.
+      - If the loaded continuation's motion is instead rigid (a topple), the smoothing is not the reason, and that is
+        reported.
+    - *Cards* as in step 1. The step 1 and step 1b numbers go to the coordinator in Korean before any step 2.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
