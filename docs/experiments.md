@@ -18631,6 +18631,76 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - Run plan: card α runs the gates, list A1 (the 24 scene runs) and X, then A2 (26 gallery runs); card β runs
     list B after the gate verdict. The scene read starts after A1. Code wip/d162 539b52a.
 
+- **D163, the words only the pictures carry: "SIGGRAPH" and "VANDERBILT" on a plaque, in the render's target pictures
+  only (a showcase of D161's relief; pre-registered 2026-10-22 14:10 CDT server clock, before any D163 run; the user,
+  2026-10-22: "PM글자가 쓰인 거 morphing 된 거 봐서 괜찮다 생각하는데, VANDERBILT나 SIGGRAPH 글자 만들어서 해 보는 것도
+  괜찮을듯 해. 그러면 확실히 그 굴곡이나 주름을 이미지로부터 랜더가 가지고 와서 보일 수 있으니까. 일단 빠르게 랜더가
+  영향을 주게끔 만들어야 하니까 가능한 모든 방법을 사용 해 보자."; code: branch `wip/d163` = `wip/d162` 71b27ed with
+  no pipeline change, the scripts in `scripts/probes/paper/d163/`; server `repo_d163` / `repo_d163s` (byte copies of
+  `repo_d162` / `repo_d162s`, 539b52a, kept frames), `tmp/d163/`, `output/gpu/d163/`; local
+  `output/results_2026-10-22/d163_text_relief/` with a Korean README).**
+  *Why.* D161 showed that the render can carve a relief its pictures alone carry (the 3D target smooth) when its weight
+  is held (D161c: 47–58 % of the ceiling, the letters readable), and that the rule's weight, tied to the physics residual,
+  keeps a tenth. Here the relief is a pair of words the user asked for, at the delivery resolution, so that the render's
+  share of the result is legible in a picture: "dF_c + layer u" (the λ = 0 twin) must end a smooth plaque; "dF_c + layer
+  u + render loss (full)" carries the words in its own particles. Every arm is an existing option (no code, no new
+  constant); the user sees what each one does.
+  *The scene (`d163_mesh.py`; looked at before any run: `output/gpu/d163/assets/truth_R300.png`, the true right-handed
+  view of each face, and `look_R300_{front,back}_hflip.png`, the raking light; both words read correctly).*
+  - Source: the sphere (`assets/isosphere.obj`). 3D target: the plaque `d163plaque.obj`, the points within r of a flat
+    rectangle L0 × W0 (axis z, flat faces at ±r, a round rim), marching cubes of the exact distance (watertight),
+    designed in pitches at 300k: L0 = 179.5, W0 = 32.6 (the longer word at em 24 with 0.3 em on every side), r = 16.2
+    from the volume (Steiner's formula, V = 1.27 N a³, D161's coin's measured fill). In the run's frame at 300k:
+    a = 0.0477 wu, the sample's box 217 × 67 × 35 a; at 40k a = 0.0942 wu, 109 × 34 × 17 a.
+  - Render target: the same plaque with "SIGGRAPH" on +z and "VANDERBILT" on −z (`d163R300plaque.obj`,
+    `d163R40plaque.obj`; the plaque map of `d163_pattern.py`: each face's word reads correctly from outside in the true
+    geometry, whereas D161's coin map was laid for a mirrored camera). DejaVu Sans Bold, em 24 a300 (stem 4.5 a300 =
+    2.3 a40, the strokes' wavelength ≈ 9 a300 ≈ 2.8 loss cells, D161's regime), embossed δ = 1.5 a300 (0.76 a40) along
+    the normals, edges a Gaussian of 1 a300, volume-neutral (h = δ (P − P̄); volume +0.003 %); the same world sizes at
+    40k, so the 40k check runs the deliverable's lettering on a coarser body.
+  - The in-loop pictures (the frozen rule: 96 px × (N / 40k)^(1/3), 188 px at 300k; extent 136 a300 / 68 a40): a pixel
+    is 1.45 a300 (1.42 a40), the stem 3.1 px (D161's coin: 4.8 px), the depth 1.0 px. Each face is seen by 9 of the 18
+    views, obliquely (34–81°) by 8, as the coin's.
+  *Arms (existing options only; seed 97, the twin also 99).*
+  - T "dF_c + layer u": `--render_weight_scale 0`.
+  - R "dF_c + layer u + render loss (full)" at the frozen rule (the tag's defaults).
+  - H the same with the render weight held at its first calibration, `--lambda_ema 0` (D161c).
+  - H2 H with the pictures at twice the rule's resolution from the first window, `--render_res_hi` 192 at 40k / 376 at
+    300k (D83's 192 px from the start at 40k): the stem in ≈ 6 px. The lattice of the exterior's discs follows the pixel
+    (half a pixel), so the render costs more; recorded.
+  - F `--render_weight_ref floor` and FC `--render_weight_ref floor --placement_at_cell` with its twin TC
+    (`--render_weight_scale 0 --placement_at_cell`): D162's pre-registered arms. D162's 40k coin read (13:50, before this
+    entry): F carved 0.4–0.7 a on the way (1–3 s) and ended at 0.06–0.12 a (share 0.05–0.10, its λ zero in the last ten
+    windows: the body beat the floor without the relief); FC ended at 0. They run at 40k so the user sees them, at 300k
+    only if they pass P1 at 40k.
+  - 40k (`d163_runs40.txt`): T97, T99, R97, H97, H2_97, F97, FC97, TC97. 300k: T97, R97 and the best 40k arm (P1 first,
+    then P3–P5), T99 if a card is free (P2's spread); at most two cards, the lock protocol.
+  *Readings (`d163_read.py`: D161's reader with the plaque map, any arm against the twin of its seed; CPU).* (1) The
+  relief in the run's own particles (the pipeline's outer layer; offset from the smooth plaque at its foot over the
+  letters' region; high-passed at s_bg = em / 2; A in pitches, corr), the ceiling the relief mesh's own samples at N
+  (seed + 1, + 2), the floor the smooth target's sample; per face as well; on every kept frame, and at the end on the
+  display surface (zbs). (2) Held-out shading (D157's studio look, 46 held-out views, 384 px): the mean squared error in
+  the letters' pixels against the relief mesh. (3) Shape against the smooth plaque: held-out 1 − IoU, the display
+  surface's Chamfer-L1 and F at 0.5 a, the run's sil_iou and thin_uncovered. (4) Rest: the last committed window's
+  v_mean, kin. (5) Pieces of ≥ 10 particles outside the largest component. (6) Render → control → outcome: per window
+  λ, g_share, |g_phys|, λ |g_render|, the step, the stop (`d161_windows.py`); full vs twin per kept frame (median
+  particle distance in the region / elsewhere, the layers' surface distance) against the twins' seed floor.
+  *Criteria (per arm, at seed 97 against T97).* P1 A ≥ 0.5 × the ceiling's A and corr ≥ 0.5 × the ceiling's corr, the
+  twin's A ≤ 0.1 × and |corr| ≤ 0.2. P2 the letters' held-out shading error: full below T by more than |T97 − T99| (at
+  300k without T99: by more than the 40k spread relative to T97's error). P3 shape: full not worse than T by more than
+  |T97 − T99| on held-out 1 − IoU, Chamfer-L1, sil_iou, thin_uncovered. P4 the end's v_mean ≤ 2 × T's. P5 no more pieces of
+  ≥ 10 particles than T. An arm PASSES with P1–P5; it CARVES with P1 (with P2). The video takes the arm that carves the
+  most (A share, then P2) among those with P5; if that arm misses P3 or P4, the video still uses it and its costs are
+  reported beside it, with R's video as the frozen recipe's answer.
+  *Predictions (D161, D161c, D162).* At 40k the ceiling is weak (stem 2.3 a40, depth 0.76 a40: ceiling corr 0.3–0.45).
+  R keeps about a tenth (P1 fails); H 0.4–0.6 of the ceiling at about the ceiling's corr, failing P3 / P4 (v_mean 3–11×,
+  Chamfer +0.04–0.13 a, as D161c); H2 at least H's share (the stem in 6 px in place of 3); F about R at the end (carve on
+  the way, lost); FC and TC near 0. At 300k H / H2 carve 0.5–0.7 of the ceiling, the words legible on the display
+  surface under a raking light, the body not at rest by P4's letter.
+  *Deliverables.* 1080p and 4K studio-look videos (raking key light, the letters reading correctly: D161's camera is a
+  mirror, flipped back at the image), the full arm above its twin over the morph, then the end turned to show both
+  faces; close-ups of the words at the end; a contact sheet; `output/results_2026-10-22/d163_text_relief/`.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
