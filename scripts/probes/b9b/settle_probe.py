@@ -40,6 +40,7 @@ from physmorph.pipeline.scene import window as WN  # noqa: E402
 from physmorph.pipeline.window.layer import layer_relax_data, layer_spacing  # noqa: E402
 
 KS = (1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 40, 48)
+LOAD_FREE_F = RN.load_free_F            # the definition's reading, kept before main() wraps the runner's name
 STATE = {"win": None, "a": 0, "rows": [], "carried": None, "t0": 4.0, "t1": 6.0, "K": 48, "out": None}
 
 
@@ -98,7 +99,7 @@ def measure(win, F_ctrl, F_zl, F_zf):
     prm_l = win.prm
     prm_f = dataclasses.replace(win.prm, f_ext=(0.0, 0.0, 0.0), floor_y=-1.0e9)
     row = {"window": a + 1, "t_start": t_start, "frozen": RN.stretch_record(Fc, Fp),
-           "one": RN.stretch_record(RN.load_free_F(Fc, F_zl, F_zf), Fp), "chain": []}
+           "one": RN.stretch_record(LOAD_FREE_F(Fc, F_zl, F_zf), Fp), "chain": []}
     sl, sf = state_of(spec), state_of(spec)
     spl, spf = spec, dataclasses.replace(spec, prm=prm_f)
     Fl_prev, Ff_prev = sl["F"].reshape(-1, 3, 3), sf["F"].reshape(-1, 3, 3)
@@ -112,7 +113,7 @@ def measure(win, F_ctrl, F_zl, F_zf):
         if k in KS or k == STATE["K"]:
             L = sl["F"] @ torch.linalg.inv(sf["F"])
             row["chain"].append({
-                "k": k, "read": RN.stretch_record(RN.load_free_F(Fc, sl["F"], sf["F"]), Fp),
+                "k": k, "read": RN.stretch_record(LOAD_FREE_F(Fc, sl["F"], sf["F"]), Fp),
                 "L": RN.stretch_record(L, eye_like(L)),
                 "loaded_strain": RN.stretch_record(sl["F"], Fp), "free_strain": RN.stretch_record(sf["F"], Fp),
                 "dF_loaded": float((sl["F"] - Fl_prev).abs().max()), "dF_free": float((sf["F"] - Ff_prev).abs().max()),
@@ -131,7 +132,7 @@ def measure(win, F_ctrl, F_zl, F_zf):
         STATE["carried"] = {"l": cl, "f": cf}
         Lc = cl["F"] @ torch.linalg.inv(cf["F"])
         Ls = settled["Fl"] @ torch.linalg.inv(settled["Ff"])
-        row["carried"] = {"read": RN.stretch_record(RN.load_free_F(Fc, cl["F"], cf["F"]), Fp),
+        row["carried"] = {"read": RN.stretch_record(LOAD_FREE_F(Fc, cl["F"], cf["F"]), Fp),
                           "L_vs_settled_max": float((Lc - Ls).abs().max()),
                           "L_vs_settled_rms": float((Lc - Ls).square().sum((1, 2)).mean().sqrt())}
     row["seconds"] = time.time() - t_clock
