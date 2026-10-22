@@ -243,7 +243,7 @@ class Objective:
         """The cleanup (_cleanup); with D160d's colour term beside it when the appearance's weight is held."""
         L = self._cleanup(xT, common_geometry)
         e = self.tgt.ext
-        if self.cfg.appearance_weight == "held" and e is not None and e.shade_rgb is not None:
+        if getattr(self.cfg, "appearance_weight", "rule") == "held" and e is not None and e.shade_rgb is not None:
             return L + self.colour_term(xT, common_geometry)
         return L
 

@@ -291,7 +291,7 @@ class WindowOptimizer:
         lam = bal.update(_norm(gp), _norm(gr))
         self.lam_r = lam * float(self.cfg.render_weight_scale)
         self.lam_capped = int(bool(bal.capped))
-        if self.cfg.appearance_weight == "held" and self.tgt.lam_col is None:
+        if getattr(self.cfg, "appearance_weight", "rule") == "held" and self.tgt.lam_col is None:
             # D160d: the colour term's weight is the render weight's first calibrated value, held from here on
             self.tgt.lam_col = float(self.lam_r)
             self.log(f"[D160d] the colour term's weight held at the first window's render weight {self.lam_r:.4g}")

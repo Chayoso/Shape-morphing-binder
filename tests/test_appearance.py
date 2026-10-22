@@ -217,7 +217,8 @@ def test_the_physics_never_reads_an_albedo():
     for f in (O.phys_core, O.transport, O.stability, O._cleanup):
         assert "albedo" not in inspect.getsource(f), f.__name__
     assert "albedo" not in inspect.getsource(O.losses).replace("render_terms", "")
-    assert 'appearance_weight == "held"' in inspect.getsource(O.cleanup)
+    src_c = inspect.getsource(O.cleanup)
+    assert '"appearance_weight"' in src_c and '== "held"' in src_c
     import physmorph.losses.grid_ot as go
     import physmorph.losses.support as su
     import physmorph.losses.volumetric as vo
