@@ -11772,7 +11772,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
          = 1 was below 1e-3 pixel, and those levels ended without a trial.
        - At 12 pixels the first accepted step moved 0.002 pixel (8.127 → 8.120e-3, 11 centres).
        - Each trial is now also logged (s, its largest move, the centres it moves, the two means).
-     - **Amendment 3, 02:22 CDT, after a false start.** The three runs started at 01:56. They were stopped at 02:19
+     - **Amendment 3, 02:20 CDT, after a false start.** The three runs started at 01:56. They were stopped at 02:19
        when their trial lines showed a fault in the restriction rule. No step or score was read beyond those lines,
        and the runs were restarted from zero with the same seeds.
        - The sampler does not keep only the voxels whose centre is inside. Its fill is trimesh's surface voxels
