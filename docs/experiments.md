@@ -17164,6 +17164,39 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   D161b (the proximity's free radius at the berth) is queued for the next free card (`d161_chain.sh B`, waiting
   since 23:19; gates first). Its curve-bound gain is small; the curve's next step is the placement terms at the
   transport's resolution (above).
+  **D161b result (gates 23:58–00:10 CDT on gpu1: the two tests 9 passed, rt1's S1 SAME at the defaults, the flag's
+  four windows exit 0; runs 00:10–00:29; read 00:29–00:54; `after_b/`, local `d161_relief/d161b/`): FAIL by P1, and
+  below the plain arm.** Carved A: coin 0.028 / 0.058 a (share 0.02 / 0.05; the plain arm 0.10), bunny 0.053 / 0.094
+  (0.06 / 0.11; plain 0.12–0.16); twins −0.03…+0.06. The bunny's carve on arrival 0.23–0.26 at 1.4 s (plain 0.33–0.47),
+  back to 0.06–0.11 at the end. P2 on 1 of 4 scene-seeds; thin_uncovered on the coin 0.10–0.12 against 0.07–0.10 (the
+  recorded risk, small); P4, P5 hold. The prediction (a small gain, bounded by the curve's "without the proximity")
+  was wrong in sign; the per-window records below say why.
+  *Amendment 2 (00:56 CDT, before any D161c run; the coordinator, relaying D160's finding: after arrival λ falls with the physics gradient and
+  the colour freezes; read per window λ, λ |g_render| against |g_phys|, the step taken, the rejections and the stop).*
+  `d161_windows.py` on the 16 runs (`after/windows*.md`). After arrival (the first committed window whose transport
+  energy is within twice its end value, 1.8–3.8 s): λ = 0.6–2.3e-3, 110–380 times below window 0 (0.27–0.35), falling
+  with |g_phys| (110–160 times in the plain arm, 200–380 in D161b); λ |g_render| = |g_phys| / 2 in every window
+  (g_share 1/3, the rule). The step is not what is short: Adam's accepted length is 0.03–0.04 a an iteration, eight
+  accepted iterations a window and none rejected after arrival in any run, so u could write about 0.25 a a window; the
+  window moves the body 0.005–0.009 a. The runs stop by three rejected windows at the end (21–47 committed windows; the
+  full arms 4–14 more than their twins). The curve, read as a function of λ (the minimiser of physics + λ render from
+  the stored values; coin 40k, w = 8 a, dt = 1): 0.07 kept at λ = 1e-3, 0.13 at 2.45e-3, 0.41 at 1e-2, 0.64 at 3e-2, 0.86
+  at 0.1, 0.97 at 0.3 (300k 0.13 / 0.26 / 0.54 / 0.78 / 0.92 / 0.99; the bunny alike, w = 4–16 a). The runs' λ is
+  0.27–0.35 in window 0, 0.006–0.024 at 1 s, 1–2e-3 after arrival: the bunny's carve on arrival (0.33–0.47 at 1–1.5 s,
+  λ 0.016–0.04) matches the curve's 0.35–0.63 there, and its loss follows λ down. So "the proximity holds it" and "the
+  render is starved" are one ratio: the physics' hold against relief (the curvature of its terms, which arrival does not
+  change) against a render weight that the rule ties to the physics' residual gradient, which arrival removes. D161b
+  weakened one hold and the rule lowered λ with it (λ follows |g_phys|): it carved less. The blocking definition is the
+  render weight's reference, the physics residual; the placement terms and the transport are what it is weighed against.
+  *D161c (pre-registered here, before any of its runs; an existing A/B switch, no code).* The render weight held at its
+  first calibration: `--lambda_ema 0` (the balancer keeps the source window's λ, 0.27–0.35, as the code did before D81
+  / D120), the four full runs of `d161_runs.txt` (`NAME_lh`, `repo_d161s`; λ = 0 has no weight to hold, so the twins are the plain arm's), read by `d161_read.py` and `d161_windows.py`.
+  Prediction from the curve at λ ≈ 0.3: the coin keeps 0.9–1.0 of the relief in the band w ≤ 16 a, the bunny 0.7–1.0,
+  in the particles, so P1 passes on the coin and probably on the bunny. Risks, read in P3–P5 and the records: D73 / D81 (with λ held the render took nine tenths of the step and two
+  thirds of the merit late in the run), D157's outward bias of the 2:1 silhouette (the rims lean out), the run not
+  stopping (patience against a render-dominated merit), floaters (D108: the render's push on protruding particles). A
+  pass here says the physics lets the relief through when the render keeps its weight: the next definition is then the
+  render weight's reference (the physics' stiffness or its residual at the source), the user's call.
 
 ## To run next, in order
 
