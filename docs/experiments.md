@@ -11136,6 +11136,70 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - Its reach is checked first, on D156's carve path, since the method moves only the surface: does a smooth
     displacement descend from the hull to the mesh's loss level? On a card it takes minutes per mesh (the loss
     with autograd through the exterior pictures).
+- **D156d, multiview shape from shading of the target: the visual hull's surface carved as a whole by the render's
+  own operator (pre-registered 2026-10-21 22:54 CDT server clock, before any run of it; the coordinator's go after
+  D156c; scripts `scripts/probes/paper/d156/d156_sfs.py`, `d156d_chain.sh`; server `output/gpu/d156d/`).**
+  *Why.* D156, D156b and D156c show where the hidden concavities live.
+  - They are in the pictures: the hull scores 3.4–11 × the floor, and freshly sampled smooth solids fall 1.5–5 × in
+    loss along a carve to the mesh.
+  - But every local decision is uphill or at the noise level (a particle, a point test, a voxel).
+  - The missing degree of freedom is a coordinated, smooth change of the whole surface. That is what multiview
+    shape from shading does from a visual hull (Hernández, Vogiatzis and Cipolla, "Multiview Photometric Stereo",
+    PAMI 2008), here with our operator in place of theirs.
+  *The method (no new constant).*
+  - Frame, photographs, operator and loss are D156c's: the true mesh's 40k frame (seed 97); the mean pictures of its
+    eight samples at 96 px; the exterior operator (pitch, lattice, h of the seed-98 sample); the loss sil + w_pbr pbr
+    of d_exterior (w_hole 2, w_spray 1, ambient 0.25).
+  - The surface: the exterior discs of the visual hull's carried sample (D156c's, at the mesh sample's density),
+    found once: positions p0, unit normals n0.
+  - The unknown: an inward displacement d ≥ 0 per disc. The displaced surface has discs p = p0 − d n0 and normals
+    n = normalize(n0 + ∇_s d).
+    - ∇_s d is the least-squares tangential gradient of d over each disc's lattice neighbours (the 26 cells around
+      its cell), which is linear in d.
+    - The pictures of (p, n) are drawn by exterior_targets and scored by d_exterior, differentiable in d.
+  - The descent: the gradient ∂L/∂d is smoothed in the Sobolev (H¹) metric on the disc graph, (I + ℓ² L) g_S = g.
+    - L is the graph Laplacian scaled as a surface Laplacian: (L f)_i = (4 / Σ_j |Δp_ij|²) Σ_j (f_i − f_j) over the
+      lattice neighbours.
+    - ℓ is one picture pixel (2 box / 96), the finest scale the pictures resolve.
+    - The system is solved by conjugate gradients.
+    - This is Neuberger's Sobolev gradient (Sundaramoorthi, Yezzi and Mennucci, "Sobolev Active Contours", IJCV
+      2007, for shape optimisation).
+  - The step: d ← max(0, d − α g_S). The first trial moves the largest disc by one picture pixel. A trial is
+    accepted iff the loss falls; it is halved on a refusal, and the next step starts at twice the last accepted.
+  - The stop: when the loss stops falling, i.e. no trial down to a largest move of 1e-3 pixel lowers it (a
+    numerical floor, not a modelling constant). The run budget is 500 accepted steps; reaching it is reported.
+  - The solid: the visual hull minus the displaced layer, {x : depth below the hull surface > d of the nearest disc}.
+    It is meshed by marching cubes on a half-pitch grid and written in the mesh's oriented coordinates as
+    `assets_hull/MESH_sfs18_r96.obj`.
+  *Step 1, the reachability check (bunny, dragon, bob; one card for a few minutes each, before anything else).*
+  Reported per mesh:
+  - the loss of the hull's discs L0, of the solved discs L_end, and the floor (an independent sample of the mesh,
+    seed 99, through the same operator);
+  - L_solid, the loss of a fresh sample of the solved solid at the hull's density (what a morph's target would
+    carry);
+  - the share of the hull's excess volume removed, and the over-carve (the mesh sample's share outside the solid,
+    against the hull's);
+  - the steps and the time.
+
+  The check passes on a mesh if L_solid lies at least halfway from L0 to the floor and the solid removes at least a
+  quarter of the hull's excess volume with an over-carve below the hull's own plus one percentage point. The step
+  continues to 9 meshes and the runs only if the check passes on at least two of the three.
+  *Step 2 (if step 1 passes): D156b's readings.* All 9 meshes are solved. The runs are 9 meshes × L / P × 97 / 99 at
+  40k, `--tgt assets_hull/MESH_sfs18_r96.obj --render_tgt assets/MESH.obj`, one card under the lock protocol and the
+  courtesy rule (D159, D160 and D161 first). The readings and rules are D156b's:
+  - (a) the solved solid alone (its own sample: concave surface, excess volume, held-out silhouettes, held-out
+    studio images; 0 = the visual hull's sample, 1 = the mesh's);
+  - (b) "dF_c + layer u" on it;
+  - (c) full minus "dF_c + layer u", by D156's rule (adds concavity: Δ_surf ≥ 0.15 and Δ_vol ≥ 0.10 on at least 6 of
+    9; none: Δ_surf < 0.05 on at least 6 of 9, then the held-out Δs say whether it is rim polish only);
+  - the 300k gate: (b) ≥ 0.5 on the concave surface on at least 6 of 9 meshes, without damage to the held-out views
+    against D156.
+  *Predictions (inferred).*
+  - Step 1: the smooth descent carves the broad hollows whose walls the training views shade (bob's, the dragon's
+    coil partly) but stops short of the mesh level, as normals-only shading constrains depth only up to a
+    low-frequency ambiguity. L_solid falls 30–60 % of the way to the floor on bob and the dragon, less on the bunny.
+  - (c): the in-loop render adds rim polish on top of the carved target (held-out silhouettes +0.1…+0.3, as in D156),
+    and little concavity, since the target now carries it.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
