@@ -16796,6 +16796,87 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     colour-to-length scale is fixed by the pictures, not tuned.
   - C2 failing: measure the render gradient's split among the silhouette, the grey shading and the colour before any
     change.
+  **D160 read (gates and runs 2026-10-21 22:46 – 2026-10-22 00:08 CDT on GPU 0, readers to 00:17, read 00:25 CDT):
+  FAIL on C1 at every rearrangement scene. C2 holds (5 of 80 cells). C3 and C4 each miss by one run, by the letter.**
+  *Gates.*
+  - The first try stopped at V1 at 19:05: test_frozen_recipe's expected configurations lacked the new default-off key
+    `appearance`. Fixed as the earlier options did (209ba6d), nothing else changed.
+  - V1: 446 passed, exit 0. V2: the pinned references and D160's tests, 14 passed, exit 0.
+  - V3: the defaults and `--appearance white` are each the same as rt1's S1, every frame, metric and the 556 history
+    fields.
+  - V4: the twin's trajectory is the same with and without the band paint. The paint changes the full run.
+  *C1, colour.* r = (mis_P − mis_L) / (mis_P − floor); the held-out colour images are D157's 46 views.
+
+  | scene | seed | mis twin → full (floor) | r | PSNR twin → full | LPIPS twin → full | ΔE twin → full |
+  |---|---|---|---|---|---|---|
+  | bunny half (control) | 97 / 99 | 0.057 → 0.055 / 0.059 → 0.055 (0.003) | 0.04 / 0.07 | 18.80 → 19.03 / 18.73 → 19.03 | 0.070 → 0.066 / 0.071 → 0.068 | 9.8 → 9.5 / 10.0 → 9.6 |
+  | bunny band | 97 / 99 | 0.099 → 0.093 / 0.104 → 0.095 (0.006) | 0.06 / 0.09 | 16.77 → 17.12 / 16.64 → 17.08 | 0.089 → 0.085 / 0.091 → 0.085 | 12.4 → 11.9 / 12.6 → 11.9 |
+  | bunny ears | 97 / 99 | 0.128 → 0.123 / 0.128 → 0.124 (0.004) | 0.04 / 0.03 | 16.28 → 16.53 / 16.23 → 16.52 | 0.105 → 0.101 / 0.104 → 0.102 | 13.8 → 13.4 / 13.9 → 13.4 |
+  | bunny turn | 97 / 99 | 0.433 → 0.427 / 0.436 → 0.428 (0.012) | 0.01 / 0.02 | 10.70 → 10.76 / 10.67 → 10.75 | 0.168 → 0.168 / 0.168 → 0.166 | 32.0 → 31.6 / 32.2 → 31.6 |
+  | dragon band | 97 / 99 | 0.195 → 0.189 / 0.192 → 0.186 (0.004 / 0.005) | 0.03 / 0.03 | 15.22 → 15.50 / 15.30 → 15.37 | 0.092 → 0.089 / 0.091 → 0.091 | 16.5 → 16.0 / 16.3 → 16.1 |
+
+  - The full arm is better than its twin on every row, but by 0.002–0.009 of the surface (r 0.01–0.09; pass needs
+    0.5). Held-out PSNR is up 0.06–0.44 dB.
+  - The control holds: half's full arm is not worse.
+  - The twins repeat the tag's W layout within 0.001 (the same-paint run-to-run floor). The full arm's gains are real
+    but small.
+  *Locality readings.*
+  - The distance still to travel is unchanged (twin → full: band 3.7 → 3.7, ears 9.9 → 9.9, turn 12.4 → 12.3
+    pitches).
+  - The outer red material moves −0.01 to +0.09 pitches toward where red is wanted, against 3.7–12 needed. The tag's
+    V − W, without colour, gives ≤ 0.05.
+  - The full arm moves the outer layer from its twin by a median 0.41–0.45 pitches (bunny). That equals V − W's 0.41:
+    the colour adds no motion beyond what the render does without it.
+  - The timelines are flat after about 2.4 s in both arms.
+  - Where the gain appears (twin minus full): mostly during the flow.
+    - Band: 0.003–0.005 by 0.3–0.6 s, 0.006–0.009 at the end.
+    - Half: 0.000–0.002 by 0.6 s, 0.002–0.004 at the end.
+    - Ears: largest at 2.2 s (0.006), 0.004–0.005 at the end.
+    - Turn and dragon: largest at 0.6–0.8 s (0.011–0.017); half of it is lost during the arrival (0.006–0.008 at the
+      end).
+  *Why the front stops: the windows' records, band L97.*
+  - λ falls 120-fold over the run (0.31 → 0.0026) with the physics gradient norm (1.8e-3 → 1.65e-5); g_share stays
+    1/3.
+  - The colour shading term stays at 5.7e-3–6.2e-3 while the silhouette term falls to 7e-4. The colour error is
+    worth λ · d_pbr ≈ 1.5e-5 of a 7e-5 merit.
+  - The search length is 2–3e-3 and the per-window move 7.5e-4 wu, about 0.008 pitches. The colour term falls 2.4 %
+    over the last 12 windows.
+  - So the colour is placed while the body flows. After arrival the render's push and step are the polish's, and the
+    front does not move.
+  - This is not the colour gradient's locality alone: the short scene (3.7 pitches, within the kernel's reach plus the
+    adjoint's spread) fails as the long one does.
+  - It is the pattern D161 found for the carved relief: what the render writes during the arrival, the settling takes
+    back or never extends.
+  *C2–C4.*
+  - C2 holds: 5 of 80 cells worse than the tag's worst V by more than its spread (half L99 yardstick silhouette; turn
+    L97 IoU and yardstick silhouette; dragon L97 IoU; dragon L99 thin).
+  - The render's geometric lead over the twin is kept: yardstick silhouette 0.0026–0.0030 against the twins'
+    0.0036–0.0038; grey held-out PSNR +0.3–0.45 dB on the bunny.
+  - C3: G3 passes on every run. Half L99's delivered kinetic record is 7.05e-5 against the bound of 6.87e-5 (3 %
+    over).
+  - C4: ears L99 ends with one piece of 14 particles within 5 pitches of the body. The tag's dragon V99 ends with one
+    too.
+  - Minutes and windows: the full arm's equal the twin's (1.1–2.1 min). The predicted longer runs did not happen.
+  *Predictions against the outcome.*
+  - r: predicted 0.5–0.9 (band), 0.3–0.7 (ears), 0.05–0.3 (turn), 0.3–0.7 (dragon); measured 0.06–0.09, 0.03–0.04,
+    0.01–0.02, 0.03.
+  - PSNR: predicted +1–3 dB; measured +0.06–0.44.
+  - The red material's shift: predicted 1–6 pitches; measured ≤ 0.09.
+  - Geometry and gates as predicted.
+  *Correction of a description.* The ears scene's target paint (y ≥ 3.2 in the bunny's frame) colours the ears' upper
+  parts, as the sheets show, not the ears down to their base; the definition ran as registered.
+  *Next (proposed, not run).*
+  - D160b, the colour on D155's moving target. The measured routing window is the flow, and the moving target (D155's
+    ramp, an existing option on wip/d155) keeps the material flowing over the elastic period, about 3 s, with the
+    render at the rule's weight per unit of motion.
+    - 40k, the same five scenes and criteria.
+    - Before it: the state-level split of the colour push at the front, the share the transport and proximity cancel
+      against the share the step does not reach (decides "hold" or "pace").
+  - If routing still stalls during a long flow: DROT's OT term on (pixel position, colour).
+  - No 300k (the gate failed).
+  *Files.* `output/gpu/d160/`: `runs40/`, `read_colour.jsonl`, `gate/` (`gate.json`, `table.md`, figures), `video/`
+  (seed 97: full | twin | target paint, front and back), `pieces.jsonl`, `d157_L.jsonl`. Local:
+  `output/results_2026-10-21/d160_appearance/` (`README_ko.md`, `figs/`, `sheets/`, `video/`, `data/`).
 
 - **D161, the render carves a relief that only its pictures carry: the 3D target a smooth mesh, the render's target
   pictures the same mesh with embossed letters (pre-registered 2026-10-21 22:51 CDT server clock, before any run of

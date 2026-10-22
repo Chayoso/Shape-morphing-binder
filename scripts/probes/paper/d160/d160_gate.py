@@ -214,7 +214,7 @@ for ax, k in zip(np.atleast_1d(axs), keys):
     ax.set_title(labels[k].replace("\n", " "), color=INK, fontsize=10, loc="left")
     ax.set_xlabel("time (s)")
     ax.grid(color="#e6e5e1", linewidth=.8)
-np.atleast_1d(axs)[0].set_ylabel("share of the surface in the wrong colour")
+np.atleast_1d(axs)[0].set_ylabel("wrong-colour share")
 from matplotlib.lines import Line2D  # noqa: E402
 fig.legend([Line2D([], [], color=TW, lw=2), Line2D([], [], color=FU, lw=2), Line2D([], [], color=INK2, lw=2),
             Line2D([], [], color=INK2, lw=2, ls="--")],
