@@ -10994,6 +10994,74 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - (a) on the concave surface 0.3–0.7 on the deep meshes, less on the shallow ones; over-carve ≤ the visual
     hull's own (the loss refuses holes).
   - (b) ≈ (a); (c) small on the concave surface, positive on the held-out views (as D156).
+  **Result of D156c (carves 18:10–19:30 CDT on the CPU at nice 10, PIDs 652152 / 652157 / 652162; read 22:35;
+  `assets_hull/rcarve_r96.jsonl`, logs `output/gpu/d156b/rcarve_*.log`): the render-loss carve stalls at once and
+  removes almost nothing.**
+  - Two implementation errors were found on the bunny before this reading and fixed.
+    - Skin: the sampler's shell particles rounded to empty nodes and were never removed, so a detached skin kept
+      the exterior. The first bunny carve therefore removed three whole layers (36 % of the mesh outside the
+      carved solid); kept as `*_skinbug*`.
+    - The remesh capped the kept field at half a pixel, which shrank the uncarved surface. The decisions were
+      unaffected; the earlier outputs are in `rcarve_v1/`.
+  - Per mesh: voxels carved of the hull's; accepted steps / loss evaluations; the loss at the hull → at the end,
+    against the floor (an independent sample of the mesh), with the share of the way to the floor; the share of
+    the hull's excess volume removed; the mesh sample outside the solid (hull → carve).
+
+    | mesh | carved / hull voxels | steps / evals | loss hull → end (floor), e-3 | way to floor | excess removed | mesh outside |
+    |---|---|---|---|---|---|---|
+    | bunny | 17 / 43 928 | 3 / 45 | 7.74 → 7.49 (2.26) | 4.6 % | 0.7 % | 0.101 → 0.102 |
+    | dragon | 68 / 25 846 | 7 / 88 | 14.5 → 14.2 (2.04) | 2.3 % | 1.3 % | 0.137 → 0.138 |
+    | armadilo | 7 / 18 647 | 1 / 22 | 13.7 → 13.6 (1.87) | 0.9 % | 0.9 % | 0.167 → 0.167 |
+    | homer | 99 / 13 461 | 6 / 66 | 7.11 → 7.02 (1.01) | 1.4 % | 17.4 % | 0.153 → 0.154 |
+    | cow | 10 / 13 962 | 1 / 21 | 13.2 → 13.1 (1.34) | 0.9 % | 1.8 % | 0.119 → 0.119 |
+    | bob | 1 / 45 860 | 1 / 24 | 4.60 → 4.60 (1.64) | 0.1 % | 0.0 % | 0.115 → 0.115 |
+    | cheburashka | 2 / 32 639 | 1 / 25 | 11.2 → 11.2 (2.16) | 0.1 % | 0.1 % | 0.123 → 0.123 |
+    | C | 0 / 74 786 | 0 / 14 | 12.8 → 12.8 (4.06) | 0 % | 0 % | 0.126 → 0.126 |
+    | A | 19 / 64 863 | 2 / 37 | 16.0 → 16.0 (3.55) | 0.1 % | 0.1 % | 0.113 → 0.113 |
+
+    The pictures still score every carved solid 2.8–9.8 × above the floor.
+  - Decision (the pre-registration: "a mesh whose carve removes nothing is reported; its runs would be D156's").
+    The carved solids differ from the visual hull by ≤ 0.4 % of its voxels, and by ≤ 2 % of the excess volume on 8
+    of 9 meshes (homer 17 %). (a) is therefore ≈ 0 on every mesh. (b) and (c) are not run: they would repeat
+    D156's P and L (same targets to within those voxels). No card was used.
+  - The landscape diagnostic (`d156_single_voxel.py`, uses the mesh; bunny / dragon / bob; 40 phantom and 40
+    on-mesh surface voxels removed one at a time from the carried sample, and coordinated removals):
+    - a single phantom voxel lowers the loss in 53 / 55 / 70 % of cases (on-mesh 33 / 50 / 48 %);
+    - the median change is −6e-7 / −2e-6 / −3e-5 of the loss, the 10–90 % range about ±2e-4: a coin flip at the
+      level of the operator's own noise;
+    - removing all phantom surface voxels at once lowers it by 5.5 / 4.8 / 6.9 %;
+    - removing every excess voxel lowers it by 6.9 / 5.4 / 25 %. On the carried sample even that end stays far
+      above the floor (bunny 7.2 against 2.3e-3).
+    - D156's carve path, which re-sampled each smooth solid, reached 3.5e-3 at the mesh.
+  *Root cause, across D156, D156b and D156c.* The pictures carry the hidden concavities: the hull scores
+  3.4–11 × the floor, and the loss of freshly sampled smooth solids falls 1.5–5 × along a carve to the mesh. But
+  every local decision is uphill or at the noise:
+  - a particle's push (D156: 15–39 % inward);
+  - a point's consistency (D156b: the operator is not a point shader, its error 5.6–37 × the noise);
+  - a voxel's removal (D156c: ±2e-4 of the loss, half the time each way).
+
+  A voxel-staircase solid at one pitch per pixel is itself rougher than the smooth hull it replaces, which the
+  shading punishes. The information is in a coordinated, smooth change of the surface, and none of the three
+  methods has such a degree of freedom.
+  *Next method (proposed as D156d; not pre-registered or run, the coordinator to decide): multiview shape from
+  shading of the target, from the visual hull, with the render's own operator.* This follows Hernández, Vogiatzis
+  and Cipolla (PAMI 2008), who deform the visual hull with shading under known light.
+  - The unknown: an inward normal displacement field d ≥ 0 on the visual hull's exterior surface, carried by its
+    discs (the exterior operator's own surface elements).
+  - The pictures of the displaced surface: each disc moves to p − d n, its normal tilts with the surface
+    gradient of d.
+  - These are drawn by exterior_targets and scored by the run's own d_exterior against the eight-draw pictures,
+    differentiable in d.
+  - The descent is coordinated: the gradient in d is smoothed by the Sobolev (H¹) metric on the disc graph,
+    (I − ℓ² Δ) g_S = g, a standard shape-optimisation preconditioner (Neuberger; Sundaramoorthi, Yezzi and
+    Mennucci, "Sobolev active contours", 2007). ℓ is one picture pixel, the finest scale the pictures resolve, so
+    no constant is added.
+  - Stop when the loss stops falling; d ≥ 0 means only carving.
+  - The solved surface becomes the solid (the hull minus the displaced layer). It is meshed and sampled as any
+    target, and then D156b's readings (a), (b) and (c) follow with the same runs.
+  - Its reach is checked first, on D156's carve path, since the method moves only the surface: does a smooth
+    displacement descend from the hull to the mesh's loss level? On a card it takes minutes per mesh (the loss
+    with autograd through the exterior pictures).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

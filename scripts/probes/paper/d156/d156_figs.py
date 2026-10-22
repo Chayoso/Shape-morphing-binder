@@ -16,9 +16,9 @@ import numpy as np  # noqa: E402
 T = json.load(open(sys.argv[1]))["table"]
 out = Path(sys.argv[2])
 MESHES = ["bob", "A", "C", "dragon", "cheburashka", "bunny", "armadilo", "cow", "homer"]
-SERIES = [("P", "hull", "P: render off, hull target", "#2a78d6"),
-          ("L", "hull", "L: render on (true mesh's pictures), hull target", "#eb6834"),
-          ("V", "mesh", "V: render on, the mesh itself as the target", "#1baf7a")]
+SERIES = [("P", "hull", "dF_c + layer u (λ = 0), visual hull as target", "#2a78d6"),
+          ("L", "hull", "full (+ render loss on the true pictures), visual hull as target", "#eb6834"),
+          ("V", "mesh", "full, the mesh itself as target (tag)", "#1baf7a")]
 PANELS = (("surf_deep", "concave surface (>= 0.5 pitch below the hull)"), ("vol", "volume of the hull's excess"),
           ("sil_held", "silhouettes in 46 held-out views"), ("img_shaded_mse", "studio images, held-out views"))
 fig, axes = plt.subplots(2, 2, figsize=(13, 8.6), sharey=True)
@@ -45,11 +45,11 @@ for ax, (key, title) in zip(axes, PANELS):
         ax.spines[s].set_visible(False)
 for a in (axes[0], axes[2]):
     a.set_ylabel("share of the way (0 = hull, 1 = true mesh)")
-fig.suptitle("D156, 40k: how far each end got from the visual hull toward the true mesh", fontsize=12)
+fig.suptitle("D156, 40k: how far each end got from the visual hull toward the true mesh", fontsize=12, y=0.995)
 h, l = axes[0].get_legend_handles_labels()
-fig.legend(h, l, frameon=False, fontsize=9, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 0.955))
+fig.legend(h, l, frameon=False, fontsize=9, loc="upper center", ncol=1, bbox_to_anchor=(0.5, 0.965))
 fig.text(0.5, 0.005, "40k, bars = mean of seeds 97 / 99, dots = each seed; meshes ordered by the hull's excess depth",
          ha="center", fontsize=8, color="#52514e")
-fig.tight_layout(rect=(0, 0.03, 1, 0.93))
+fig.tight_layout(rect=(0, 0.03, 1, 0.89))
 fig.savefig(out / "fig_d156_shares40.png", dpi=130)
 print(out / "fig_d156_shares40.png")
