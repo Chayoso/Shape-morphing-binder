@@ -6769,6 +6769,78 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
         did), and with no gravity the frames equal the current rule's to its run-to-run difference.
       - Gate it as this one: the same 40k seeds, P1–P3, and the frozen check (no gravity, at window level and run
         level).
+  - **The loads' own effect removed from the assimilation, with the recipe's drag in the standing frame: the 40k gate
+    (the coordinator's go 2026-10-21 night; an experiment, not adopted); pre-registered 2026-10-21 22:52 CDT server
+    clock, before any run** (code `wip/b9b` d02c865 = 5985187 + a fix to the card claim's yield; server copy `repo_b9l`;
+    `output/gpu/b9b/load/`; chain `chainload.sh`).
+    - *The definition.* Two parts, both from existing definitions; no new constant.
+      1. `SceneSpec.assim_load` (off by default; scene path only). At every commit the assimilation reads
+         F_zf F_zl⁻¹ F_ctrl in place of the committed end's F_ctrl.
+         - F_zl is the end F of the window's zero-control continuation with the loads: zero control and zero u from
+           the window's start, with gravity, the floor with its position constraint, and contact (`window.zero_end_F`,
+           the share's).
+         - F_zf is the same continuation without the loads: zero control and zero u, the body alone, no gravity, no
+           floor (`window.free_zero_end_F`, new).
+         - L = F_zl F_zf⁻¹ is the loads' own effect on the uncontrolled continuation. It is taken off on the left, the
+           side where the loads act. `assimilate_elastic`'s stretch is the right one, so a rotation the loads add drops
+           out as well.
+         - Without loads F_zl = F_zf, so the reading is F_ctrl, the frozen rule's, to the rollouts' rounding. This is
+           where the share failed: it is frozen-safe by construction.
+         - Where F_zl is degenerate (det ≤ 1e-6) the reading falls back to F_ctrl. The per-window record (the read and
+           the frozen read, p50 / p90 / p99 of each particle's largest |log σ|) is the share's. Cost: two rollouts a
+           window, in place of the load-free one.
+      2. In the standing frame, the existing `SceneSpec.drag = 0.9`: the single-body recipe's drag on the whole
+         velocity (m v; B9's own dynamics), which sets the scene's deformation-only damping to zero.
+      - Tests (`tests/test_scene_assim.py`): without loads (a moving ball) the two continuations agree within 1e-5, the
+        reading equals F_ctrl and the assimilated Fp the frozen rule's within 1e-4; with gravity and the floor the two
+        continuations differ; the identities `load_free_F(F_c, F_0, F_0) = F_c` and `load_free_F(F_0, F_0, F_1) = F_1`.
+    - *Proof first, on the card:* the full suite (the pinned references, the throw scene's tests with the fields off,
+      the new tests); its exit status is recorded and a non-zero exit stops the chain.
+    - *The frozen checks (no gravity).*
+      - F1, the window level (`load_equal.py`). The frozen recipe's 40k bunny (seed 97) in the scene's one-body window:
+        no gravity, no floor, drag 0.9, the frame fixed at launch. Two windows: the first from rest, the second from
+        the first's committed end (moving and deformed), each under random controls (1e-2 a step), committed once and
+        then again (the replay: the CUDA atomics' rounding). Pass when, in both windows, the continuations with and
+        without the loads agree within the larger of 1e-5 and the frozen end's replay difference, and the assimilated
+        Fp of the new and the frozen readings agree within the larger of 1e-5 and the Fp's replay difference.
+      - F2, the run level. Bunny 40k seed 97, no gravity, frame fixed at launch, no floor, drag 0.9 (the frozen
+        dynamics, as D147's V0): ZA97, ZB97 and ZC97 (the current rule three times, its run-to-run difference) and
+        ZL97 (`assim_load`). Pass when the RMS position difference at the end, ZL against each of ZA / ZB / ZC,
+        overlaps the range of the three current-rule pairs (D145's convention: apart = the ranges do not overlap); the
+        largest over the run is also reported. The current rule equals the frozen one for a body without loads
+        (D147's test), so a pass means the frames are the frozen algorithm's.
+      - These runs (with dragon ZA97) also give the no-gravity level of P1. They replace the share gate's standing g-0
+        runs, which could not reach the lifted target (the confound stated in the share's reading).
+    - *Runs (40k, option 1's settings and seeds).*
+      - (1)+(2), the definition: `specs/b9d_MESH.json` (option 1's spec + `assim_load` + drag 0.9), bunny and dragon,
+        L97 / L99 / L101 and the twin P97 (`--render_weight_scale 0`).
+      - (1) alone: `specs/b9l_MESH.json` (drag 0, the deformation-only damping as in option 1), A97 / A99 / A101 on
+        both meshes. Read by the same items and reported, not gated: what each part does.
+      - Readings: the share gate's (tracks with the converged shape measure, the lifted independent sample, silhouette
+        IoU and chamfer, momentum, the 40k yardstick, `apart.py`); option 1's 40k runs as read for the share gate.
+    - *The gate* (`read_load.py`; the definition's runs).
+      - P1: for each mesh, the render arms' median end motion (the mean particle move per kept-frame pair over the
+        last second, pitches) at most the largest of that mesh's no-gravity current-rule runs; and V1's rest bar on at
+        least 6 of the 8 runs.
+      - P2: every render arm has shape tilt ≤ 3°, end height within one pitch, silhouette IoU at least the reach bar,
+        and silhouette IoU, chamfer, thin and both yardstick terms no worse than option 1's worst 40k render arm of the
+        mesh.
+      - P3: no serious piece at the end, and every window committed.
+      - F1 and F2 pass.
+    - *Cards.* One card under the lock protocol (agent B9b), a card idle for 10 min, and no claim while any chain of
+      the render experiments (D159 / D160 / D161) is alive without a lock, that is, waiting for a card (a chain's
+      subshells count as holding when an ancestor holds the lock; `claim.sh`, `YIELD_RENDER`). The 40k side renders
+      (the definition's L97 bunny and dragon, 1080p, studio look) follow on a second claim with the same yield.
+    - *Predictions.*
+      - F1 passes (exact by construction) and F2 overlaps.
+      - (1) alone removes the creep as the share did (the read p99 far below the frozen read's) but keeps the rocking:
+        nothing dissipates the stored elastic energy and nothing damps the rigid part. So the dragon's end motion
+        stays above its level and V1 rest holds on few runs.
+      - (1)+(2): the 4-s rocking decays with an e-fold of about 1.1 s, the end motion falls to the no-gravity level,
+        and V1 rest holds on at least 6 of 8. P2 holds; B9's single-body runs reached with this drag.
+      - The risk to state: the drag also slows the morph's own late flow. If the end motion stays above the level
+        with the rocking gone, the remainder is that flow, and it is read by its kind (rigid or deformation) frame
+        by frame before any next definition.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
