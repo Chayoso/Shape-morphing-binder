@@ -11967,6 +11967,65 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - FAIL by the halfway bar on at least two meshes. If so, the gap between the restricted and the run's sampler's
     score says whether the remaining loss is the sampler's voxel alignment or the pictures' limit.
   *If it passes:* ask the coordinator before any card run.
+
+  **Stage-1 check (the restarted runs, 02:20–04:20 CDT, CPU at nice 10; read 10:16 CDT; `output/gpu/d156g/`, rows in
+  `sfsgg_r96.jsonl`): FAIL on 3 of 3.** Every state is a uniform solid. The shape-only descent gains about a tenth of
+  the way on its own uniform measure, then stops by itself at every level. Scores are e-3, means over the eight
+  held-out seeds.
+
+  | mesh | steps / refused / min | d = 0 mesh → solid | hull file | floor | way (≥ 0.5) | way from hull file | restricted way | excess removed (≥ 0.25) | over-carve (≤ +1 pt) | ρ |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | bunny | 64 / 103 / 120 | 8.249 → 7.988 | 7.774 | 2.308 | 0.044 | −0.039 | 0.123 | 0.242 | +0.6 | 0.47 |
+  | dragon | 21 / 91 / 74 | 16.418 → 15.461 | 14.647 | 2.145 | 0.067 | −0.065 | 0.126 | 0.221 | +1.8 | 0.50 |
+  | bob | 23 / 65 / 64 | 4.459 → 4.202 | 4.683 | 1.593 | 0.090 | +0.156 | 0.085 | 0.023 | +0.4 | 0.35 |
+
+  - All three ended by the levels: no trial at any level lowered the paired mean. None hit the budget (300) or the
+    wall (6 h).
+  - The falls through the run's sampler are 0.26 / 0.96 / 0.26e-3. The unpaired standard error is 0.20 / 0.23 /
+    0.09e-3, so the falls are 1.3 / 4 / 3 SE.
+  - The half-pitch remesh itself costs +6 % / +12 % / −5 % over the hull file (the d = 0 mesh against the hull
+    file). On the bunny and the dragon that is more than the carve gains, so their solids end above the hull file.
+  - The descent's own measure (restricted draws, held-out seeds, no remesh) gains 0.12 / 0.13 / 0.09 of the way.
+    The gain is real but small. On the dragon, part of it is its 1 267 fill voxels that lie wholly outside the hull
+    by the rule and leave at any carve.
+  - The carve goes roughly to the right places (ρ 0.35–0.50) and removes 24 / 22 / 2 % of the excess volume. The loss
+    barely moves.
+  - Not in the pre-registered prediction: the restricted score did not fall at every level. The coarse levels of the
+    bunny and bob found no step (see the diagnostic below).
+  - **Direction diagnostic** (written after the reading; `d156g_dir.py`, `d156g_dir2.jsonl`; 10:17–10:22 CDT, CPU).
+    At d = 0, the proposal gradient is averaged over D156g's first four draws and split into its silhouette and
+    shading parts, before and after the H¹ smoothing. Vertices are grouped as excess (true excess ≥ 1 pixel) or on
+    the mesh (≤ ¼ pixel). Numbers are bob / bunny / dragon.
+    - The silhouette part is a one-sided guard. Its area mean is +1.4 / +2.6 / +2.3e-3 (do not carve) on the mesh
+      and −0.2 / −1.8 / −0.9e-4 in the excess. The visual hull already reproduces every training silhouette, so the
+      silhouette term has nothing to say about the excess and everything to say against carving where the hull
+      touches the mesh.
+    - The shading part points the right way. It would carve 77 / 82 / 66 % of the excess vertices and 30 / 28 / 23 %
+      of those on the mesh (area means −1.7 / −4.4 / −1.7e-4 in the excess, +1.5 / +4.1 / +5.2e-4 on the mesh),
+      with ρ with the excess 0.24 / 0.35 / 0.43.
+    - The shading's carve signal is 5–60 times smaller than the silhouette's guard.
+    - Smoothing the total at ℓ ≥ 12 pixels (bunny, bob) gives no excess vertex the carve sign: the guard spreads
+      over the excess. The shading part alone, smoothed at 3–6 pixels, still separates the regions (bunny 0.62 – 0.86
+      of the excess against 0.17 – 0.25 of the mesh; bob 0.82 – 0.97 against 0.40).
+    - Smoothing only the feasible part, min(g, 0), carves everywhere alike: ρ −0.3 to +0.3, and the excess and mesh
+      means are equal within 25 %. It is not a direction.
+  - **Root cause (measured).** At the visual hull the render loss's two terms play different roles.
+    - The silhouette term is already at its optimum, and its gradient only guards the rims.
+    - All the concavity information is in the shading term, which is 5–60 times weaker per vertex.
+    - D156g's direction is the H¹ map of their sum. At every scale where a step can move a sampler voxel (≥ 1.3
+      pixels), the guard dominates it, so only pixel-scale steps get through, and the descent stalls about a tenth
+      of the way in.
+    - The same imbalance explains D156c–f's local stalls (inferred).
+  - **Next definition (D156i, proposed; CPU, about 2–3 h per mesh; not run).** The silhouette as a constraint, the
+    shading as the objective.
+    - The direction is the coarse-to-fine H¹ map of the shading part alone.
+    - A trial is accepted iff the shading's paired mean falls and the silhouette's paired mean does not rise.
+    - Everything else is D156g's: state, restricted draws, levels, held-out scores and stage-1 rule.
+    - This is the visual hull's own definition: the photo hull is sought inside the silhouette-consistent set, which
+      the hull already satisfies (Laurentini; Kutulakos and Seitz). It drops w_pbr's relative weight from the carve
+      and adds no constant.
+    - To keep the remesh from eating the gain, the solid is scored at a quarter pitch. The d = 0 mesh's distance from
+      the hull file is reported, as now.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
@@ -12059,6 +12118,37 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     is below the minimum of the eight uniform draws. It holds for the claim if it holds at 5 of 5 seeds on both
     meshes.
   - Prediction (inferred): it holds at every seed; L / floor 0.5–0.75.
+
+  **Read (runs 03:25–04:25 CDT, CPU; `output/gpu/d156h/d156h2.jsonl`).** The statement **holds at 5 of 5 seeds on both
+  meshes**.
+  - Implementation note. Seed 99's run target differs from this reproduction by float32 rounding (at most 5e-7 wu);
+    seed 97's matches bit for bit. The first launch stopped on the bit-for-bit check at seed 99, after its seed-97
+    row. The relaunch uses the run's own target sample as the first picture sample and records the difference.
+
+  | mesh | seed | L | P | uniform floor (± SE, min of 8) | L / floor | P / floor | L below floor (SE) | lead below floor |
+  |---|---|---|---|---|---|---|---|---|
+  | bunny | 97 | 0.743 | 1.890 | 1.276 ± 0.013 (1.228) | 0.58 | 1.48 | 40 | 0.46 |
+  | bunny | 99 | 0.683 | 1.861 | 1.328 ± 0.017 (1.272) | 0.51 | 1.40 | 38 | 0.55 |
+  | bunny | 101 | 0.691 | 2.012 | 1.306 ± 0.011 (1.269) | 0.53 | 1.54 | 59 | 0.47 |
+  | bunny | 103 | 0.616 | 1.896 | 1.332 ± 0.020 (1.286) | 0.46 | 1.42 | 36 | 0.56 |
+  | bunny | 105 | 0.743 | 2.043 | 1.301 ± 0.018 (1.228) | 0.57 | 1.57 | 30 | 0.43 |
+  | dragon | 97 | 0.771 | 2.163 | 1.121 ± 0.015 (1.068) | 0.69 | 1.93 | 24 | 0.25 |
+  | dragon | 99 | 0.766 | 2.070 | 1.104 ± 0.016 (1.039) | 0.69 | 1.88 | 21 | 0.26 |
+  | dragon | 101 | 0.811 | 1.921 | 1.095 ± 0.013 (1.043) | 0.74 | 1.75 | 22 | 0.26 |
+  | dragon | 103 | 0.786 | 2.128 | 1.114 ± 0.013 (1.067) | 0.71 | 1.91 | 26 | 0.24 |
+  | dragon | 105 | 0.869 | 2.027 | 1.107 ± 0.016 (1.057) | 0.79 | 1.83 | 15 | 0.21 |
+
+  - L is below every one of the eight uniform draws of the true mesh at every seed: 15–59 floor SE below their
+    mean. The twin is 1.4–1.9 times above them.
+  - **The share of the full arm's lead over the twin that lies below the uniform floor is 0.43–0.56 (bunny) and
+    0.21–0.26 (dragon).** That share is arrangement, on the inference that no uniformly sampled body scores below the
+    true shape's uniform floor.
+  - It is the silhouette. L's silhouette part is 0.21–0.30 (bunny) and 0.27–0.33 (dragon) against the floor's
+    0.74–0.79 / 0.67–0.69. Its shading part is 15–24 % below the floor on the bunny and 15–27 % above it on the
+    dragon.
+  - The prediction held roughly: L / floor 0.46–0.58 (bunny; one seed below 0.5) and 0.69–0.79 (dragon; one seed
+    above 0.75).
+- **D113, do the physics and the render fall together
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

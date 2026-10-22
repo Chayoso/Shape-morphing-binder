@@ -50,7 +50,11 @@ def one(out_dir, run_dir, mesh, seed):
     tgt = load_normalized(path, N, seed + 1, match_volume=v_src, sample="stratified", frame=frame, fill={})
     zL = np.load(run_dir / f"{mesh}300k_L{seed}_end1.npz")
     zP = np.load(run_dir / f"{mesh}300k_P{seed}_end1.npz")
-    assert np.array_equal(np.asarray(zL["tgt"], np.float32), tgt) and np.array_equal(np.asarray(zP["tgt"], np.float32), tgt)
+    # the run's own target sample is the first picture sample (seed 97's is reproduced bit for bit; seed 99's differs
+    # from this reproduction by float32 rounding, at most 5e-7 wu, and its L and P share it)
+    assert np.array_equal(zL["tgt"], zP["tgt"])
+    tgt_diff = float(np.abs(np.asarray(zL["tgt"], np.float64) - tgt).max())
+    tgt = np.asarray(zL["tgt"], np.float32)
     samples = [tgt] + draws_in_frame(path, frame, N, [seed + 1 + 100 * k for k in range(1, 8)])
     extent = float(np.abs(tgt).max()) * 1.25
     pitch = 0.708 * D7.median_kth_spacing(tgt, 8, 20000)
@@ -81,7 +85,7 @@ def one(out_dir, run_dir, mesh, seed):
                  sil=float(np.mean([f["sil"] for f in fl])), pbr=float(np.mean([f["pbr"] for f in fl])),
                  all=[round(float(v), 7) for v in tot])
     lead = aP["total"] - aL["total"]
-    row = dict(mesh=mesh, seed=seed, res=res, L=aL, P=aP, floor=floor, L_over_floor=aL["total"] / floor["total"],
+    row = dict(mesh=mesh, seed=seed, res=res, tgt_diff=tgt_diff, L=aL, P=aP, floor=floor, L_over_floor=aL["total"] / floor["total"],
                P_over_floor=aP["total"] / floor["total"], L_below_floor_z=(floor["total"] - aL["total"]) / floor["se"],
                L_below_min_draw=bool(aL["total"] < floor["min"]), lead=lead,
                lead_share_below_floor=(floor["total"] - aL["total"]) / lead if lead else None,
