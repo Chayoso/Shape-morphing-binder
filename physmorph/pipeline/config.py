@@ -45,6 +45,8 @@ class PipelineConfig:
     armijo_c1: float = 1e-4
     ls_noise_rel: float = 1e-7      # improvements below this relative size are noise
     replay_calibrate: bool = True   # measure the rollout replay noise at every window start
+    replay_noise: str = "window"    # D164: the commit check reads the window's own replay pairs (floored at E's float32
+                                    # resolution); "start": the tag's single pair at the start control (comparison only)
     dfc_clip: float = 0.02          # per-particle, per-step |dFc| cap
     warm_decay: float = 0.5         # warm start = previous window's control x this
 

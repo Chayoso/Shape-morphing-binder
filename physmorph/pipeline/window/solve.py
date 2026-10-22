@@ -154,6 +154,7 @@ class WindowOptimizer:
         # moved the discs (D130 (1): D129's source-window commit_replay nulls were the render term read on discs found
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
+        self.replays = []                   # D164: the window's replay pairs (WindowOptimizer.window_replay_noise)
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
         self._zd = None                     # B13: a zero dFc with a gradient, for the run's one ratio measurement
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
@@ -225,6 +226,25 @@ class WindowOptimizer:
         if np.isfinite(EA) and np.isfinite(EB):
             return abs(EA - EB) / max(abs(EA), self.win.loss_floor_eff)
         return 0.0
+
+    def window_replay_noise(self, replay_rel: float, E) -> tuple[float, float | None]:
+        """(the replay noise the commit check reads, the float32 resolution of E there), relative to max(|E|, floor).
+
+        D164 (the user's decision of 2026-10-22): the noise of a replay is measured where the window's rollouts are,
+        not only at its start control. At the first window the body rests there and the start pair agrees bit for bit
+        (0) or to one ulp, while the accepted candidate's own rollouts carry a few ulps of the transfers' atomics:
+        honest replays were nulled (4.1 % of the tag's windows, `commit_replay`). The window already makes its own replay
+        pairs: the start pair, and each accepted candidate against the next iteration's taped rollout of the same
+        control (the point of the next gradient). The noise is the largest of them, and never below the resolution of
+        the comparison: E is a float32 sum, so a pair that reads 0 says the noise is below one ulp of E, not that it is
+        zero. The check keeps its rule (E3: ten times the measured noise, at least ls_noise_rel); a commit whose
+        rollout differs from the accepted candidate's by more than ten times what two rollouts of one control differ
+        by in this window (a state or a cache that one of the two evaluations does not share, D130) is still nulled.
+        cfg.replay_noise "start" is the tag's measure (the start pair alone), kept for comparison."""
+        if getattr(self.cfg, "replay_noise", "window") == "start" or E is None:
+            return replay_rel, None
+        res = float(np.spacing(np.float32(abs(E)))) / max(abs(E), self.win.loss_floor_eff)
+        return max([replay_rel, res] + self.replays), res
 
     # ---- one iteration ----
     def gradient(self, e: Eval, it: int):
@@ -407,6 +427,7 @@ class WindowOptimizer:
                 start = self.warm_start(dfc_init)
         with timed("replay"):
             replay_rel = self.replay_noise(start) if cfg.replay_calibrate else 0.0
+        self.replays = []
         clock.lap("t_start")
         leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False
@@ -433,6 +454,11 @@ class WindowOptimizer:
                 log(f"[win] iter {it}: non-finite loss, aborting window")
                 self.tele["null_reason"] = "nonfinite_loss"
                 break
+            if hist and hist[-1]["iter"] == it - 1:
+                # D164: this gradient's point is the candidate the last search accepted, so its taped rollout is a
+                # second rollout of that control: a replay pair at the window's own state, measured at no cost
+                a_ = hist[-1]["loss"]
+                self.replays.append(abs(cur - a_) / max(abs(a_), self.win.loss_floor_eff))
             L_start = cur if L_start is None else L_start
             gn = _norm(g)
             g0_norm = max(gn, 1e-12) if g0_norm is None else g0_norm
@@ -483,9 +509,16 @@ class WindowOptimizer:
             ot._solved, ot.repeat = self.acc_solved, True       # D142: the accepted candidate's potentials, no sweep
         commit = commit_rollout(win, self.obj, self.leaves[0], self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
-        replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
-                      * max(abs(E_accept or 0.0), win.loss_floor_eff))
+        scale = max(abs(E_accept or 0.0), win.loss_floor_eff)
+        noise, res = self.window_replay_noise(replay_rel, E_accept)
+        replay_tol = max(cfg.ls_noise_rel, 10.0 * noise) * scale
         replay_bad = E_accept is not None and commit.E_final > E_accept + replay_tol
+        # the tag's verdict on the same window (the start pair alone), a record: what D164 changed
+        start_bad = E_accept is not None and commit.E_final > E_accept + max(cfg.ls_noise_rel, 10.0 * replay_rel) * scale
+        replay = {"replay_noise": noise, "replay_res": res, "replay_pairs": len(self.replays),
+                  "replay_taped_max": max(self.replays) if self.replays else None,
+                  "commit_mismatch": None if E_accept is None else (float(commit.E_final) - E_accept) / scale,
+                  "commit_tol": replay_tol / scale, "commit_replay_start": int(start_bad)}
         self.tele["commit_reason"] = commit.reason
         if not commit.valid:
             replay_bad, grad_converged = True, False
@@ -520,7 +553,7 @@ class WindowOptimizer:
                  "dfc": self.leaves[0].detach()[:cfg.T].clone(),       # (B13: the force, the next warm start's)
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
-                     commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
+                     commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final), **replay)
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
             stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds)
         if self.accepted > 0:
