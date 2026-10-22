@@ -89,4 +89,33 @@ if [[ " $STEPS " == *" R "* ]]; then
   release_card
   log "R done"
 fi
-log "chain done"
+# B: D161b (pre-registered 2026-10-21 22:51 CDT with D161): the gates on repo_d161b / repo_d161bs (wip/d161 with
+# --proximity_berth, default off), then the eight 40k runs of d161_runs.txt with --proximity_berth (NAME_pb)
+if [[ " $STEPS " == *" B "* ]]; then
+  V=$O/gates_b; mkdir -p $V
+  [ -n "$CARD" ] || claim_card d161b
+  ( envr repo_d161b; $PY -m pytest -q -p no:cacheprovider tests/test_proximity_berth.py tests/test_render_tgt.py > $V/tests.log 2>&1 < /dev/null; echo $? > $V/tests.rc )
+  log "B V1 tests exit $(cat $V/tests.rc): $(tail -1 $V/tests.log)"
+  det() { local name=$1; shift; ( envr repo_d161bs; $PY $B/tmp/rt/det_run.py scripts/pipeline_run.py --n 40000 --seed 97 \
+      --animations 4 --out $V/$name "$@" > $V/$name.log 2>&1 < /dev/null; echo $? > $V/$name.rc ); log "B det $name ($*) exit $(cat $V/$name.rc)"; }
+  det S1 --tgt assets/bunny.obj
+  det PB --tgt assets/bunny.obj --proximity_berth
+  ( envr repo_d161b; $PY $B/tmp/d145/det_cmp12.py $G/d153/rt1/S1 $V/S1 > $V/cmp_rt1_S1.txt 2>&1 )
+  log "B V2 rt1 S1 vs repo_d161bs defaults: $(tail -1 $V/cmp_rt1_S1.txt)"
+  if [ "$(cat $V/tests.rc)" = 0 ] && tail -1 $V/cmp_rt1_S1.txt | grep -q ": SAME$" && [ "$(cat $V/PB.rc)" = 0 ]; then
+    while read -r name flags; do
+      [ -z "$name" ] && continue
+      case "$name" in \#*) continue;; esac
+      if [ -e $O/runs40/${name}_pb_frames12.npz ]; then log "RB ${name}_pb exists, skipped"; continue; fi
+      log "RB ${name}_pb start"
+      ( envr repo_d161bs; $PY scripts/pipeline_run.py $flags --proximity_berth --out $O/runs40/${name}_pb > $O/runs40/${name}_pb.log 2>&1 < /dev/null
+        echo $? > $O/runs40/${name}_pb.rc )
+      log "RB ${name}_pb exit $(cat $O/runs40/${name}_pb.rc): $(grep -m1 'ARM render_full_dt_iso_nn:' $O/runs40/${name}_pb.log | cut -c1-160)"
+    done < $W/d161_runs.txt
+    log "RB done"
+  else
+    log "B STOP: a gate failed; no D161b run"
+  fi
+  release_card
+fi
+log "chain done ($STEPS)"
