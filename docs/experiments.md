@@ -17116,6 +17116,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the 40k gallery's outline and normals on 15 of 19 meshes) and away from the 300k sample's pictures (the yardstick's
   shading, the thin share, the silhouette area on some meshes); the detail band itself, which forms after arrival, is
   not moved (R1, R2, R5, R6). D159c (held lambda) waits for D160c's after-arrival reading.
+  *D159c launch condition read (02:51 CDT server clock).* D160c's ten full runs (`output/gpu/d160/gate_H/`,
+  `read_colour_H.jsonl` timelines, each run's own arrival = 90 % of its cumulative move): λ is the first window's value
+  at every window, and the wrong-colour share keeps falling after arrival in all ten (bunny half 54/56 %, band
+  60/67 %, ears 15/22 %, turn 16/17 %, dragon band 27/12 % of its value at arrival, seeds 97/99) while the twins are
+  flat after about 1 s. The condition holds; D159c is armed (`tmp/d159/d159c_after.sh`, PID 4161998): it starts
+  `d159c.sh` once D159's renders and close-ups are done, so D159 holds one card at a time.
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`
