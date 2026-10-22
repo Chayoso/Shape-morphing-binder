@@ -18906,6 +18906,72 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   anneals the step and counts towards patience), wall time within ±5 %, readings inside the tag's three-seed range on
   at least 17 of 19 meshes per arm, G holds; at 300k inside B1's range. Mostly bookkeeping, a little trajectory late.
 
+- **D162b, the render weight's excess read on the body's shape (a gated A/B experiment, adoption the user's call;
+  pre-registered 2026-10-22 ~15:20 CDT, before any D162b run; the coordinator's go after D162 read 1; code `wip/d162`
+  2200b08 (`--render_weight_ref shape`, default off); server repo_d162b / repo_d162bs, output/gpu/d162b/, chain
+  `d162b_chain.sh`, runs `d162b_runs.txt`, reader `d162b_after.sh`; local
+  `output/results_2026-10-22/d162_render_weight/`).**
+  *Why.* D162 read 1: the floor-referenced excess of the render term on the body's own particles reads the
+  arrangement.
+  - On the coin the full arm arranges its exterior so that its shape scores about 27 % below a sampled arrangement,
+    so L_r crosses L_floor with e_b 0.08–0.13 of shape excess left.
+  - The per-window weight then turns into an on/off switch (22–212 switches; 6 of 8 relief runs to the window cap).
+  - The coordinator's question 3: does a weight read on b, which the arrangement cannot lower and which swings less
+    from frame to frame (cv 0.08 against 0.17–0.22), remove the flipping? Question 4: once the shape excess is gone,
+    does the body come to rest before the stop rule ends the run?
+  *The definition (`--render_weight_ref shape`, `physmorph/pipeline/shape_read.py`).*
+  - λ_t = λ_0 · max(0, 1 − b_floor / b_t), where λ_0 is the rule's value at the first calibration (as F).
+  - b_t, read by the runner at each window's start state and kept while a window retries from that state: the mean
+    render term (`target.render_floor`, read as the body is read) of eight uniform resamples of the body's solid.
+    - The solid: the points deeper than c inside the zero set of the particles' Zhu–Bridson field (D157's field mesh
+      at 0.708 target spacings).
+    - c: measured once a run, the floor sample's zero set against the render target's own mesh (closed).
+    - The resample: a jittered lattice at the target sample's number density ((D132 fill volume / N)^(1/3)), fixed in
+      the world for the run. The sites cover the MPM domain and the jitter is drawn once per seed, seeds 95 + 100 k,
+      eight of them, as many as the pictures' own samples. Points are kept where they lie inside the solid.
+    - Paint (D160): each point's nearest particle's.
+  - b_floor: the pictures' own first sample read the same way, once a run.
+  - This differs from read 1's X reader, which used a marching-cubes solid and the stratified mesh fill, so b's level
+    here is its own. b and b_floor are read by one rule, and only their ratio enters.
+  - No new constant: 0.708, the field, the eight seeds and the floor sample are D157's / D156h's / D162's.
+  - Refresh: every window's start. Its cost is measured in the gates (V4, four windows on each scene: t_shape against
+    the window's t_attempt) and recorded as an amendment before the runs; the chain holds the runs until `gates/GO`.
+  *Gates (`d162b_chain.sh V`).*
+  - V1: the full suite on repo_d162b (exit).
+  - V2: the references and the options' tests, with the new D162b tests (a shape run on the contracts' cloud records
+    b, one b_floor and λ = λ_0 × excess; the reading repeats and ignores the particles' order).
+  - V3: SAME at the defaults against rt1's S1 (deterministic mode).
+  - V4: four-window runs with `--render_weight_ref shape` on the coin relief, the bunny relief, band and ears (exit
+    0, the b_floor log line).
+  *Runs (40k, seeds 97 / 99, repo_d162bs, kept frames, one card; 8 runs).*
+  - One arm, S = `--render_weight_ref shape`, on D162's four scenes.
+  - No new twin: S changes only the render weight, so its twins are F's (D161's on relief, D160's P on colour).
+  - References: D162's F, D161c / D160c (held), D160d, the twins.
+  - Then X (`d162_arrange.py`) on coin S 97 and band S 97.
+  *Readings.*
+  - Relief: `d161_read.py` / `d161_summary.py`. Colour: `d160_read.py`, `d162_colour.py` (with L, H, D160d, F, FC
+    beside) and `d162_c23.py` (C2 / C3).
+  - `d162b_read.py`: the windows, how the run ended, the on/off switches and the on share after the first zero
+    excess, e at arrival and at the end, the first window with zero excess with the speed there and at the delivered
+    end against 2 × the twin's, the seconds run after it, and t_shape / t_attempt.
+  - `d162_windows.py`: per window.
+  *Criteria.*
+  - P1 / C1, P3–P5 / C2–C4 and the pass rule as D162's.
+  - Question 3: the flipping is removed on a run if its switches are at most a tenth of F's on the same scene and
+    seed, or if, after the first zero excess, the weight stays off (on share ≤ 0.1).
+  - Question 4: a run whose excess reaches zero comes to rest if the delivered end's v_mean is ≤ 2 × the twin's.
+    Reported: whether the stop rule ended it before that, and how long it ran after the excess was gone.
+  *Predictions.*
+  - From read 1's b, the shape excess at arrival is 0.1–0.2 (coin), so λ ≈ 0.1–0.2 λ_0. It is held while the shape
+    excess lasts, with no off windows.
+  - Relief: more than F (coin 0.05–0.10, bunny 0.23–0.25 of the ceiling), less than D161c (0.47–0.58). Switches a
+    tenth or less of F's.
+  - Colour: band about F's (r ≈ 0.8), ears below 0.5.
+  - Rest at risk where the shape excess does not reach zero (read 1: band e_b 0.15–0.23 under F). There the weight
+    stays held as in D160c.
+  - The cost: one field mesh and eight inside tests and render terms a window, likely seconds at 40k against a
+    window of 1.5–6 s.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
