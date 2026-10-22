@@ -6995,6 +6995,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       the render experiments (D159 / D160 / D161) is alive without a lock, that is, waiting for a card (a chain's
       subshells count as holding when an ancestor holds the lock; `claim.sh`, `YIELD_RENDER`). The 40k side renders
       (the definition's L97 bunny and dragon, 1080p, studio look) follow on a second claim with the same yield.
+      - Amended 23:24 CDT, before any run (the first chain, 22:51–23:23, never left its claim wait and was stopped by its
+        PID). Its pattern missed D161's second chain (`d161_chain_b.sh`). The yield now covers every D159 / D160 / D161
+        script alive without a lock, and only the cards their own claim rules take (3, 1, 0). None of them takes GPU 2
+        (another user's desktop runs there), so a 10-minute idle GPU 2 is never taken from them. Code 1adb0f5.
     - *Predictions.*
       - F1 passes (exact by construction) and F2 overlaps.
       - (1) alone removes the creep as the share did (the read p99 far below the frozen read's) but keeps the rocking:
