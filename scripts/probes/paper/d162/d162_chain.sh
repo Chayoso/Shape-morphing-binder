@@ -131,9 +131,10 @@ if [[ " $STEPS " == *" X "* ]]; then
   [ -n "$CARD" ] || claim_card arrange
   mkdir -p $O/after
   XO=${XOUT:-$O/after/arrange}
-  ( envr repo_d162; $PY $W/d162_arrange.py $XO.jsonl ${XFILE:-$W/d162_runs_A.txt} ${XDIR:-$O/runs40} \
+  ( envr repo_d162; $PY $W/d162_arrange.py $XO.jsonl ${XFILE:-$W/d162_runs_A1.txt} ${XDIR:-$O/runs40} \
       ${XRUNS:-coin40k_F_97 coin40k_TC_97 bunny40k_band_F_97 bunny40k_band_TC_97 coin40k_FC_97} \
-      > $XO.log 2>&1 < /dev/null; echo $? > $XO.rc )
+      > $XO.log 2>&1 < /dev/null; echo $? > $XO.rc
+    $PY $W/d162_arrange_sum.py $XO.md $XO.jsonl > /dev/null 2>&1 )
   log "X arrange exit $(cat $XO.rc): $(grep -c '"state": "frame"' $XO.jsonl) frames read ($XO)"
   :   # the EXIT trap releases the card
 fi

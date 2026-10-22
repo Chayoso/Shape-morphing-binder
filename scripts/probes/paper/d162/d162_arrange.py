@@ -7,7 +7,7 @@ particles' own paint).
 
 For each run NAME (its flags from RUNS_FILE, its record RUN_DIR/NAME.json and RUN_DIR/NAME_frames12.npz) the run's
 TargetPack is rebuilt as the run built it (pipeline_run.prepared / run_config, target.build_target; the target sample is
-checked bit for bit against the archive's). Then, per kept frame (every second kept frame and the last):
+checked bit for bit against the archive's). Then, per kept frame (about 30 a run, evenly, and the last):
   (a) the render term of the state's own particles (what the weight reads; its floor-referenced excess 1 - L_floor / a);
   (b) the mean render term of eight uniform resamples (the run's stratified sampler, seeds 95 + 100 k, at the target
       sample's number density) of the state's solid, extracted by D156h's rule: the exterior field's zero-set mesh at
@@ -117,8 +117,14 @@ def one(out, runs, run_dir, name):
     def resampled(x, tag, alb):
         ext, _ = D7.field_mesh("zb", np.asarray(x, np.float64), pitch)
         hh = 0.5 * pitch
-        lo = np.maximum(ext.V.min(0) - 3 * pitch, tbox[0])
-        hi = np.minimum(ext.V.max(0) + 3 * pitch, tbox[1])
+        # the grid: the exterior's box, cut to the union of the target's box and the state's own (its 0.1-99.9 %
+        # quantiles, so a stray piece far off does not stretch it), each + 6 pitches: an early state reaches out of the
+        # target's box (the source sphere above a flat coin) and a cut there opened its solid in the smoke
+        xq = np.quantile(np.asarray(x, np.float64), [0.001, 0.999], axis=0)
+        blo = np.minimum(tbox[0], xq[0] - 6 * pitch)
+        bhi = np.maximum(tbox[1], xq[1] + 6 * pitch)
+        lo = np.maximum(ext.V.min(0) - 3 * pitch, blo)
+        hi = np.minimum(ext.V.max(0) + 3 * pitch, bhi)
         nc = np.ceil((hi - lo) / hh).astype(int) + 1
         G = np.stack(np.meshgrid(*[lo[i] + hh * np.arange(nc[i]) for i in range(3)], indexing="ij"), -1).reshape(-1, 3)
         Fd = (-ext.signed(G) - c_off).reshape(*nc)
@@ -160,7 +166,8 @@ def one(out, runs, run_dir, name):
     emit(dict(run=name, state="uniform_true_mesh", a=float(np.mean(uni)), a_se=float(np.std(uni, ddof=1) / np.sqrt(8)),
               a_all=[round(float(t), 7) for t in uni]))
     raws = [int(r) for r in np.asarray(z["raws"])]
-    pick = sorted(set(list(range(0, len(raws), 2)) + [len(raws) - 1]))
+    stride = max(2, -(-len(raws) // 30))            # at most about 30 states a run (a window is ~4 kept frames)
+    pick = sorted(set(list(range(0, len(raws), stride)) + [len(raws) - 1]))
     for k in pick:
         x = np.asarray(z["frames"][k], np.float32)
         h, r0 = at_frame(com, raws[k])
