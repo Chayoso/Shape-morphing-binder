@@ -11565,6 +11565,67 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - Way 0.2–0.5 on bob and the dragon, 0.1–0.3 on the bunny.
   - It may fail the halfway bar; if so, the moved sample's score against the resample's says whether the loss is
     lost in the extraction or never gained.
+
+  **Stage-1 check (runs 2026-10-21 23:57 to 2026-10-22 01:06 CDT, CPU at nice 10, no card; logs in
+  `output/gpu/d156f/`, rows in `assets_hull/sfsf_r96.jsonl` and `sfsg_r96.jsonl`). It FAILS on 3 of 3 by the
+  rule. The descent through the true operator gains a lot on its own sample, but a uniform resample of an extracted
+  solid keeps only part of that gain (bunny, bob) or none of it (dragon).**
+  - **The moved sample** (the loss the descent saw). Start → end against the floor, with the share of the way:
+
+    | mesh | start | end | floor | share of the way |
+    |---|---|---|---|---|
+    | bunny | 7.74 | 5.07 | 2.31 | 0.49 |
+    | dragon | 14.45 | 12.56 | 2.15 | 0.15 |
+    | bob | 4.60 | 2.40 | 1.59 | 0.73 |
+
+    - The tracked read is not exploited. With the discs found fresh at the end, the loss is the same: 5.08 / 12.62 /
+      2.405.
+    - Steps: 199 / 54 / 489, none at the budget. Time: 44 / 21 / 70 min.
+    - Spearman of δ on the hull's surface particles with the true excess under them: 0.43 / 0.38 / 0.43. D156e's
+      surrogate reached 0.69–0.74.
+  - **The pre-registered extraction.** The solid is the moved particles' exterior, taken back by c (0.74 / 0.94 /
+    0.85 pitch), resampled uniformly, with eight-seed means.
+
+    | mesh | δ = 0 extraction | solid | hull file | floor | way (rule ≥ 0.5) | excess removed (≥ 0.25) | mesh outside: base → solid (≤ +1 pt) |
+    |---|---|---|---|---|---|---|---|
+    | bunny | 10.22 | 7.09 | 7.95 | 2.31 | 0.40 | 0.39 | 0.088 → 0.099 |
+    | dragon | 23.65 | 22.13 | 14.67 | 2.15 | 0.07 | 0.18 | 0.133 → 0.151 |
+    | bob | 5.27 | 3.96 | 4.80 | 1.59 | 0.36 | 0.16 | 0.117 → 0.126 |
+
+    - At δ = 0, the extraction costs 29 % (bunny), 61 % (dragon) and 10 % (bob) over the hull file, so the baseline
+      does not cancel its own bias. On the dragon it erases thin parts.
+    - Measured from the hull file instead, the bunny's and bob's solids are 15 % and 26 % of the way to the floor.
+      That gain does survive a uniform resample. The dragon's solid stays far above the hull file.
+  - **A second extraction** (an amendment written after the reading, `d156f_extract2.py`). The solid is the hull
+    minus the layer its surface particles left: {depth below the hull > δ of the nearest particle within one pitch
+    of the hull}. The base is the same remesh at δ = 0: 8.24 / 16.41 / 4.30.
+    - Way −0.10 / +0.005 / −0.03; excess removed 0.45 / 0.12 / 0.15; over-carve +1.5 / +0.6 / +0.9 pt.
+    - So the surface particles' δ, read as a carve depth, does not hold the gain.
+  - **The answer to the pre-registered question.** The loss was gained on the moved sample (0.49 / 0.15 / 0.73 of
+    the way) and mostly lost in the resample (0.15 / < 0 / 0.26 from the hull file). On the dragon the descent also
+    gained little.
+  - **Root cause (inferred from the two extractions and the fresh read).**
+    - The render loss reads the field of the particles. Moving the particles inward compresses them, and a compressed
+      layer bends the field's zero set and its normals: a different exterior offset, and density gradients the field
+      turns into shape.
+    - The descent lowers the loss through that arrangement as well as through the solid's shape. Only the shape part
+      survives a fresh uniform sample of a solid.
+    - D156e (free disc normals) and D156f (a compressible sample) are the same failure. Any descent whose state is
+      not forced to stay a uniformly sampled solid finds a route cheaper than carving.
+    - By the same reasoning (not tested here), a run's full arm can lower its render term by arrangement inside the
+      body rather than by shape. That fits D161's arrival carve, which the physics took back.
+  - **Next definition (D156g, proposed, not run; CPU only, an estimated 2–3 h per mesh; the coordinator to decide).**
+    The resampled solid decides every step.
+    - The state is a solid: the hull minus a carve-depth field d ≥ 0 on the hull's surface (exactly the hull at
+      d = 0), capped by the thickness.
+    - Each step:
+      1. Sample the current solid uniformly with the run's sampler.
+      2. Take the true operator's gradient for an inward move of that sample's surface particles.
+      3. Smooth it coarse to fine as in D156e/f (H¹, ℓ = box / 2^k down to one picture pixel), and turn it into a
+         carve-depth increment on the surface.
+    - A step is accepted iff the eight-seed mean of the new solid's uniform resample falls.
+    - Every accepted state is a uniformly sampled solid, so no arrangement or density can carry a gain.
+    - Stage 1 is D156f's: the same three meshes, rule, floor and seeds.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
