@@ -11292,6 +11292,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     surface, which also cut the sampler's own outer shell) was stopped by its PID; its output is kept as
     `path97_cut_v1.jsonl` and not used.
   - Disk: runs40 2.1 GB of kept frames, kept for the next definition's comparison. Nothing deleted.
+  *Note added 2026-10-22 11:50 CDT (D156i's silhouette diagnostic, D156j): the hull used here under-fills every
+  training silhouette.* hull_carve.py put each view's zero half-way between an inside and an outside pixel node and
+  meshed at the picture pitch.
+  - The hull lies up to half a pixel inside the true silhouettes along 35–42 % of the mesh's surface. 10–13 % of the
+    mesh's sample is outside it (this entry's own hull record; "the mesh's surface lies inside the hull up to the
+    half-pixel discretisation" above).
+  - In the render's soft silhouette that is a hole along every rim: the hull's hole mass is 3.2–7.7 × the mesh
+    floor's (bunny, dragon, bob; D156i).
+  - Readings of D156 this confounds:
+    - Fact (a), "the hull's 18 silhouettes are the mesh's to half a pixel, the silhouette term barely tells them
+      apart", is false in the render's sense.
+    - The hull's silhouette score of 3.4–11 × the floor is partly the under-fill, not only the excess.
+    - (ii)'s "the silhouette term pushes [the excess region's particles] outward on 8 of 9: its deficit weight 2 acts
+      at the rims" is very likely this hole guard (the w_hole 2 deficit at under-filled rims), not information about
+      the concavities.
+    - "L removes 0.40–0.97 of the hull's excess on the silhouette term" and L's held-out silhouette and studio gains
+      (+0.06…+0.36, +0.03…+0.20) may be in part L refilling the eroded rims toward the true silhouette, which P (whose
+      target is the eroded hull) cannot do.
+    - The root-cause reading that the image information acts as "a local, rim-bound force" is partly the under-fill's
+      rim force.
+  - Readings it does not confound: the decision measure itself. Δ_surf on the concave surface at least half a pitch
+    below the hull, and Δ_vol in R = hull \ mesh, are read inside the hull, away from the rims. The FAIL on the
+    concavities stands as measured, but with the rim force present in both arms.
+  - It also sits under D156b–D156i, which all start from this hull. D156i's root cause is the revised one.
+  - D156j builds the conservative hull and checks it. A rerun of the 36 runs on it is proposed there if its
+    containment check passes.
 - **D156b, the photo hull: the 3D target carved from the pictures by the render's own shading model, and what the
   in-loop render adds on top (pre-registered 2026-10-21 17:11 CDT server clock, before any carve or run of it; the
   coordinator's go 2026-10-21 after D156's FAIL; no pipeline change: the runs use repo_d156s (wip/d156 fa115a5, gates
@@ -12112,6 +12138,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Then D156i on it (the silhouette as a constraint is then satisfied at the start), and D156g's sum as the twin
       reading.
     - It adds no constant: half a pixel is the pixel's own footprint.
+- **D156j, the conservative visual hull, then D156i (and D156g) on it (pre-registered 2026-10-22 11:50 CDT server
+  clock, before any carve, check or run of it; the coordinator's go; CPU only, no card, at most three processes at
+  nice 10; `hull_carve_c.py`, `d156i_sil.py`, `d156_sfs_i.py`, `d156_sfs_g.py`; server `output/gpu/d156j/`).**
+  *The hull.* hull_carve.py with two changes, nothing else.
+  - Each view's signed distance is +½ pixel, so the zero lies on the first outside pixel node, beyond the true outline
+    along every pixel line. The hull then contains every point whose projection lies inside the outline of every view.
+  - The field (the minimum over the 18 views, bilinear) is meshed at half the picture pitch.
+  - The views, box, lattice, frame and outputs are D156's. It is built for D156's nine meshes (bunny, dragon,
+    armadilo, homer, cow, bob, cheburashka, C, A), in `output/gpu/d156j/assets_hull/MESH_hull18_r96.obj`.
+  *Check 1, containment* (on the meshed hull, by open3d's occupancy and signed distance in pixels). Per mesh:
+  - at most 1 % of the mesh's 40k sample outside the hull (D156's hull: 10–13 %);
+  - 99.9 % of 100k mesh-surface points inside, or within a quarter pixel of the hull (the half-pitch grid's own
+    marching-cubes error).
+  - It **passes** if both hold on all nine meshes.
+  *Check 2, silhouette holes* (bunny, dragon, bob; `d156i_sil.py`). The hull's eight-draw hole mass must be at most
+  the floor's (mesh draws 99 + 100 k) plus the floor's own reproducibility, |floor(99 + 100 k) − floor(96 + 100 k)|.
+  The spray mass is reported beside it. The conservative hull is fatter by up to a pixel at the rims, so its spray is
+  expected to rise; that is carvable excess.
+  *Then the carve* (bunny, dragon, bob): D156i exactly as pre-registered (shading as the objective, the silhouette as
+  a constraint, quarter-pitch score) with HULL_DIR = the conservative hulls. D156g is read alongside, exactly as
+  pre-registered.
+  - Each mesh is one process running D156i, then D156g.
+  - The stage-1 rule is unchanged. The decision is D156i's; D156g's is reported.
+  - Also reported: the refusals by reason against D156i on D156's hull (91 % silhouette), the d = 0 mesh against
+    the hull file, and the hull file's silhouette and shading terms against the floor.
+  *Predictions (inferred).*
+  - Check 1 passes on all nine (sample outside ≤ 1 %).
+  - Check 2: the holes are at the floor's level, and the spray rises 1.5–3 times.
+  - D156i: silhouette refusals well below 91 %. The rims carve first, because the silhouette now asks for it.
+    Restricted way 0.15–0.4.
+  - FAIL by the halfway bar on at least two meshes is still the likelier outcome. The shading is the only channel
+    into the hollows, and D156's path falls slowly.
+  *If check 1 passes:* propose (not start) the rerun of D156's 36 40k runs (L and P, seeds 97 / 99, the nine meshes)
+  on the conservative hulls, for the coordinator's card queue. *If stage 1 passes:* ask before any card run.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
