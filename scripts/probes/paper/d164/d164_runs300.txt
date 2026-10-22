@@ -1,0 +1,5 @@
+# D164 (2): 300k bunny and dragon, seed 97, L and P, repo_d164s; each followed by B1's readings (read300.sh end)
+bunny300k_L97 --tgt assets/bunny.obj --n 300000 --seed 97
+bunny300k_P97 --tgt assets/bunny.obj --n 300000 --seed 97 --render_weight_scale 0
+dragon300k_L97 --tgt assets/dragon.obj --n 300000 --seed 97
+dragon300k_P97 --tgt assets/dragon.obj --n 300000 --seed 97 --render_weight_scale 0
