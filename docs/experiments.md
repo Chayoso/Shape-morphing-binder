@@ -19130,7 +19130,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     stays held as in D160c.
   - The cost: one field mesh and eight inside tests and render terms a window, likely seconds at 40k against a
     window of 1.5–6 s.
-  *Amendment 1 (16:58 CDT server clock, before any D162b run; the runs wait for `gates/GO`).*
+  *Amendment 1 (16:54 CDT server clock, before any D162b run; the runs started on `gates/GO` at 16:54:38).*
   - The card. No card was free: gpu0 was D163's, gpu3 and gpu1 also carried another user's job. D162's own chain on
     gpu1 (list B) was cut after its current run, and the card was handed straight to D162b, so it stayed this agent's.
     A2 and the rest of B run after D162b. Timings here are on that shared card.
@@ -19160,6 +19160,58 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - The refresh stays at every window's start, as pre-registered; no period is chosen. A 40k run takes about 1.7×
       longer.
   - First windows: e = 0.93–0.98, λ = 0.29–0.31 ≈ λ_0, as predicted for the transport phase.
+  *Read (18:30 CDT; reads in output/gpu/d162b/after/, local `reads_d162b/`).* The 8 S runs ran 16:54–18:04 on gpu1,
+  6–11 min each, 34–78 windows, 5.3–13.0 delivered seconds. None reached the cap.
+  - P1 (relief, share of the ceiling, seeds 97 / 99). FAILS.
+
+    | scene | S | F | FC | D161c | twins |
+    |---|---|---|---|---|---|
+    | coin | 0.26 / −0.01 (corr 0.32 / −0.02) | 0.05 / 0.10 | −0.01 / −0.06 | 0.47–0.53 | 0.01–0.04 |
+    | bunny | 0.12 / 0.42 (corr 0.07 / 0.22) | 0.23 / 0.25 | 0.47 / 0.34 | 0.54–0.58 | −0.06–0.03 |
+
+    - P4 (D161's reader): coin 97 fails narrowly (2.05× its twin); the rest pass.
+    - P3: coin S misses Chamfer and sil_iou at 97 and thin_uncovered at both seeds; bunny S misses held-out 1 − IoU at
+      both seeds and Chamfer at 99. P5 passes.
+  - C1 (colour, r at seeds 97 / 99): band S 0.85 / 0.74 PASS (held-out PSNR 21.0 / 20.2 vs 16.8 / 16.6), ears S
+    0.23 / 0.26 fail. For comparison: F 0.78 / 0.82 and 0.35 / 0.23; D160c 0.91 / 0.93 and 0.19 / 0.40; D160d
+    1.00 / 0.99 and 0.74 / 0.67.
+    - C2: band S misses 2/6 cells (chamfer at both seeds); ears S 2/6.
+    - C3: band S passes (1.2×, 1.3×); ears S fails (2.3× at 97, 2.0× at 99).
+  - Question 3, the flipping (switches S / F; the rule: a tenth of F's, or off after the first zero excess).
+    - coin: 0 / 189 and 1 / 34, the latter staying off after e = 0.
+    - bunny: 9 / 22 (not met: on share 0.71 after e = 0) and 0 / 185.
+    - band and ears: 0 / 0.
+    - So it is removed on 3 of the 4 relief runs, and every S run ends by the stop rule.
+  - Question 4, the rest after the excess.
+    - Two runs reach zero shape excess: coin 99 at 11.3 s and bunny 97 at 6.2 s. Both come to rest (end v_mean 0.6× and
+      0.7× the twin's), and the stop rule ends them 1.7 s and 2.5 s later.
+    - But they carve almost nothing (−1 % and 12 % of the ceiling). b reads the shape at its field's resolution
+      (kernel 3 pitches at 0.708 spacings), which smooths 1-pitch letters. So "the shape at its floor" arrives with the
+      letters uncut.
+    - Where the excess stays above zero (coin 97 e ≈ 0.17; colour 0.17–0.47) the weight stays held at 0.05–0.15. Rest
+      still mostly passes (1.2–1.8×); ears 97 (2.3×) and coin 97 (2.05×, D161's reader) fail.
+  - Question 5, the cost: 3.2–4.1 s a window (about 45 % of a window attempt of 7.4–11.4 s, on a shared card), 10–28 s
+    of setup a run. Refreshed at every window.
+  - X on the S runs: ARRANGEMENT ATE THE FLOOR again.
+    - coin S 97: at 1.5 s, e_a 0.019 vs e_b 0.289. After 2 s a sits at 0.60 of L_floor (F: 0.85), while X's b stays
+      near its floor.
+    - band S 97: at 8.0 s, e_a 0.044 vs e_b 0.150.
+  - Reading.
+    - S does not pass: P1 fails on relief; band's C1 passes but C2 misses two cells. D160d still leads on colour.
+    - What b bought: no on/off switching (3 of 4 relief runs), normal stops, and rest where the excess was spent.
+    - What it cost: b is blind at the letters' scale, so the weight fades before the letters are cut (coin 99,
+      bunny 97) or holds on a coarse-shape gap (coin 97).
+    - Under both references the render's own effect is the arrangement: a falls below the floor while b stays flat.
+      The limit is the path of the render's push, not the reference of its weight.
+  - Next, a measurement before any definition (the standing order: measure which part misbehaves first). Split the
+    render's per-window displacement of the exterior particles (the per-particle render gradient is already recorded
+    under work telemetry) two ways:
+    - (i) normal against tangential to the exterior;
+    - (ii) the band at and above the letters' stroke against the sub-pitch band.
+    - Mostly tangential → the next definition is a render push along the surface's normal only. Mostly sub-pitch
+      normal (smoothing the layer) → a render push limited to the band the pictures carry.
+  - The D162 gallery (lists B's rest and A2) restarted at 18:31 on a normal claim (d162_gal.sh); its G read follows.
+    Disk: the 8 S archives thinned after their reads (cleanup.log); /data/relcfd/chayo 429 GB.
 
 ## To run next, in order
 
