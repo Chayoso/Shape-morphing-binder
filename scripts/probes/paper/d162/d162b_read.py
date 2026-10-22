@@ -21,16 +21,19 @@ SCENES = (("coin", "coin40k_{arm}_{s}", G / "d161" / "runs40" / "coin40k_twin_{s
 ARMS = (("S", G / "d162b" / "runs40"), ("F", G / "d162" / "runs40"))
 
 
-def end_reason(log):
-    if not Path(log).exists():
-        return "?"
-    t = open(log).read()
+def end_reason(log, H, cap):
+    """How the run ended: the runner's own log lines, else the last record (an outer rejection that spent the stale
+    patience logs nothing more), else the window cap."""
+    t = open(log).read() if Path(log).exists() else ""
     for pat, why in (("consecutive rejected candidates -> early stop", "outer rejections"),
                      (r"frozen after \d+ stale/null", "stale/null patience"), ("delivery merit plateau", "merit plateau"),
-                     ("gradient converged at window start", "gradient converged")):
+                     ("gradient converged at window start", "gradient converged"),
+                     (r"converged at anim \d+ \(phys", "stale patience (accepted)")):
         if re.search(pat, t):
             return why
-    return "window cap"
+    if H and H[-1].get("actual_stop") and H[-1].get("outer_rejected"):
+        return "stale patience (rejected)"
+    return "window cap" if len(H) >= cap else "?"
 
 
 def read(prefix):
@@ -66,7 +69,7 @@ for sc, pat, twin in SCENES:
             ts = [h.get("t_shape") for h in com if h.get("t_shape")]
             ta = [h.get("t_attempt") for h in H if h.get("t_attempt")]
             cost = f"{np.median(ts):.1f} / {np.median(ta):.1f}" if ts and ta else "-"
-            L.append(f"| {sc} | {s} | {armname} | {len(com)} | {dn / 240:.1f} | {end_reason(f'{p}.log')} | {sw} | "
+            L.append(f"| {sc} | {s} | {armname} | {len(com)} | {dn / 240:.1f} | {end_reason(f'{p}.log', H, arm['config']['animations'])} | {sw} | "
                      f"{'-' if on is None else f'{on:.2f}'} | {exc[arr] if exc[arr] is None else round(exc[arr], 3)} / "
                      f"{exc[-1] if exc[-1] is None else round(exc[-1], 3)} | {'-' if t0 is None else f'{t0:.1f}'} | "
                      f"{'-' if v0 is None else f'{v0:.2e}'} | {end['v_mean']:.2e} / {'-' if tw is None else f'{tw:.2e}'} "
