@@ -44,6 +44,10 @@ class SceneSpec:
                                  # share, the committed end's elastic deformation relative to the window's uncontrolled
                                  # continuation under the same loads (runner.share_F, window.zero_end_F); overrides
                                  # assim_free
+    assim_load: bool = False     # B9b experiment (2026-10-21, not adopted): the assimilation reads the committed end with
+                                 # only the loads' own effect removed, the zero-control continuation with the loads set
+                                 # against the same continuation without them (runner.load_free_F): the frozen reading
+                                 # exactly where nothing loads the body; overrides assim_share and assim_free
     morph_time: float = 0.0      # s: each body's target on its way from the source over this time (scene/schedule.py,
                                  # the bodies meet mid-morph); 0: the target from the start
     g: float = 0.0               # wu/s^2: the gravity given as an acceleration, as the single-body runs' --f_ext (B9b:

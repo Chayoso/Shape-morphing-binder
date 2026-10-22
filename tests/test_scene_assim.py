@@ -120,3 +120,45 @@ def test_the_controls_share_cancels_the_loads_and_their_rotation():
     assert float((share_F(F1, eye, eye) - F1).abs().max()) < 1e-5
     a1 = assimilate_elastic(share_F(F0, F0, Fp).cuda(), Fp.cuda(), eta=0.5)
     assert float((a1 - Fp.cuda()).abs().max()) < 1e-4
+
+
+def test_the_loads_own_effect_reading_is_the_frozen_one_without_loads():
+    """B9b, assim_load: with no gravity and no floor the zero-control continuations with and without the loads are the
+    same rollout, so runner.load_free_F reads the committed end as the frozen rule does and the assimilated Fp is the
+    frozen one, to the rollouts' rounding (a moving, controlled body; the share failed exactly here)."""
+    from physmorph.pipeline.scene.runner import load_free_F
+    cfg = PipelineConfig(T=20, young=1.0e4, min_spacing=0.9, volume_exact="carried")
+    prm = MPMParams(dx=1.0, dt=1.0 / 240.0, drag=0.0, grid_min=(-16.0, -10.0, -10.0), nx=32, ny=20, nz=20)
+    x = _ball((0.0, 0.0, 0.0))
+    v = np.tile([0.4, -0.2, 0.1], (len(x), 1)).astype(np.float32)                 # a moving start
+    win = _window([x], [v], prm, cfg)
+    leaf = 0.01 * torch.randn(cfg.T, len(x), 3, 3, generator=torch.Generator().manual_seed(5)).cuda()
+    win.load(leaf, None)
+    F_ctrl = _loaded_end_F(win).clone()
+    F_zl, F_zf = win.zero_end_F(), win.free_zero_end_F()
+    assert float((F_zl - F_zf).abs().max()) < 1e-5
+    assert float((load_free_F(F_ctrl, F_zl, F_zf) - F_ctrl).abs().max()) < 1e-4
+    Fp0 = torch.eye(3, device="cuda").repeat(len(x), 1, 1)
+    a = assimilate_elastic(load_free_F(F_ctrl, F_zl, F_zf), Fp0, eta=0.5)
+    b = assimilate_elastic(F_ctrl, Fp0, eta=0.5)
+    assert float((a - b).abs().max()) < 1e-4
+
+
+def test_the_loads_own_effect_is_what_the_continuation_carries_under_them():
+    """runner.load_free_F: without a load it is the committed end; the loaded continuation itself reads as the unloaded
+    one (the weight's and the floor's strain taken off); under gravity on the floor the two continuations differ."""
+    from physmorph.pipeline.scene.runner import load_free_F
+    g = torch.Generator().manual_seed(6)
+    n = 64
+    F0 = torch.eye(3) + 0.1 * torch.randn(n, 3, 3, generator=g)
+    F1 = torch.eye(3) + 0.1 * torch.randn(n, 3, 3, generator=g)
+    Fc = torch.eye(3) + 0.1 * torch.randn(n, 3, 3, generator=g)
+    assert float((load_free_F(Fc, F0, F0) - Fc).abs().max()) < 1e-5
+    assert float((load_free_F(F0, F0, F1) - F1).abs().max()) < 1e-5
+    cfg = PipelineConfig(T=20, young=1.0e4, min_spacing=0.9, volume_exact="carried")
+    x = _ball((0.0, 0.0, 0.0))
+    prm = MPMParams(dx=1.0, dt=1.0 / 240.0, drag=0.0, f_ext=(0.0, -50.0, 0.0), grid_min=(-16.0, -10.0, -10.0),
+                    nx=32, ny=20, nz=20, floor_y=float(x[:, 1].min()) - 0.5 * 0.125 ** (1.0 / 3.0))
+    win = _window([x], [np.zeros_like(x)], prm, cfg)
+    F_zl, F_zf = win.zero_end_F(), win.free_zero_end_F()
+    assert float((F_zl - F_zf).abs().max()) > 1e-5

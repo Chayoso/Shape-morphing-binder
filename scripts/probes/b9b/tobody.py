@@ -107,7 +107,8 @@ def main():
     X = X - X.mean(0)
     tgt = np.asarray(z["tgt0"], np.float32)
     floor_c = float(fr[0][:, 1].min())                     # the lowest centre at launch: the floor's centre plane
-    pitch = 2.0 * (floor_c - floor_y)                       # spec.layout: the plane half a pitch under it
+    vps = (j.get("scene") or {}).get("vp")                  # the sample's pitch, vp^(1/3), where recorded; else from the
+    pitch = float(vps[0]) ** (1.0 / 3.0) if vps else 2.0 * (floor_c - floor_y)   # at-rest floor (half a pitch under)
     h_tgt = float(tgt[:, 1].mean() - tgt[:, 1].min())       # the target's centroid above its lowest point
     # frame "standing" (option 1): the archive in the objective's frame, fixed in the world (the single-body run's world,
     # the target lifted onto the floor: read against the independent sample lifted the same way, as B9's); otherwise the

@@ -53,7 +53,7 @@ def cross_gap(x, bodies) -> dict:
 
 def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, windows: int, mu: float, log=print,
               F_stride: int | None = None, assim_free: bool = True, schedule=None, dump: dict | None = None,
-              assim_share: bool = False) -> dict:
+              assim_share: bool = False, assim_load: bool = False) -> dict:
     """bodies: scene/window.Body per body (rows, the frame's reference, its built and calibrated TargetPack, the sample's
     volume per particle, the dynamics mass); x0, v0: the launch state in body order (CUDA tensors); schedule:
     scene/schedule.MorphSchedule (each window's target on the way, by the window's end time) or None (the final target
@@ -117,7 +117,11 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
                 # the controls' deformation without the loads (scene/window.free_end_F), or (assim_free False) the
                 # loaded end as the frozen rule reads it: the impact's compression, the weight's sag made rest shape;
                 # or (assim_share, the B9b experiment) only the controls' share against the uncontrolled continuation
-                if assim_share:
+                # or (assim_load, the B9b experiment) the committed end with only the loads' own effect removed
+                if assim_load:
+                    F_assim = load_free_F(F, opt.win.zero_end_F(), opt.win.free_zero_end_F())
+                    assim_rec = {"read": stretch_record(F_assim, Fp), "frozen_read": stretch_record(F, Fp)}
+                elif assim_share:
                     F_assim = share_F(F, opt.win.zero_end_F(), Fp)
                     assim_rec = {"read": stretch_record(F_assim, Fp), "frozen_read": stretch_record(F, Fp)}
                 else:
@@ -174,6 +178,21 @@ def share_F(F_ctrl: torch.Tensor, F_zero: torch.Tensor, Fp: torch.Tensor) -> tor
     Fpf = Fp.reshape(-1, 3, 3).float()
     out = Fpf @ torch.linalg.solve(Fz, F_ctrl.reshape(-1, 3, 3).float())
     return torch.where(ok[:, None, None], out, Fpf)
+
+
+def load_free_F(F_ctrl: torch.Tensor, F_zl: torch.Tensor, F_zf: torch.Tensor) -> torch.Tensor:
+    """The F that plasticity.assimilate_elastic reads with only the loads' own effect removed (B9b, assim_load):
+    F_zf F_zl^-1 F_ctrl, F_zl and F_zf the window's zero-control continuation with and without the loads (gravity, the
+    floor, contact). The loads' effect on the continuation, L = F_zl F_zf^-1 (from the unloaded to the loaded state), is
+    taken off the committed end on the left, the side where the loads act; assimilate_elastic's stretch is the right one,
+    so a rotation the loads add drops out as well. Where nothing loads the body F_zl = F_zf and this is the frozen
+    reading, F_ctrl, to the rollouts' rounding. Where F_zl is degenerate (det <= 1e-6) it falls back to F_ctrl."""
+    Fl = F_zl.reshape(-1, 3, 3).float()
+    Fc = F_ctrl.reshape(-1, 3, 3).float()
+    ok = torch.linalg.det(Fl) > 1e-6
+    Fl = torch.where(ok[:, None, None], Fl, torch.eye(3, device=Fl.device).expand_as(Fl))
+    out = F_zf.reshape(-1, 3, 3).float() @ torch.linalg.solve(Fl, Fc)
+    return torch.where(ok[:, None, None], out, Fc)
 
 
 def stretch_record(F: torch.Tensor, Fp: torch.Tensor) -> dict:

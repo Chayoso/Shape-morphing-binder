@@ -190,6 +190,23 @@ class SceneWindow:
         del keep
         return out
 
+    def free_zero_end_F(self) -> torch.Tensor:
+        """Each body's end F of the window's zero-control continuation without the loads (B9b, assim_load): zero control
+        and zero u from the window's start, alone, no gravity, no floor (free_end_F's loads off, zero_end_F's controls
+        off). Set against zero_end_F it is the loads' own effect on the uncontrolled continuation."""
+        prm = dataclasses.replace(self.prm, f_ext=(0.0, 0.0, 0.0), floor_y=-1.0e9)
+        out = []
+        for body, spec in zip(self.bodies, self.specs):
+            dz = torch.zeros(self.T, body.n, 3, 3, device=self.dc_buf.device)
+            uz = torch.zeros(body.n, device=self.u_buf.device)
+            seq = [wp.from_torch(dz[t], dtype=wp.mat33) for t in range(self.T)]
+            uw = wp.from_torch(uz, dtype=wp.float32)
+            tr = body_trajectory(dataclasses.replace(spec, prm=prm), seq, uw, requires_grad=False, persistent=False)
+            Bodies([tr], [body.vp], self.mu).rollout()
+            out.append(wp.to_torch(tr.F[self.T]).reshape(-1, 3, 3).clone())
+            del dz, uz
+        return torch.cat(out)
+
     def free_end_F(self) -> torch.Tensor:
         """Each body's end F under the window's committed controls (the ones last loaded: the commit's) without the
         loads: alone, no gravity, no floor (D147, the coordinator's go on assimilating the control's share). The

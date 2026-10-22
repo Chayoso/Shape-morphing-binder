@@ -108,6 +108,7 @@ def main():
     Rt = max(float(np.linalg.norm(t - t.mean(0), axis=1).max()) for t in tgts)
     x0, v0, R0, prm, info = layout(spec, srcs, vps, cfg.young, cfg.poisson, cfg.mass_ref_n, dx, dt, cfg.T, radius=Rt)
     info["deformation_drag"] = deformation_drag_rate(prm)          # fix 4: the deformation damped at this rate (1 / s)
+    info["vp"] = [float(v) for v in vps]                            # a record: each body's volume per particle (its pitch)
     if spec.frame == "fixed":                   # V0: the objective in the frame the body has at launch (the world's)
         for bd, R in zip(bodies, R0):
             bd.fixed = (gpu.tensor(x0[bd.rows].mean(0)), gpu.tensor(R.astype(np.float32)))
@@ -129,7 +130,8 @@ def main():
         d0, d1, db = a.dump.split(",")
         dump = {"t0": float(d0), "t1": float(d1), "bodies": [int(v) for v in db.split("+")], "path": Path(f"{a.out}_dump")}
     res = run_scene(bodies, gpu.tensor(x0), gpu.tensor(v0), prm, cfg, windows, spec.mu, log=log, F_stride=cfg.T,
-                    assim_free=spec.assim_free, schedule=schedule, dump=dump, assim_share=spec.assim_share)
+                    assim_free=spec.assim_free, schedule=schedule, dump=dump, assim_share=spec.assim_share,
+                    assim_load=spec.assim_load)
     seconds = time.time() - t0
     frames = res["frames"]
     n_frames = len(frames.x)
