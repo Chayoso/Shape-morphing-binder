@@ -3,7 +3,8 @@ measured exterior offset (render/mesh_shell.py, target.shell_pictures). CPU: (1)
 distance less c, its discs lie at distance c outside the mesh with the distance's gradient as normals, as the
 exterior's lattice makes the body's discs; (2) c is the reference discs' signed distance, averaged locally over the field's reach; (3) an open mesh is
 closed and turned outward; (4) the mesh in the target's frame is where the frame puts the mesh's surface points; (5) the
-option's validation. CUDA: (6) the default path ignores a mesh bit for bit, and the shell's pictures of a ball's sphere
+option's validation. CUDA: (6) the default path never reads a mesh (a sentinel that fails on any read; its pictures
+within the GPU operator's own run-to-run rounding, the sums being atomic), and the shell's pictures of a ball's sphere
 are close to the samples' (one shape, one shell)."""
 import numpy as np
 import pytest
@@ -108,13 +109,30 @@ def test_the_default_path_ignores_the_mesh_and_the_shell_draws_the_ball_s_sphere
     V, F = _sphere(.95)
     prm = MPMParams(dx=.25, nx=32, ny=32, nz=32, grid_min=(-4., -4., -4.))
     kw = dict(render_views=2, render_elevs=(0.,), render_res=48, loss_res=16, dt_res=16, render_exterior=True)
+    class Untouchable:                                                    # any read of the mesh fails the test
+        def __getitem__(self, k):
+            raise AssertionError("the default path read the mesh")
+
+        def __iter__(self):
+            raise AssertionError("the default path read the mesh")
+
+        def __len__(self):
+            raise AssertionError("the default path read the mesh")
+
+    # The pictures are sums by index_add, i.e. CUDA atomics: two identical builds agree to float rounding, not bit for bit
+    # (the suite's first form of this test asked for bit equality and failed on two builds of the same input). The claim
+    # "the default path ignores the mesh" is the sentinel's; the pictures are compared within the operator's own
+    # run-to-run spread, measured here from two identical builds (and bounded by float32 rounding of the sums).
     a = build_target(x, prm, PipelineConfig(**kw))
-    b = build_target(x, prm, PipelineConfig(**kw), mesh=(V, F))
-    assert all(torch.equal(u, v) for u, v in zip(a.ext.sils, b.ext.sils))
-    assert all(torch.equal(u, v) for u, v in zip(a.ext.shade, b.ext.shade))
+    a2 = build_target(x, prm, PipelineConfig(**kw))
+    b = build_target(x, prm, PipelineConfig(**kw), mesh=Untouchable())
+    gap = lambda P, Q: max(float((u - v).abs().max()) for u, v in zip(P, Q))   # noqa: E731
+    noise = max(gap(a.ext.sils, a2.ext.sils), gap(a.ext.shade, a2.ext.shade), gap(a.sils, a2.sils))
+    assert noise < 1e-5, noise                                            # float rounding of the atomic sums, no more
+    assert gap(a.ext.sils, b.ext.sils) < 1e-5 and gap(a.ext.shade, b.ext.shade) < 1e-5
     s = build_target(x, prm, PipelineConfig(render_target="mesh_shell", **kw), mesh=(V, F))
     d = float(torch.stack([(u - v).square().mean() for u, v in zip(a.ext.sils, s.ext.sils)]).mean())
-    assert 0. < d < 1e-2                                                  # the same shape on its own shell
-    assert all(torch.equal(u, v) for u, v in zip(a.sils, s.sils))         # nothing else of the pack changes
+    assert 1e-8 < d < 1e-2                                                # the same shape on its own shell, not the same discs
+    assert gap(a.sils, s.sils) < 1e-5                                     # nothing else of the pack changes
     with pytest.raises(ValueError, match="needs the target mesh"):
         build_target(x, prm, PipelineConfig(render_target="mesh_shell", **kw))
