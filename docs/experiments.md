@@ -7232,6 +7232,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       - The cost is one linear solve on the grid per commit. It is new code: a conjugate-gradient solve with the MPM's
         own stress-to-node operator and its transpose.
       - A proposal for the coordinator. Nothing is implemented or run before the answer.
+  - **What the F smoothing means for any loaded scene (2026-10-22; the coordinator: on hold, both options go to the
+    user: (a) the grid static-equilibrium subtraction, new code; (b) the smoothing's behaviour under sustained load,
+    addressed at its definition).**
+    - The frozen integrator keeps 4.5 % of each step's deformation increment in the stored F (`smoothing` 0.955).
+      To small strain, the stress therefore sees 0.045 of the geometric strain. Against a sustained load (gravity,
+      resting contact, a held pose) the material answers as if E were about 22× smaller.
+    - Measured in B9b:
+      - The sag is about 20× the elastic G strain. At G 0.02, gravity acts on the shape like G ≈ 0.44.
+      - The zero-control 40k bunny sinks 3.5–3.8 pitches and tips over within 8 s. With the smoothing off, it settles
+        within 4–5 s at 0.6–0.7 pitch.
+      - The slow load response fits the elastic period lengthened by √22 ≈ 4.7: 1.19 s from the wave speed becomes
+        about 5.6 s. The share's rocking had a 4.05-s period, and the Z5 sag oscillated at about 5 s.
+    - The drop scene's stiff material (E × 7, D147) was compensating for this: 7 × E/22 ≈ E/3.
+      - Its landing came at v/c 0.10–0.12 instead of 0.28–0.31.
+      - Its ear tips stretched 1.07–1.16 (95th percentile 1.33–1.45), against 2.0–3.2 (3.7–10.1) for the frozen
+        material.
+      - The frozen material lay squashed on the floor for 2 s, bouncing 0.6–0.8 spacings. The stiff one bounced 11–20
+        spacings and did not come to rest.
+      - So E × 7 moves the response; it does not remove the factor 22.
+    - Every run with a sustained load inherits this factor from the frozen integrator, the single-body gravity runs of
+      B9 included. Unloaded morphs meet it only as the stress's lag behind the motion they make.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
