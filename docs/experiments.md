@@ -11509,6 +11509,62 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       Objective.render_terms, differentiable in the particles.
     - Every accepted step is then one a sample of the solid would show, and stage 1 is read the same way.
     - CPU only; the coordinator to decide.
+- **D156f, the shape-from-shading carve read through the run's own render path, with no disc surrogate
+  (pre-registered 2026-10-21 23:53 CDT server clock, before any run of it; the coordinator's go; CPU only, no card;
+  `d156_sfs_f.py`, server `output/gpu/d156f/`).**
+  *Why.* D156e's carve went to the right places (ρ 0.69–0.74 with the true excess), but its gain belonged to a disc
+  surrogate. Its normals tilted freely (26–51°) and it kept every disc, so the solid's own samples did not improve.
+  The fix is to let only the operator see the shape.
+  *The method.* Frame, photographs, operator and loss are D156e's.
+  - The unknown: an inward displacement δ_i ≥ 0 of each particle of the visual hull's carried sample (D156c's, at
+    the mesh sample's density).
+    - Each particle moves to x_i − δ_i ν_i, with ν_i the hull's outward normal at the particle's nearest hull point
+      (fixed).
+    - δ_i ≤ t_i, the hull's thickness from the particle along −ν_i (an open3d cast to the far side), so no particle
+      crosses the body.
+  - The pictures of a state are the run's render path, `Objective.render_terms`:
+    - the Zhu–Bridson field of the particles at the operator's pitch;
+    - the tracked discs (`render.exterior.tracked`), found at a state and read differentiably at the particles,
+      found again when a tenth of them have moved more than half a lattice pitch (the run's rule);
+    - d_exterior against the eight-draw pictures.
+
+    No disc carries a free position or normal: every disc is where the field of the particles puts it.
+  - The descent:
+    - ∂L/∂δ_i = −(∂L/∂x_i) · ν_i, smoothed by (I + ℓ² L) g_S = g;
+    - L is the Laplacian of the particles' graph (pairs within one picture pixel), scaled as a volume Laplacian,
+      (L f)_i = (6 / Σ_j |Δx_ij|²) Σ_j (f_i − f_j), symmetrised;
+    - coarse to fine, ℓ_k = box / 2^k down to one picture pixel (D156e: r = 1.5 / 2 / 3 end the same);
+    - steps as D156e (accept iff the loss falls; halve on a refusal; start at twice the last accepted; a level ends
+      when no trial down to a largest move of 1e-3 pixel lowers the loss); 500 accepted steps in all.
+  - Extracting the carved solid. The moved particles are a compressed sample: they keep the hull's mass in a
+    smaller volume, so they are not the solid.
+    - The solid is the region their exterior encloses, taken back by the exterior's own offset. The exterior is the
+      operator's zero set, as a triangle mesh (D157's field_mesh at the pitch). The offset c is the mesh sample's
+      measured exterior offset (D156b's). So the solid is {x : signed distance to the exterior < −c}, by marching
+      cubes on a half-pitch grid. It is written in the mesh's oriented coordinates.
+    - It is then **resampled uniformly by the run's own sampler** (draws_in_frame, the fill in mesh coordinates) at
+      the hull sample's density, n = n_hull × fill(solid) / fill(hull).
+    - **Every score is the mean over the eight seeds 98 + 100 k of that resample.** A compressed sample therefore
+      cannot pass by its density: what is scored is a fresh uniform sample of the solid, as a run's target would be.
+    - The same extraction applied to the unmoved hull sample (δ = 0) is the baseline, so the extraction's own bias
+      cancels. The hull file's own eight-seed score is reported beside it.
+  *Stage-1 check (bunny, dragon, bob; CPU, nice 10, three processes).* A mesh passes if all three hold:
+  - the extracted solid's mean score lies at least halfway from the δ = 0 extraction's mean to the floor's mean (the
+    mesh's own samples at seeds 99 + 100 k);
+  - the solid removes at least a quarter of the excess volume, (V(δ = 0 extraction) − V(solid)) / (V(δ = 0
+    extraction) − V(mesh));
+  - its over-carve (the mesh sample's share outside it) is within the δ = 0 extraction's + 1 point.
+
+  The check passes on at least 2 of 3. Also reported: the moved sample's own exterior score (the loss the descent
+  saw), Spearman of δ on the surface particles with the true excess depth under them, steps and time.
+  *If it passes:* solve the 9 meshes on the CPU, then ask the coordinator before the 36 card runs (L and P on the
+  solids, seeds 97 / 99, D156b's readings (a) / (b) / (c)).
+  *Predictions (inferred).*
+  - The descent gains less than D156e's surrogate on its own loss (no free normals, no kept coverage), but what it
+    gains carries over to the resample.
+  - Way 0.2–0.5 on bob and the dragon, 0.1–0.3 on the bunny.
+  - It may fail the halfway bar; if so, the moved sample's score against the resample's says whether the loss is
+    lost in the extraction or never gained.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
