@@ -17659,6 +17659,102 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   placement terms at the transport's resolution (the curve's "transport alone" column) with the rule's λ; the two
   together are what the curve says would carve sub-cell letters and still settle.
 
+- **D162, one definition of the render's weight for what only the pictures carry: the render weight referenced to the
+  render's own excess over its floor (1), and the placement terms at the transport's resolution (2) (a gated A/B
+  experiment, adoption the user's call; pre-registered 2026-10-22 02:29 CDT server clock, before any D162 run; the
+  coordinator, 2026-10-22, after D161c, D160c and D159 measured the same starvation (λ falls 100–400× with the physics
+  residual after arrival; held, the render writes but the body never settles); code: branch `wip/d162` 0cd7245 =
+  freeze-2026-10-15-rt1 + wip/d159 (`--render_target mesh_shell`) + wip/d160 (`--appearance`) + wip/d161
+  (`--render_tgt`, `--proximity_berth`) + `--render_weight_ref`, `--placement_at_cell`, every option default off;
+  server `repo_d162` / `repo_d162s` (+ `tmp/d160/patch_s.pl`, kept frames with the albedos), `tmp/d162/`,
+  `output/gpu/d162/`; scripts `scripts/probes/paper/d162/`; local `output/results_2026-10-22/d162_render_weight/`
+  with a Korean README).**
+  *Why.* D161 (relief), D160 (colour) and D159 (the mesh's detail) each found the render starved after arrival: the
+  rule λ |g_r| = λ_auto |g_p| ties the render's weight to the physics' residual gradient, which falls 100–400× as the
+  body arrives, while the physics' hold against what only the pictures ask (its curvature: the placement terms below
+  about two loss cells, the transport above) stays (D161's curve, its λ sweep, the per-window records). Held at its
+  first value (D161c, D160c), the render writes (relief 47–58 % of the ceiling; colour half r 0.88) but takes 92–97 %
+  of the step after arrival, keeps pushing at its own noise and the body does not come to rest; the shape drifts.
+  *Papers (read first; the agent's summary in the local README).* GradNorm (Chen et al. 2018): our rule is GradNorm
+  with α = 0; a stuck task's weight rises without bound. Kendall et al. 2018: the weight 1 / (2 L) grows as the loss
+  falls and saturates at its noise, never fading. MGDA (Sener and Koltun 2018): the min-norm step is bounded by the
+  smallest gradient, so after arrival it starves the render as the rule does. CAGrad (Liu et al. 2021) and PCGrad (Yu
+  et al. 2020): they remove conflict, not scale; the rest point is the fixed weighted sum's, which with a held weight
+  contains the render's noise. Nash-MTL (Navon et al. 2022): scale-free shares, a noise gradient keeps its unit share.
+  FAMO (Liu et al. 2023): balances log-loss rates with each loss's floor subtracted (ℓ − ℓ*), the closest precedent;
+  in log form it up-weights near the floor. RHO-LOSS (Mindermann et al. 2022) and DoReMi (Xie et al. 2023): weight by the
+  excess over an irreducible (reference) loss, max(ℓ − ℓ_ref, 0). Implications fixed before the runs: no method in the
+  set fades a converged task without an estimate of its floor; the floor must be measured at the run's own N, pixels,
+  views and read path; max(0, ·) bounds the weight in [0, λ_0] (no blow-up); rest then coincides with the physics-only
+  stationary point once the excess is spent.
+  *(1) The definition (`--render_weight_ref floor`).* λ_t = λ_0 · max(0, 1 − L_floor / L_r(t)): λ_0 the rule's value at
+  the run's first calibration (λ_0 |g_r'| = 0.5 |g_p| at window 0, the frozen rule), L_r(t) the render term
+  (silhouette + w_pbr shading) at the window's first evaluation, L_floor the render term of the pictures' own first
+  sample (the render target's sample at seed + 1, else the target sample itself; with its paint under `--appearance`),
+  read as the body is read (the tracked exterior discs of a field found at that state, `d_exterior`;
+  `target.render_floor`). No new constant: 0.5 is the rule's, L_floor is measured once a run. PCGrad unchanged.
+  - Why this floor and not an independent sample's. Measured before this entry on D161's runs: an independent smooth
+    sample (seed + 2) scores 3.5e-3 on the coin's pictures, above what the λ = 0 twins reach (3.1–3.3e-3, against the
+    relief pictures): the body converges to the transport's target sample, one of the pictures' eight draws, which
+    shares 1/8 of their noise (E = σ²(1 − 1/8) against σ²(1 + 1/8) for an independent draw). An independent floor
+    would read zero excess at arrival and starve the render again (the paper agent's first pitfall). The pictures' own
+    first sample is what a body that reaches the physics' target scores: the reachable floor. For a plain target the
+    render then fades once the body matches the pictures as well as its target sample does; for a relief (colour)
+    target it keeps weight while the letters (paint) are not yet carved (routed).
+  - What it predicts mechanically: after arrival λ = λ_0 · e with e the excess fraction; the render's push then
+    dominates the physics residual as in D161c while e is large, and fades as L_r approaches the floor; the body can
+    rest once e → 0 or at the balance of push and hold.
+  - Not covered: `--render_target mesh_shell` (D159), whose pictures have no sample; its floor would be the target
+    sample's score against the shell, which the transport reaches at arrival (zero excess). Recorded, not run here.
+  *(2) The definition (`--placement_at_cell`).* The placement terms read the body at the transport's resolution, one
+  loss cell (ldx, 3.2 pitches at 40k): the surface proximity counts a target outer point as covered when a body
+  particle lies within one loss cell (its floor K(ldx) in place of K(sp)/2, sp the target's nearest spacing); the near
+  band's berth is the loss cell, so its band (berth to one loss cell) is empty; the spray cleanup's isolation gate reads
+  the 8th-neighbour distance in loss cells (ramp 1.2–1.8 ldx in place of 1.2–1.8 × its median). No new constant. The
+  relaxation and its relief reference (D105) are unchanged. Risk: thin features' gaps of 1.6–2 spacings were the
+  proximity's reason (R-series); read thin_uncovered.
+  *Gates (`d162_chain.sh V`, one card, before any run; a failure stops the chain).* V1 the full suite on repo_d162 (exit
+  status). V2 the pinned references and the merged options' tests (`test_refreeze_reference`, `test_d162`,
+  `test_render_tgt`, `test_proximity_berth`, `test_appearance`, `test_appearance_pipeline`, `test_render_target_shell`,
+  `test_frozen_recipe`; exit 0). V3 Warp's deterministic mode, 40k bunny seed 97, four windows, repo_d162s at the
+  defaults against rt1's S1: SAME. V4 four-window runs, exit 0 and the floor's log line: `--render_weight_ref floor`
+  (bunny), `--placement_at_cell` (bunny), both on the coin relief (`--render_tgt`), floor with `--appearance band`, floor
+  with `--render_target mesh_shell`.
+  *Runs (40k, seeds 97 / 99, repo_d162s, kept frames; two chains, one card each, lock protocol with the courtesy wait;
+  `d162_runs_A.txt`, `d162_runs_B.txt`).* Arms: F = (1) alone; FC = (1) + (2); TC = FC's λ = 0 twin (`--render_weight_scale
+  0 --placement_at_cell`: (2) changes the physics). Scenes: D161's relief (coin `d161coin.obj` + `d161L40coin.obj`;
+  the smoothed bunny's flank `d161smooth_bunny.obj` + `d161L40_bunny.obj`), D160's colour (bunny band, ears), each F, FC,
+  TC × 2 seeds (24 runs); the 19-mesh gallery on plain targets, F and FC × 2 seeds (76 runs). References: the tag (D161
+  plain, D160 L, the tag's gallery V), the held weight (D161c, D160c H), the twins (D161 twins, D160 P, the gallery W).
+  *Readings.* Relief: `d161_read.py` and `d161_summary.py` (F against D161's twins, FC against TC). Colour: `d160_read.py`
+  (F against D160's P, FC against TC), `d162_colour.py`. Gallery: `d162_gallery.py`. Per window (all runs):
+  `d161_windows.py` with λ, λ_rule, the floor, the excess e, g_share, |g_phys|, the step, rejections, the stop.
+  *Criteria (per arm).*
+  - P1 (relief, per scene, both seeds): the carved A ≥ 0.5 × the relief sample's own A and corr ≥ 0.5 × the ceiling's own
+    corr (D161's absolute 0.5 was out of reach of the bunny's own sample), the twin's A ≤ 0.1 × and |corr| ≤ 0.2.
+  - C1 (colour, per scene, both seeds): D160's: r = (mis_twin − mis) / (mis_twin − floor) ≥ 0.5, held-out colour PSNR
+    above and LPIPS below the twin's.
+  - P3 / C2 (shape, the scenes): against the smooth mesh / the target, held-out 1 − IoU, Chamfer-L1 (relief: D161's
+    reader), the run's sil_iou, thin_uncovered: not worse than the twin's by more than the larger of the two arms' seed
+    spreads.
+  - P4 / C3 (rest): the end's v_mean ≤ 2 × the twin's (scenes).
+  - P5 / C4 (pieces): no piece of ≥ 10 particles beyond the twin's count.
+  - G (the gallery, per arm): a mesh misses a reading (sil_iou, thin_uncovered, chamfer) if the arm's two-seed mean is
+    worse than the tag's worse seed by more than |V97 − V99|; rest misses if its larger end v_mean exceeds 1.25 × the
+    tag's larger; pieces miss if it has more pieces of ≥ 10 particles than the tag. G holds if at most a tenth of the
+    57 reading cells miss, at most one mesh misses rest and none misses pieces.
+  - An arm PASSES if P1 holds on both relief scenes or C1 on at least one colour scene, with P3–P5 / C2–C4 on those
+    scenes and G on the gallery. Then the coordinator is asked for 300k (D159's scales / wrinkles, the relief).
+  *Predictions.* (From D161's λ sweep and the floors: on the coin the twins end at L_r ≈ 3.2e-3 against an in-picture
+  floor near 2.7e-3, so e ≈ 0.1–0.2 at arrival, λ ≈ 0.03–0.06, which by the curve keeps 0.5–0.7 of the relief and fades
+  as the carve proceeds.) F: relief share 0.25–0.45, corr 0.3–0.5 of the ceiling's; colour r 0.2–0.5 on band, lower on
+  ears; at rest (the excess falls as the carve proceeds); P1 / C1 narrowly missed or met on the coin and band. FC: more
+  relief (the placement terms' hold below two cells gone: the curve's transport-only column, 0.12–0.20 at w ≈ 8 a with
+  the rule's λ, more with the floor's), colour about as F (the placement terms do not hold the colour); thin_uncovered
+  worse on the gallery (thin gaps no longer seen below a loss cell), G at risk on thin. Gallery F: the render fades
+  once the body matches its target sample, so its late polishing (the tag's tail) is shorter; sil_iou within the
+  spread, G holds narrowly. The window records: λ_0 · e between the rule's λ and the held λ after arrival.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
