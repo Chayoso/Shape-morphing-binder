@@ -8,7 +8,7 @@ annuli), height (the letters' em size or the logo's scale, pitches), amp (delta,
 sigma, pitches), map (sphere: equirectangular about the vertical axis through the sphere's centre, the text centred
 at longitude `lon0` deg; flank: orthographic along the body's narrower horizontal axis onto its +side, centred on the
 flank point, the faces that see that side (n . lat > 0.25) and lie in front).
-The mesh is subdivided (trimesh subdivide_to_size: every face split alike, no slivers) until its longest edge is below
+The mesh is subdivided (trimesh.remesh.subdivide, every face 4-way: no slivers, no T-junction) until its longest edge is below
 min(edge, stroke) / 3, its vertex normals taken (area-weighted, outward); the pattern P in [0, 1] (the raster of the
 letters, blurred by `edge`) is read at each vertex through the map; the vertex moves by amp (P - Pbar) n, Pbar P's area
 mean over the whole surface, so the volume is the smooth mesh's to first order (and the pictures' mean brightness, Alexa
@@ -84,7 +84,9 @@ def main():
     # the frame: world = (R raw - offset) x scale
     Vw = (np.asarray(raw.vertices, np.float64) @ R.T - frame["offset"]) * frame["scale"]
     maxe_w = min(edge, spec.get("stroke_pitch", spec["edge"]) * a) / 3.0
-    V, F = trimesh.remesh.subdivide_to_size(Vw, np.asarray(raw.faces), max_edge=maxe_w, max_iter=12)
+    V, F = Vw, np.asarray(raw.faces)
+    while trimesh.Trimesh(V, F, process=False).edges_unique_length.max() > maxe_w:   # uniform 4-way splits: no T-junction
+        V, F = trimesh.remesh.subdivide(V, F)
     tm = trimesh.Trimesh(V, F, process=True)
     tm.merge_vertices()
     V, F = np.asarray(tm.vertices, np.float64), np.asarray(tm.faces)

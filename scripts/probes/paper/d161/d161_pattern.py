@@ -44,10 +44,8 @@ class Pattern:
         else:
             ext = x_t.max(0) - x_t.min(0)
             lat = np.eye(3)[0] if ext[0] < ext[2] else np.eye(3)[2]
-            fwd = np.eye(3)[2] if ext[0] < ext[2] else np.eye(3)[0]
-            up = np.cross(lat, fwd)
-            if up[1] < 0:
-                fwd, up = -fwd, -up
+            up = np.eye(3)[1]
+            fwd = np.cross(lat, up)                 # the camera's right seen from +lat (the text reads from outside)
             band = np.abs(x_t[:, 1] - cen[1]) < 0.5
             cf = x_t[band][np.argmax((x_t[band] - cen) @ lat)].astype(np.float64)
             off = np.asarray(spec.get("offset_uv", [0.0, 0.0]), np.float64) * a

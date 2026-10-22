@@ -1,0 +1,9 @@
+# D161 40k runs (pre-registered 2026-10-21 22:51 CDT): NAME FLAGS
+coin40k_full_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97
+coin40k_twin_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97 --render_weight_scale 0
+bunny40k_full_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 97
+bunny40k_twin_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 97 --render_weight_scale 0
+coin40k_full_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 99
+coin40k_twin_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 99 --render_weight_scale 0
+bunny40k_full_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 99
+bunny40k_twin_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 99 --render_weight_scale 0
