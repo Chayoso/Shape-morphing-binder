@@ -17468,6 +17468,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   60/67 %, ears 15/22 %, turn 16/17 %, dragon band 27/12 % of its value at arrival, seeds 97/99) while the twins are
   flat after about 1 s. The condition holds; D159c is armed (`tmp/d159/d159c_after.sh`, PID 4161998): it starts
   `d159c.sh` once D159's renders and close-ups are done, so D159 holds one card at a time.
+  **D159c read (2026-10-22 10:45 CDT; runs 04:39–04:58 on one card, the CPU readings 10:19–10:28; `output/gpu/d159/table/
+  table.txt` (C97 beside M97 in R1–R5, and R6), `course.png`, `relief.png`, `holds.png`, the three-row close-ups in
+  `closeups/`).** Two reader faults, fixed before reading: `d159c_read.sh` used `C` for the run name and
+  `tmp/d146/cache_env.sh` sets `C` (the cache dir), so the visible pieces, the end pieces, R5 and R6 read the wrong
+  paths (apart, R1 and R2 were right); re-read with `RUN` (`d159c_readfix.sh`, `d159c_terms.sh`), and D157's set was
+  added (`d159c_d157.sh`, not in the first script). The held λ is the first window's calibration, 0.32 (bunny) and
+  0.96 (dragon), not the 0.026 / 0.011 the prediction took from D159's mean over the approach: in D159 λ already falls
+  3–7× within the first three windows. The runs end early by the frozen stop rules: bunny at window 50 (three rejected
+  candidates in a row), dragon at window 49 (delivery merit plateau, delivered at the best commit, 43); 12.4 / 16.3
+  min; the ends are at 7.2 / 7.0 s against D159's 14.2 / 22.9 s.
+  R6, after arrival (against D159 M97): the render's share 0.97 / 0.98 (0.33), λ|g_r| 9.7e-4 / 4.0e-3 against
+  |g_p| 3.0e-5 / 6.7e-5 (2.9e-6 against 5.9e-6; 2.3e-6 against 4.6e-6); the step α|g| 8.5× / 32×, the move per window
+  0.031 / 0.151 spacing (0.0091 / 0.0213), the last ten windows 0.027 / 0.107 (the tag 0.0046 / 0.0105); the physics
+  gradient stays 5–14× above D159's: the render holds the body away from the physics' rest point. R5, the last ten
+  windows: the render's detail-band push 2.7e-6 / 1.1e-5 (D159 1.0e-8 / 6.8e-9), the physics' 3.9e-7 / 9.3e-7; the
+  render owns 0.97–0.99 of the detail-band push from the first window to the end (`holds.png`); the relaxation removes
+  0.052 / 0.092 pitch a step in the band (D159 0.040 / 0.050), cos with the render's push −0.07 / −0.02.
+  R1, the region, end: the outer layer's carried share is unchanged (bunny 0.75 / 0.84 / 0.86 by band against D159
+  0.75 / 0.84 / 0.87 and the tag's 0.76–0.81 / 0.82–0.86 / 0.85–0.88; dragon 0.82 / 0.81 / 0.82 against 0.83 / 0.82 /
+  0.82 and 0.80–0.83 / 0.80–0.81 / 0.80–0.81). The radius-3 exterior the loss reads follows the mesh more on the dragon
+  (0.26 / 0.67 / 0.80 against the tag's −0.40…−0.19 / 0.36–0.44 / 0.64–0.67) and just above the tag's range on the bunny
+  (−0.02 / 0.45 / 0.68 against −0.13…−0.02 / 0.39–0.44 / 0.64–0.67); in the dragon's high-contrast set the exterior
+  falls (−0.20 / 0.50 / 0.68 against 0.00–0.27 / 0.54–0.60 / 0.72–0.75). R2, the detail band from the twin at the run's
+  end (7 s): bunny 0.078 against the floor's 0.075 (1.0–1.1× the floor at its end or at 7 s), dragon 0.133 against
+  0.080 (1.4–1.7×); the course stays above D159's and the tag's from 0.5 s on and is still falling when the
+  run stops (`course.png`).
+  Rest, pieces, quality (against the tag's five seeds): the last kinetic record 1.0e-3 / 6.4e-4 against at most
+  1.8e-6 / 7.9e-6 (G3 still passes); thin 0.069 / 0.112 against at most 0.041 / 0.036; the yardstick 1.2× (bunny)
+  and 2.7–3.5× (dragon) the tag's; end pieces bunny 43 (none of 10+), dragon 578 with 10 of 10+ particles, the largest
+  35, one 5.6 pitches out (the tag 0–1 of 10+); visible blobs over the run 101 / 97 against 88–140 / 243–294 (the runs
+  are a third as long). D157's set: bunny better than the tag's whole range on 11 of 14, worse on 2 (boundary F, 3D
+  F@1); dragon worse on all 14 (HD95 9.9 pitches against 0.61, the far piece). Close-ups (tag | D159 | D159c, studio
+  look; and the r = 2.5 display pair): no new relief on the scutes or the haunch; D159c's ends look like the tag's
+  at 4 s.
+  Verdict by the letter: P1c failed (the bunny's R2 at 1.0–1.1× the floor; the dragon passes both parts), P2c failed
+  (the bunny's 3D F@1, the dragon's 14), P3c failed on both (rest, thin; the dragon's pieces). Not a candidate. What it
+  shows: holding the render's weight gives the render 97–99 % of the push on the detail band for the whole run, and
+  the outer layer still carries the same share of the scales and wrinkles as the twin, the tag and D159; what moves is
+  the field of radius 3 over it (the dragon's region) and the rest of the body (not at rest, thin, pieces). The render
+  after arrival does not carve the mesh's relief into the particles at this weight; its push is spent against the
+  physics' rest point.
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`

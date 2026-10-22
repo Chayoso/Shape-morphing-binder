@@ -139,3 +139,12 @@ output/gpu/cleanup.log. /data/relcfd/chayo at 467 GB at 02:50 (limit 500).
 Local (when back): copy video/*.mp4, closeups/*.jpg, table/* to
 output/results_2026-10-21/d158_render_detail/d159/ ; bunny video already copied; README_ko.md D159 section updated
 through the D159c launch.
+
+## 2026-10-22 10:50 CDT: D159 and D159c READ, nothing running, no lock held
+- Everything ran overnight: X renders (videos in output/gpu/d159/video/), close-ups (04:17-04:24), D159c (04:39-04:58,
+  bunny300k_C97 / dragon300k_C97, rc 0). The CPU readers lost vis / pieces / R5 / R6 to a variable clash (cache_env.sh
+  sets C); re-read 10:19-10:28 with d159c_readfix.sh, d159c_terms.sh, plus D157 by d159c_d157.sh.
+- D159c close-ups rendered on gpu1 (10:21-10:24, released), sheets now three rows (tag | D159 | D159c).
+- Verdict: P1c / P2c / P3c fail; not a candidate. Reading in docs/experiments.md (D159 entry, "D159c read").
+- Deleted and logged: C97 term dumps (2.0 GB), M97 / C97 kept frames (3.6 GB). Left: *_end1.npz (7 MB each), JSON, logs.
+- Table: $PY tmp/d159/d159_table.py output/gpu/d159/table (R1-R6 with C97).
