@@ -19118,6 +19118,36 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     stays held as in D160c.
   - The cost: one field mesh and eight inside tests and render terms a window, likely seconds at 40k against a
     window of 1.5–6 s.
+  *Amendment 1 (16:58 CDT server clock, before any D162b run; the runs wait for `gates/GO`).*
+  - The card. No card was free: gpu0 was D163's, gpu3 and gpu1 also carried another user's job. D162's own chain on
+    gpu1 (list B) was cut after its current run, and the card was handed straight to D162b, so it stayed this agent's.
+    A2 and the rest of B run after D162b. Timings here are on that shared card.
+  - The gates, try 1 (56ed3c8): V2 43 passed, V3 SAME, V4 exit 0 on all four. V1 had one failure,
+    `test_volume_exact.py::test_the_eval_trajectory_replays_bit_for_bit[off-cuda]`.
+  - The gates, try 2 (56ed3c8 for V1–V2, cabddcf for V3–V4): V1 failed on the same test's `[carried-cuda]` variant,
+    V2 43 passed, V3 SAME, V4 exit 0.
+    - That test asserts that two CUDA rollouts at rest are bit-identical. Ten repeats on this card: the tag as tagged
+      3/10 failures, repo_d162b 5/10.
+    - So it is the atomics nondeterminism of a shared card, the assumption behind D162 amendment 3's commit_replay
+      finding, not D162b's code. D162b does not touch the MPM.
+    - On cabddcf: tests/test_d162.py + test_frozen_recipe 13 passed (exit 0).
+    - The runs go ahead on that record. The test is unchanged; the frozen code's at-rest replay assumption is the
+      user's call, with commit_replay.
+  - A definition fix found in V4, before any run (cabddcf). With the resample points kept only inside the solid, the
+    floor sample's resample held 35.5k of 40k points, and its b_floor read 3.7–4.7e-2 against the sample's own a of
+    1.8–2.5e-3: the silhouette error of a shrunken body. That would have swamped every shape excess.
+    - The stratified sampler that drew the target keeps its fill's interior AND surface voxels and jitters inside
+      each, so its sample reaches about half a voxel beyond the surface.
+    - The resample now keeps each lattice voxel that meets the solid (any of its eight corners inside), one jittered
+      point each: the sampler's own convention.
+    - b_floor is now 5.66e-3 (coin), 6.38e-3 (bunny relief), 4.01e-3 (band) and 4.37e-3 (ears), at 40.4–41.7k points
+      a resample. Read 1's X step (marching cubes + the stratified mesh fill) gave 4.67e-3 (coin) and 4.46e-3 (band).
+      Repeated reads are bit-identical.
+  - The cost, measured (V4, four windows a scene): one reading takes 3.4–4.1 s a window, against window attempts of
+    8.5–11.4 s that include it, about 40 %. The per-run setup (c, b_floor) takes 10–28 s.
+    - The refresh stays at every window's start, as pre-registered; no period is chosen. A 40k run takes about 1.7×
+      longer.
+  - First windows: e = 0.93–0.98, λ = 0.29–0.31 ≈ λ_0, as predicted for the transport phase.
 
 ## To run next, in order
 
