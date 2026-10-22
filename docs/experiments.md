@@ -12026,6 +12026,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       and adds no constant.
     - To keep the remesh from eating the gain, the solid is scored at a quarter pitch. The d = 0 mesh's distance from
       the hull file is reported, as now.
+- **D156i, the silhouette as a constraint and the shading as the objective (pre-registered 2026-10-22 10:27 CDT server
+  clock, before any run or test of it; the coordinator's go; CPU only, no card, three processes at nice 10;
+  `d156_sfs_i.py`, server `output/gpu/d156i/`).**
+  *Why.* D156g's direction diagnostic. At the visual hull the silhouette term is already at its optimum, and its
+  gradient is a rim guard 5–60 times the shading's carve signal. The H¹ map of the sum is the guard at every scale that
+  moves a sampler voxel.
+  *The method.* D156g's in every respect except three.
+  1. **The direction** is the shading part alone, g_i = −(∂(w_pbr · pbr)/∂x_i) · ν(π(x_i)). It is scattered to the
+     vertices and divided by their areas, smoothed by the same coarse-to-fine H¹, with the largest move counted over
+     the movable vertices (amendment 2).
+  2. **A trial is accepted iff, on the step's four paired draws, the shading's mean falls and the silhouette's mean
+     does not rise** (≤ the current state's on the same draws).
+     - There is no tolerance: the silhouette is held, as the visual hull already satisfies it.
+     - Refused trials are counted by reason: shading not lower, silhouette higher, or both.
+  3. **The score** is the marching-cubes solid at a quarter pitch (the grid of depth and π at pitch / 4), resampled by
+     the run's sampler, the eight held-out seeds 95 + 100 k.
+  - Everything else is D156g's: the state (the hull minus d at the vertices, the thickness cap), the restricted draws
+    (the sampler's surface-voxel rule, amendment 3), the fresh seeds 100 000 + 4t + j, the levels box / 2^k to one
+    pixel, the step rule, the budget (300 accepted steps or 6 h) and the floor (99 + 100 k).
+  *Stage-1 rule (D156g's, on the total render term sil + w_pbr · pbr; passes on 2 of 3).*
+  - Way ≥ 0.5 from the d = 0 quarter-pitch mesh to the floor.
+  - Excess removed ≥ 0.25.
+  - Over-carve within the base's + 1 point.
+  - Also reported: the way from the hull file; the restricted way; the shading-only and silhouette-only scores of
+    the base and the solid; the d = 0 mesh against the hull file; refusals by reason; ρ with the true excess; steps;
+    time.
+  *Predictions (inferred).*
+  - On the bunny and bob the coarse levels (≥ 12 pixels) find no step, because the shading's own smoothed direction
+    does not carve there. The carve happens at 3–6 pixels.
+  - The silhouette constraint refuses a sizeable share of trials: the soft compositing lowers coverage a little at
+    any carve near a rim.
+  - Restricted way 0.15–0.35; the quarter-pitch remesh within ±3 % of the hull file.
+  - More excess removed than D156g (≥ 0.3 on the bunny and dragon), but FAIL by the halfway bar on at least two
+    meshes.
+  *If it passes:* ask the coordinator before any card run.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
