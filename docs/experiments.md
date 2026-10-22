@@ -17449,6 +17449,60 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     the weight rule is frozen.
   - If it still does not move with a dominant push, the step's reach after arrival is the limit; then D160b (D155's
     moving target, a longer flow) is the measured next.
+  **D160c read (runs 01:18–01:52, readers to 02:38, read 02:42 CDT, GPU 0): C1 PASSES; the gate FAILS on C2, C3, C4.
+  The colour moves once the render keeps its weight: the coupling is confirmed as the colour's limiter, and holding
+  the whole render weight breaks the body's rest and the exact-mesh surface.**
+  *C1, colour.* r against the same twins (D160's L, the rule's λ, in brackets). The held-out colour PSNR and ΔE are
+  against D157's 46 views.
+
+  | scene | r 97 / 99 | mis twin → held | held-out PSNR twin → held | ΔE twin → held |
+  |---|---|---|---|---|
+  | half (control) | 0.89 / 0.79 (0.04 / 0.07) | 0.057 → 0.009 / 0.059 → 0.015 | 18.80 → 22.20 / 18.73 → 21.57 | 9.8 → 6.8 / 10.0 → 7.1 |
+  | band | 0.91 / 0.93 (0.06 / 0.09) | 0.099 → 0.015 / 0.104 → 0.013 | 16.77 → 21.19 / 16.64 → 21.49 | 12.4 → 7.5 / 12.6 → 7.1 |
+  | ears | 0.19 / 0.40 (0.04 / 0.03) | 0.128 → 0.105 / 0.128 → 0.078 | 16.28 → 16.79 / 16.23 → 17.67 | 13.8 → 12.5 / 13.9 → 10.7 |
+  | turn | 0.63 / 0.63 (0.01 / 0.02) | 0.433 → 0.168 / 0.436 → 0.169 | 10.70 → 14.73 / 10.67 → 14.65 | 32.0 → 17.8 / 32.2 → 18.1 |
+  | dragon band | 0.73 / 0.34 (0.03 / 0.03) | 0.195 → 0.056 / 0.192 → 0.129 | 15.22 → 18.27 / 15.30 → 15.50 | 16.5 → 10.4 / 16.3 → 15.3 |
+
+  - Band and turn pass at both seeds. Ears and dragon fail at one seed each; half (the control) passes. LPIPS falls
+    with PSNR (band 0.089 → 0.057, turn 0.168 → 0.114).
+  - The new signature: the colour keeps falling after arrival for as long as the run goes on.
+    - Turn H99: 0.499 → 0.395 at 1.6 s → 0.288 at 7.2 s → 0.169 at 21 s, still falling.
+    - Band H99: 0.067 → 0.013 by 8 s.
+  - The three runs that stopped early (band H97 at 4.0 s, ears H97 at 3.2 s, dragon H99 at 3.3 s) were still
+    falling when the stop rule ended them. Ears' and dragon's misses are those early stops.
+  - The red outer material moves +0.3 to +0.5 pitches beyond the twin's on band, turn and dragon H97 (0.0–0.16 on the
+    others; D160's L ≤ 0.09). The outer layer moves from the twin's by a median 0.8–2.6 pitches (p90 1.9–8.9).
+  - Sheets: the turn's paint turned toward the target's front/back split, with streaks along the boundary; the twin
+    keeps the transport's top/bottom split.
+  *C2–C4, the price.*
+  - C2: 40 of 80 cells miss, worse than the tag's worst V by more than its spread: F at 0.5 pitch 9 of 10 runs,
+    Boundary IoU 6, studio PSNR 6, yardstick silhouette 5, yardstick shading 5, IoU 4, thin 3, display 2. Thin on the
+    dragon 0.096 / 0.112 against the tag's 0.053–0.055.
+  - C3: G3 passes on every run (drift_rel ≤ 5e-4, jitter_rel ≤ 2.5e-5). The delivered kinetic record is 3.4e-4–8.0e-3,
+    5–80 times the bound: the body is still rearranging when the run ends.
+  - C4: turn H99 ends with one piece of ≥ 10 particles (within 5 pitches).
+  - g_share 0.64–0.70 (D160's L: 1/3). The windows run 19–128 (L 32–53), the D81 mode: with the merit mostly the
+    render term, its window-to-window swing stops some runs early, while others run long.
+  *Reading.*
+  - The pre-registered branch holds: the coupling of the render weight to the physics gradient is what keeps the
+    colour from moving after arrival. With the weight held, the render routes material by colour over 3–12 pitches,
+    and the λ = 0 twin cannot by construction. This is the render's own contribution D160 asked for.
+  - Holding the whole render weight also holds the render's geometric terms (silhouette, shading through points and
+    normals) at the first window's weight: the pre-D81 state, whose cost D81 measured. Together with the colour flow
+    that never finishes, the body does not come to rest and the exact-mesh surface falls behind the tag's.
+  - These runs do not separate the two causes; the next definition would.
+  *Next (the user's decision: the render weight is part of the frozen rule).*
+  - D160d: the render weight split by what each part competes with.
+    - The geometric render terms keep the rule's λ, as now: they compete with the physics for the same surface.
+    - The colour term, which lives in the physics' null space, keeps its first-window weight.
+    - Two existing rules, no new constant. Prediction: the colour as D160c, the geometry and rest as D160's L.
+    - It is a definition change of the render weight, so it waits for the user's go.
+  - The early stops (3 of 10) are the stop rule reading a render-dominated merit. They are read again under D160d
+    before any change to the stop rule.
+  - D160b (the moving target) is no longer the first next: D160c shows the authority, not the flow's length, decides.
+  *Files.* `output/gpu/d160/`: runs `runs40/*_H{97,99}*`, `read_colour_H.jsonl`, `gate_H/` (table, gate.json,
+  figures), `video/*_97_H/` (λ held | twin | target paint), `limiter_A.json`, `step1/split.jsonl`. Local:
+  `output/results_2026-10-21/d160_appearance/d160c/`.
 
 - **D161, the render carves a relief that only its pictures carry: the 3D target a smooth mesh, the render's target
   pictures the same mesh with embossed letters (pre-registered 2026-10-21 22:51 CDT server clock, before any run of
