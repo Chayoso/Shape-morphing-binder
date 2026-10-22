@@ -1,0 +1,9 @@
+# D163 40k quick check (pre-registered 2026-10-22 14:10 CDT): NAME FLAGS
+plq40k_T_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97 --render_weight_scale 0
+plq40k_H_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97 --lambda_ema 0
+plq40k_R_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97
+plq40k_H2_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97 --lambda_ema 0 --render_res_hi 192
+plq40k_T_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 99 --render_weight_scale 0
+plq40k_F_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97 --render_weight_ref floor
+plq40k_FC_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+plq40k_TC_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97 --render_weight_scale 0 --placement_at_cell

@@ -1,0 +1,3 @@
+# D163 300k (pre-registered 2026-10-22 14:10 CDT): the best 40k arm (H: share 0.91 of the ceiling, P2 -27 %), then the rule
+plq300k_H_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R300plaque.obj --n 300000 --seed 97 --lambda_ema 0
+plq300k_R_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R300plaque.obj --n 300000 --seed 97
