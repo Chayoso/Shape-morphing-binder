@@ -11676,6 +11676,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
          moves a subset of the centres. That is false where neighbouring vertices move in opposite directions and are
          clamped at different steps.
        - D156f's rule (halve down to 1e-3 pixel) is kept instead, at no cost.
+     - Amendment 2, 01:42 CDT, before any run. The largest move s px is counted only over the vertices that can move
+       in the descent direction: a projected gradient. At d = 0 a vertex asked to un-carve is held, and at the cap a
+       vertex asked to carve deeper is held.
+       - The first text took max |g_S| over all vertices. The smoke test (bunny, budget 2, 01:26–01:40; not a
+         reading) showed what that does.
+       - At ℓ = 48 and 24 pixels the smoothed gradient asks to un-carve nearly everywhere, so the feasible move at s
+         = 1 was below 1e-3 pixel, and those levels ended without a trial.
+       - At 12 pixels the first accepted step moved 0.002 pixel (8.127 → 8.120e-3, 11 centres).
+       - Each trial is now also logged (s, its largest move, the centres it moves, the two means).
   5. The run ends after the last level, after 300 accepted steps, or at 6 h (reported as the budget).
   *The score.*
   - The final d is turned into a mesh by marching cubes of depth − d(π) on the half-pitch grid. At d = 0 this is

@@ -191,7 +191,7 @@ def solve(out_dir, hull_dir, N, RES, mesh):
         gi = -(gx * hull.fn[fid]).sum(1)
         g = np.zeros(nV)
         np.add.at(g, HF[fid].ravel(), (bary(uv) * gi[:, None]).ravel())
-        return float(L), torch.as_tensor(g / np.maximum(A_v, 1e-30))
+        return float(L.detach()), torch.as_tensor(g / np.maximum(A_v, 1e-30))
 
     d = np.zeros(nV)
     levels = []
@@ -222,7 +222,10 @@ def solve(out_dir, hull_dir, N, RES, mesh):
             _, g = grad_d(cur[0])
             evals += 1
             gS = cg(H1, g).numpy()
-            gmax = float(np.abs(gS).max())
+            # the largest move over the vertices that can move in the descent direction (a projected gradient: at
+            # d = 0 a vertex asked to un-carve is held, at the cap one asked to carve deeper)
+            movable = ~(((d <= 0) & (gS > 0)) | ((d >= thick_np) & (gS < 0)))
+            gmax = float(np.abs(gS[movable]).max()) if movable.any() else 0.0
             if not gmax > 0:
                 break
             s = 1.0 if first else 2.0 * step_px
@@ -232,12 +235,15 @@ def solve(out_dir, hull_dir, N, RES, mesh):
                 if float(np.abs(dt - d).max()) < 1e-3 * px:
                     break
                 remt = removed(dt)
-                if not any(bool((remt[k] != rem[k]).any()) for _, k in draws):
+                nchg = sum(int((remt[k] != rem[k]).sum()) for _, k in draws)
+                if nchg == 0:
                     skipped += 1
                     s *= 0.5
                     continue
                 Lt = float(np.mean([loss(x) for x in restrict(draws, remt)]))
                 evals += J
+                print(json.dumps(dict(trial=True, level=li, s=s, move_px=float(np.abs(dt - d).max()) / px,
+                                      changed=nchg, loss_cur=Lcur, loss_trial=Lt)), flush=True)
                 if Lt < Lcur:
                     acc = (dt, Lt, s)
                     break
