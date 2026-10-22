@@ -11415,6 +11415,60 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - (3) The solid from the H¹-smoothed d (the same operator, applied once), not the nearest disc. L_solid is
       scored as the mean over the eight draw seeds, so a pass is not noise.
     - Then the same step-1 check on bunny, dragon and bob, and the 9 meshes with (a) / (b) / (c) only if it passes.
+- **D156e, D156d's shape-from-shading carve made coarse to fine, bounded by the body's thickness, and scored on the
+  pipeline's own samples (pre-registered 2026-10-21 23:31 CDT server clock, before any run of it; the coordinator's
+  go; CPU only, no card; `d156_sfs.py` with D156_MODE=e, server `output/gpu/d156e/`).**
+  *Bob's hull mismatch, found before this entry (`d156_hull_remesh_check.py`, `d156_hull_sample_check.py`, CPU).*
+  - The remesh itself is sound. Bob's hull remeshed from its signed distance has volume 50.90 against the file's
+    50.92, one component, no sign disagreement between distance and occupancy.
+  - The difference is the sampler's frame. The stratified fill (voxelisation, the reliable orthographic fill, the
+    streak strip, the pocket fill) depends on where its voxel grid lies on the mesh. Bob's hull filled in its own
+    coordinates (as `sample_in_frame` and every run's `load_normalized` do) has 49 139 voxels at 70³; filled in
+    world coordinates (as D156d's fresh samples were) it has 47 801.
+  - Its world-coordinate samples score 7.97 / 8.31e-3 (seeds 98 / 198) against the carried samples' 4.60 / 4.90e-3,
+    the silhouette term 5.6 against 2.4e-3. On the bunny and the dragon the same effect is 2–3 %.
+  - Consequence: D156d's L_solid and fresh-hull numbers mix two samplers. For bob they are not valid; for bunny and
+    dragon they carry a few per cent of this.
+  - D156e scores every solid by the pipeline's own path: the mesh written in its oriented coordinates and sampled
+    there (`draws_in_frame`, the fill in mesh coordinates, as a run's target is).
+  *Changes from D156d (the root causes (i)–(iii) of its check).*
+  - (1) Coarse to fine in the Sobolev length. The levels are ℓ_k = box / r^k for k = 0, 1, … while ℓ_k > one
+    picture pixel, then ℓ = one pixel. Each level descends until its loss stops falling, by D156d's line search, and
+    passes its d to the next.
+    - Why r = 2 is not a tuned constant: halving the length per level is the dyadic choice of multigrid and of
+      coarse-to-fine image and shape registration (each level resolves the band one octave finer, so the bands tile
+      the scales with no gap or overlap). It is not fitted to any result.
+    - As a check, the bunny is also run with r = 1.5 and r = 3. "The same end": the same stage-1 verdict, and the
+      excess removed and L_solid's share of the way within ±0.1 of r = 2's.
+  - (2) Thickness bound: d ≤ the hull's thickness under each disc, measured from the ray along −n0 (its first
+    entry into the hull and its exit, by two open3d casts). A carve cannot pass through the body. No constant.
+  - (3) The solid is built from the H¹-smoothed d (the same operator at one pixel, applied once), taking the
+    nearest disc's smoothed value.
+  - (4) Scoring:
+    - L_solid and the hull's own score are the means over the eight seeds 98 + 100 k of the solid's and of the
+      visual hull's samples, both drawn in mesh coordinates at the hull sample's density;
+    - the floor is the mean over the eight seeds 99 + 100 k of the mesh's own samples (independent of the
+      pictures' 98 + 100 k).
+  - Everything else is D156d's (frame, pictures, operator, loss, disc graph, normals, accept-if-lower line search,
+    the 1e-3-pixel numerical floor, the budget of 500 accepted steps in all).
+  *Stage-1 check (bunny, dragon, bob; CPU at nice 10, three processes; the bunny again with r = 1.5 and 3).* A mesh
+  passes if all three hold:
+  - the mean L_solid lies at least halfway from the hull's mean to the floor's mean;
+  - the solid removes at least a quarter of the hull's excess volume;
+  - its over-carve (the mesh sample's share outside it) is within the hull's own + 1 point.
+
+  The check passes on at least 2 of 3. Also reported: D156d's diagnostics (Spearman of d with the true excess depth;
+  mean d on deep and on touching discs), the levels and steps, the time.
+  *If it passes:* the 9 meshes are solved on the CPU, then the coordinator is told before the 36 card runs (L and
+  P on the solids, seeds 97 / 99, D156b's readings (a) / (b) / (c)), so the runs can be queued behind D159, D160 and
+  D161.
+  *Predictions (inferred).*
+  - The coarse levels move whole hollows: bob's hollow and the dragon's coil reach most of their depth. The bound
+    removes the dragon's over-carve.
+  - On the pipeline's samples L_solid falls 40–70 % of the way on bob and the dragon, 20–40 % on the bunny (shallow
+    excess, median 0.5 pitch).
+  - Passes on 2 of 3.
+  - r = 1.5 and r = 3 end the same.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
