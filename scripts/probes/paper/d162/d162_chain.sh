@@ -40,7 +40,7 @@ claim_card() {
         [ -d $L/gpu$g.lock ] && { log "gpu$g eligible but taken during the courtesy wait"; since[$g]=""; continue; }
         if mkdir $L/gpu$g.lock 2>/dev/null; then
           CARD=$g
-          printf "agent D161\nrun d161/%s\npid %s\nstart %s\n" "$what" "$$" "$(date "+%Y-%m-%d %H:%M:%S %Z")" > $L/gpu$g.lock/info
+          printf "agent D162\nrun d162/%s\npid %s\nstart %s\n" "$what" "$$" "$(date "+%Y-%m-%d %H:%M:%S %Z")" > $L/gpu$g.lock/info
           log "claimed gpu$g for $what"
           break
         fi
