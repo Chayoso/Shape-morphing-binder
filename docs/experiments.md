@@ -15935,7 +15935,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   exterior through its field, the layer through its 8 nearest layer particles, D158's weighting), as the code's
   docstring says. Also corrected: the seed-99 twins' re-run is a replicate of B1's P99, not equal to it bit for bit
   (production runs are not run-to-run deterministic; rt1 = the tag was shown under Warp's deterministic mode).
-  *Amendment 3 (22:44 CDT, before any run; the gate chain that started 21:04 stopped at V1, the one restarted 22:36 was
+  *Amendment 3 (22:42 CDT [first written 22:44, ahead of the server clock: corrected], before any run; the gate chain
+  that started 21:04 stopped at V1, the one restarted 22:36 was
   stopped at 22:41 by its PID before it had a card).* (i) V1's failure: `test_the_default_path_ignores_the_mesh...`
   asked two GPU builds of the same input for bit equality; the pictures are sums by `index_add` (CUDA atomics), equal
   only to float rounding, and the code never reads the mesh on the default path. The test asked for determinism,
