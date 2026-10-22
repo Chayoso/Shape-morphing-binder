@@ -4,16 +4,27 @@
 L=/data/relcfd/chayo/physmorph_v2/gpu_locks
 CARD=""
 # YIELD_RENDER=1 (the coordinator, 2026-10-21 night: the render experiments D159 / D160 / D161 first): no claim while
-# one of their chains is alive and holds no lock (it is waiting for a card, or between its card phases). Read from ps's
-# list and the lock files only; nothing is signalled.
+# one of their chains is alive and holds no lock (it is waiting for a card, or between its card phases). A chain's
+# subshells carry its command line: a process counts as holding when it or one of its ancestors is a lock's pid. Read
+# from ps's list and the lock files only; nothing is signalled.
 render_waiting() {
   local held=" $(cat $L/gpu*.lock/info 2>/dev/null | awk '$1 == "pid" {printf "%s ", $2}')"
-  local pid args
-  while read -r pid args; do
+  local pid ppid args p hold chains=""
+  local -A par
+  while read -r pid ppid args; do
+    par[$pid]=$ppid
     case "$args" in
-      *d159_chain.sh*|*d160_chain.sh*|*d161_chain.sh*) [[ "$held" == *" $pid "* ]] || return 0 ;;
+      *d159_chain.sh*|*d160_chain.sh*|*d161_chain.sh*) chains="$chains $pid" ;;
     esac
-  done < <(ps -u "$(id -un)" -o pid=,args=)
+  done < <(ps -u "$(id -un)" -o pid=,ppid=,args= | grep -v " grep ")
+  for pid in $chains; do
+    p=$pid; hold=0
+    while [ -n "$p" ] && [ "$p" -gt 1 ]; do
+      [[ "$held" == *" $p "* ]] && { hold=1; break; }
+      p=${par[$p]}
+    done
+    [ $hold = 0 ] && return 0
+  done
   return 1
 }
 claim_card() {
