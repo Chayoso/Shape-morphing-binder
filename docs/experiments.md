@@ -16672,6 +16672,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   transport's resolution, not at the sampling pitch; letters in that band need strokes of 2–3 a, legible at 300k
   ("SIGGRAPH" at em ≈ 13 a fits a coin face). Above two loss cells the smooth 3D target and the relief contradict
   each other, and the transport holds the target's shape as it should.
+  *Amendment 1 (23:12 CDT, before any D161b gate or run; the plain arm's eight runs are under way since 23:03 on
+  gpu3).* D161b's code: `wip/d161` 63c31f6 + chain (`--proximity_berth`, default off: `SurfaceProximity(berth_k)` sets
+  the floor to K(nn_berth_k × the target's median nearest spacing)), deployed as `repo_d161b` / `repo_d161bs` (kept
+  frames). Gates on one card before its runs (`d161_chain.sh B`): `tests/test_proximity_berth.py` and
+  `tests/test_render_tgt.py` (exit 0); Warp's deterministic mode, 40k bunny seed 97 four windows, `repo_d161bs` at the
+  defaults against rt1's S1 (SAME) and with `--proximity_berth` (exit 0). Then the eight runs of `d161_runs.txt` with
+  `--proximity_berth` (`NAME_pb`), read by `d161_read.py`: the proximity is physics, so D161b has its own twins
+  (`*_twin_*_pb`), and the plain arm's eight runs are its baseline. Readings and pass as D161's; in addition D161b
+  against D161 (the carved A and corr, full_pb − full, against the twins' seed spread) and thin_uncovered / sil_iou
+  (the risk). The relief meshes' render samples hold 1–2 % more particles than the smooth targets' (40 783 / 40 418:
+  the stratified sampler's fill counts the bumps' voxels; the meshes' volumes agree to 0.003 %): read as a possible
+  outward lean of the full arms' rims in P3.
 
 ## To run next, in order
 
