@@ -18630,6 +18630,74 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     definition is named, with no tuning. Within that band, the weight vanished with the shape at its floor.
   - Run plan: card α runs the gates, list A1 (the 24 scene runs) and X, then A2 (26 gallery runs); card β runs
     list B after the gate verdict. The scene read starts after A1. Code wip/d162 539b52a.
+  *Read 1: the 40k scenes and the arrangement step (14:56 CDT; the gallery, lists A2 / B, still running).* Gates try 3
+  (11:29–11:45, gpu3, 539b52a): V1 468 passed, 2 skipped (exit 0); V2 40 passed; V3 SAME; V4 exit 0 ×5. Readers:
+  `output/gpu/d162/after/` (summary_*.md, colour.md, c23_colour.md, arrange.md, arrange_stats.txt, windows_scenes.md);
+  local `output/results_2026-10-22/d162_render_weight/`.
+  - P1 (relief, share of the ceiling, seeds 97 / 99). Every case FAILS; bunny FC 97 (0.47) is the closest.
+
+    | scene | F | FC | D161 rule | D161c held | twins |
+    |---|---|---|---|---|---|
+    | coin | 0.05 / 0.10 (corr 0.07 / 0.19) | −0.01 / −0.06 | 0.08 | 0.47–0.53 | 0.01–0.04 |
+    | bunny | 0.23 / 0.25 (corr 0.12 / 0.11) | 0.47 / 0.34 (corr 0.21 / 0.15) | 0.14–0.19 | 0.54–0.58 | −0.06–0.03 |
+
+    - P4 (rest) passes for F (against D161's twins). For FC it fails: bunny 13–16× TC, coin 97 3.2×.
+    - P3 (shape) misses on coin F (sil_iou 97, thin_uncovered at both seeds) and on bunny F / FC (held-out 1 − IoU at
+      both seeds). P5 passes.
+  - C1 (colour, r at seeds 97 / 99).
+
+    | scene | F | FC | D160c H | D160d |
+    |---|---|---|---|---|
+    | band | 0.78 / 0.82 (PASS; held-out PSNR 20.3 / 20.8 vs 16.8 / 16.6) | 0.85 / 0.94 (PASS) | 0.91 / 0.93 | 1.00 / 0.99 |
+    | ears | 0.35 / 0.23 (fail) | 0.31 / 0.37 (fail) | 0.19 / 0.40 | 0.74 / 0.67 |
+
+    - The colour scenes' C2 / C3 come from the runs' own records (`d162_c23.py`): sil_iou, chamfer and thin_uncovered
+      against the twin, outside the larger seed spread; the delivered end's v_mean ≤ 2 × the twin's. F is paired with
+      D160's P, FC with TC.
+
+      | arm | C2 cells missed | C3 |
+      |---|---|---|
+      | band F | 2/6 | pass (1.5×, 1.2×) |
+      | band FC | 3/6 | FAIL (36×, 8.4×) |
+      | ears F | 3/6 | FAIL (3.4×) |
+      | ears FC | 3/6 | FAIL (15.9×, 8.7×) |
+      | band D160d (same reader) | 0/6 | pass |
+      | band D160c H | 2/6 | FAIL |
+
+  - X, the arrangement (amendment 3's rule). On coin F and coin FC, ARRANGEMENT ATE THE FLOOR.
+    - e_a reaches 0 at 1.5 / 1.6 s while e_b = 0.129 ± 0.019 / 0.121 ± 0.018. After 2 s, e_a = 0 in 82 / 90 % of the
+      kept frames, while e_b stays at 0.13 / 0.08 on average.
+    - The full arm's state reads a / b = 0.40–0.41, against 0.54 for the floor sample and 0.60 for the twin. Its
+      arrangement scores the same shape about 27 % below a sampled arrangement, and this hides the shape excess left:
+      a sits at 0.82–0.85 of L_floor.
+    - The end's full-vs-twin gap is still mostly shape: 0.92 (coin F), 0.65 (coin FC), 0.80 (band F).
+    - On band F the floor is never reached (a / L_floor 1.44): "the weight never vanished".
+  - The window records show two ways to fail.
+    - (i) Relief, where the floor is crossed (windows 10–31): after that λ > 0 in only 21–53 % of the windows, with
+      22–212 on/off switches. A λ > 0 window takes 85–96 % of the step and pushes L_r below the floor in that window,
+      by arrangement. The λ = 0 window after it lets the physics undo it. Each switch rescales the selection's
+      references, so the stop rule never fires: 6 of the 8 relief runs end at about 290 windows (the cap).
+    - (ii) Colour, where the floor is never reached: λ / λ_0 = 0.28–0.67 after arrival, g_share 0.87–0.95, which is
+      D160c's held weight. So rest fails.
+    - Also in the gallery so far: armadillo FC 97's render term rises while the transport moves the body, so e and λ
+      rise, three outer rejections follow, and the run stops at 2.3 s.
+  - Render → control → outcome.
+    - λ_0 = 0.30–0.31 (the rule's first value). After arrival the render takes 0.85–0.96 of the step in the windows
+      where it is on: on relief, on 21–53 % of the windows after the crossing; on colour, at all times at 0.3–0.67 λ_0.
+    - Outcome as in the tables above. Colour sil_iou / chamfer stay within 0.002 / 0.0005 of the λ = 0 twin, about the
+      seed spread.
+    - The path: PCGrad-projected render gradient into dF_c and layer u; no per-channel split recorded.
+  - Reading, before the gallery. Neither arm meets the pass rule (P1 on both relief scenes, or C1 on a colour scene,
+    with that scene's P3–P5 / C2–C4). Band F comes closest: C1 and C3 pass, C2 misses 2 cells.
+    - The floor-referenced excess of the whole render term reads the arrangement. On relief the arrangement crosses
+      it and the per-window weight turns into an on/off switch. On colour the floor is out of reach and the weight
+      stays held.
+    - The next definition, named and not run: (1b) the excess read on the shape, e = 1 − b_floor / b. Here b is the
+      render term of a uniform resample of the body's solid, and b_floor is the floor sample read the same way. The
+      arrangement cannot lower b, and b's frame-to-frame swing is 0.08 (cv) against a's 0.17–0.22.
+    - Its risk: where shape excess remains (band e_b 0.15–0.23), the weight stays held, so rest needs its own check.
+  - Disk: the 24 scene archives were thinned in place after their reads (every 4th kept frame + the last; 5.4 → 1.3
+    GB; `cleanup.log`).
 
 - **D163, the words only the pictures carry: "SIGGRAPH" and "VANDERBILT" on a plaque, in the render's target pictures
   only (a showcase of D161's relief; pre-registered 2026-10-22 14:10 CDT server clock, before any D163 run; the user,
