@@ -18768,6 +18768,45 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Deliverables.* 1080p and 4K studio-look videos (raking key light, the letters reading correctly: D161's camera is a
   mirror, flipped back at the image), the full arm above its twin over the morph, then the end turned to show both
   faces; close-ups of the words at the end; a contact sheet; `output/results_2026-10-22/d163_text_relief/`.
+  **40k read (runs 14:11–14:52 CDT on gpu0, read 14:52–15:10 on the CPU; `output/gpu/d163/after/summary_p40.md`,
+  `windows_p40.md`, `sheets/p40_TRH.jpg`; local `output/results_2026-10-22/d163_text_relief/40k/`): only the held weight
+  carves the words, at the ceiling's own share and correlation; it pays in rest and shape as D161c did. No arm passes by
+  the letter.** The relief in the particles (40k pitches; the ceiling is the relief mesh's own 40k samples, A 0.51–0.56,
+  corr 0.24–0.26; the reading's floor, the smooth target's own sample, A 0.12–0.14 = 0.21–0.27 of the ceiling):
+
+  | arm (seed 97) | A (share of ceiling, corr) | display A / corr | letters' shading vs T | Chamfer-L1 vs smooth | thin_uncovered | v_mean / T's | windows (s) |
+  |---|---|---|---|---|---|---|---|
+  | T "dF_c + layer u" (T_99) | 0.104 (0.20, 0.11) (0.144: 0.26, 0.14) | 0.09 / 0.10 | – | 0.605 (0.598) | 0.074 (0.086) | 1 | 40 (6.7) |
+  | R the rule | 0.136 (0.26, 0.14) | 0.10 / 0.13 | −1.0 % | 0.574 | 0.043 | 0.85 | 67 (11.2) |
+  | H weight held | **0.470 (0.91, 0.31)** | **0.50 / 0.34** | **−27 %** | 0.697 | 0.110 | 75 | 22 (3.7) |
+  | H2 held, 192 px | 0.342 (0.66, 0.31) | 0.34 / 0.31 | −20 % | 0.703 | 0.055 | 31 | 32 (5.3) |
+  | F floor | 0.117 (0.23, 0.13) | 0.09 / 0.12 | −0.6 % | 0.568 | 0.055 | 0.74 | 198 (33) |
+  | FC (against TC) | 0.107 (0.21, 0.12) | 0.11 / 0.13 | +0.8 % | 0.579 | 0.092 | 7.9 | 288 (48) |
+  | TC (FC's twin) | 0.127 (0.25, 0.12) | 0.08 / 0.10 | – | 0.588 | 0.074 | – | 92 (15) |
+
+  - P1 fails by the letter for every arm on its twin's side: the twins read 0.20–0.26 of the ceiling, the reading's own
+    floor at 40k (the smooth target sample reads 0.21–0.27), above the 0.1 bar; the criterion was set below the reading's
+    floor at 40k (recorded, not changed). Against the twins, H's share is 0.91 at corr 0.31, above the ceiling's own
+    0.24–0.26; H2 0.66; R, F, FC at the twins' level.
+  - P2 (the twins' spread 1.4 %): H −27 %, H2 −20 % hold; R, F, FC do not.
+  - P3 (the twins' spreads: held 1 − IoU 0.0014, Chamfer 0.007 a, sil_iou 0.0017, thin 0.013): H misses held 1 − IoU
+    (+0.003), Chamfer (+0.092 a) and thin (+0.037); H2 held 1 − IoU and Chamfer (+0.099 a); R and F miss sil_iou (−0.0067 /
+    −0.0062: the rims, as in the tag's gallery); FC misses thin (+0.018).
+  - P4: H 75×, H2 31×, FC 7.9× the twin's v_mean; R and F at rest. P5 holds everywhere (no piece of ≥ 10 particles).
+  - Render → control → outcome (`windows_p40.md`). R: λ 0.875 at window 0, 1.5e-3 over the last ten (600× lower), g_share
+    1/3; no carve. H: λ held at 0.875, g_share 0.94–0.96 from window 10 on; the carve is made from 2 s (0.37 a at 2.2 s,
+    0.44 at 3.3 s); the run stops at 3.7 s by three outer rejections with the transport energy at 2.0e-3 (the twin ends at
+    2.4e-5) and v_mean 0.12: the body has not finished arriving. H2: the same with λ 0.957, stopped at 5.3 s; at 40k the
+    stem (2.3 a40) is what the body cannot hold, not the pixel (the 2× pictures carve less). F: its floor (the relief sample
+    read as the body) 6.6e-4; the body's render term falls below it by 3 s (4.9e-4) without the letters, λ = 0 from then
+    on; F carves 0.40 a on the way (4.75 s) and loses it (0.12 at the end), D162's coin course; 198 windows. FC the same,
+    288 windows.
+  - The protocol, recorded: the 40k chain claimed gpu0 at 14:11 on an idle-since mark from D163's own monitor (gpu0 idle
+    13:52–14:05), although another user's process had held gpu0 for under a minute at 14:08; the mark was removed at 14:12.
+    Every card carried that user's job from 14:15 on.
+  *300k (the pre-registered choice: H carves the most, P2 holds).* T97 ran 14:35–15:01 (23.4 min; sil_iou 0.9919,
+  Chamfer 0.0546), H97 from 15:02, then R97, all on gpu0; the video H over T. H's costs at 40k (rest, shape, the
+  unfinished arrival) are expected at 300k and are reported with it.
 
 - **D164, the commit check's replay noise measured on the window's own replays (the user's decision of 2026-10-22, "fix
   it", relayed by the coordinator after D162's amendment 3; a change of the frozen pipeline, gated and measured; no tag
