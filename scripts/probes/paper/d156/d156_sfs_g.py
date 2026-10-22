@@ -2,7 +2,8 @@
 hull minus a carve depth d >= 0 on the hull mesh's vertices (read at a point through the barycentric weights of its
 closest hull point; capped by the hull's thickness under the vertex). A state's uniform sample: the run's sampler's draw
 of the hull (stratified, n_hull particles) restricted by the sampler's own voxel-centre rule (a particle is dropped iff
-its voxel centre c lies in the carved layer: d(pi(c)) > 0 and depth(c) < d(pi(c))), so two states are compared on the
+its voxel lies wholly in the carved layer: d(pi(c)) > 0 and depth(c) + h_n(c) < d(pi(c)), h_n the voxel's half-extent
+along the hull's normal; the sampler keeps surface voxels), so two states are compared on the
 same draws. Each step: four fresh seeds; the gradient on draw 0 through the true operator (the Zhu-Bridson field, tracked
 discs found at the sample, read differentiably), g_i = -(dL/dx_i . nu(pi(x_i))) scattered to the vertices and divided by
 their areas, smoothed by (I + l^2 L) on the hull's vertex graph (4 / sum |dx|^2), coarse to fine l = box / 2^k down to
@@ -138,6 +139,12 @@ def solve(out_dir, hull_dir, N, RES, mesh):
     _, fid_c, uv_c = hull.closest(Cf)
     HF = np.asarray(hullt.faces, np.int64)
     vid_c, W_c = HF[fid_c], bary(uv_c)
+    # the sampler keeps every voxel the surface passes through (trimesh's surface voxels) as well as the interior: a
+    # voxel leaves the carved solid only when it lies wholly in the carved layer, depth(c) + h_n < d, h_n the voxel's
+    # half-extent along the hull's normal at pi(c) (the cube's support function, exact for a locally flat surface)
+    hn_c = 0.5 * vp * frame["scale"] * np.abs(hull.fn[fid_c]).sum(1)
+    print(f"[d156g] voxel centres outside the hull: {int((depth_c < 0).sum())}; wholly outside by the rule (dropped at "
+          f"any carve): {int((depth_c + hn_c < 0).sum())} of {len(Cf)}", flush=True)
     # the extraction grid (half a pitch over the hull's box + 3 pitches): depth and pi fixed
     hh = 0.5 * pitch
     lo = Hw.min(0) - 3 * pitch
@@ -175,7 +182,7 @@ def solve(out_dir, hull_dir, N, RES, mesh):
 
     def removed(d):
         dc = (W_c * d[vid_c]).sum(1)
-        return (dc > 0) & (depth_c < dc)
+        return (dc > 0) & (depth_c + hn_c < dc)
 
     def restrict(draws, rem):
         return [x[~rem[k]] for x, k in draws]

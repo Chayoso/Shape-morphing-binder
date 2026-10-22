@@ -11772,6 +11772,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
          = 1 was below 1e-3 pixel, and those levels ended without a trial.
        - At 12 pixels the first accepted step moved 0.002 pixel (8.127 → 8.120e-3, 11 centres).
        - Each trial is now also logged (s, its largest move, the centres it moves, the two means).
+     - **Amendment 3, 02:22 CDT, after a false start.** The three runs started at 01:56. They were stopped at 02:19
+       when their trial lines showed a fault in the restriction rule. No step or score was read beyond those lines,
+       and the runs were restarted from zero with the same seeds.
+       - The sampler does not keep only the voxels whose centre is inside. Its fill is trimesh's surface voxels
+         (every voxel the surface passes through) plus the interior (`_fill_centers`). About half the surface voxels'
+         centres lie outside the mesh.
+       - The first rule dropped all of those as soon as d > 0 under them. Even a 0.002-pixel trial then removed 3 000
+         – 9 000 voxels (bunny, bob), a jump the descent could only refuse: the loss rose 7–50 %, so 1 / 2 / 0
+         steps were accepted in 23 minutes.
+       - The rule is now the sampler's: a voxel leaves the solid only when it lies wholly in the carved layer,
+         d(π(c)) > 0 and depth(c) + h_n(c) < d(π(c)). Here h_n = (voxel pitch / 2) ‖n‖₁ is the voxel's half-extent
+         along the hull's normal at π(c), the cube's support function, exact for a locally flat surface.
+       - At d ≡ 0 the draw is still the hull's bit for bit. The count of fill voxels this rule calls wholly outside is
+         printed at the start.
   5. The run ends after the last level, after 300 accepted steps, or at 6 h (reported as the budget).
   *The score.*
   - The final d is turned into a mesh by marching cubes of depth − d(π) on the half-pitch grid. At d = 0 this is
