@@ -16202,6 +16202,75 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Disk.* Kept frames 1–2.3 GB a run (about 25 GB in all); the twins' kept frames are removed after their readings,
   the render frames after both videos exist (`cleanup.log`); the render arms' kept frames stay until the deliverable is
   accepted.
+  **Amendments (2026-10-22 00:13 CDT server clock; the coordinator's decisions of 00:00, relaying the user's priority of
+  2026-10-21 ~23:00: the render experiments D159 / D160 / D161 first, the showcase on one card).**
+  - *The studio renders are mirror images (found on the C, which reads "Ɔ").*
+    - `StudioRaster` builds its view as right = up × forward and then flips the image vertically (`image.flip(0)`), so the
+      picture is the horizontal mirror of a physical camera at the stated azimuth.
+    - It is display only: the render loss draws the body and its target pictures through the same operator.
+    - Every studio deliverable so far is mirrored.
+    - Not changed now, because D159 / D160 / D161 compare against earlier renders. The renderer's fix is to be done once,
+      later, for all deliverables together.
+    - The showcase's videos, stills and sheets are mirrored back at the encoding step (`hflip`):
+      - `sc_chain7.sh` and later chains for new renders;
+      - `sc_hflip_done.sh` once for the earlier ones, re-encoded from the mp4 at crf 16, with a marker `NAME_VIEW.hflip`.
+  - *C, the seed-97 early stop (read 23:55): the run ended at window 28 (7.8 min), still moving.*
+    - Windows 30, 32 and 33 were rejected; their candidates reverse the previous window's motion (reversal 0.6–0.8), so
+      `reject_stop` ended the run at the best state while the body still moved.
+    - End kinetic record 9.3e-4, about 500× the other runs' (1e-6).
+    - Other end readings: yardstick silhouette 5.1e-3 (about 10× the others), 293 end pieces (3 of ≥ 10 particles),
+      32 visible blobs at the end.
+    - It is the known "C stops early" behaviour (2026-10-03: C stops early in 3 of 4 runs of any code at 40k).
+    - Run again at seed 99, same code (`C300k_L99`), reported beside the seed-97 run.
+    - The root fix (do not stop on the reject count while the best state still moves) changes the frozen pipeline; the
+      coordinator takes it to the user with this evidence.
+  - *maxplanck, the render arm's thin uncovered +45 % against its twin (0.065 against 0.045).*
+    - CPU forensic `sc_thin.py`: the thin set recomputed on the CPU, 2283 points, exactly the run's record 0.0648.
+    - Where: single scattered points over the whole head. The largest connected set at 3 spacings holds 4 points (L only
+      123, P only 77, both 25); there is no missing feature.
+    - How far: every uncovered point lies 1.53–1.77 spacings from the body; none lies beyond 2 spacings in either arm.
+    - The 1.4–1.6-spacing band holds 11.6 % of the thin points with the render loss and 10.4 % without. The arm's outer
+      layer sits marginally farther out, by a few hundredths of a spacing, as D154 found at 40k.
+    - Per thickness bin: below 1 cell 8.1 % against 4.8 %; 1–2 cells 4.8 % against 4.1 %.
+    - When: L's uncovered share falls from 60 % at 0 s to 15 % at 1 s and about 6 % from 3 s on. Its end-uncovered points
+      have been uncovered since a median of 8.6 s (p10 1.0 s): sub-pitch jitter across the threshold late in the run, not
+      a feature that never formed.
+    - P's course: maxplanck P97 again with its kept frames (`maxplanck300k_P97k`, keep: no render). The run is
+      deterministic, so its end must equal `maxplanck300k_P97_end1` bit for bit; that check is part of the reading.
+  - *spot → cow* shows the head crossing over the back: spot faces +z and the cow +x, so the head's mass travels to the far
+    side. A scene choice fixes it: `spotx2cow300k_L97`, spot yawed +90° (`tmp/showcase/assets_extra/spotx.obj`: the
+    pipeline's x-90 orientation, then +z → +x), at the end of the queue.
+  - Cards: one card from 23:00, by `sc_chain6.sh` and later. The chain takes no card while a D159 / D160 / D161 chain is
+    alive without a lock of its agent, or before the card has been idle 15 min.
+- **SHOWCASE-CV, the shape's cell from the source's volume, a showcase-scene definition (pre-registered 2026-10-22 00:13
+  CDT server clock, before any test or run of it; the coordinator's go of 00:00; an option, off by default, on
+  `wip/showcase-cellvol` 03ad0ab = rt1 6c9b0e9 + the option, deployed as `repo_scv` / `repo_scvs`, kept frames).**
+  - *Why.* By the frozen rule the cell is the source's bounding-box diagonal / 26, and every source is normalised to a
+    diagonal of 8 wu. A less compact source is therefore fewer cells across: at 300k the sphere gives 183 particles a
+    cell and the armadillo 749. armadillo → homer stretched its arms and ears (1–1.5 of these cells thick) into tall
+    sheets that tore into lace at 0.5–2.5 s (1283 visible blobs over the run, none at the end).
+  - *Definition (`--cell_from_volume`).* dx × (diag_ref / diag) × (V / V_ref)^(1/3): the default source's cell scaled by the
+    cube root of the volume ratio, both read before the density match. The reference is `assets/isosphere.obj`,
+    sampled alike. Every source then gets the sphere's particles per cell. For the default source both ratios are
+    exactly 1.0, so its path is unchanged bit for bit. Everything downstream follows the new cell: the loss grid, the
+    u gate and the thin set, as they follow the shape's cell now. No constant is added.
+  - *Gate.* A job on the card: pytest on `repo_scv` with tests/test_cell_from_volume.py (new), tests/test_frozen_recipe.py
+    (gains the key, off), test_cell_follows_n, test_match_density, test_discretisation and test_refreeze_reference. The
+    gate passes on exit status 0, read from the status, not through a pipe.
+    - test_cell_from_volume checks: the default source unchanged bit for bit at 3k and 40k; from the armadillo the
+      sphere's particles per cell (rel 1e-6), a finer cell and loss grid, and the samples unchanged; the flag off by
+      default.
+  - *Run, only after the gate passes.* `armadilo2homer300k_CV97` (armadillo → homer, 300k, seed 97, render arm,
+    `--cell_from_volume`, on `repo_scvs`), read and rendered as the other showcase runs.
+  - *Predictions.*
+    - The cell 0.304 → about 0.19 wu (× (11.4 / 49.2)^(1/3) = 0.62); the loss grid 65³ → about 105³.
+    - The minutes up to about twice the default run's 13.6 (the grids are four times larger).
+    - Visible blobs over the run at least 50 % below the default run's 1283. The sheets above the head at 0.5–1 s
+      thinner in time and not torn into lace.
+    - The end readings within the default run's (silhouette IoU 0.9867, yardstick 2.8e-4, thin 1.5 %) or better.
+    - No early printing of features on the source surface: D139's printing came with a cell of 23 particles, and this
+      option restores the gallery's 183, not a finer one.
+    - If the lace remains, its frames say why; the next definition follows from that.
 - **D158, why the render loss inside the run does not write the relief D115's display layer writes (a measurement; no
   run of the pipeline, no default changed; pre-registered 2026-10-21 16:07 CDT server clock [the stamp first read 16:10,
   three minutes ahead of the server clock: corrected; the runner started at 16:07:52, waiting for a card], before any

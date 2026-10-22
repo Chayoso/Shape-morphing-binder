@@ -32,3 +32,6 @@ V300k_L97 70 12 1.08
 bunny2dragon300k_L97 70 15 1.06
 teapot2bob300k_L97 310 28 1.06
 spot2cow300k_L97 50 15 1.06
+spotx2cow300k_L97 50 15 0.8
+spot2cow300k_L97 50 15 0.8
+C300k_L99 70 12 1.08
