@@ -12,7 +12,10 @@ uniform resamples of the body's solid, so the arrangement is dropped and the sha
   exactly the target sample).
 - The resample: a jittered lattice at the target sample's number density (spacing (target fill volume / N)^(1/3), the
   stratified sampler's density), fixed in the world for the whole run (sites over the MPM domain, the jitter drawn once
-  per seed), keeping the points inside the solid. Eight seeds (95 + 100 k, D156h's and the X step's), as many as the
+  per seed), one point in each lattice voxel that meets the solid (any corner inside), wherever its jitter puts it: the
+  stratified sampler's own convention (its fill keeps the interior and the surface voxels), so the floor sample's
+  resample matches the target sample's extent (points kept only inside the solid shrank it, 35.5k of 40k points, and
+  its render term read 3.7-4.7e-2 against the sample's own 1.8-2.5e-3 in the first gates). Eight seeds (95 + 100 k, D156h's and the X step's), as many as the
   pictures' own samples; b is the mean of their render terms (target.render_floor, read as the body is read), with
   paint (D160) from each point's nearest particle.
 - b_floor: the floor sample (the pictures' own first sample, D162 amendment 2) read the same way, once a run.
@@ -144,9 +147,19 @@ class ShapeRead:
         from .target import render_floor
         x = np.asarray(x.detach().cpu().numpy() if torch.is_tensor(x) else x, np.float64)
         zs = zero_set(x, self.pitch)
-        i0 = np.clip(np.floor((zs.V.min(0) - self.lo) / self.s).astype(np.int64), 0, self.dims - 1)
+        i0 = np.clip(np.floor((zs.V.min(0) - self.lo) / self.s).astype(np.int64) - 1, 0, self.dims - 1)
         i1 = np.clip(np.ceil((zs.V.max(0) - self.lo) / self.s).astype(np.int64) + 1, 1, self.dims)
-        ijk = np.stack(np.meshgrid(*[np.arange(i0[d], i1[d]) for d in range(3)], indexing="ij"), -1).reshape(-1, 3)
+        # the stratified sampler's own convention (sampling/mesh.py: the fill's interior AND surface voxels, one jittered
+        # point each): a lattice voxel is kept when it meets the solid, i.e. any of its eight corners lies inside;
+        # its point is the voxel centre plus the run's fixed jitter, wherever in the voxel that falls
+        n = i1 - i0
+        corners = self.lo + self.s * np.stack(np.meshgrid(*[np.arange(i0[d], i1[d] + 1) for d in range(3)], indexing="ij"),
+                                              -1).reshape(-1, 3)
+        inside = (zs.signed(corners) < -self.c).reshape(*(n + 1))
+        meets = np.zeros(tuple(int(v) for v in n), bool)
+        for o in np.ndindex(2, 2, 2):
+            meets |= inside[o[0]:o[0] + n[0], o[1]:o[1] + n[1], o[2]:o[2] + n[2]]
+        ijk = np.argwhere(meets) + i0
         flat = np.ravel_multi_index(ijk.T, tuple(int(v) for v in self.dims))
         centres = (self.lo + self.s * (ijk + 0.5)).astype(np.float32)
         tree = cKDTree(x) if albedo is not None else None
@@ -154,8 +167,7 @@ class ShapeRead:
                                                      np.float32)
         vals, counts = [], []
         for jit in self.jitter:
-            p = centres + jit[flat]
-            xs = p[zs.signed(p) < -self.c]
+            xs = centres + jit[flat]
             counts.append(len(xs))
             vals.append(render_floor(self.tgt, self.cfg, xs, None if alb is None else alb[tree.query(xs)[1]]))
         v = np.asarray(vals)
