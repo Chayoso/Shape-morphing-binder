@@ -12211,7 +12211,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   |---|---|---|---|---|---|---|---|---|---|---|
   | bunny | 23 / 76 (31 · 28 · 17) / 58 | 11.533 → 5.828 | 11.150 | 2.308 | **0.618** | 0.602 | 0.462 | **0.409** | +3.8 (3.8 → 7.6 %) | 0.14 |
   | dragon | 5 / 75 (9 · 9 · 57) / 45 | 14.194 → 14.022 | 14.135 | 2.145 | 0.014 | 0.009 | 0.005 | 0.000 | +0.0 | −0.13 |
-  | bob | running (level 4, step 151 at 16:28) | | | | | | | | | |
+  | bob | 239 / 293 (73 · 97 · 123) / 364, stopped by the 6-h wall | 9.097 → 2.460 | 8.793 | 1.593 | **0.884** | 0.880 | 0.712 | **0.442** | +5.6 (4.2 → 9.8 %) | **0.63** |
 
   - **The bunny passes way and excess, and fails by the letter on the over-carve bar.** That bar counts the mesh
     sample's share outside the solid, which includes the sampler's own overhang. A solid equal to the mesh would score
@@ -12224,6 +12224,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       0.58 pixel), not the hollows.
   - **The dragon does not move.** Its conservative hull is 1.52 times the mesh's volume. 57 of its 75 refusals raised
     both terms.
+  - **Bob (finished 18:03, stopped by the 6-hour wall, still descending).** Way 0.884 and excess removed 0.442.
+    - It fails by the letter on the over-carve bar: +5.6 points of the sample, a bar that counts the overhang.
+    - ρ with the true excess is 0.63. The silhouette is at its floor (1.17 against 1.05); the shading falls 3.13 →
+      1.29 (floor 0.54).
+    - It is 0.72 of the way from D156's hull file (4.683) to the floor.
+    - By the volume reading below, it removes 19 % of the deep excess, which is 59 % of bob's excess. It is the first
+      D156 carve that reaches into the hollows.
   - D156g on the conservative hull, read alongside: still running. The descent's own paired means at 16:48 are, for the
     bunny, about 4.3e-3 at level 6, step 117; for the dragon, about 5.7e-3, still at level 0, step 103, from about
     14.1. These are not the held-out score.
@@ -12254,6 +12261,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     | bunny D156i | 14.7 % | 0.37 | 0.48 | **0.008** (0.23) | 0.5 % | 2.9 % |
     | bunny D156g | 14.7 % | 0.49 | 0.62 | **0.040** (0.23) | 0.8 % | 4.6 % |
     | dragon D156i | 35.4 % | 0.00 | 0.00 | 0.000 (0.30) | 0.0 % | 0.1 % |
+    | bob D156i | 24.1 % | 0.41 | 0.74 | **0.186** (0.59) | 0.8 % | 2.9 % |
 
     - The carve removes the shallow excess, the overshoot and the excess within a pixel of the hull. **It removes
       almost none of the deep excess, the hollows: 1–4 %.**
