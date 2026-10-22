@@ -59,9 +59,11 @@ def sampling_berth(target: np.ndarray) -> float:
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
-            draws: int = 1, match_density: bool = False, cell_ref_n: int = 0) -> Prepared:
+            draws: int = 1, match_density: bool = False, cell_ref_n: int = 0,
+            cell_from_volume: bool = False, cell_ref_src: str = "assets/isosphere.obj") -> Prepared:
     fill_src, fill_tgt = ({}, {}) if match_density else (None, None)
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified", fill=fill_src)
+    v_src0, diag_src0 = v_src, float(np.linalg.norm(src.max(0) - src.min(0)))   # before the density match
     frame = {}
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
                                  return_volume=True, frame=frame, fill=fill_tgt)
@@ -104,6 +106,21 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     g_src, g_tgt = src, tgt
     diag_src = float(np.linalg.norm(g_src.max(0) - g_src.min(0)))
     dx_req = diag_src / float(cell_diag)
+    if cell_from_volume:
+        # SHOWCASE (an option, off by default): the shape's cell from the source's VOLUME, not its bounding box. The
+        # source is normalised to a bounding-box diagonal of 8 wu, so diag / cell_diag is one cell for every source and a
+        # less compact source (a smaller volume in the same box) is fewer cells across: from the armadillo 742 particles a
+        # cell at 300k against the sphere's 183, and its thin parts (1-1.5 cells) stretch into perforated sheets on the way
+        # (SHOWCASE, armadilo -> homer). Here the cell is the reference sphere's (cell_ref_src, the default source, sampled
+        # alike) scaled by the cube root of the volume ratio, dx x (diag_ref / diag) x (V / V_ref)^(1/3): every source gets
+        # the reference's particles per cell. For the reference itself both ratios are exactly 1.0, so its path is
+        # unchanged bit for bit.
+        ref, v_ref = load_normalized(cell_ref_src, n, seed, return_volume=True, sample="stratified")
+        diag_ref = float(np.linalg.norm(ref.max(0) - ref.min(0)))
+        f_cell = (diag_ref / diag_src0) * (v_src0 / v_ref) ** (1.0 / 3.0)
+        dx_req = dx_req * f_cell
+        log(f"[disc] cell from the source's volume: x (diag_ref {diag_ref:.3f} / diag {diag_src0:.3f}) x (V {v_src0:.3f} / "
+            f"V_ref {v_ref:.3f})^(1/3) = x {f_cell:.5f}")
     ppc = float(n * dx_req ** 3 / v_src)
     log(f"[disc] cell from the shape: dx = diag {diag_src:.3f} / {cell_diag:g} = {dx_req:.4f} wu "
         f"-> ppc = N dx^3 / V = {ppc:.1f}")

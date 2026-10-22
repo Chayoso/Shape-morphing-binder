@@ -132,6 +132,11 @@ def parse_args(argv=None):
                          "weight, two adjoint sweeps an iteration (off = the frozen path)")
     ap.add_argument("--loss_follows_n", action=argparse.BooleanOptionalAction, default=True,
                     help="transport grid, blur and render pictures follow the particle spacing above mass_ref_n")
+    ap.add_argument("--cell_from_volume", action=argparse.BooleanOptionalAction, default=False,
+                    help="SHOWCASE (an option, off by default): the shape's cell from the source's volume: the default "
+                         "source's cell scaled by the cube root of the volume ratio, so every source gets the sphere's particles "
+                         "per cell (a less compact source in its bounding box gets a coarser cell by the default rule); the "
+                         "default source's path unchanged bit for bit")
     ap.add_argument("--cell_diag", type=float, default=26.0,
                     help="the MPM cell from the shape: dx = source bbox diagonal / cell_diag")
     ap.add_argument("--save_F_stride", type=int, default=0,
@@ -212,7 +217,8 @@ def prepared(args, seed: int):
                    surface=args.n // 4 if args.layer_relief and not args.baseline.startswith("xu") else 0,
                    draws=args.render_target_draws,
                    match_density=args.match_density,
-                   cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0)
+                   cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0,
+                   cell_from_volume=getattr(args, "cell_from_volume", False))
     return cfg0, prep
 
 

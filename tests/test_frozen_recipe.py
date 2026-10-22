@@ -49,6 +49,7 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # baselines (--baseline force, force_mf)
 D135_RUN_ARGS = {
     "animations": 300, "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0, "cell_follows_n": False,
+    "cell_from_volume": False,   # SHOWCASE: an option added after the freeze, off: the shape's cell by the bounding box
     "drag": None, "exterior_field": "zb", "exterior_radius": 3.0, "f_ext": None, "floor": False, "floor_friction": 0.0, "grad_dump": "",
     "force_scale": 1.0, "lambda_ema": 1.0, "layer_relief": True, "live_dir": "", "live_port": 0, "loss_follows_n": True,
     "cleanup_in_phys": False, "match_density": True, "min_spacing": 0.9, "ot_iters": 1600, "ot_warm_trials": False,
