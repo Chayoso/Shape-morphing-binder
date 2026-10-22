@@ -14,7 +14,9 @@ FONT = os.path.join(os.path.dirname(matplotlib.__file__), "mpl-data", "fonts", "
 big, small = ImageFont.truetype(FONT, 30), ImageFont.truetype(FONT, 24)
 INK = (40, 40, 40)
 TITLE = {"bunny_ears": "bunny 300k: the ears", "bunny_wrinkles": "bunny 300k: the wrinkled haunch",
-         "dragon_head": "dragon 300k: the head and horns", "dragon_scales": "dragon 300k: the belly scutes"}
+         "dragon_head": "dragon 300k: the head and horns", "dragon_scales": "dragon 300k: the belly scutes",
+         "bunny_wrinkles25": "DISPLAY READING: bunny wrinkles drawn through the r = 2.5 field (D123), not the r = 3 the loss reads",
+         "dragon_scales25": "DISPLAY READING: dragon scutes drawn through the r = 2.5 field (D123), not the r = 3 the loss reads"}
 ROWS = (("tag", "tag: render target = 300k samples"), ("d159", "D159: render target = mesh relief"))
 for part, title in TITLE.items():
     cells = {}

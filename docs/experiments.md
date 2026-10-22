@@ -16664,6 +16664,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   its weight and the step collapse with the physics' gradient. Next definition (a proposal to the user; a change of the
   frozen render-weight rule): after arrival the render's authority must not follow the physics' gradient down; with it,
   D159's pictures and the exterior field's radius (D123, 2.5) as the render's path to u.
+  **D159c, D159's pictures with the render weight held (pre-registered 2026-10-22 01:04 CDT server clock, before its
+  launch; the coordinator, 01:0x: the starvation D160 measured; D160c is its 40k test).** The definition: D159's arm
+  (`--render_target mesh_shell`) with `--lambda_ema 0`, the existing pre-D81 option: the balancer keeps the first
+  window's calibration (lambda = the value that made the render's gradient half the physics' there) for the whole run,
+  in place of following the physics' gradient down after arrival. Nothing else changes. Runs: bunny and dragon 300k,
+  seed 97, `--term_dump` (bunny300k_C97, dragon300k_C97; `repo_d159s`, kept frames; `tmp/d159/d159c.sh`, one card by
+  the lock protocol). Against D159's M97, the tag's L97 (and its five seeds), the twin P97 and the floor P99. Launched
+  only when D160c's after-arrival timeline (`output/gpu/d160/gate_H/`, or the coordinator's word) shows the colour still
+  moving with lambda held; if D160c shows no movement, D159c is not launched. Readings: R1 (end and 4 s), R2 (against P97
+  with the floor), R5 (the term dumps), R6 (per window, before and after arrival), and the end at rest (the run's last
+  kinetic record, the last ten windows' move) and pieces (`pieces145.py` at the end: count, ≥ 10 particles, ≥ 5
+  pitches; `visible_apart.py` over the run), B1's GPU readings (yardstick, display, momentum, arrangement) and D157's
+  decision set (14 measures, as D159's reading counts them). Predictions: with lambda held at its first value
+  (bunny about 0.026, dragon about 0.011) the render's share after arrival rises to about 0.9 (lambda |g_render| some
+  ten times |g_phys| there), the step and the body's move per window after arrival grow several times (R6), R2's detail
+  band after arrival rises above the floor (by 30 % or more at the end), and R1's exterior carried share in the region
+  rises at 2.7–5.4 and 5.4–10.8 pitches by 0.03–0.10 (the layer may pass 1, the particles over-shaping the relief so
+  that the field of radius 3 shows it); risks: the end not at rest (the render keeps moving the surface), more visible
+  pieces, longer runs, a worse thin share. Pass (P1c, on both meshes): R1's exterior carried share in the region above
+  the tag's five-seed range at 2.7–5.4 and 5.4–10.8 pitches, and R2's detail band at the end at least 1.3 times the
+  floor's; P3c: the end's kinetic record and the last ten windows' move not above the tag's five-seed maximum, no
+  piece of ≥ 10 particles or ≥ 5 pitches at the end beyond the tag's count, visible blobs over the run not above 1.5
+  times the tag's, thin uncovered not above the tag's maximum + 0.005; P2c: D157's decision set as D159's P2 (at most
+  two of 14 outside the tag's range on the worse side, none of the four 3D ones). The 40k gallery only if P1c and
+  P3c pass, then pre-registered on its own.
+  *The display reading the coordinator added (01:0x).* The close-ups get one more pair, the bunny's wrinkles and the
+  dragon's scutes at 4 s and the end, tag | D159, drawn through the field of radius 2.5 (D123, offset 0.8 × 2.5 / 3):
+  a display reading only (the loss reads radius 3), to show how much of the relief the particles hold today (R1: about
+  four fifths) that the radius-3 surface hides.
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`
