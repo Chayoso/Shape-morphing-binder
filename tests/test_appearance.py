@@ -208,13 +208,16 @@ def test_the_physics_terms_are_functions_of_the_set_and_the_colour_term_is_not()
 
 def test_the_physics_never_reads_an_albedo():
     """No physics module takes an albedo: the objective's physics terms are built without one (window/objective.py's
-    phys_core and cleanup read xT, vT, V, the target pack and the gates; the albedos live on the render's Exterior)."""
+    phys_core, transport, stability and the cleanup proper (_cleanup) read xT, vT, V, the target pack and the gates; the
+    albedos live on the render's Exterior, and D160d's colour term (colour_term) is a render term beside the cleanup,
+    added only when the appearance's weight is held)."""
     import inspect
     from physmorph.pipeline.window import objective
-    src = inspect.getsource(objective.Objective)
-    phys = src[src.index("def phys_core"):src.index("def near_band_far")]
-    assert "albedo" not in phys and "albedo" not in inspect.getsource(objective.Objective.losses).replace(
-        "render_terms", "")
+    O = objective.Objective
+    for f in (O.phys_core, O.transport, O.stability, O._cleanup):
+        assert "albedo" not in inspect.getsource(f), f.__name__
+    assert "albedo" not in inspect.getsource(O.losses).replace("render_terms", "")
+    assert 'appearance_weight == "held"' in inspect.getsource(O.cleanup)
     import physmorph.losses.grid_ot as go
     import physmorph.losses.support as su
     import physmorph.losses.volumetric as vo
