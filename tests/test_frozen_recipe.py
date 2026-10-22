@@ -47,7 +47,8 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # field D135 ran with) and the A/B switches of D142, D143, D146, D146b and D149 (ot_warm_trials, cleanup_in_phys,
 # relax_driven, u_adam_carry, spacing_symmetric), off: the path D135 ran; and B13's force_scale, read only by the force
 # baselines (--baseline force, force_mf); D159's render_target ("samples": the frozen path); D160's appearance, "" (off):
-# the path D135 ran; D156's render target (render_tgt), off (None): the pictures from --tgt; and D161b's proximity_berth, off
+# the path D135 ran; D156's render target (render_tgt), off (None): the pictures from --tgt; D161b's proximity_berth, off;
+# and D162's render_weight_ref ("residual": the rule) and placement_at_cell (off)
 D135_RUN_ARGS = {
     "animations": 300, "appearance": "", "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0,
     "cell_follows_n": False,
@@ -58,7 +59,8 @@ D135_RUN_ARGS = {
     "reject_stop": 3, "render_exterior": True, "render_res_hi": None, "spacing_symmetric": False,
     "render_target": "samples", "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
-    "young": None, "render_tgt": None, "proximity_berth": False,
+    "young": None, "render_tgt": None, "proximity_berth": False, "render_weight_ref": "residual",
+    "placement_at_cell": False,
 }
 # the re-freeze: D135's configuration with D146's, D146b's and D149's switches on, nothing else changed
 REFREEZE_RUN_ARGS = {**D135_RUN_ARGS, "relax_driven": True, "u_adam_carry": True, "spacing_symmetric": True}

@@ -43,6 +43,7 @@ class Prepared:
     render_x: np.ndarray | None = None  # D156 (render_tgt): the render target's own sample in the target's frame, the first
                                         #   of the samples the render's pictures are drawn from (tgt_draws are then its
                                         #   further draws); None = the pictures from tgt and its draws, the frozen path
+    floor_x: np.ndarray | None = None   # D162 (1) (floor_sample): an independent sample of the render target (seed + 2)
 
 
 def sampling_berth(target: np.ndarray) -> float:
@@ -64,13 +65,15 @@ def sampling_berth(target: np.ndarray) -> float:
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
             poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0,
             draws: int = 1, match_density: bool = False, cell_ref_n: int = 0, mesh: bool = False,
-            render_tgt: str | None = None) -> Prepared:
+            render_tgt: str | None = None, floor_sample: bool = False) -> Prepared:
     """render_tgt (D156; None = the frozen path): the mesh the render's target pictures are drawn from, in place of the
     target's. The target (tgt_path: the transport's, the body's) is prepared exactly as without it; the render target's
     mesh is sampled by the same sampler in the target's frame (sampling.mesh.sample_in_frame: the same operations that
     put the target's cloud there, so it stays where it lies relative to the target), at the target sample's number
     density (D132: n x its fill volume / the target's, in the frame), with the target's seeds (seed + 1 and the draws'
-    seed + 1 + 100 k). With render_tgt = tgt_path its samples are the target's and its draws bit for bit."""
+    seed + 1 + 100 k). With render_tgt = tgt_path its samples are the target's and its draws bit for bit.
+    floor_sample (D162 (1)): also an independent sample of the render target at seed + 2 (the evaluation's reference
+    seed, never one of the pictures' draws), at the render sample's count, for the render's floor."""
     fill_src, fill_tgt = ({}, {}) if match_density else (None, None)
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified", fill=fill_src)
     frame = {}
@@ -106,6 +109,7 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     # of the render target, when it is given)
     tgt_draws = (draws_in_frame(render_tgt or tgt_path, frame, n_r, [seed + 1 + 100 * k for k in range(1, draws)])
                  if draws > 1 else None)
+    floor_x = (draws_in_frame(render_tgt or tgt_path, frame, n_r, [seed + 2])[0] if floor_sample else None)   # D162 (1)
     # mesh (D159): the target mesh's own triangles in the same frame, for the render's shell target (target.shell_pictures)
     tgt_mesh = mesh_in_frame(render_tgt or tgt_path, frame) if mesh else None   # D162: the render target's, when given
     floor_y = None
@@ -123,6 +127,9 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
         if render_x is not None:              # D156: the render's sample keeps its place relative to the target
             render_x = render_x.copy()
             render_x[:, 1] += lift
+        if floor_x is not None:               # D162: the floor's sample too
+            floor_x = floor_x.copy()
+            floor_x[:, 1] += lift
         log(f"[v2run] floor at y = {floor_y:.3f} wu; the target stands on it")
     log(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
         f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})")
@@ -177,4 +184,4 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
                     tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape,
-                    tgt_mesh=tgt_mesh, render_x=render_x)
+                    tgt_mesh=tgt_mesh, render_x=render_x, floor_x=floor_x)

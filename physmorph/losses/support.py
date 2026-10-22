@@ -27,10 +27,12 @@ class SurfaceProximity:
     exceed half of it. The sampling pitch does not collapse at thin features. Mass supply is the transport's part;
     this term places the surface. No bound and no weight."""
 
-    def __init__(self, target: torch.Tensor, berth_k: float | None = None):
+    def __init__(self, target: torch.Tensor, berth_k: float | None = None, free_radius: float | None = None):
         """berth_k (D161b; None = the frozen path): a target point counts as covered when a body particle lies within the
         berth, berth_k x the target's median nearest spacing (prepare's sampling-scale berth, the near band's inner edge):
-        the floor is K(berth) in place of K(sp) / 2, so the proximity and the near band share one free radius."""
+        the floor is K(berth) in place of K(sp) / 2, so the proximity and the near band share one free radius.
+        free_radius (D162 (2); None = the frozen path): a length; a target point counts as covered when a body particle lies
+        within it (the floor K(free_radius)): the loss cell, the transport's resolution."""
         from ..thin import outer_mask
         target = gpu.tensor(target, torch.float64)
         if target.ndim != 2 or target.shape[1] != 3 or len(target) < 2 or not bool(torch.isfinite(target).all()):
@@ -45,6 +47,8 @@ class SurfaceProximity:
         self.floor = .5 * math.exp(-self.spacing ** 2 / (2 * self.h * self.h))   # K(sp) / 2
         if berth_k is not None:                                                  # D161b: K(berth)
             self.floor = math.exp(-(berth_k * self.spacing) ** 2 / (2 * self.h * self.h))
+        if free_radius is not None:                                              # D162 (2): K(the loss cell)
+            self.floor = math.exp(-float(free_radius) ** 2 / (2 * self.h * self.h))
         outer = outer_mask(target.float(), self.spacing)
         self.y = target[outer]                                                   # (M, 3) float64
         self.last_idx = None                    # the candidate lists of the latest nearest_kernel call (D153)

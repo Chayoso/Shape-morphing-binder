@@ -74,7 +74,7 @@ class _AttemptClock:
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
                  on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None,
-                 mesh=None, appearance=None, render_x=None):
+                 mesh=None, appearance=None, render_x=None, floor_x=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
@@ -87,7 +87,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     pipeline/appearance.Appearance): the particles' fixed albedos and the target's paint; the render's shading term then
     compares colour pictures (target.build_target); nothing else reads it. render_x (D156;
     None = the frozen path): the render's own target sample in the target's frame, from which (and from draws, then its
-    further draws) the pictures are drawn in place of the target's (target.build_target)."""
+    further draws) the pictures are drawn in place of the target's (target.build_target). floor_x (D162 (1), cfg.render_weight_ref
+    "floor"): an independent sample of the render target in the target's frame, whose render term is the render's
+    floor (target.render_floor)."""
     gpu.require_cuda()
     cfg = dataclasses.replace(cfg)
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
@@ -103,6 +105,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = {tgt.unit_ratio:.4g} "
         f"(weights), gradient ratio = {tgt.unit_grad_ratio:.4g} (eps/target_norm), "
         f"n_support={tgt.n_support} m_ref={tgt.m_ref:.3g}")
+    if cfg.render_weight_ref == "floor":           # D162 (1): the render's floor, once a run
+        if floor_x is None:
+            raise ValueError("render_weight_ref floor needs an independent sample of the render target (floor_x)")
+        from ..target import render_floor
+        tgt.render_floor = render_floor(tgt, cfg, floor_x, None if appearance is None else appearance.albedo_at(floor_x))
+        log(f"[v2] render weight referenced to the render's floor (D162): L_floor = {tgt.render_floor:.4e} (an independent "
+            f"sample of the render target, {len(floor_x)} particles, read as the body is read)")
     # the relative cap: 20x the first raw ratio (the same meaning in any loss unit)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, None, cap_rel=20.0)
     lo, hi = domain_bounds(prm)

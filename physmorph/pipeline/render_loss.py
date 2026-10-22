@@ -208,6 +208,7 @@ class LambdaBalancer:
         # legacy-unit number that bound at measured raw ratios of 6.5e3-1.1e4)
         self.cap_rel = cap_rel
         self.lam = None
+        self.lam0 = None             # D162 (1): the rule's value at the first calibration (render_weight_ref "floor")
         self.capped = False          # telemetry: the last update hit the cap (a binding
                                      # cap silently under-weights the render channel —
                                      # measured raw ratios of 6.5e3-1.1e4 vs cap 5e3)
@@ -316,3 +317,9 @@ def d_exterior(p: torch.Tensor, n: torch.Tensor, sils, shade, views, res: int, e
     sil = d_render(p, sils, views, res, extent, k, w_hole, w_spray)
     t = torch.stack(list(shade), 0).movedim(1, 0).contiguous()                     # (C,V,res,res)
     return sil, sum((s[c] - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)
+
+
+def floor_referenced_weight(lam0: float, L: float, floor: float) -> float:
+    """D162 (1): the render weight referenced to the render's own excess over its floor, lam0 max(0, 1 - floor / L):
+    lam0 while the render term L is far above the floor, zero at or below it, never negative, never above lam0."""
+    return float(lam0) * max(0.0, 1.0 - float(floor) / float(L)) if L > 0.0 else 0.0

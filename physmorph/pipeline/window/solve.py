@@ -18,7 +18,7 @@ import torch
 import warp as wp
 
 from ..config import PipelineConfig
-from ..render_loss import LambdaBalancer
+from ..render_loss import LambdaBalancer, floor_referenced_weight
 from ..target import TargetPack
 from ...prof import STATE as PROF_STATE, take as prof_take, timed
 from .objective import Objective, end_drift
@@ -252,7 +252,7 @@ class WindowOptimizer:
                 gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
             gr = pcgrad(gp, gr_raw)
             if it == 0:
-                self._calibrate_lambda(gp, gr, gr_raw)
+                self._calibrate_lambda(gp, gr, gr_raw, e.lr)
             return [a + self.lam_r * b for a, b in zip(gp, gr)], diag
         with timed("adj_phys"):
             gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
@@ -264,7 +264,7 @@ class WindowOptimizer:
             gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
         gr = pcgrad(gp, gr_raw)
         if it == 0:
-            self._calibrate_lambda(gp, gr, gr_raw)
+            self._calibrate_lambda(gp, gr, gr_raw, e.lr)
         g = [a + self.lam_r * b for a, b in zip(gp, gr)]
         return [gi + di for gi, di in zip(g, gdt)], diag
 
@@ -281,14 +281,27 @@ class WindowOptimizer:
         print(f"[B13] force units: |g_f| / |g_dFc| = {r:.4g} (|g_dFc| {gd:.4g}); eps {self.win.eps_eff:.4g}, "
               f"target norm {self.win.target_norm_eff:.4g}", flush=True)
 
-    def _calibrate_lambda(self, gp, gr, gr_raw):
+    def _calibrate_lambda(self, gp, gr, gr_raw, lr=None):
         """lambda from the PROJECTED render gradient at the window's first gradient, every window (the balancer's
         moving average), and held for the window; the render-influence telemetry of this window. Held from the
         first window on, it was 60-170 times what the rule gives once the body has arrived: the physics gradient
         decays 30-fold, the render gradient hardly, and the render term was nine tenths of the step and two
-        thirds of the merit (D73, D81). The selection rescales its references when the weight moves."""
+        thirds of the merit (D73, D81). The selection rescales its references when the weight moves.
+        D162 (1), cfg.render_weight_ref "floor": the weight is referenced to the render's own excess over its floor,
+        lambda = lambda_0 max(0, 1 - L_floor / L_r), lambda_0 the rule's value at the run's first calibration, L_r the
+        render term at the window's first evaluation (lr), L_floor the render term of an independent sample of the
+        render target (target.render_floor): the render keeps its first weight while the pictures ask for more than an
+        independent perfect sample scores, and fades to zero as it reaches that floor."""
         bal = self.balancer
         lam = bal.update(_norm(gp), _norm(gr))
+        if self.cfg.render_weight_ref == "floor":
+            if bal.lam0 is None:
+                bal.lam0 = lam
+            L = float(lr) if lr is not None else 0.0
+            floor = float(self.tgt.render_floor)
+            exc = max(0.0, 1.0 - floor / L) if L > 0.0 else 0.0
+            self.tele.update(lam_rule=lam, lam0=bal.lam0, render_L=L, render_floor=floor, render_excess=exc)
+            lam = floor_referenced_weight(bal.lam0, L, floor)
         self.lam_r = lam * float(self.cfg.render_weight_scale)
         self.lam_capped = int(bool(bal.capped))
         np_, nr_ = _norm(gp), _norm(gr)
@@ -519,6 +532,8 @@ class WindowOptimizer:
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
                  "dfc": self.leaves[0].detach()[:cfg.T].clone(),       # (B13: the force, the next warm start's)
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
+        if cfg.render_weight_ref == "floor":           # D162 (1): the weight's reference, recorded only on that path
+            stats.update({k: self.tele.get(k) for k in ("lam_rule", "lam0", "render_L", "render_floor", "render_excess")})
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)

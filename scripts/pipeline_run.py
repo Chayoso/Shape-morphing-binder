@@ -51,6 +51,13 @@ def parse_args(argv=None):
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
+    ap.add_argument("--render_weight_ref", default="residual", choices=["residual", "floor"],
+                    help="D162 (1) A/B: residual (the default, the frozen path) = the rule lambda |g_r| = 0.5 |g_p| at every "
+                         "window; floor = lambda_0 max(0, 1 - L_floor / L_r): the render weight referenced to the render's "
+                         "own excess over the render term of an independent sample of the render target")
+    ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
+                    help="D162 (2) A/B (off by default): the placement terms read the body at the loss cell (the "
+                         "proximity covers within one loss cell, the near band's band is empty, the spray gate in loss cells)")
     ap.add_argument("--proximity_berth", action=argparse.BooleanOptionalAction, default=False,
                     help="D161b A/B (off by default): the surface proximity counts a target point as covered when a body "
                          "particle lies within the near band's berth (its floor K(berth) in place of K(sp) / 2)")
@@ -229,7 +236,8 @@ def prepared(args, seed: int):
                    draws=args.render_target_draws,
                    match_density=args.match_density,
                    cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0,
-                   mesh=args.render_target == "mesh_shell", render_tgt=getattr(args, "render_tgt", None))
+                   mesh=args.render_target == "mesh_shell", render_tgt=getattr(args, "render_tgt", None),
+                   floor_sample=getattr(args, "render_weight_ref", "residual") == "floor")
     return cfg0, prep
 
 
@@ -274,7 +282,9 @@ def run_config(args, cfg0, prep):
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,
                               cleanup_in_phys=args.cleanup_in_phys,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
-                              nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth, grad_dump=args.grad_dump,
+                              nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth,
+                              render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell,
+                              grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale)
@@ -308,7 +318,7 @@ def run_main(args, prep, src, tgt, prm, cfg):
         out["provenance"]["appearance"] = app.params
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
                        on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
-                       mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x)
+                       mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x, floor_x=prep.floor_x)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

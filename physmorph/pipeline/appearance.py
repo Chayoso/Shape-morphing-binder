@@ -43,6 +43,12 @@ class Appearance:
     def target_albedos(self) -> list:
         return [self.tgt] + list(self.draws)
 
+    def albedo_at(self, x: np.ndarray) -> np.ndarray:
+        """D162: the target's paint at any points (an independent target sample for the render's floor)."""
+        if self.scene == "white":
+            return np.ones((len(x), 1), np.float32)
+        return paint(target_red(self.params, x), self.params)
+
 
 # The bunny's ears' base height in its normalised frame (the mesh's frame, the same at every N and seed): the 40k
 # target samples of seeds 98 / 100 / 102 split into two pieces (the ears) above 3.22 / 3.32 / 3.49 by a one-pitch slab

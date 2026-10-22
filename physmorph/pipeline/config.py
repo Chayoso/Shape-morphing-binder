@@ -90,6 +90,11 @@ class PipelineConfig:
     nn_berth_k: float = 1.0         # berth in target spacings (the prepare stage resolves it)
     proximity_berth: bool = False   # D161b A/B: the surface proximity counts a target point covered within the berth (its floor
                                     #   K(berth) in place of K(sp) / 2: the near band's free radius); off = the frozen path
+    placement_at_cell: bool = False  # D162 (2) A/B: the placement terms read the body at the transport's resolution, the loss
+                                    #   cell: the surface proximity covers a target point from one loss cell (floor K(ldx)), the
+                                    #   near band's berth is the loss cell (its band, berth to one loss cell, is then empty) and the
+                                    #   spray cleanup's isolation gate reads the 8th-neighbour distance in loss cells; off = the
+                                    #   frozen path
 
     min_spacing: float = 0.0        # the position update keeps particles this far apart, in pitches of the rest
                                     #   volume (0: off; 0.9 is the spacing of a Poisson-disk sample of that density, D70)
@@ -120,6 +125,11 @@ class PipelineConfig:
     # ---- render objective ----
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration
     lambda_ema: float = 0.3
+    render_weight_ref: str = "residual"  # D162 (1) A/B: "residual" = the rule lambda |g_r| = lambda_auto |g_p| at every window
+                                    #   (the frozen path); "floor" = the render weight referenced to the render's own excess over
+                                    #   its floor: lambda_t = lambda_0 max(0, 1 - L_floor / L_r(t)), lambda_0 the rule's value at
+                                    #   the first window, L_r(t) the render term at the window's first evaluation, L_floor the
+                                    #   render term of an independent sample of the render target read as the body is read
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
     render_exterior: bool = False   # the render terms read on the exterior (surface discs on the particles' zero set,
                                     #   render/exterior.py) in place of the particle cloud (D62)
@@ -199,6 +209,10 @@ class PipelineConfig:
             raise ValueError("gap_split must be \"off\", \"on\", \"interface\", \"soft\", \"fine\" or \"walls\"")
         if self.gap_split in ("interface", "walls") and not self.gap_vp > 0:
             raise ValueError("gap_split interface reads the node volume: gap_vp must be the volume per particle")
+        if self.render_weight_ref not in ("residual", "floor"):
+            raise ValueError("render_weight_ref must be \"residual\" or \"floor\"")
+        if self.render_weight_ref == "floor" and not self.render_exterior:
+            raise ValueError("render_weight_ref floor reads the render term on the exterior: it needs render_exterior")
         if self.exterior_field not in ("zb", "aniso", "zbs"):
             raise ValueError("exterior_field must be \"zb\", \"aniso\" or \"zbs\"")
         if self.exterior_field == "aniso" and self.exterior_radius != 3.0:

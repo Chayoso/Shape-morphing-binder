@@ -82,6 +82,7 @@ class TargetPack:
     gap: tuple | None = None            # D148 (gap_split): (plane_m, plane_n) per MPM node of mpm/gap_split.GapPlanes (torch)
     gap_walls: dict | None = None       # D148c (gap_split walls): gap_walls.BoxPieces' arrays (torch)
     gap_rep: object = None              # D148c: each particle's representative cell from the window before (state)
+    render_floor: float | None = None   # D162 (1): the render term of an independent sample of the render target (render_floor)
 
 
 def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
@@ -152,11 +153,13 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
     mean = lambda per: [torch.stack(v).mean(0) for v in zip(*per)]   # noqa: E731  (per sample, a list over views)
     N = tgt_t.shape[0]
     m = m_t = torch.ones(N, device=gpu.DEVICE)                # the unit loss-side masses: the body's (tgt.m) and the target's
-    support = SurfaceProximity(tgt_t, berth_k=cfg.nn_berth_k if cfg.proximity_berth else None)   # the fine geometry (D161b: the berth)
     # the loss grid covers the MPM domain (scalar geometry, float32 like the grid itself)
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
     ldx = float((dmax - dmin).max() / cfg.loss_res)
+    # the fine geometry read from the target surface (D161b: covered within the berth; D162 (2): within one loss cell)
+    support = SurfaceProximity(tgt_t, berth_k=cfg.nn_berth_k if cfg.proximity_berth else None,
+                               free_radius=ldx if cfg.placement_at_cell else None)
     ldims = (cfg.loss_res,) * 3
     lgmin = torch.tensor(dmin, device=gpu.DEVICE)
     grid = target_mass_grid(tgt_t, m_t, lgmin, ldx, ldims)
@@ -301,3 +304,28 @@ def calibrate_units(tgt: TargetPack, source_x: torch.Tensor, cfg: PipelineConfig
         raise ValueError("the unit calibration needs a source that differs from the target")
     tgt.unit_ratio = float(L_leg / L_den)
     tgt.unit_grad_ratio = float(g_leg / g_den)
+
+
+def render_floor(tgt: TargetPack, cfg: PipelineConfig, x_floor, albedo=None) -> float:
+    """D162 (1): the render term (silhouette + w_pbr shading) of an independent sample of the render target (x_floor:
+    seed + 2, the evaluation's reference seed, never one of the pictures' draws) against the run's pictures, read as the
+    body's state is read (Objective.render_terms: the tracked exterior discs of a field found at that state, d_exterior;
+    albedo (D160): the sample's own paint). What a perfect placement of the render target at the run's pitch scores: the
+    pictures' floor at the run's N, resolution and views, the D156 / D158 reference."""
+    from ..render.exterior import tracked
+    from .render_loss import d_exterior
+    e = tgt.ext
+    x = gpu.tensor(x_floor)
+    with torch.no_grad():
+        discs = tracked(make_field(e.field, x, e.pitch, radius=e.radius, offset=e.offset, device_field=True),
+                        e.lattice, e.h, e.skin)
+        if albedo is None:
+            p, n, _ = discs.read(x)
+            sil, pbr = d_exterior(p, n, e.sils, e.shade, tgt.views, cfg.render_res, tgt.extent, cfg.sil_k, cfg.w_hole,
+                                  cfg.w_spray, cfg.pbr_ambient)
+        else:
+            a = gpu.tensor(np.asarray(albedo, np.float32))
+            p, n, _, c = discs.read(x, a, e.albedo_ref if e.albedo_ref is not None else a.mean(0))
+            sil, pbr = d_exterior(p, n, e.sils, e.shade, tgt.views, cfg.render_res, tgt.extent, cfg.sil_k, cfg.w_hole,
+                                  cfg.w_spray, cfg.pbr_ambient, albedo=c)
+    return float(sil + cfg.w_pbr * pbr)
