@@ -1,0 +1,2 @@
+{"scene": "plaque300k_early", "N": 300000, "smooth": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj", "relief": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R300plaque.obj",
+ "runs": {"T_97": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/runs300/plq300k_T_97", "H_97": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/runs300/plq300k_H_97"}, "pairs": [["H_97", "T_97"]]}

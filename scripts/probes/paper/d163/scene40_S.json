@@ -1,0 +1,3 @@
+{"scene": "plaque40k_S", "N": 40000, "smooth": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj", "relief": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj",
+ "runs": {"T_97": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/runs/plq40k_T_97", "T_99": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/runs/plq40k_T_99", "S_97": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/runs/plq40k_S_97", "H_97": "/data/relcfd/chayo/physmorph_v2/output/gpu/d163/runs/plq40k_H_97"},
+ "pairs": [["S_97", "T_97"], ["H_97", "T_97"]], "spread": ["T_97", "T_99"]}

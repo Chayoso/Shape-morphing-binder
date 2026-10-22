@@ -129,6 +129,12 @@ def display(X, a):
 _V = {}
 
 
+def _end_arrays(args):
+    X, a = args
+    s = display(X, a)
+    return s.V, s.F, s.vn
+
+
 def _video_job(args):
     k, kind, payload = args
     g = _V
@@ -142,7 +148,7 @@ def _video_job(args):
             j = int(np.searchsorted(raws, r)) if r in raws else len(raws) - 1
             ended = r not in raws
             t = raws[j] / 240.0
-            surf = display(F[j], g["a"])
+            surf = g[f"end_{side}"] if ended else display(F[j], g["a"])     # an ended run: its end, computed once
             vw = view
             sub = f"t = {t:.2f} s" + (" (ended, held)" if ended else "")
         else:
@@ -170,10 +176,19 @@ def video(argv):
     out.mkdir(parents=True, exist_ok=True)
     frame, x_t, c, rad, a = setup(base, n, seed_of(top))
     zt, zb = np.load(top, allow_pickle=True), np.load(bottom, allow_pickle=True)
-    _V.update(W=W, H=H, view=(az, el), rake=rake, a=a, look=c, dist=3.6 * rad, tan_h=1.25 * rad / (3.6 * rad),
+    _V.update(W=W, H=H, view=(az, el), rake=rake, a=a, look=c, dist=3.6 * rad, tan_h=1.8 * rad / (3.6 * rad),
               out=str(out), top=(zt["frames"], np.asarray(zt["raws"]), tl), bottom=(zb["frames"], np.asarray(zb["raws"]), bl))
     T = sorted(set(np.asarray(zt["raws"]).tolist()) | set(np.asarray(zb["raws"]).tolist()))
-    jobs = [(k, "morph", r) for k, r in enumerate(T)]
+    cap = float(os.environ.get("D163_CAP_S", "0"))            # >0: the morph shown to this time, then the ends
+    if cap > 0:
+        T = [r for r in T if r / 240.0 <= cap]
+    # the two end surfaces once, in a child (torch's OpenMP pool must not start in the parent before the frame pool forks);
+    # the parent builds their Embree scenes, which the forked workers share
+    from multiprocessing import get_context
+    with get_context("fork").Pool(2) as pool:
+        ends = pool.map(_end_arrays, [(np.asarray(_V["top"][0][-1]), a), (np.asarray(_V["bottom"][0][-1]), a)])
+    _V["end_top"], _V["end_bottom"] = (D7.Surf(V, F, vn=vn) for V, F, vn in ends)
+    jobs =[(k, "morph", r) for k, r in enumerate(T)]
     k0 = len(jobs)
     jobs += [(k0 + i, "orbit", 0.0) for i in range(20)]
     jobs += [(k0 + 20 + i, "orbit", 2 * np.pi * (i + 1) / orbit) for i in range(orbit)]
@@ -185,8 +200,6 @@ def video(argv):
         for k in pool.imap_unordered(_video_job, morph, chunksize=1):
             print("frame", k, flush=True)
     if orb:
-        _V["end_top"] = display(_V["top"][0][-1], a)            # once, before the fork: the workers share it
-        _V["end_bottom"] = display(_V["bottom"][0][-1], a)
         with get_context("fork").Pool(workers) as pool:
             for k in pool.imap_unordered(_video_job, orb, chunksize=2):
                 print("orbit", k, flush=True)

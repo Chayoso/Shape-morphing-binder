@@ -15,7 +15,7 @@ log() { echo "$(date '+%m-%d %H:%M:%S') [video $TAG] $*" >> $O/status.txt; }
 cd $B/repo_d163
 log "start"
 s=$(date +%s)
-nice -n 10 $PY $W/d163_render.py video $V/frames $BASE $N ${TOP}_frames12.npz ${BOT}_frames12.npz "$TL" "$BL" 3840 2160 0.30 0.18 160 $WK > $V/video.log 2>&1
+D163_CAP_S=${CAP_S:-8} nice -n 10 $PY $W/d163_render.py video $V/frames $BASE $N ${TOP}_frames12.npz ${BOT}_frames12.npz "$TL" "$BL" 3840 2160 0.30 0.18 160 $WK > $V/video.log 2>&1
 log "frames exit $? ($(( $(date +%s) - s )) s)"
 ffmpeg -loglevel error -y -framerate 20 -i $V/frames/f%05d.jpg -c:v libx264 -crf 18 -pix_fmt yuv420p $V/${TAG}_4k.mp4 < /dev/null
 ffmpeg -loglevel error -y -framerate 20 -i $V/frames/f%05d.jpg -vf scale=1920:1080:flags=lanczos -c:v libx264 -crf 18 \

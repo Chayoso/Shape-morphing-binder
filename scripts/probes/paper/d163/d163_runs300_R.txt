@@ -1,0 +1,2 @@
+# D163 300k: the rule, rerun after the OOM
+plq300k_R_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R300plaque.obj --n 300000 --seed 97

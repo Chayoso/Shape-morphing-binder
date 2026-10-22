@@ -1,0 +1,2 @@
+# D163 amendment 2 (15:25 CDT): arm S (D162b's --render_weight_ref shape) at 40k
+plq40k_S_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163plaque.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d163/assets/d163R40plaque.obj --n 40000 --seed 97 --render_weight_ref shape
