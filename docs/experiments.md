@@ -12061,6 +12061,57 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - More excess removed than D156g (≥ 0.3 on the bunny and dragon), but FAIL by the halfway bar on at least two
     meshes.
   *If it passes:* ask the coordinator before any card run.
+
+  **Stage-1 check (runs 10:31–11:43 CDT, CPU at nice 10; `output/gpu/d156i/`, rows in `sfsi_r96.jsonl`; a one-step
+  bunny smoke test at 10:28–10:31 checked the path and is not a reading): FAIL on 3 of 3.** Totals are sil + w_pbr ·
+  pbr, e-3, over the eight held-out seeds.
+
+  | mesh | steps / refused (silhouette · both · shading) / min | d = 0 mesh → solid | hull file | floor | way (≥ 0.5) | way from hull file | restricted way | shading way | excess removed | over-carve | ρ |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | bunny | 60 / 121 (64 · 46 · 11) / 72 | 8.150 → 7.560 | 7.774 | 2.308 | 0.101 | 0.039 | 0.100 | 0.210 | **0.309** | +0.7 | 0.47 |
+  | dragon | 8 / 78 (30 · 43 · 5) / 41 | 15.844 → 15.529 | 14.647 | 2.145 | 0.023 | −0.071 | 0.010 | 0.016 | 0.002 | +0.0 | 0.51 |
+  | bob | 5 / 72 (24 · 46 · 2) / 38 | 4.430 → 4.469 | 4.683 | 1.593 | −0.014 | 0.069 | 0.034 | 0.018 | 0.013 | +0.2 | 0.17 |
+
+  - **The bunny.** It goes further than D156g: the solid's fall is 0.59e-3, 4.3 SE. The shading goes 21 % of the
+    way, and 31 % of the excess is removed within the over-carve bar. It still fails the halfway bar.
+  - **The dragon and bob** stop after 8 and 5 steps.
+  - All three ended by the levels. **The silhouette refused 91 % of the trials (sil or both: 110 / 121, 73 / 78,
+    70 / 72).** The shading alone refused 2–9 %.
+  - The quarter-pitch remesh is +4.8 / +8.2 / −5.4 % against the hull file. The predicted ±3 % was wrong.
+  - Predictions. As predicted: the silhouette refusals, the restricted way 0.1 (at the low end) and the FAIL. Not
+    as predicted: the coarse levels did accept steps (bunny at 48 pixels), and the excess removed is ≥ 0.3 only on
+    the bunny.
+  - **Silhouette diagnostic** (written after the reading; `d156i_sil.py`, `d156i_sil.jsonl`). It measures the hole
+    and spray mass of the alpha pictures, eight-draw means against the target's, summed over the 18 views, in
+    pixels. Numbers are bunny / dragon / bob.
+    - The hull file's holes are 596 / 1 114 / 281 px, against the mesh's own floor 136 / 144 / 89 (4.4 / 7.7 / 3.2
+      times).
+    - Its spray is 247 / 361 / 185 px, against 119 / 106 / 82 (2.1 / 3.4 / 2.3 times).
+    - The silhouette term at the hull is 3.4 / 7.2 / 2.4 times its floor, and that excess is **mostly missing
+      material**.
+    - This agrees with D156's own hull record: 10.0 / 13.3 / 9.8 % of the mesh's sample and 38 / 42 / 35 % of its
+      surface lie outside the hull, by at most 0.48 / 0.58 / 0.46 pixel.
+    - The hull was carved with each view's signed distance at the half-way point between an inside and an outside
+      pixel node, and meshed at the picture pitch. It therefore lies up to half a pixel inside the true silhouettes,
+      and the render's soft silhouette counts that as holes along every rim.
+  - **Root cause (measured; it revises D156g's).**
+    - D156g's reading took the silhouette term to be at its optimum at the hull. It is not. The hull under-fills
+      every training silhouette by up to half a pixel, which is a hole along the rims.
+    - Hence the silhouette gradient guards the rims (carving deepens the holes). As a constraint it vetoes almost
+      every carve (91 % of refusals), because any carve near a rim deepens a hole that is already there.
+    - The shading alone gets 0.21 of the way on the bunny before the veto stops it.
+    - The visual hull used since D156 is not a superset of the object at the render's resolution. This also bears
+      on D156's own 36 hull-target runs: their target lacked up to half a pixel of material along 35–42 % of the
+      surface.
+  - **Next definition (D156j, proposed; CPU; not run).** The conservative visual hull: the textbook guarantee that
+    the hull contains the object, at the render's resolution.
+    - Each view's signed distance is taken to its pixels' outer edge (+½ pixel), and the hull field is meshed at half
+      the picture pitch.
+    - Check 1: no mesh-surface point lies outside the hull beyond the mesh grid's error.
+    - Check 2: its silhouette hole mass is at the floor's. Its spray is then the excess, and carving lowers it.
+    - Then D156i on it (the silhouette as a constraint is then satisfied at the start), and D156g's sum as the twin
+      reading.
+    - It adds no constant: half a pixel is the pixel's own footprint.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
