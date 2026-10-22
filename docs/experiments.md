@@ -11366,6 +11366,55 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     low-frequency ambiguity. L_solid falls 30–60 % of the way to the floor on bob and the dragon, less on the bunny.
   - (c): the in-loop render adds rim polish on top of the carved target (held-out silhouettes +0.1…+0.3, as in D156),
     and little concavity, since the target now carries it.
+  **Step 1, the reachability check (read 23:30 CDT): FAIL by the pre-registered rule on 3 of 3. The carve goes in
+  the right places, but only to part of the depth, with rare spikes, and its solid does not keep the gain. Step 2
+  is not run.**
+  - Where it ran. All cards were held (D160, D161, SHOWCASE) and D159 was waiting. The courtesy rule made the chain
+    wait, so I stopped it by its own PID (23:17) and ran the check on the CPU at nice 10 (three processes, 2 min
+    each; it is cheaper than expected). No card was used.
+  - Per mesh: steps (loss evaluations), all ending because the loss stopped falling, not at the budget; the disc
+    loss from the hull to the end against the floor; the loss of a fresh sample of the solid, against the same
+    remesh and fresh sample of the hull itself; the excess volume removed; the over-carve.
+
+    | mesh | steps | disc loss hull → end (floor), e-3 | way | L_solid against fresh hull, e-3 | excess removed | mesh outside: hull → solid |
+    |---|---|---|---|---|---|---|
+    | bunny | 141 (288) | 7.74 → 5.94 (2.26) | 0.33 | 8.38 against 8.00 | 0.51 | 0.101 → 0.113 |
+    | dragon | 31 (69) | 14.5 → 11.7 (2.04) | 0.22 | 14.6 against 14.7 | 0.64 | 0.137 → 0.192 |
+    | bob | 146 (300) | 4.60 → 2.66 (1.64) | 0.65 | 5.65 against 9.33* | 0.23 | 0.115 → 0.122 |
+
+    *Bob's fresh hull sample scores 2 × its carried one (4.60). Its remeshed hull differs from the hull file (not
+    resolved), so that baseline is not trusted.
+  - By the rule (L_solid at least halfway from L0 to the floor, at least a quarter of the excess removed,
+    over-carve within the hull's + 1 point), all three fail.
+  - What the solved displacement does (`d156d_stats.py`, which uses the mesh; `fig_d156d_check.png`):
+    - It follows the true excess. The Spearman correlation between d and the excess depth under each disc is 0.68
+      (bunny), 0.64 (dragon) and 0.72 (bob).
+    - The mean d on the discs over more than a pixel of excess is 0.80 / 0.64 / 0.96 px, against 0.04 / 0.17 /
+      0.03 px where the hull touches the mesh.
+    - The figure shows the carve where the hull is too big: bob's hollow, the dragon's coil, the bunny's flanks.
+      The render's shading, as one coordinated descent, finds the hidden concavities, which no local method did
+      (D156, D156b, D156c).
+    - But it stops at a fraction of the depth: the excess there is 1–2.6 px at the median and 2.6–7.9 px at the
+      99th percentile.
+    - On bob, d carries a lattice-scale ripple (a checkerboard in the hollow): the one-pixel Sobolev metric does
+      not damp the disc lattice's own mode.
+    - A few discs sink deep (d > 2 px on 0.15–1.9 %, up to 30 px); in the dragon's thin parts they pierce the body,
+      hence its over-carve.
+  - Root causes:
+    - (i) The descent stops in the first minimum, because the gradient at the pixel scale carries the lattice's
+      ripple.
+    - (ii) Nothing keeps a disc's carve inside the body's own thickness.
+    - (iii) The solid is built from the nearest disc's d, unsmoothed, and is scored on one fresh sample (± 5–10 %
+      between samples of one solid). The disc-level gain is lost or hidden there.
+  - Next (proposed as D156e, the coordinator to decide; the first two touch the method's definition):
+    - (1) Coarse to fine in the Sobolev length: ℓ from the object's own scale (the box) halved down to one picture
+      pixel, the standard multi-scale form of Sobolev descent. The descent then moves broad regions first and does
+      not lock into the lattice's ripple. The factor 2 is a choice the coordinator should confirm.
+    - (2) The geometric bound d ≤ the hull's thickness under each disc (a ray from the disc inward to the hull's
+      far side): a carve cannot pass through the body. No constant.
+    - (3) The solid from the H¹-smoothed d (the same operator, applied once), not the nearest disc. L_solid is
+      scored as the mean over the eight draw seeds, so a pass is not noise.
+    - Then the same step-1 check on bunny, dragon and bob, and the 9 meshes with (a) / (b) / (c) only if it passes.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

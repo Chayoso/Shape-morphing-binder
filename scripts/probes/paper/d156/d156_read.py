@@ -96,16 +96,23 @@ class Ctx:
         t0 = time.time()
         self.key = (mesh, seed, kind)
         true_path, hp = f"assets/{mesh}.obj", hull_path(mesh)
-        fpath, opath = (hp, true_path) if kind == "hull" else (true_path, hp)
+        # the frame's mesh: the run's target (the visual hull, the mesh, or D156d's solid, kind "sfs")
+        fpath = {"hull": hp, "mesh": true_path, "sfs": f"{HULLS}/{mesh}_sfs18_r{RES_RUN}.obj"}[kind]
         _, v_src = load_normalized("assets/isosphere.obj", N, seed, return_volume=True, sample="stratified")
         frame = {}
         B = load_normalized(fpath, N, seed + 1, match_volume=v_src, sample="stratified", frame=frame)
         own = np.asarray(np.load(npz, allow_pickle=True)["tgt"], np.float32)
         self.frame_maxdiff = float(np.abs(B - own).max())
         assert self.frame_maxdiff <= 1e-6, (mesh, seed, kind, self.frame_maxdiff)
-        n_o = int(round(N * fill_volume_in_frame(opath, frame, N) / fill_volume_in_frame(fpath, frame, N)))
-        O, _ = sample_in_frame(opath, frame, n_o, seed + 1)
-        self.H, self.M = (B, O) if kind == "hull" else (O, B)
+        f_B = fill_volume_in_frame(fpath, frame, N)
+
+        def other(path):                                                 # a mesh's sample in this frame at B's density
+            if path == fpath:
+                return B
+            n_o = int(round(N * fill_volume_in_frame(path, frame, N) / f_B))
+            return sample_in_frame(path, frame, n_o, seed + 1)[0]
+        self.H, self.M = other(hp), other(true_path)
+        self.S = B if kind == "sfs" else None                            # D156d's solid (its run's own target)
         self.n_true = len(self.M)
         self.Mp, _ = sample_in_frame(true_path, frame, self.n_true, seed + 2)
         self.frame = frame
@@ -236,8 +243,8 @@ def main():
             t0 = time.time()
             seed = int(seed)
             ctx = Ctx.get(mesh, seed, kind, npz)
-            if label in ("H", "M", "Mp"):
-                x = {"H": ctx.H, "M": ctx.M, "Mp": ctx.Mp}[label]
+            if label in ("H", "M", "Mp", "S"):
+                x = {"H": ctx.H, "M": ctx.M, "Mp": ctx.Mp, "S": ctx.S}[label]
             else:
                 x = np.asarray(np.load(npz, allow_pickle=True)["frames"][-1], np.float32)
             row = dict(mesh=mesh, seed=seed, frame=kind, label=label, npz=npz.split("/")[-1], n=len(x), ctx=ctx.info,

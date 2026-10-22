@@ -23,6 +23,7 @@ import numpy as np
 
 rows = [json.loads(ln) for ln in open(sys.argv[1]) if ln.strip()]
 runs_dir, out_path = sys.argv[2], sys.argv[3]
+RUNF = sys.argv[4] if len(sys.argv) > 4 else "hull"           # the runs' frame: hull (D156) or sfs (D156d)
 ctx = defaultdict(dict)
 for r in rows:
     ctx[(r["mesh"], r["seed"], r["frame"])][r["label"]] = r
@@ -81,7 +82,9 @@ for (mesh, seed, frame), c in sorted(ctx.items()):
     if not all(k in c for k in ("H", "M", "Mp")):
         continue
     a = c["H"]["ctx"]["pitch"]
-    arms = ("L", "P") if frame == "hull" else ("V", "W")
+    arms = ("L", "P") if frame in ("hull", "sfs") else ("V", "W")
+    if frame == "sfs" and "S" in c:
+        arms = arms + ("S",)                                          # D156d's solid itself: reading (a)
     t = {lab: shares(c, lab) for lab in arms if lab in c}
     t["Mp"] = shares(c, "Mp")                                   # the floor's own share (about 1 by construction)
     t["raw"] = {lab: dict(in_R=c[lab]["vol"]["in_R"], out_hull=c[lab]["vol"]["out_hull"],
@@ -92,7 +95,7 @@ for (mesh, seed, frame), c in sorted(ctx.items()):
                           pieces=c[lab].get("pieces"))
                 for lab in list(arms) + ["H", "M", "Mp"] if lab in c}
     t["ctx"] = c["H"]["ctx"]
-    if frame == "hull":
+    if frame == RUNF:
         for lab in ("L", "P"):
             rec = record(mesh, lab, seed)
             if rec is not None:
