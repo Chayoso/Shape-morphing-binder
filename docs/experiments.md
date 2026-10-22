@@ -17545,6 +17545,69 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Files.* `output/gpu/d160/`: runs `runs40/*_H{97,99}*`, `read_colour_H.jsonl`, `gate_H/` (table, gate.json,
   figures), `video/*_97_H/` (λ held | twin | target paint), `limiter_A.json`, `step1/split.jsonl`. Local:
   `output/results_2026-10-21/d160_appearance/d160c/`.
+- **D160d, the colour on its own held weight, the render terms on the rule's (pre-registered 2026-10-22 02:51 CDT
+  server clock, before any D160d gate or run; the coordinator's go 2026-10-22; an experiment, adoption the user's call;
+  code `--appearance_weight held` on wip/d160 d3aa85e9, default `rule`, from rt1, kept mergeable with D162's wip/d162;
+  `tmp/d160/d160d_chain.sh`; results `output/gpu/d160/` (runs `*_D{97,99}`, `gate_D/`, `surfdisp.jsonl`); note for the
+  D162 agent `tmp/d160/for_d162.md`).**
+  *Why.* D160c moved the colour but held the whole render weight. That is the pre-D81 state, which D81 measured as
+  costly. D160d separates the two parts by what each competes with.
+  - The render terms stay exactly the tag's (silhouette and grey shading, the tag's grey pictures) on the rule's λ,
+    with PCGrad and the balance as now. They compete with the physics for the same surface.
+  - The colour is its own term: the colour pictures' error, its points and normals held at the window's disc set,
+    so its gradient reaches the particles through the discs' albedos alone.
+    - Its weight is the render weight's first calibrated value, held (tgt.lam_col, set at window 0's calibration;
+      zero in the twin).
+    - It sits beside the cleanup: fixed weight, outside the balance and PCGrad, in the merit with the window's
+      geometry, and in the selection merit with the committed state's own.
+    - It lives in the physics' null space, so it is not balanced against the physics.
+  - No new constant: the two weights are the rule's and its first value.
+  *Gates (`d160d_chain.sh V`).*
+  - V1: the full suite (exit status).
+  - V2: the pinned references and D160's tests, now with D160d's: d_colour is the colour shading term bit for bit,
+    its held-geometry gradient is the albedo path; on the pipeline, the held twin's trajectory is the plain twin's and
+    the held full arm acts.
+  - V3: deterministic 40k bunny seed 97, four windows: the defaults and white against rt1's S1, every field SAME (the
+    shading term's code was refactored).
+  - V4, the same setting:
+    - the held twin with the band paint against the plain twin: the trajectory SAME;
+    - the held full arm with the band paint: exit 0, the "[D160d] ... held" log line, and a trajectory unlike S1's.
+  *Runs.*
+  - bunny40k_{half,band,ears,turn}_D{97,99} and dragon40k_band_D{97,99} (`--appearance SCENE --appearance_weight
+    held`), on one card by the lock protocol.
+  - The twins are D160's P runs (the held weight is zero there, as V4 checks).
+  - The readers are D160's and D160c's; the gate is `d160_gate.py` with arm D, which lists D160's L beside it.
+  - Videos: seed 97, D | P | target paint.
+  *The added reading (the coordinator's): how much the colour push alone moves the surface geometry.*
+  `tmp/d160/d160_surfdisp.py`, delivered frames, for D, H (D160c) and L (D160) against their twins P, and for a twin
+  against a twin as the floor (bunny: two P runs of one seed, other paints; dragon: the tag's W against our P, one
+  colour-blind physics).
+  - The signed offset of the run's exterior surface from the twin's, along the twin's normal: rms and p90, pitches.
+  - The outer-layer particles' end displacement from their places in the twin, split along the run surface's normal
+    and along the surface: rms and p90.
+  - Colour coexists with C2 / C3 if D's surface offset and normal displacement are at L's and near the floor, while
+    its tangential displacement is H's.
+  *Criteria.* D160's C1–C4 unchanged, on D against P and the tag's V references. Reported beside them:
+  - D against L and H on every row;
+  - λ_col and the rule's λ in the records;
+  - the late timeline (is the colour still falling at the end?);
+  - the windows (early stops).
+  *Predictions.*
+  - V1–V4 pass. λ_col 0.30–0.36.
+  - The colour: r band 0.7–0.95, turn 0.4–0.65, half 0.6–0.9, dragon 0.3–0.7, ears 0.1–0.4 (about D160c's; the colour
+    push after arrival is the same, the geometric render push the rule's). C1 passes on band and turn.
+  - The surface: D's offset from the twin within 1.5 × L's and ≤ 2 × the floor. Its normal displacement about L's;
+    its tangential displacement about H's.
+  - C2: misses fewer than D160c's 40 / 80, at most 16. Whether C2 passes (≤ 8) is open.
+  - C3: the kinetic record still above the bound on the runs whose colour is still moving at the end (turn); G3
+    passes.
+  - Some early stops remain, since the colour term is a large fixed-weight part of the merit.
+  *Reading for the next step.*
+  - D holds C2–C4 with C1: an adoption candidate for the user (the weight's definition for the null-space term).
+  - D holds C2 but not C3: the colour is still moving at the end. The next question is the run's end (stop when the
+    colour converges, or a longer run), not the weight.
+  - D fails C2 with a surface offset above L's: the colour term's own geometric effect (through the albedos' kernel
+    weights) moves the surface. Measure that path before any change.
 
 - **D161, the render carves a relief that only its pictures carry: the 3D target a smooth mesh, the render's target
   pictures the same mesh with embossed letters (pre-registered 2026-10-21 22:51 CDT server clock, before any run of

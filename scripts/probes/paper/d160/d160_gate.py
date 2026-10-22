@@ -18,7 +18,7 @@ SCENES = [("bunny", "half"), ("bunny", "band"), ("bunny", "ears"), ("bunny", "tu
 SEEDS = (97, 99)
 out = Path(sys.argv[1])
 FULL = sys.argv[2] if len(sys.argv) > 2 else "L"           # the full arm's label: L (D160, the rule's weight), H (D160c, held)
-FULL_LABEL = "dF_c + layer u + render loss (full)" + (", lambda held" if FULL == "H" else "")
+FULL_LABEL = "dF_c + layer u + render loss (full)" + {"H": ", lambda held", "D": ", colour weight held"}.get(FULL, "")
 out.mkdir(parents=True, exist_ok=True)
 
 
