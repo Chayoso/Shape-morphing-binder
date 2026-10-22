@@ -307,11 +307,12 @@ def calibrate_units(tgt: TargetPack, source_x: torch.Tensor, cfg: PipelineConfig
 
 
 def render_floor(tgt: TargetPack, cfg: PipelineConfig, x_floor, albedo=None) -> float:
-    """D162 (1): the render term (silhouette + w_pbr shading) of an independent sample of the render target (x_floor:
-    seed + 2, the evaluation's reference seed, never one of the pictures' draws) against the run's pictures, read as the
-    body's state is read (Objective.render_terms: the tracked exterior discs of a field found at that state, d_exterior;
-    albedo (D160): the sample's own paint). What a perfect placement of the render target at the run's pitch scores: the
-    pictures' floor at the run's N, resolution and views, the D156 / D158 reference."""
+    """D162 (1): the render term (silhouette + w_pbr shading) of a sample of the render target (x_floor; the runner's
+    default is the pictures' own first sample, the render target's sample or else the target's, D162 amendment 2: an
+    independent sample at seed + 2 scores above the physics-only twins) against the run's pictures, read as the body's
+    state is read (Objective.render_terms: the tracked exterior discs of a field found at that state, d_exterior;
+    albedo (D160): the sample's own paint). What a placement of the render target's sample at the run's pitch scores:
+    the pictures' floor at the run's N, resolution and views, the D156 / D158 reference."""
     from ..render.exterior import tracked
     from .render_loss import d_exterior
     e = tgt.ext
