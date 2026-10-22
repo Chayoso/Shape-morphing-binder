@@ -16791,6 +16791,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (the risk). The relief meshes' render samples hold 1–2 % more particles than the smooth targets' (40 783 / 40 418:
   the stratified sampler's fill counts the bumps' voxels; the meshes' volumes agree to 0.003 %): read as a possible
   outward lean of the full arms' rims in P3.
+  **Result (runs 23:03–23:19 CDT on gpu3, read 23:19–23:38 on the CPU; `output/gpu/d161/runs40/`, `after/
+  {read,summary}_{coin,bunny}.*`; local `output/results_2026-10-21/d161_relief/`): FAIL by P1 on both scenes, as
+  predicted. The full arm carves about a tenth of the relief its pictures ask for, in its own particles only; the
+  display surface does not show it.** The relief reading (pitches; the ceiling is the relief mesh's own 40k samples,
+  the floor the smooth target's):
+
+  | scene | ceiling A (corr) | floor A | full97 A (share, corr) | full99 | twin97 | twin99 |
+  |---|---|---|---|---|---|---|
+  | coin | 1.17–1.27 (0.55–0.56) | −0.04…+0.03 | 0.103 (0.085, 0.09) | 0.102 (0.082, 0.11) | 0.044 (0.037, 0.04) | 0.012 (0.010, 0.01) |
+  | bunny | 0.83–0.91 (0.31–0.35) | −0.01…+0.06 | 0.118 (0.135, 0.06) | 0.162 (0.186, 0.09) | −0.049 | 0.027 |
+
+  On the display surface (zbs) the full arms read 0.003–0.022 (coin) and 0.008–0.091 (bunny): the field's
+  Solenthaler correction smooths the carved tenth away. The time course differs by scene: on the bunny the full arms
+  carve during the arrival, 0.18 / 0.47 a at 1 s and 0.33 / 0.27 at 1.5 s (a third to half of the ceiling), and the
+  settling physics takes it back to 0.17 / 0.11 by 4 s and 0.12 / 0.16 at the end (the twins −0.08…+0.03); on the
+  coin nothing shows on the kept frames to 4.2 s (−0.05…+0.07) and 0.10 at the end. The full arms run longer (coin
+  35 / 38 windows against the twins' 25 / 29; bunny 41 / 39 against 27 / 47).
+  P2 (held-out shading error in the pattern's pixels against the relief mesh): coin full 8.92e-4 / 8.67e-4 against
+  twin 9.39e-4 / 9.59e-4 (−5 / −10 %, the twins' spread 2.0e-5): holds; bunny 1.85e-3 / 1.57e-3 against 1.76e-3 /
+  1.62e-3 (+5 / −3 %, spread 1.5e-4): fails. P3 (against the smooth mesh): the coin within the seed spread on every
+  item; the bunny's held-out 1 − IoU worse by 0.003 / 0.004 (spread 0.0012) and Chamfer-L1 at seed 99 by 0.023 a
+  (spread 0.013), while its own sil_iou is higher (0.9776 / 0.9775 against 0.9755 / 0.9749): the full bunny leans
+  outward, the risk recorded in Amendment 1 (the render sample's +1 % fill). P4 (the end's v_mean ≤ 2× the twin's):
+  holds (coin 3.2e-3 / 2.8e-3 against 3.3e-3 / 3.4e-3; bunny 3.6e-3 / 3.9e-3 against 4.9e-3 / 3.7e-3). P5: no piece
+  of 10 particles or more in any run.
+  Render → physics over time (`summary_*.md`): on the twin's outer layer the full arm's particles end a median 0.77–0.79
+  a (coin) / 0.67–0.80 a (bunny) from their twin counterparts in the pattern region and 1.0–1.3 / 0.83–0.86 a
+  elsewhere (the trajectories part from the first window, as two runs of different λ do); the two layers' surface
+  distance 0.55–0.57 a, below the twin97–twin99 seed floor 0.59–0.62 a at every kept time after 1 s. λ in the full
+  arms' last ten windows 1.0e-3–1.95e-3, g_share 1/3 (the rule).
+  Predictions: A 0.07–0.10 a and share 0.08–0.12 on the coin, less on the bunny, P1 failing, P2 on the coin only,
+  P3–P5 holding: right except corr (0.09–0.11 against 0.2–0.4 predicted; the carve is a uniform tenth, buried in the
+  layer's own sampling roughness, rms 0.14–0.16 a after the high-pass) and the bunny's P3 (the outward lean) and its
+  carve (0.12–0.16, more than the curve's 0–0.07 on the bunny's noisier rows).
+  *What it means.* The curve's static balance holds in the closed loop: the render asks for all of the relief, the
+  physics keeps a tenth once the body has arrived (on the bunny it carved a third to half on the way, while the
+  placement terms had no settled surface to hold, and lost it as the body settled), and the rest of the window
+  (relaxation, u's rate) is not what limits at this amplitude.
+  D161b (the proximity's free radius at the berth) is queued for the next free card (`d161_chain.sh B`, waiting
+  since 23:19; gates first). Its curve-bound gain is small; the curve's next step is the placement terms at the
+  transport's resolution (above).
 
 ## To run next, in order
 
