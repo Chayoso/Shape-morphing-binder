@@ -17894,6 +17894,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   worse on the gallery (thin gaps no longer seen below a loss cell), G at risk on thin. Gallery F: the render fades
   once the body matches its target sample, so its late polishing (the tag's tail) is shorter; sil_iou within the
   spread, G holds narrowly. The window records: λ_0 · e between the rule's λ and the held λ after arrival.
+  *Amendment 1 (02:50 CDT, before any D162 run; the gates wait for a card).* The coordinator relayed D160c (colour, λ held:
+  r 0.63–0.93, held-out colour PSNR +3–5 dB, but shape (C2, 40 of 80 cells) and rest (C3, end kinetic 5–80× the limit)
+  fail, as D161c) and D160's proposal D160d (the colour term keeps its first weight, the geometry render terms the
+  rule's λ), asking which arms answer, with the fewest options, what lets the render act after arrival without breaking
+  rest and shape. The arms stay F and FC, unchanged, for three reasons. (i) The relief lives in the geometry render terms
+  themselves (the silhouette and the shading of the letters): a split by term cannot give it weight without giving it to
+  the geometry, so for relief the split is the held weight; F's excess, measured on the whole render term, is the one
+  form that reaches both tracks. (ii) D160d runs the split on colour at 40k (its numbers in tmp/d160/for_d162.md), so the
+  split is measured without a D162 arm. (iii) If F carves / routes but misses rest or shape on colour while D160d holds
+  them, the combination (the geometry terms at the floor-referenced weight, the colour term at its own excess over its
+  own floor) is the next arm, pre-registered then with both results; if F holds rest and shape, the split is not needed.
+  Reported beside D162's tables: D160c / D160d's r, C2, C3 rows for band and ears.
 
 ## To run next, in order
 
