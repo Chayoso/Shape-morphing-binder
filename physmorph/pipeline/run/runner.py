@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 
+import numpy as np
 import torch
 
 from ... import gpu
@@ -88,8 +89,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     compares colour pictures (target.build_target); nothing else reads it. render_x (D156;
     None = the frozen path): the render's own target sample in the target's frame, from which (and from draws, then its
     further draws) the pictures are drawn in place of the target's (target.build_target). floor_x (D162 (1), cfg.render_weight_ref
-    "floor"): an independent sample of the render target in the target's frame, whose render term is the render's
-    floor (target.render_floor)."""
+    "floor"; None = the pictures' own first sample, render_x or else target_x): the sample whose render term is the
+    render's floor (target.render_floor): what a body that reaches that sample scores, the floor the physics can reach."""
     gpu.require_cuda()
     cfg = dataclasses.replace(cfg)
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
@@ -106,12 +107,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         f"(weights), gradient ratio = {tgt.unit_grad_ratio:.4g} (eps/target_norm), "
         f"n_support={tgt.n_support} m_ref={tgt.m_ref:.3g}")
     if cfg.render_weight_ref == "floor":           # D162 (1): the render's floor, once a run
-        if floor_x is None:
-            raise ValueError("render_weight_ref floor needs an independent sample of the render target (floor_x)")
         from ..target import render_floor
-        tgt.render_floor = render_floor(tgt, cfg, floor_x, None if appearance is None else appearance.albedo_at(floor_x))
-        log(f"[v2] render weight referenced to the render's floor (D162): L_floor = {tgt.render_floor:.4e} (an independent "
-            f"sample of the render target, {len(floor_x)} particles, read as the body is read)")
+        own = floor_x is None                     # the pictures' own first sample (the render target's, else the target's)
+        fx = floor_x if not own else (render_x if render_x is not None else target_x)
+        alb = None
+        if appearance is not None:
+            alb = appearance.tgt if (own and render_x is None) else appearance.albedo_at(np.asarray(fx))
+        tgt.render_floor = render_floor(tgt, cfg, fx, alb)
+        log(f"[v2] render weight referenced to the render's floor (D162): L_floor = {tgt.render_floor:.4e} ("
+            + ("the pictures' own first sample" if own else "an independent sample") + f", {len(fx)} particles, read as "
+            "the body is read)")
     # the relative cap: 20x the first raw ratio (the same meaning in any loss unit)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, None, cap_rel=20.0)
     lo, hi = domain_bounds(prm)

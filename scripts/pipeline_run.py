@@ -236,8 +236,7 @@ def prepared(args, seed: int):
                    draws=args.render_target_draws,
                    match_density=args.match_density,
                    cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0,
-                   mesh=args.render_target == "mesh_shell", render_tgt=getattr(args, "render_tgt", None),
-                   floor_sample=getattr(args, "render_weight_ref", "residual") == "floor")
+                   mesh=args.render_target == "mesh_shell", render_tgt=getattr(args, "render_tgt", None))
     return cfg0, prep
 
 
@@ -318,7 +317,7 @@ def run_main(args, prep, src, tgt, prm, cfg):
         out["provenance"]["appearance"] = app.params
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
                        on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
-                       mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x, floor_x=prep.floor_x)
+                       mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

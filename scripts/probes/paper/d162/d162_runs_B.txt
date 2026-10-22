@@ -1,0 +1,51 @@
+# D162 gallery (the rest): arms F and FC on the 19 plain targets, 40k, seeds 97/99
+gal_A40k_FC_97 --tgt assets/A.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_A40k_F_99 --tgt assets/A.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_C40k_F_97 --tgt assets/C.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_C40k_FC_97 --tgt assets/C.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_C40k_FC_99 --tgt assets/C.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_V40k_F_97 --tgt assets/V.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_V40k_F_99 --tgt assets/V.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_V40k_FC_99 --tgt assets/V.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_armadilo40k_FC_97 --tgt assets/armadilo.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_armadilo40k_F_99 --tgt assets/armadilo.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_beast40k_F_97 --tgt assets/beast.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_beast40k_FC_97 --tgt assets/beast.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_beast40k_FC_99 --tgt assets/beast.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_bimba40k_F_97 --tgt assets/bimba.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_bimba40k_F_99 --tgt assets/bimba.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_bimba40k_FC_99 --tgt assets/bimba.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_bob40k_FC_97 --tgt assets/bob.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_bob40k_F_99 --tgt assets/bob.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_bunny40k_F_97 --tgt assets/bunny.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_bunny40k_FC_97 --tgt assets/bunny.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_bunny40k_FC_99 --tgt assets/bunny.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_cheburashka40k_F_97 --tgt assets/cheburashka.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_cheburashka40k_F_99 --tgt assets/cheburashka.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_cheburashka40k_FC_99 --tgt assets/cheburashka.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_cow40k_FC_97 --tgt assets/cow.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_cow40k_F_99 --tgt assets/cow.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_dragon40k_F_97 --tgt assets/dragon.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_dragon40k_FC_97 --tgt assets/dragon.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_dragon40k_FC_99 --tgt assets/dragon.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_fandisk40k_F_97 --tgt assets/fandisk.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_fandisk40k_F_99 --tgt assets/fandisk.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_fandisk40k_FC_99 --tgt assets/fandisk.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_heart40k_FC_97 --tgt assets/heart.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_heart40k_F_99 --tgt assets/heart.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_homer40k_F_97 --tgt assets/homer.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_homer40k_FC_97 --tgt assets/homer.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_homer40k_FC_99 --tgt assets/homer.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_maxplanck40k_F_97 --tgt assets/maxplanck.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_maxplanck40k_F_99 --tgt assets/maxplanck.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_maxplanck40k_FC_99 --tgt assets/maxplanck.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_nefertiti40k_FC_97 --tgt assets/nefertiti.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_nefertiti40k_F_99 --tgt assets/nefertiti.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_ogre40k_F_97 --tgt assets/ogre.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_ogre40k_FC_97 --tgt assets/ogre.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_ogre40k_FC_99 --tgt assets/ogre.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_spot40k_F_97 --tgt assets/spot.obj --n 40000 --seed 97 --render_weight_ref floor
+gal_spot40k_F_99 --tgt assets/spot.obj --n 40000 --seed 99 --render_weight_ref floor
+gal_spot40k_FC_99 --tgt assets/spot.obj --n 40000 --seed 99 --render_weight_ref floor --placement_at_cell
+gal_teapot40k_FC_97 --tgt assets/teapot.obj --n 40000 --seed 97 --render_weight_ref floor --placement_at_cell
+gal_teapot40k_F_99 --tgt assets/teapot.obj --n 40000 --seed 99 --render_weight_ref floor
