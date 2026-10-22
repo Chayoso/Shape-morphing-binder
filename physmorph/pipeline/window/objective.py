@@ -197,6 +197,8 @@ class Objective:
                     d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
                           cfg.sil_k, cfg.pbr_ambient, t.pblur))
         e = t.ext
+        if e.albedo is not None:                      # D160: the discs' colours from the particles' fixed albedos
+            return self._render_terms_albedo(xT, e)
         if self.discs is not None:
             p, n, move = self.discs.read(xT)
             if float(torch.quantile(move.detach().abs()[::max(1, len(move) // 50000)], .9)) > .5 * e.h:
@@ -209,6 +211,24 @@ class Objective:
             p, n, move = self.discs.read(xT)
         return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
                           cfg.w_spray, cfg.pbr_ambient)
+
+    def _render_terms_albedo(self, xT, e):
+        """render_terms with the particles' albedos (D160, appearance): the same discs, found and followed as above;
+        each disc's albedo is its particles' under its own kernel weights (Tracked.read), and the shading term
+        compares colour pictures. The physics terms never read the albedos."""
+        cfg, t = self.cfg, self.tgt
+        if self.discs is not None:
+            p, n, move, c = self.discs.read(xT, e.albedo, e.albedo_ref)
+            if float(torch.quantile(move.detach().abs()[::max(1, len(move) // 50000)], .9)) > .5 * e.h:
+                self.discs = None
+        if self.discs is None:
+            with torch.no_grad(), timed("exterior"):
+                self.discs = tracked(make_field(e.field, xT.detach(), e.pitch, radius=e.radius, offset=e.offset,
+                                                device_field=True), e.lattice, e.h, e.skin)
+            self.ext_builds += 1
+            p, n, move, c = self.discs.read(xT, e.albedo, e.albedo_ref)
+        return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
+                          cfg.w_spray, cfg.pbr_ambient, albedo=c)
 
     def phys_core(self, e):
         """The physics objective without the cleanup terms, from an Eval: lambda's reference and the direction

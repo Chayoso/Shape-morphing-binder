@@ -388,11 +388,38 @@ def make_field(kind, x, pitch, radius=3., offset=.8, device_field=False):
     return ZhuBridson(x, pitch, radius=radius, offset=offset, device_field=device_field)
 
 
+def disc_albedo(w, a, ref):
+    """D160: a disc's albedo, the mean of its particles' albedos `a` (M, S, C) under the disc's own kernel weights `w`
+    (M, S), those of its centre xbar, written about the body's mean albedo `ref` (C,): ref + sum w (a - ref) / sum w.
+    The same mean as sum w a / sum w; written about ref, a body of one albedo gives exactly ref and its weights carry
+    exactly zero gradient through the colour (a - ref = 0), so a white body reads as the shading term without colour,
+    bit for bit."""
+    return ref + (w[..., None] * (a - ref)).sum(1) / w.sum(1).clamp_min(1e-12)[:, None]
+
+
+def found_disc_albedo(field, pts, albedo, ref, skin):
+    """D160: the albedo of discs found on a Zhu–Bridson field (zb or zbs) at the points `pts`, from the field's
+    particles' albedos (N, C): each disc's particles within the radius plus `skin` (Tracked's lists), weighted by the
+    kernel at the disc. No gradient (the target's discs)."""
+    if isinstance(field, Anisotropic):
+        raise NotImplementedError("D160's disc albedo reads the Zhu-Bridson kernel (zb, zbs)")
+    with torch.no_grad():
+        idx = field.neighbours(pts, skin)
+        valid = idx >= 0
+        p = field.x.index_select(0, idx.clamp_min(0).reshape(-1)).view(*idx.shape, 3)
+        R = field.radius
+        w = (1. - (pts[:, None, :] - p).square().sum(-1) / (R * R)).clamp_min(0.) ** 3 * valid
+        a = albedo.index_select(0, idx.clamp_min(0).reshape(-1)).view(*idx.shape, albedo.shape[1])
+        return disc_albedo(w, a, ref)
+
+
 class Tracked:
     """Discs of a field's zero set that follow the particles within one window: found at one state (points p0, unit
     normals n0, the field's slope there, each disc's particles), read at another. A disc moves along n0 by the
     field's value at p0 over that slope (one Newton step, the surface's displacement to first order) and takes the
-    field's gradient at p0 as its normal; both are functions of the particles, so a loss on the discs reaches them."""
+    field's gradient at p0 as its normal; both are functions of the particles, so a loss on the discs reaches them.
+    D160: given the particles' albedos, read also returns each disc's albedo (disc_albedo, the weights of its centre),
+    a function of the particles' positions too."""
 
     def __init__(self, field, lattice, h, skin):
         pts, g, _, _ = lattice.discs(field, h, refine=False)
@@ -400,8 +427,9 @@ class Tracked:
         self.idx = field.neighbours(pts, skin)
         self.radius, self.offset, self.h = field.radius, field.offset, h
 
-    def read(self, x):
-        """(points, unit normals, displacement along n0) of the discs at the particles x."""
+    def read(self, x, albedo=None, ref=None):
+        """(points, unit normals, displacement along n0) of the discs at the particles x; with the particles'
+        albedos (N, C) and their mean `ref` (D160), the discs' albedos (M, C) as a fourth item."""
         R, p0 = self.radius, self.p0
         valid = self.idx >= 0
         p = x.index_select(0, self.idx.clamp_min(0).reshape(-1)).view(*self.idx.shape, 3)   # its backward adds, without a sort
@@ -417,7 +445,13 @@ class Tracked:
         dhat = d / dist[:, None]
         normal = nnf.normalize(dhat - torch.einsum("nab,na->nb", J, dhat), dim=1)     # the field's gradient in q
         move = -(dist - self.offset) / self.slope
-        return p0 + move[:, None] * self.n0, normal, move
+        if albedo is None:
+            return p0 + move[:, None] * self.n0, normal, move
+        return p0 + move[:, None] * self.n0, normal, move, self._albedo(w, albedo, ref)
+
+    def _albedo(self, w, albedo, ref):
+        a = albedo.index_select(0, self.idx.clamp_min(0).reshape(-1)).view(*self.idx.shape, albedo.shape[1])
+        return disc_albedo(w, a, ref)
 
 
 class TrackedAniso(Tracked):
@@ -432,8 +466,10 @@ class TrackedAniso(Tracked):
         self.links = field.links.index_select(0, self.rows)
         self.pitch, self.level, self.scale = field.pitch, field.level, field.scale
 
-    def read(self, x):
+    def read(self, x, albedo=None, ref=None):
         """(points, unit normals, displacement along n0) of the discs at the particles x."""
+        if albedo is not None:
+            raise NotImplementedError("D160's disc albedo reads the Zhu-Bridson kernel (zb, zbs)")
         Ci = torch.linalg.inv(covariances(x, self.rows, self.links, self.pitch))
         valid = self.idx >= 0
         p = x.index_select(0, self.idx.clamp_min(0).reshape(-1)).view(*self.idx.shape, 3)
@@ -458,8 +494,9 @@ class TrackedSolenthaler(Tracked):
         self.f0 = f.to(self.p0.dtype)
         self.gf0 = (df[:, None] * gev).to(self.p0.dtype)          # grad f at the disc, in q
 
-    def read(self, x):
-        """(points, unit normals, displacement along n0) of the discs at the particles x."""
+    def read(self, x, albedo=None, ref=None):
+        """(points, unit normals, displacement along n0) of the discs at the particles x; with albedos (D160) their
+        albedos as a fourth item, as Tracked's."""
         R, p0 = self.radius, self.p0
         valid = self.idx >= 0
         p = x.index_select(0, self.idx.clamp_min(0).reshape(-1)).view(*self.idx.shape, 3)
@@ -475,7 +512,9 @@ class TrackedSolenthaler(Tracked):
         dhat = d / dist[:, None]
         normal = nnf.normalize(dhat - torch.einsum("nab,na->nb", J, dhat) - self.offset * self.gf0, dim=1)
         move = -(dist - self.offset * self.f0) / self.slope
-        return p0 + move[:, None] * self.n0, normal, move
+        if albedo is None:
+            return p0 + move[:, None] * self.n0, normal, move
+        return p0 + move[:, None] * self.n0, normal, move, self._albedo(w, albedo, ref)
 
 
 def tracked(field, lattice, h, skin):

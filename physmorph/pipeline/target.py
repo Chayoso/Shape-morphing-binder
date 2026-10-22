@@ -20,7 +20,7 @@ from ..losses.volumetric import (d_vol, d_vol_density, density_units, rasterize_
                                  target_mass_grid)
 from ..mpm.state import MPMParams
 from .config import PipelineConfig
-from ..render.exterior import Lattice, make_field
+from ..render.exterior import Lattice, found_disc_albedo, make_field
 from .render_loss import exterior_targets, make_views, shade_targets, target_silhouettes
 
 
@@ -37,6 +37,8 @@ class Exterior:
     radius: float = 3.0                 # the field's kernel radius and offset, in pitches (D123; 3 and 0.8 = D59's)
     offset: float = 0.8
     field: str = "zb"                   # D140: "zb" Zhu and Bridson's field, "aniso" the anisotropic one
+    albedo: torch.Tensor | None = None  # D160 (appearance): the body particles' fixed albedos (N, C), carried by index
+    albedo_ref: torch.Tensor | None = None  #   and their mean (C,), about which the discs' albedos are written
 
 
 @dataclass
@@ -124,14 +126,19 @@ def shell_pictures(mesh, lattice, h, pitch, radius, refs, views, extent, cfg, si
     return sils, shade
 
 
-def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh=None) -> TargetPack:
+def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh=None, appearance=None) -> TargetPack:
     """draws: further independent samples of the target in its frame. The render term's target pictures are then the
     mean of the pictures the operator draws of every sample: what it draws of the mesh in expectation. Drawn from
     the one sample, a render arm fitted that sample's noise as well, and half its measured lead over the
     physics-only twin was that fit (D90, D91).
     mesh (D159, cfg.render_target "mesh_shell"): (V, F) of the target mesh in the target's frame; the exterior's target
     pictures are then drawn from the mesh grown by the run's own measured exterior offset (render/mesh_shell.py), on
-    the same lattice; everything else is as on the frozen path."""
+    the same lattice; everything else is as on the frozen path.
+    appearance (D160, pipeline/appearance.Appearance): the body's fixed albedos and the target samples' (the target's
+    paint); the exterior's shading pictures are then colour pictures drawn from the target discs' albedos (the same
+    kernel weights as the body's discs), and the Exterior carries the body's albedos. Needs render_exterior."""
+    if appearance is not None and not cfg.render_exterior:
+        raise ValueError("appearance (D160) colours the exterior's discs: it needs render_exterior")
     set_kernel("cic")
     tgt_t = gpu.tensor(target_x)
     samples = [tgt_t] + [gpu.tensor(d) for d in (draws or [])]
@@ -186,16 +193,30 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
         lattice = Lattice(center, 2.8 * float((geom - center).norm(dim=1).max()))
         h = min(extent / cfg.render_res, 0.92 * pitch * (radius / 3.0))
         per, refs = [], []
-        for s in samples:
+        b_alb = b_ref = None
+        if appearance is not None:            # D160: the body's albedos, their mean, and each target sample's
+            b_alb = gpu.tensor(np.asarray(appearance.src, np.float32))
+            b_ref = b_alb.mean(0)
+            t_alb = [gpu.tensor(np.asarray(a, np.float32)) for a in appearance.target_albedos()]
+            if len(t_alb) != len(samples) or b_alb.shape != (N, t_alb[0].shape[1]):
+                raise ValueError("appearance: one albedo per body particle and per point of every target sample")
+        for i, s in enumerate(samples):
             with torch.no_grad():
-                p_t, g_t, _, _ = lattice.discs(make_field(cfg.exterior_field, s, pitch, radius=radius, offset=offset,
-                                                          device_field=cfg.exterior_field == "zbs"), h, refine=False)
+                fld = make_field(cfg.exterior_field, s, pitch, radius=radius, offset=offset,
+                                 device_field=cfg.exterior_field == "zbs")
+                p_t, g_t, _, _ = lattice.discs(fld, h, refine=False)
+                c_t = None if appearance is None else found_disc_albedo(fld, p_t, t_alb[i], b_ref, pitch)
             if cfg.render_target == "mesh_shell":
                 refs.append(p_t)
             per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
-                                        extent, cfg.sil_k, cfg.pbr_ambient))
+                                        extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t))
         e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
-        ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset, cfg.exterior_field)
+        ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset, cfg.exterior_field,
+                       albedo=b_alb, albedo_ref=b_ref)
+        if appearance is not None:
+            print(f"[target] appearance (D160): scene {appearance.scene}, {b_alb.shape[1]} channel(s); body albedo "
+                  f"mean {[round(float(v), 4) for v in b_ref]}, target discs' (last sample) mean "
+                  f"{[round(float(v), 4) for v in c_t.mean(0)]}; {appearance.note}", flush=True)
         print(f"[target] exterior: {dict(aniso='anisotropic field (D140)', zbs='Zhu-Bridson field, Solenthaler et al. correction (D144)').get(cfg.exterior_field, 'Zhu-Bridson field')}, "
               f"pitch {pitch:.4f} wu, kernel {radius:g} pitches, offset {offset:.3f}, lattice {h / pitch:.2f} pitches = "
               f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target"
