@@ -19594,6 +19594,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     rest shape).
   - **The drop test** (item 3 of the request) is not run: the decal is advected with the particles either way.
   - Output: `output/gpu/d165/` (`summary.md`, `read/`, `video/`, `decal/`); local copy
+  **D165 read (runs 10:27–11:03 CDT on gpu3).** H's carved plaque prints SIGGRAPH into the slab; the twin, with or
+  without the decal, prints a flat face.
+  - **The print.** With the end state (x, F, Fp) and the controls off, the word's ring contrast in the slab is 0.13 a0
+    and its high-pass correlation with the letters 0.46. The twin's are −0.05 and −0.28. The high-passed depth map
+    reads the word; the twin's is noise.
+  - **The plaque.** H's word contrast is 0.30 a0 as loaded and 0.35 after it settles without controls, against the
+    ceiling's 0.96. The slab keeps 38 % of it; the end-shape-as-rest variant keeps 68 % (0.18, corr 0.63).
+  - **At 40k** the print correlates (0.54) but does not read: the letters there are shallower than a particle spacing.
+  - **The decal still.** On T it reads more clearly than H's own surface, so a picture alone cannot tell the two
+    apart; the print can.
+  - **Change against the pre-registration.** The stamps run without gravity. In the first kept-frame run the soft
+    slab flowed under its own weight, because the frozen F smoothing keeps only 4.5 % of each step as elastic strain.
+    The reader's ring contrast and high-pass were added before the 300k reading.
+  - Local: `output/results_2026-10-23/d165_stamp/`. Code: `wip/d165` e81cd89.
     `output/results_2026-10-23/d165_stamp/`.
 
 ## To run next, in order
