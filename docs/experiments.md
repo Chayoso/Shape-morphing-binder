@@ -19088,6 +19088,56 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   distribution: 0–5 % more committed windows, the same or a slightly later stop (a false null spends a window attempt,
   anneals the step and counts towards patience), wall time within ±5 %, readings inside the tag's three-seed range on
   at least 17 of 19 meshes per arm, G holds; at 300k inside B1's range. Mostly bookkeeping, a little trajectory late.
+  *Amendment 1 (22:02 CDT server clock, before P2 and any gate; the coordinator approved it at about 22:00).* Step 0 read
+  (21:43–21:52 on the gpu1 queue; the first queue job, 20:25, stopped in 52 s before any run because the probe imported
+  torch before physmorph; fixed): bunny 40 windows, dragon 60, each committed control evaluated three times (a, x, c).
+  - P0a: the tag's tolerance exceeded 0 / 40 and 1 / 60; the D164 measure 0 / 40 and 0 / 60.
+  - Stop rule 1, quiet: medians |c − a| 1.46e-6 / 3.0e-7, |c − x| 1.68e-6 / 3.9e-7, |x − a| 1.56e-6 / 4.8e-7; c − a is
+    centred (mean ≈ 0, positive in 23 / 40 and 27 / 60). The commit's mismatch is honest replay noise: no share the commit
+    and the line search do not have in common, and no visible selection by the line search.
+  - Stop rule 2, AMEND: |c − x| above 10 × the measure in 2 / 40 (5 %) and 2 / 60 (3.3 %).
+  - P0c: the geometry energy lv carries 96 % / 83 % of |c − a| (cleanup 2 / 8 %, render 1 / 8 %). The taped pairs (median
+    1.9e-7 / 1.4e-7) read the accepted candidate's transport potentials and proximity lists (D47 / D153) and see 3–10 ×
+    less than two fresh evaluations: the commit's fresh transport solve and proximity search at its own rollout amplify
+    the rollout's position noise about tenfold. 40 of 40 and 57 of 60 windows ended by the iteration budget, so no taped
+    pair was at the committed control itself.
+  - Why the tag nulls about 4 %: the check compared one noise draw with ten times another of the same size. For two equal
+    Gaussian draws P(X > 10 |Y|) = (1/π) atan(1/10) ≈ 3.2 %; with the windows whose start pair reads 0 this is the tag's
+    3.5 % (40k) and 4.1 % (300k).
+  - The amendment, in place of the pre-registered fallback (i): the commit reads what the accepted candidate read, its
+    transport potentials and its proximity lists (a repeat, as D47 / D153 do at the next gradient; D142's commit branch
+    with the lists added; `solve.WindowOptimizer.commit`, record `commit_reads_accepted`). c − a then carries the rollout's
+    atomics only, the kind the taped pairs measure, and the approved measure max(start pair, taped pairs, ulp) is that
+    noise's; the start pair (two fresh evaluations) is larger, a conservative part of it. Option (i) would measure the
+    amplified noise with one more fresh evaluation (one rollout and two transport solves more a window, about +4.5 % by
+    D50's figure) and would still compare one draw with ten times one or two others (about 0.3 % false nulls by the same
+    arithmetic); it treats the symptom. The amendment removes the amplification from the comparison and saves the
+    commit's two transport solves.
+  - What it changes, and why that is a correct reading of the same committed state: the commit's E, and with it the
+    selection merit's transport part (and the record's state energy, D53, which takes the commit's potentials), is now
+    evaluated with the potentials and lists found at the accepted candidate's rollout, not at the commit's. The two
+    rollouts are rollouts of the same control from the same start and differ by about 1e-7 pitches; both readings are of
+    the same committed state and differ by about 1e-6 relative, the fresh solve's own replay noise (the pilot's |c − x|).
+    The delivered frames are the commit's own rollout as before. Under deterministic atomics the two readings are equal
+    bit for bit (identical measures give identical potentials and lists), so V4 and the digest must stay SAME.
+    `--replay_noise start` keeps the tag's check and commit.
+  - A commit that is not the accepted candidate is still caught: with shared potentials the transport energy is still a
+    function of the commit's own measure, so a commit at another state (a state or cache the line search did not share)
+    moves E by its own size. Test (4) (a commit that forgets the controls) is nulled under both measures; test (5) checks
+    the commit's reads (repeat, the accepted candidate's potentials and lists, no solve) under "window" and the tag's
+    fresh solve under "start".
+  - P2, the gates' first step: the same pilot on D164's defaults (repo_d164s, no flag); the probe's extra evaluation x
+    follows the commit's protocol (the accepted candidate's potentials and lists, restored for the commit after it); the
+    same reader and stop rules (rule 2 now reads |c − x| of the commit's protocol). Prediction: |c − a| and |c − x| fall to
+    the taped pairs' size (1–2e-7), c − a above 10 × the measure in no window, both stop rules quiet.
+  - V as registered, with the coordinator's change: V2's three formerly flaky tests
+    (`test_null_windows_add_no_simulated_time_and_are_not_delivered`, `test_a_nonfinite_window_cost_cannot_commit`,
+    `test_volume_exact.py::test_the_commit_scores_the_accepted_candidate_on_its_own_discs`) 20 times each on repo_d164,
+    0 failures each (gates), repo_d164_start reported beside them. V3 adds test (5); V4 and the digest as registered.
+    Then R40 and R300 as registered, the readings and criteria unchanged; the predictions also unchanged, except that a
+    commit is now about two transport solves cheaper (wall time per window −1–3 %).
+  - Code wip/d164 11aab852; server repo_d164 / repo_d164s / repo_d164_start redeployed from it; queue job
+    `tmp/gpu1_queue/21_d164_p2_gates.sh` (`QUEUE=1 bash tmp/d164/d164_chain.sh "P2 V"`).
 
 - **D162b, the render weight's excess read on the body's shape (a gated A/B experiment, adoption the user's call;
   pre-registered 2026-10-22 ~15:20 CDT, before any D162b run; the coordinator's go after D162 read 1; code `wip/d162`
