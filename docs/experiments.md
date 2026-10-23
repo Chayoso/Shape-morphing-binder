@@ -19545,6 +19545,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - On (B): D162g (job 26) as queued, and the next definition designed from the measurement (plastic baking of the
     carve).
 
+- **Job 29, a stiffer material under the held weight (pre-registered 2026-10-22 ~23:20 CDT, before its runs; the user's
+  hypothesis: the elastic restoring force pulls the carved letters back, and the stiffness also sets how fast the body
+  comes to rest).** The λ-held arm (`--lambda_ema 0`) on coin and bunny relief, 40k, seed 97, with Young's modulus ×3
+  and ×7 (`--young 4.2e5 / 9.8e5`; default 1.4e5), each settled 30 zero-control windows after its stop
+  (`--settle_windows 30`). Against D161c (E ×1) and D161's twins.
+  - Read: relief share and corr at the stop and the settled end, end v_mean against the twin's, Chamfer
+    (output/gpu/d162/auto/29/summary.md).
+  - Prediction under the hypothesis: the relief kept at the settled end rises with E, and the end speed falls toward
+    the twin's.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
