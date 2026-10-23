@@ -8,7 +8,10 @@
 (3) They are replays: under Warp's run-to-run deterministic atomics every pair and the commit agree bit for bit
     (tests/d164_det_runs.py, a subprocess).
 (4) What the check exists for still holds: a commit rollout that is not the accepted candidate's (here it forgets the
-    controls, a state one of the two evaluations does not share) is nulled as commit_replay, under both measures.
+    controls and solves its own transport, a state the two evaluations do not share) is nulled as commit_replay, under
+    both measures.
+(5) Amendment 1: under "window" the commit reads the accepted candidate's transport potentials and proximity lists (no
+    solve, no search in the commit); under "start" it solves and searches at its own rollout, as the tag.
 """
 from __future__ import annotations
 
@@ -134,10 +137,61 @@ def test_a_commit_that_is_not_the_accepted_candidate_is_still_nulled(monkeypatch
     if not torch.cuda.is_available():
         pytest.skip("no CUDA")
     roll = S.commit_rollout
-    monkeypatch.setattr(S, "commit_rollout",
-                        lambda win, obj, leaf, u, lam: roll(win, obj, torch.zeros_like(leaf), torch.zeros_like(u), lam))
+
+    def forgets(win, obj, leaf, u, lam):          # the free motion, its transport solved at its own rollout
+        if obj.tgt.grid_ot is not None:
+            obj.tgt.grid_ot.repeat = False
+        return roll(win, obj, torch.zeros_like(leaf), torch.zeros_like(u), lam)
+
+    monkeypatch.setattr(S, "commit_rollout", forgets)
     stats = _windows(monkeypatch, prm, clouds, animations=1, replay_noise=mode)
     s = stats[0]
     assert s["E_accept"] is not None, s
     assert s["commit_mismatch"] > s["commit_tol"], s
     assert s["null_reason"] == "commit_replay" and s["accepted"] == 0, s
+
+
+@pytest.mark.parametrize("mode", ["window", "start"])
+def test_the_commit_reads_the_accepted_candidates_potentials_and_lists(monkeypatch, prm, clouds, mode):
+    """(5) amendment 1: under "window" the commit rollout's transport reads the accepted candidate's potentials and its
+    proximity lists (repeat, no solve and no search: D47 / D153's form), so it differs from the accepted value by the
+    rollout's atomics only; under "start" (the tag) it solves and searches at its own rollout."""
+    if not torch.cuda.is_available():
+        pytest.skip("no CUDA")
+    from physmorph.losses.grid_ot import GridSinkhornLoss
+    seen, opts = [], []
+    commit, roll, solve = S.WindowOptimizer.commit, S.commit_rollout, GridSinkhornLoss.solve
+    calls = {"in_commit": False, "solves": 0}
+
+    def commit_(self, *a, **k):
+        opts.append(self)
+        return commit(self, *a, **k)
+
+    def roll_(win, obj, leaf, u, lam):
+        o = opts[-1]
+        ot = o.tgt.grid_ot
+        seen.append({"accepted": o.accepted, "repeat": bool(ot.repeat), "same_pot": ot._solved is o.acc_solved,
+                     "same_lists": ot._sup_idx is o.acc_sup})
+        calls["in_commit"], calls["solves"] = True, 0
+        try:
+            return roll(win, obj, leaf, u, lam)
+        finally:
+            calls["in_commit"] = False
+            seen[-1]["solves"] = calls["solves"]
+
+    def solve_(self, *a, **k):
+        if calls["in_commit"]:
+            calls["solves"] += 1
+        return solve(self, *a, **k)
+
+    monkeypatch.setattr(S.WindowOptimizer, "commit", commit_)
+    monkeypatch.setattr(S, "commit_rollout", roll_)
+    monkeypatch.setattr(GridSinkhornLoss, "solve", solve_)
+    _windows(monkeypatch, prm, clouds, replay_noise=mode)
+    rows = [r for r in seen if r["accepted"] > 0]
+    assert rows, seen
+    for r in rows:
+        if mode == "window":
+            assert r["repeat"] and r["same_pot"] and r["same_lists"] and r["solves"] == 0, r
+        else:
+            assert not r["repeat"] and r["solves"] > 0, r

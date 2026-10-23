@@ -156,6 +156,10 @@ class WindowOptimizer:
         self.scored_discs = None
         self.replays = []                   # D164: the window's replay pairs (WindowOptimizer.window_replay_noise)
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
+        self.acc_sup = None                 # D164 amendment 1: and its proximity lists
+        # D164 (and its amendment 1): the commit check reads the window's own replay pairs, and the commit reads the
+        # accepted candidate's transport potentials and proximity lists; "start" is the tag's check and commit
+        self.commit_reads_accepted = getattr(cfg, "replay_noise", "window") == "window"
         self._zd = None                     # B13: a zero dFc with a gradient, for the run's one ratio measurement
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
         # momentum balance: the body's centre-of-mass motion per window was u's net translation (ratio 1.0-1.1,
@@ -240,7 +244,11 @@ class WindowOptimizer:
         zero. The check keeps its rule (E3: ten times the measured noise, at least ls_noise_rel); a commit whose
         rollout differs from the accepted candidate's by more than ten times what two rollouts of one control differ
         by in this window (a state or a cache that one of the two evaluations does not share, D130) is still nulled.
-        cfg.replay_noise "start" is the tag's measure (the start pair alone), kept for comparison."""
+        Amendment 1 (the pilot: the commit's fresh transport solve and proximity search at its own rollout amplified the
+        atomics about tenfold, which the taped pairs, reading the accepted candidate's potentials, do not see): the
+        commit reads the accepted candidate's potentials and lists (commit()), so its mismatch is of the taped pairs'
+        kind. cfg.replay_noise "start" is the tag's measure and commit (the start pair alone, a fresh solve), kept for
+        comparison."""
         if getattr(self.cfg, "replay_noise", "window") == "start" or E is None:
             return replay_rel, None
         res = float(np.spacing(np.float32(abs(E)))) / max(abs(E), self.win.loss_floor_eff)
@@ -375,8 +383,9 @@ class WindowOptimizer:
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
                 self.scored_discs = self.obj.discs
-                if cfg.ot_warm_trials and ot is not None:
-                    self.acc_solved = ot._solved          # D142: the commit reads these potentials
+                if ot is not None and (cfg.ot_warm_trials or self.commit_reads_accepted):
+                    self.acc_solved = ot._solved          # D142 / D164: the commit reads these potentials
+                    self.acc_sup = ot._sup_idx            # D164: and these proximity lists
                 self.adam_t = t_
                 if self.u_age is not None:
                     self.u_age += (g[1] != 0).float()
@@ -505,8 +514,17 @@ class WindowOptimizer:
         if self.scored_discs is not None:   # replay the accepted candidate on the discs it was scored with
             self.obj.discs = self.scored_discs
         ot = self.tgt.grid_ot
-        if cfg.ot_warm_trials and ot is not None and self.accepted > 0 and self.acc_solved is not None:
+        reads_accepted = False
+        if ((cfg.ot_warm_trials or self.commit_reads_accepted) and ot is not None and self.accepted > 0
+                and self.acc_solved is not None):
             ot._solved, ot.repeat = self.acc_solved, True       # D142: the accepted candidate's potentials, no sweep
+            if self.commit_reads_accepted:
+                # D164 amendment 1: the commit reads what the accepted candidate read, its transport potentials and its
+                # proximity lists (D47 / D153's form at the next gradient), so that the commit and the accepted value
+                # differ by the rollout's atomics only. A fresh solve and search at the commit's own rollout amplified
+                # that noise about tenfold (83-96 % of the mismatch in the geometry energy, the D164 pilot)
+                ot._sup_idx = self.acc_sup
+                reads_accepted = True
         commit = commit_rollout(win, self.obj, self.leaves[0], self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
         scale = max(abs(E_accept or 0.0), win.loss_floor_eff)
@@ -518,7 +536,8 @@ class WindowOptimizer:
         replay = {"replay_noise": noise, "replay_res": res, "replay_pairs": len(self.replays),
                   "replay_taped_max": max(self.replays) if self.replays else None,
                   "commit_mismatch": None if E_accept is None else (float(commit.E_final) - E_accept) / scale,
-                  "commit_tol": replay_tol / scale, "commit_replay_start": int(start_bad)}
+                  "commit_tol": replay_tol / scale, "commit_replay_start": int(start_bad),
+                  "commit_reads_accepted": int(reads_accepted)}
         self.tele["commit_reason"] = commit.reason
         if not commit.valid:
             replay_bad, grad_converged = True, False

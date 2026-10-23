@@ -5,6 +5,7 @@
 # D162 (and D162b) go first: no claim while its chain reports waiting for a card (its status.txt's latest
 # 'waiting:' line within 20 min and newer than its latest 'claimed'). Cards in the order 3 1 0 2 (GPU 2 last: another
 # user's desktop runs there; D162 never takes it). D163 was dropped from the yield by the coordinator (2026-10-22 17:3x). The card is held for the chain's steps and released by the trap.
+#   P2   amendment 1's pilot: the same two runs on D164's defaults -> output/gpu/d164/pilot2/, the same stop rules
 #   P    step 0, the pilot (measurement only): 40k bunny and dragon, seed 97, the full arm, repo_d164s with
 #        --replay_noise start under tmp/d164/replay_probe.py -> output/gpu/d164/pilot/
 #   V    the gates: V1 the full suite on repo_d164; V2 the contracts test 20x on repo_d164 (gate) and on repo_d164_start
@@ -86,26 +87,31 @@ trap 'release_card' EXIT
 trap 'exit 1' INT TERM HUP
 envr() { export PHYSMORPH_RUN_REPO=$B/$1 PHYSMORPH_OUT=$G; source $B/$1/scripts/ops/hyde06_env.sh > /dev/null 2>&1; export TMPDIR=$W/tmpdir; cd $B/$1; }
 log "chain start pid $$ steps '$STEPS'"
-if [[ " $STEPS " == *" P "* ]]; then
-  claim_card pilot
+pilot() {    # pilot STEP DIR SUFFIX [FLAGS...]: the two 40k runs under the probe, then the stop rules read mechanically
+  local step=$1 dir=$O/$2 suf=$3 mesh name; shift 3
+  mkdir -p $dir
+  claim_card $step
   for mesh in bunny dragon; do
-    name=${mesh}40k_probe97
-    [ -e $O/pilot/$name.rc ] && [ "$(cat $O/pilot/$name.rc)" = 0 ] && { log "P $name done before, skipped"; continue; }
+    name=${mesh}40k_$suf
+    [ -e $dir/$name.rc ] && [ "$(cat $dir/$name.rc)" = 0 ] && { log "$step $name done before, skipped"; continue; }
     [ -e $O/STOP ] && { log "STOP before $name"; exit 0; }
-    log "P $name start"
+    log "$step $name start ($*)"
     ( envr repo_d164s; $PY $W/replay_probe.py scripts/pipeline_run.py --tgt assets/$mesh.obj --n 40000 --seed 97 \
-        --replay_noise start --out $O/pilot/$name > $O/pilot/$name.log 2>&1 < /dev/null; echo $? > $O/pilot/$name.rc )
-    log "P $name exit $(cat $O/pilot/$name.rc): $(grep -c '^\[probe\]' $O/pilot/$name.log) probe lines; $(grep -m1 'ARM render_full_dt_iso_nn:' $O/pilot/$name.log | cut -c1-120)"
+        "$@" --out $dir/$name > $dir/$name.log 2>&1 < /dev/null; echo $? > $dir/$name.rc )
+    log "$step $name exit $(cat $dir/$name.rc): $(grep -c '^\[probe\]' $dir/$name.log) probe lines; $(grep -m1 'ARM render_full_dt_iso_nn:' $dir/$name.log | cut -c1-120)"
   done
   # the pre-registered stop rules, read mechanically before any gate: a STOP or an AMEND ends the chain here
-  ( envr repo_d164; $PY $W/d164_pilot_read.py $O/pilot/bunny40k_probe97.log $O/pilot/dragon40k_probe97.log \
-      > $O/pilot/pilot_read.txt 2>&1; echo $? > $O/pilot/pilot_read.rc )
-  log "P read exit $(cat $O/pilot/pilot_read.rc): $(grep 'P0a\|stop rule' $O/pilot/pilot_read.txt | tr '\n' ' ' | cut -c1-400)"
-  if [ "$(cat $O/pilot/pilot_read.rc)" != 0 ] || grep -q ': STOP\|: AMEND' $O/pilot/pilot_read.txt \
-     || [ "$(cat $O/pilot/bunny40k_probe97.rc)" != 0 ] || [ "$(cat $O/pilot/dragon40k_probe97.rc)" != 0 ]; then
-    log "P: a stop rule fired or a pilot run failed; the chain ends before the gates"; exit 1
+  ( envr repo_d164; $PY $W/d164_pilot_read.py $dir/bunny40k_$suf.log $dir/dragon40k_$suf.log \
+      > $dir/pilot_read.txt 2>&1; echo $? > $dir/pilot_read.rc )
+  log "$step read exit $(cat $dir/pilot_read.rc): $(grep 'P0a\|stop rule' $dir/pilot_read.txt | tr '\n' ' ' | cut -c1-400)"
+  if [ "$(cat $dir/pilot_read.rc)" != 0 ] || grep -q ': STOP\|: AMEND' $dir/pilot_read.txt \
+     || [ "$(cat $dir/bunny40k_$suf.rc)" != 0 ] || [ "$(cat $dir/dragon40k_$suf.rc)" != 0 ]; then
+    log "$step: a stop rule fired or a pilot run failed; the chain ends before the gates"; exit 1
   fi
-fi
+}
+# P: the pilot on the tag's check and commit (--replay_noise start); P2 (amendment 1): the same on D164's defaults
+[[ " $STEPS " == *" P "* ]] && pilot P pilot probe97 --replay_noise start
+[[ " $STEPS " == *" P2 "* ]] && pilot P2 pilot2 probe2_97
 if [[ " $STEPS " == *" V "* ]]; then
   V=$O/gates; rm -f $V/PASSED $V/FAILED
   [ -n "$CARD" ] || claim_card gates
@@ -122,11 +128,12 @@ if [[ " $STEPS " == *" V "* ]]; then
   T1="tests/test_settled_contracts.py::test_null_windows_add_no_simulated_time_and_are_not_delivered"
   T2="tests/test_settled_contracts.py::test_a_nonfinite_window_cost_cannot_commit"
   T3="tests/test_volume_exact.py::test_the_commit_scores_the_accepted_candidate_on_its_own_discs"
-  f1=$(rep repo_d164 nullwin "$T1"); echo $f1 > $V/v2_gate_fails.txt
-  log "V2 gate: $T1 x20 on repo_d164: $f1 failures"
-  log "V2 report: $T1 x20 on repo_d164_start: $(rep repo_d164_start nullwin_start "$T1") failures"
-  log "V2 report: $T2 x20 on repo_d164: $(rep repo_d164 nonfinite "$T2") / repo_d164_start: $(rep repo_d164_start nonfinite_start "$T2") failures"
-  log "V2 report: $T3 x20 on repo_d164: $(rep repo_d164 discs "$T3") / repo_d164_start: $(rep repo_d164_start discs_start "$T3") failures"
+  # the gate (the coordinator, amendment 1): each formerly flaky test 20x on repo_d164 with 0 failures; the same on
+  # repo_d164_start (the tag's check and commit on this tree) reported beside it
+  f1=$(rep repo_d164 nullwin "$T1"); f2=$(rep repo_d164 nonfinite "$T2"); f3=$(rep repo_d164 discs "$T3")
+  echo "$f1 $f2 $f3" > $V/v2_gate_fails.txt
+  log "V2 gate on repo_d164 (failures of 20): nullwin $f1, nonfinite $f2, discs $f3"
+  log "V2 report on repo_d164_start (failures of 20): nullwin $(rep repo_d164_start nullwin_start "$T1"), nonfinite $(rep repo_d164_start nonfinite_start "$T2"), discs $(rep repo_d164_start discs_start "$T3")"
   ( envr repo_d164; $PY -m pytest -q -p no:cacheprovider tests/test_refreeze_reference.py tests/test_frozen_recipe.py \
       tests/test_d164_replay.py > $V/refs.log 2>&1 < /dev/null; echo $? > $V/refs.rc )
   log "V3 references and the switch's tests exit $(cat $V/refs.rc): $(tail -1 $V/refs.log)"
@@ -139,7 +146,7 @@ if [[ " $STEPS " == *" V "* ]]; then
   log "V4 run to run (exit $(cat $V/S1.rc) $(cat $V/S2.rc)): $(tail -1 $V/cmp_S1_S2.txt); against rt1 S1: $(tail -1 $V/cmp_rt1_S1.txt)"
   ok=1
   [ "$(cat $V/suite.rc)" = 0 ] || ok=0
-  [ "$f1" = 0 ] || ok=0
+  [ "$f1" = 0 ] && [ "$f2" = 0 ] && [ "$f3" = 0 ] || ok=0
   [ "$(cat $V/refs.rc)" = 0 ] || ok=0
   tail -1 $V/cmp_S1_S2.txt | grep -q ": SAME$" || ok=0
   tail -1 $V/cmp_rt1_S1.txt | grep -q ": SAME$" || ok=0

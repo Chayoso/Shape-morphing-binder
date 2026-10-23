@@ -51,6 +51,10 @@ def main():
         print(f"  P0a: tag tolerance exceeded {sum(w['tag_null'] for w in W)} / {n} "
               f"({100 * sum(w['tag_null'] for w in W) / max(n, 1):.2f} %); D164 exceeded {sum(w['new_null'] for w in W)} / {n} "
               f"({100 * sum(w['new_null'] for w in W) / max(n, 1):.2f} %)")
+        # amendment 1's measure (read after the stop rule fired): the fresh pair |c - x| at the committed control joins
+        amd = sum(w["ca"] > 10 * max(w["meas"], abs(w["cx"])) for w in W)
+        print(f"  amended measure max(start, taped, ulp, |c - x|): c - a above 10 x it {amd} / {n} "
+              f"({100 * amd / max(n, 1):.2f} %); |c - x| zero in {sum(w['cx'] == 0 for w in W)}")
         bx = sum(abs(w["cx"]) > 10 * w["meas"] for w in W)
         print(f"  P0b: |c - x| > 10 x measure {bx} / {n} ({100 * bx / max(n, 1):.2f} %)")
         print(f"  medians: |c - a| {med(ca):.3g}, |c - x| {med(cx):.3g}, |x - a| {med([w['xa'] for w in W]):.3g}, "

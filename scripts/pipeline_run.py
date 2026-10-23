@@ -125,8 +125,8 @@ def parse_args(argv=None):
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--replay_noise", default="window", choices=["window", "start"],
                     help="D164: the commit check's replay noise from the window's own replay pairs, floored at the "
-                         "objective's float32 resolution (default); 'start': the tag's single pair at the start control "
-                         "(comparison only)")
+                         "objective's float32 resolution, and the commit reading the accepted candidate's transport "
+                         "potentials and proximity lists (default); 'start': the tag's check and commit (comparison only)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
     ap.add_argument("--ot_warm_trials", action=argparse.BooleanOptionalAction, default=False,
                     help="A/B (D142): line-search trials warm-start their transport solves from the window's latest "

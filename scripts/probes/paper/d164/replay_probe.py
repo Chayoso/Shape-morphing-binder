@@ -3,12 +3,14 @@ commit rollout's E differ from the accepted candidate's, and what does a replay 
 
 Per judged window it prints one [probe] JSON line with, for three evaluations of the committed control,
   a: the line search's evaluation of the accepted candidate (the value the check compares against),
-  x: one extra fresh evaluation of the same control just before the commit (the commit's own protocol: eval_terms, a
-     fresh transport solve, a fresh proximity search, the scored discs restored) -- the probe's addition,
+  x: one extra evaluation of the same control just before the commit, under the commit's own protocol (eval_terms, the
+     scored discs restored after it; on the tag's commit (--replay_noise start) a fresh transport solve and proximity
+     search, under D164's amendment 1 the accepted candidate's potentials and lists, restored for the commit after it)
+     -- the probe's addition,
   c: the commit rollout itself,
 their terms (lv geometry energy, lk kinetic, lr render, lstab, cleanup) and E, the window's taped pairs, the start
 pair, and whether the window ended by the iteration budget (no taped pair at the committed control).
-The extra evaluation reads no state the commit keeps (fresh solves and searches; the discs are restored after it)."""
+The extra evaluation leaves the commit the state it would have read without the probe (discs and transport state)."""
 import json
 import os
 import runpy
@@ -66,9 +68,13 @@ def commit(self, hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
     def roll(win, obj, leaf, u, lam):
         if hist:
             scored = obj.discs
+            ot = self.tgt.grid_ot                    # the commit's transport state as commit() set it (amendment 1:
+            keep = (ot.repeat, ot._solved, ot._sup_idx) if ot is not None else None   # the accepted's, repeat)
             ex = eval_terms(win, obj, leaf, u)
             probe["x"] = terms(self, ex)
             obj.discs = scored                       # the commit reads the discs the candidate was scored with
+            if keep is not None:                     # and the transport state it would have read without the probe
+                ot.repeat, ot._solved, ot._sup_idx = keep
         c = _roll(win, obj, leaf, u, lam)
         probe["c"] = terms(self, _last["e"]) if hist else None
         probe["c_E_final"] = float(c.E_final)

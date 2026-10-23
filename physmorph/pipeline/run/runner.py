@@ -50,7 +50,7 @@ _NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_st
 # D164: the commit check's measure of the replay noise and its verdicts (WindowOptimizer.window_replay_noise); on a null
 # window, and on a committed window only where the tag's measure (the start pair alone) would have nulled it
 _REPLAY_FIELDS = ("replay_noise", "replay_res", "replay_pairs", "replay_taped_max", "commit_mismatch", "commit_tol",
-                  "commit_replay_start")
+                  "commit_replay_start", "commit_reads_accepted")
 _NULL_FIELDS = _NULL_FIELDS + _REPLAY_FIELDS
 
 
