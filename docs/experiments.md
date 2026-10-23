@@ -19138,6 +19138,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     commit is now about two transport solves cheaper (wall time per window −1–3 %).
   - Code wip/d164 11aab852; server repo_d164 / repo_d164s / repo_d164_start redeployed from it; queue job
     `tmp/gpu1_queue/21_d164_p2_gates.sh` (`QUEUE=1 bash tmp/d164/d164_chain.sh "P2 V"`).
+  *Amendment 2 (22:34 CDT server clock, before V1b; V2–V4 still running on 11aab852).* P2 read (22:15–22:24): the
+  commit's mismatch fell about thirtyfold (median |c − a| bunny 4.9e-8, dragon 5.8e-8, against 1.5e-6 and 3.0e-7 in
+  step 0; now below one ulp of E, about 8e-8) and is no longer the geometry energy's (lv 30 % / 28 %, the cleanup and the
+  render the rest); c − a above 10 × the measure in 0 / 48 and 0 / 49 windows (largest ratio 0.17 and 1.8); both stop
+  rules quiet, as predicted. V1 on 11aab852 (22:24–22:30): 4 failed, 439 passed.
+  - Two failures are D164's: `test_scene_bodies.py::test_scene_runs_end_to_end` and
+    `::test_scene_windows_are_freed_without_the_garbage_collector` (an IndexError in the proximity: one body's lists read
+    for the other). In the multi-body scene each body's terms call the transport in turn, so the potentials and lists
+    left after an evaluation are the last body's alone; amendment 1 is single-body. The fix (fc730244): the scene's
+    commit keeps the tag's fresh solve and search (`SceneOptimizer.commit_reads_accepted = False`), and its check reads
+    D164's measure. No single-body line changes, so V2–V4 on 11aab852 stand for the single-body path.
+  - Two are the shared card's: `test_volume_exact.py::test_the_eval_trajectory_replays_bit_for_bit[off-cuda]` and
+    `[carried-cuda]` assert that two CUDA rollouts at rest are bit-identical. On a card shared with another user's job
+    the tag itself fails it (D146b: 3 of 8 on pristine code; D162b amendment 1: the tag 3 / 10 on gpu1 today). It
+    exercises `physmorph/mpm` alone, which D164 leaves byte for byte (`git diff 6c9b0e9 fc730244 -- physmorph/mpm
+    physmorph/gpu.py physmorph/losses` is empty).
+  - V1b (`tmp/gpu1_queue/21_d164_v1b.sh`, after this V): the full suite on repo_d164b (fc730244); that test's two CUDA
+    variants 10 times on repo_d164b and 10 times on repo_d162tag (the tag as tagged) in the same job on the same card.
+    V1 passes if every other test passes; that test's counts on the two trees are reported (the code it runs is the
+    tag's, so a difference between them is the card's).
 
 - **D162b, the render weight's excess read on the body's shape (a gated A/B experiment, adoption the user's call;
   pre-registered 2026-10-22 ~15:20 CDT, before any D162b run; the coordinator's go after D162 read 1; code `wip/d162`
