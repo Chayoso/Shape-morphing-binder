@@ -117,5 +117,32 @@ def settle(out):
     print(f"VERDICT: {verdict}")
 
 
+
+
+def stiff(out):
+    """Job 29: per scene and E (x3, x7; D161c is x1): relief share and corr at the stop and the settled end (D161's
+    reader), the end v_mean against the twin's, Chamfer (the run's metric)."""
+    S, D = G / "d162s" / "runs", G / "d162s" / "after"
+    L = ["# Job 29: stiffer material under the held weight (E x3, x7; D161c is E x1: coin 0.47-0.53, bunny 0.54-0.58)", ""]
+    for sc in ("coin", "bunny"):
+        rd = json.load(open(D / f"read_{sc}.json"))
+        ceil = np.mean([v["relief"]["A"] for k, v in rd["refs"].items() if k.startswith("relief_s")])
+        vt, _, _ = end_v(f"{G}/d161/runs40/{sc}40k_twin_97")
+        for k in (3, 7):
+            lab, p = f"full{k}", f"{S}/{sc}40k_E{k}_97"
+            if lab not in rd["runs"]:
+                continue
+            v_end, com, _ = end_v(p)
+            stop = [h for h in com if not h.get("settle")][-1]
+            ser = rd["runs"][lab]["series"]
+            raws = np.array([q["raw"] for q in ser])
+            A = np.array([q["relief"]["A"] for q in ser]) / ceil
+            a_stop = float(np.interp(stop["frame_end"], raws, A))
+            ch = list(json.load(open(f"{p}.json"))["arms"].values())[0]["metrics"]["chamfer"]
+            L.append(f"- {sc} E x{k}: relief share at the stop {a_stop:.2f}, settled end {A[-1]:.2f} (corr {ser[-1]['relief']['corr']:.2f}); "
+                     f"end v_mean {v_end:.2e} vs twin {vt:.2e} ({v_end / vt:.1f}x); chamfer {ch:.4f}")
+    open(out, "w").write("\n".join(L) + "\n")
+
+
 if __name__ == "__main__":
-    {"relief": relief, "ripple": ripple, "band": band, "settle": settle}[sys.argv[1]](*sys.argv[2:])
+    {"relief": relief, "ripple": ripple, "band": band, "settle": settle, "stiff": stiff}[sys.argv[1]](*sys.argv[2:])
