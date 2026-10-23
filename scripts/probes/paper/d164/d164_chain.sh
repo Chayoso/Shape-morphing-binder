@@ -14,7 +14,7 @@
 #   R40  the runs of tmp/d164/d164_runs40.txt (NAME FLAGS... per line) on repo_d164s -> output/gpu/d164/runs40/
 #   R300 the runs of tmp/d164/d164_runs300.txt -> output/gpu/d164/runs300/, each followed by B1's readings
 #        (tmp/d145/read300.sh MODE end on the card; its CPU part detached, frames kept)
-# STOP: touch output/gpu/d164/STOP (no new run starts).
+# STOP: touch output/gpu/d164/STOP (no new run starts). QUEUE=1: a job of tmp/gpu1_queue (the runner owns the card and its lock).
 B=/data/relcfd/chayo/physmorph_v2; G=$B/output/gpu; O=$G/d164; W=$B/tmp/d164; L=$B/gpu_locks
 mkdir -p $O/gates $O/pilot $O/runs40 $O/runs300 $W/tmpdir
 source $B/tmp/d146/cache_env.sh
@@ -22,6 +22,7 @@ export TMPDIR=$W/tmpdir
 S=$O/status.txt
 log() { echo "$(date '+%m-%d %H:%M:%S') $*" >> $S; }
 STEPS=${1:-"P"}
+QUEUE=${QUEUE:-0}                     # 1: run as a job of tmp/gpu1_queue (no claim, no lock; CUDA_VISIBLE_DEVICES from the runner)
 CARD=""
 render_waiting() {        # a D162 / D162b chain waiting for a card: its latest 'waiting:' within 20 min, after its latest claim
   local now=$(date +%s) f w c
@@ -36,6 +37,7 @@ render_waiting() {        # a D162 / D162b chain waiting for a card: its latest 
   return 1
 }
 claim_card() {
+  [ "$QUEUE" = 1 ] && return 0        # QUEUE=1: a gpu1-queue job (tmp/gpu1_queue/README.md): the runner holds the card
   local what=$1; declare -A since
   local last_report=0
   while [ -z "$CARD" ]; do
@@ -158,7 +160,7 @@ runs() {     # runs LIST OUTDIR READ: the runs of LIST, skipping those whose kep
     log "R $name exit $(cat $od/$name.rc): $(grep -m1 'ARM render_full_dt_iso_nn:' $od/$name.log | cut -c1-150)"
     if [ "$rd" = 1 ] && [ "$(cat $od/$name.rc)" = 0 ]; then
       mesh=${name%%300k_*}
-      bash $B/tmp/d145/read300.sh $CARD d164/runs300 $name $mesh end 1 > $od/read_$name.out 2>&1 < /dev/null
+      bash $B/tmp/d145/read300.sh ${CARD:-$CUDA_VISIBLE_DEVICES} d164/runs300 $name $mesh end 1 > $od/read_$name.out 2>&1 < /dev/null
       log "R $name read300 (GPU part) done; CPU part detached"
     fi
   done < $list
