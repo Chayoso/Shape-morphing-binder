@@ -309,6 +309,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                         isochoric=not cfg.assim_volume)
             frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F, Js=commit.J[1:-1] if J is not None else None, J_end=J)
             hist.append({"animation": a_last + 1 + k, "settle": 1, "frame_end": len(frames), "lambda": 0.0,
+                         "Jmin_traj": float(commit.jmin_traj),
                          "v_mean": float(v.norm(dim=1).mean()), "v_absmax": float(v.abs().max())})
             del opt, commit
         log(f"[v2] settled {settle} windows with zero controls after the stop (frames {n_run} -> {len(frames)}, delivered)")
