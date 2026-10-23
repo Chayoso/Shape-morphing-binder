@@ -30,6 +30,7 @@ X0, X1 = c[0] + u0, c[0] + u0 + tex.shape[0] * texel
 Z0, Z1 = c[1] + v0, c[1] + v0 + tex.shape[1] * texel
 half = 0.5 * (X1 - X0)
 W, H = 1920, 1080
+RAKE = float(__import__("os").environ.get("D165_RAKE", "74"))   # the key light, degrees from the view axis (grazing)
 rows = []
 for lab, prefix in items:
     tag = lab.split(" ")[0]
@@ -48,7 +49,7 @@ for lab, prefix in items:
         for hname, sx in (("left", -0.5), ("right", 0.5)):
             look = np.array([0.5 * (X0 + X1) + sx * half, 0.5 * (Z0 + Z1), zf])
             dist = 1.6 * half * 1.4
-            img = render_rake(surf, look, dist, (0.30, 0.20), W, H, 0.55 * half / dist, rake=74.0)
+            img = render_rake(surf, look, dist, (0.30, 0.20), W, H, 0.55 * half / dist, rake=RAKE)
             Image.fromarray(img).save(out / f"{tag}_{kind}_{hname}.png")
             tiles.append(label(img, lab if hname == "left" else "",
                                (("the plaque's face (settled, controls off)" if kind == "plaque"
