@@ -19555,6 +19555,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - Prediction under the hypothesis: the relief kept at the settled end rises with E, and the end speed falls toward
     the twin's.
 
+- **Job 29b, the render-centric minimal recipe (pre-registered 2026-10-22 ~23:30 CDT, before its runs; the user: the render
+  must be shown central, some engineering terms unnecessary).**
+  - The recipe: the render keeps its first weight (`--lambda_ema 0`; with a settled end, `--settle_windows 30`, if
+    D162h reads A); the cleanup off (`--cleanup_off`: w_dt = w_nn = 0, the spray W1 pull and the near band; new flag,
+    default off); the placement terms at the loss cell (`--placement_at_cell`).
+  - Runs: 40k, seed 97: coin lettering, colour band, and the gallery's bunny, dragon, armadilo, bob, homer, teapot.
+  - Against: the tag's render arm V and its twin W (D155's gate runs, D154's g40runs).
+  - Question: does the render, given authority, do the cleanup's job (no spray or scatter without the cleanup terms)
+    while it writes picture-only content and keeps the shape?
+  - Read (output/gpu/d162/auto/29b/summary.md): sil_iou, chamfer, thin_uncovered, particles off the body, pieces ≥ 10
+    and the end v_mean against V and W; the coin's lettering share and corr; the band's r. D157's exact-mesh metrics
+    are not in this pass.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
