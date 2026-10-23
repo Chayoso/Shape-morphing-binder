@@ -19281,6 +19281,51 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - neither, if succeeding and failing runs decompose alike → the path is not the discriminant (then the weight's
       size, which separates them, is reported).
   - No run of a new definition before this is reported.
+  *Read (19:45 CDT).*
+  - Data: (A) 760 states from the kept positions (CPU, 18:45–19:25). (B) the push regenerated at 408 kept states of
+    26 runs on gpu1, 17 min, beside the D162 gallery run under this agent's own lock, because another user filled all
+    four cards; then split on the CPU. Tables in output/gpu/d162c/d162c.md, local `reads_d162c/`.
+  - (B), the push the pictures ask for, decomposes alike in every group after arrival.
+    - Normal share 0.72–0.87, band 0.46–0.67; band-normal 0.40–0.58 for the failing and succeeding runs alike, and
+      0.55–0.62 for the twins.
+    - The outer layer carries 0.93–0.95 of the push energy in every group.
+    - So the direction of the push does not separate success from failure. About half of it is sub-pitch normal.
+  - (A), the realized motion after arrival (rms per 48 frames in pitches; shares).
+    - Relief, succeeding: D161c moves 0.044–0.156, 1.7–6.6× its twin; band 0.90–0.97, sub-pitch 0.04–0.10,
+      band-tangential 0.60–0.66, band-normal 0.27–0.36. D163 H (300k) moves 0.341, 30× its twin; band 0.99,
+      band-tangential 0.67.
+    - Relief, failing: F moves 0.019–0.037 (0.9–1.3× its twin), band 0.73–0.91. S moves 0.012–0.033 (0.6–1.4×), band
+      0.59–0.83. Beyond the twin, F's share moves to band-normal (+0.13–0.25), not to tangential or sub-pitch.
+    - The twins move 0.019–0.041 with band 0.58–0.61: physics-only motion after arrival is 0.39–0.43 sub-pitch.
+    - Colour band: D160d (r 0.99–1.00) moves 1.1–1.3× its twin with band 0.60–0.68 and band-tangential 0.47–0.57. F and
+      S band (r 0.74–0.94) move 1.3–2.2× with band 0.66–0.83, band-tangential 0.50–0.65. Alike: routing paint is
+      tangential band flow in every arm.
+  - Reading (the pre-registered third case).
+    - The failing runs do not push tangential or sub-pitch. They hardly move beyond their twins, and what they add is
+      band-normal.
+    - The succeeding relief runs move the outer layer 2–30× more, coherently (in-band 0.90–0.99) and mostly
+      tangentially: material flows along the surface to build the letters.
+    - The controls already realize the push in band: the push's sub-pitch half never becomes motion.
+    - So the path is not the discriminant. A normal-only push would remove the band-tangential flow that is 60–67 %
+      of a successful carve's motion. A band-limited push would change little, since the controls already
+      band-limit.
+    - What separates them is the realized magnitude after arrival, i.e. the weight's size: held λ_0 in D161c / D163 H
+      against F / S's 0.05–0.15, which faded early. Under F the arrangement crosses the floor; under S, b is blind to
+      the letters.
+  - The definition the data names: keep the floor-referenced weight (F's form, λ_0 · max(0, 1 − L_floor / L_r)), but
+    read both L_r and L_floor at the pitch scale.
+    - That is, on the pictures low-passed at one pitch, the field's own pitch: the stroke band (3.8 pitches and up) is
+      kept and the sub-pitch arrangement dropped.
+    - The arrangement can no longer cross the floor (it lives below the pitch), and the letters stay visible (unlike
+      b's 3-pitch field). The weight then stays at λ_0 × the stroke-band excess while the letters remain, and fades as
+      they are cut.
+    - Its risk is D161c's: rest while the excess lasts (D161c 3–11×, D163 H 30× its twin after arrival). D162b showed
+      that the body rests where the excess is spent.
+    - Named, not run (the coordinator's order: report first).
+  - Ops: the D162 gallery remainder was stopped after gal_homer40k_F_97 (F / FC are not candidates). The gpu1 lock
+    passes to the gpu1 queue runner (tmp/gpu1_queue/, README there: NN_agent_name.sh jobs, one at a time, logged,
+    renamed .done, 30 min idle then release). The V1 `test_volume_exact` flake on shared cards is the D164 atomics
+    issue, noted and not changed.
 
 ## To run next, in order
 
