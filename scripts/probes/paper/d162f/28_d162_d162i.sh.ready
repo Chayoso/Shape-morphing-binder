@@ -1,0 +1,10 @@
+#!/bin/bash
+# 28_d162_d162i.sh -- gpu1 queue job (agent D162), launched by d162_auto.sh only if D162h reads (A): D162i, the held weight
+# with a settled end (--lambda_ema 0 --settle_windows 30) on the remaining scene (ears, 97 / 99) and a 40k gallery spot
+# check on plain targets (dragon, armadilo, bimba, seed 97). Coin, bunny relief and band are job 27's own runs.
+O=/data/relcfd/chayo/physmorph_v2/output/gpu/d162i; mkdir -p $O/runs
+source /data/relcfd/chayo/physmorph_v2/tmp/d162/d162f_job_common.sh
+log "job 28 start"
+for s in 97 99; do run bunny40k_ears_Hs_$s repo_d162hs --tgt assets/bunny.obj --appearance ears --n 40000 --seed $s --lambda_ema 0 --settle_windows 30; done
+for m in dragon armadilo bimba; do run gal_${m}40k_Hs_97 repo_d162hs --tgt assets/$m.obj --n 40000 --seed 97 --lambda_ema 0 --settle_windows 30; done
+log "R done (d162i)"

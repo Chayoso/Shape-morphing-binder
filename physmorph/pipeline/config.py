@@ -135,6 +135,8 @@ class PipelineConfig:
                                     #   "floor_pitch" (D162d) = F's weight with L_r and L_floor read on pictures low-passed at one
                                     #   exterior pitch (target.render_term_lowpass): the sub-pitch arrangement below, the strokes above
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
+    settle_windows: int = 0         # D162h / D162i: after the run stops, this many windows of released physics with zero controls
+                                    #   (the same material and assimilation), delivered and recorded (a rest test / a settled end)
     render_exterior: bool = False   # the render terms read on the exterior (surface discs on the particles' zero set,
                                     #   render/exterior.py) in place of the particle cloud (D62)
     exterior_radius: float = 3.0    # D123 A/B: the exterior field's kernel radius in pitches (D59's 3 = the old path bit

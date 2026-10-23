@@ -57,6 +57,8 @@ def parse_args(argv=None):
                          "own excess over the render term of the pictures' own first sample; shape (D162b) = the same weight "
                          "with the excess read on the body's shape, 1 - b_floor / b (physmorph/pipeline/shape_read.py); floor_pitch (D162d) = floor with L_r and "
                          "L_floor read on pictures low-passed at one pitch")
+    ap.add_argument("--settle_windows", type=int, default=0,
+                    help="D162h / D162i: windows of released physics with zero controls after the run stops (delivered)")
     ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
                     help="D162 (2) A/B (off by default): the placement terms read the body at the loss cell (the "
                          "proximity covers within one loss cell, the near band's band is empty, the spray gate in loss cells)")
@@ -285,7 +287,7 @@ def run_config(args, cfg0, prep):
                               cleanup_in_phys=args.cleanup_in_phys,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth,
-                              render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell,
+                              render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell, settle_windows=args.settle_windows,
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,

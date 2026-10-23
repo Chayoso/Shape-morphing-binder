@@ -293,9 +293,30 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 f"  acc/rej={rec['accepted']}/{rec['rejected']}"
                 + (f"  Jx p50/p99/max={rec['Jx_p50']:.3f}/{rec['Jx_p99']:.3f}/{rec['Jx_max']:.3f}" if J is not None else "")
                 + (f"  GUARD {counts}" if any_guard else ""))
+    settle = int(getattr(cfg, "settle_windows", 0) or 0)
+    if settle > 0:   # D162h / D162i: released physics with zero controls after the stop, the same material and assimilation
+        from ..window.rollout import commit_rollout
+        from ..window.solve import WindowOptimizer
+        n_run, a_last = len(frames), (hist[-1].get("animation", 0) if hist else 0)
+        for k in range(settle):
+            opt = WindowOptimizer(StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer, vol0,
+                                  (coh_nbr, bond_rest, fragment_mask(x, prm).float()), 1.0, None, lambda *_: None)
+            with torch.no_grad():
+                commit = commit_rollout(opt.win, opt.obj, opt.leaves[0], opt.u, 0.0)
+            x, F, v, C, J, _ = promote(commit, lo, hi)
+            if cfg.assim > 0:
+                Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                        isochoric=not cfg.assim_volume)
+            frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F, Js=commit.J[1:-1] if J is not None else None, J_end=J)
+            hist.append({"animation": a_last + 1 + k, "settle": 1, "frame_end": len(frames), "lambda": 0.0,
+                         "v_mean": float(v.norm(dim=1).mean()), "v_absmax": float(v.abs().max())})
+            del opt, commit
+        log(f"[v2] settled {settle} windows with zero controls after the stop (frames {n_run} -> {len(frames)}, delivered)")
     clock.lap()
     deliver_n, trunc = (best_window(hist, len(frames), cfg.tol, cfg.w_pbr) if cfg.best_truncate
                         else (len(frames), None))
+    if settle > 0:
+        deliver_n, trunc = len(frames), None
     if trunc is not None:
         log(f"[v2] deliverable ends at best commit anim {trunc['best_animation']} "
             f"(deliver {deliver_n} of {len(frames)} frames; all frames archived)")
