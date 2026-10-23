@@ -1,5 +1,6 @@
 #!/bin/bash
-# 20_d164_pilot_gates.sh -- gpu1 queue job (agent D164; the coordinator's order 2026-10-22 19:30 / 19:4x): D164's step P
+# 21_d164_pilot_gates.sh -- gpu1 queue job (agent D164; resubmitted 20:3x after 20_ stopped in 52 s before any run, the probe
+# having imported torch before physmorph; the coordinator's order 2026-10-22 19:30 / 19:4x): D164's step P
 # (the pilot, its pre-registered stop rules read mechanically; a STOP / AMEND or a failed pilot run ends the job with
 # exit 1 before the gates) and step V (V1 the full suite, V2 the contracts test 20x on repo_d164 plus the reports on
 # repo_d164_start, V3 the pinned references and the switch's tests, V4 Warp-deterministic 40k bunny four windows twice:

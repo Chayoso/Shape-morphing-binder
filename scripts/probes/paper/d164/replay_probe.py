@@ -14,10 +14,11 @@ import os
 import runpy
 import sys
 
-import numpy as np
-import torch
-
 sys.path.insert(0, os.getcwd())
+import physmorph  # noqa: F401,E402  (before torch: CuPy's CUDA 12 compiler must load first, physmorph/gpu.py)
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+
 import physmorph.pipeline.window.rollout as R  # noqa: E402
 import physmorph.pipeline.window.solve as S  # noqa: E402
 
