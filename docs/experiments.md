@@ -19377,6 +19377,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - Rest: where e reaches ≤ 0.05 the body rests within about 2 s (D162b); where e plateaus above it, rest is at risk
     as for the held arms.
   - Cost: one field and one render a window (< 1 s at 40k).
+  *Amendment 1 (20:30 CDT, before any D162d run).* Gates try 1 (job 02, 20:14–20:25 on gpu1): V3 SAME; V4 exit 0 on both,
+  L_floor^lp 3.23e-4 on the coin, against the unblurred 2.53e-3. V2 failed one test, my own D162b test
+  `test_a_shape_run_records_b_and_holds_lambda_to_its_excess`.
+  - It asserted that the first committed window records t_shape. On a shared card the first window can be nulled by
+    commit_replay (D162 amendment 3), and the committed retry then reuses the reading from the same state (None by
+    design).
+  - The test now states the contract exactly: a window from a new state records the reading's seconds; one retried from
+    the same state after a null or rejected window records None (9496c83). No pipeline code changed.
+  - The job is queued again as 03 (after D164's 20, which had started), and reruns all its gates.
 
 ## To run next, in order
 
