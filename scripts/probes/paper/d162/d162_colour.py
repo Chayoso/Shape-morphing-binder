@@ -19,7 +19,8 @@ for sc in ("band", "ears"):
         TC = rows.get(f"bunny40k_{sc}_TC_{s}")
         for arm, name, twin in (("L (rule)", f"bunny40k_{sc}_L{s}", P), ("H (held)", f"bunny40k_{sc}_H{s}", P),
                                 ("F", f"bunny40k_{sc}_F_{s}", P), ("FC", f"bunny40k_{sc}_FC_{s}", TC),
-                                ("D (D160d)", f"bunny40k_{sc}_D{s}", P), ("S (D162b)", f"bunny40k_{sc}_S_{s}", P)):
+                                ("D (D160d)", f"bunny40k_{sc}_D{s}", P), ("S (D162b)", f"bunny40k_{sc}_S_{s}", P),
+                                ("Lp (D162d)", f"bunny40k_{sc}_Lp_{s}", P)):
             a = rows.get(name)
             if a is None or twin is None:
                 continue

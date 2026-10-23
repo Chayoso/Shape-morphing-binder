@@ -28,12 +28,13 @@ summary = {}
 for sc in ("band", "ears"):
     runs = {}
     for s in (97, 99):
-        for arm, path in (("S", G / "d162b" / "runs40" / f"bunny40k_{sc}_S_{s}"), ("F", R2 / f"bunny40k_{sc}_F_{s}"), ("FC", R2 / f"bunny40k_{sc}_FC_{s}"),
+        for arm, path in (("Lp", G / "d162d" / "runs40" / f"bunny40k_{sc}_Lp_{s}"),
+                          ("S", G / "d162b" / "runs40" / f"bunny40k_{sc}_S_{s}"), ("F", R2 / f"bunny40k_{sc}_F_{s}"), ("FC", R2 / f"bunny40k_{sc}_FC_{s}"),
                           ("TC", R2 / f"bunny40k_{sc}_TC_{s}"), ("P", R0 / f"bunny40k_{sc}_P{s}"),
                           ("H", R0 / f"bunny40k_{sc}_H{s}"), ("D", R0 / f"bunny40k_{sc}_D{s}")):
             if Path(str(path) + ".json").exists():
                 runs[(arm, s)] = rec(path)
-    for arm, twin in (("S", "P"), ("F", "P"), ("FC", "TC"), ("H", "P"), ("D", "P")):
+    for arm, twin in (("Lp", "P"), ("S", "P"), ("F", "P"), ("FC", "TC"), ("H", "P"), ("D", "P")):
         if (arm, 97) not in runs or (twin, 97) not in runs:
             continue
         spread = {k: max(abs(runs[(arm, 97)][k] - runs[(arm, 99)][k]), abs(runs[(twin, 97)][k] - runs[(twin, 99)][k]))

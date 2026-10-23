@@ -1,0 +1,9 @@
+# D162d: arm Lp (--render_weight_ref floor_pitch) on D162's four scenes, 40k, seeds 97 / 99; twins and references from D161 / D160 / D162 / D162b
+coin40k_Lp_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 97 --render_weight_ref floor_pitch
+bunny40k_Lp_97 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 97 --render_weight_ref floor_pitch
+bunny40k_band_Lp_97 --tgt assets/bunny.obj --appearance band --n 40000 --seed 97 --render_weight_ref floor_pitch
+bunny40k_ears_Lp_97 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 97 --render_weight_ref floor_pitch
+coin40k_Lp_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161coin.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40coin.obj --n 40000 --seed 99 --render_weight_ref floor_pitch
+bunny40k_Lp_99 --tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161smooth_bunny.obj --render_tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d161/assets/d161L40_bunny.obj --n 40000 --seed 99 --render_weight_ref floor_pitch
+bunny40k_band_Lp_99 --tgt assets/bunny.obj --appearance band --n 40000 --seed 99 --render_weight_ref floor_pitch
+bunny40k_ears_Lp_99 --tgt assets/bunny.obj --appearance ears --n 40000 --seed 99 --render_weight_ref floor_pitch

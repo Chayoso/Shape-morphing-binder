@@ -18,7 +18,7 @@ SCENES = (("coin", "coin40k_{arm}_{s}", G / "d161" / "runs40" / "coin40k_twin_{s
           ("bunny", "bunny40k_{arm}_{s}", G / "d161" / "runs40" / "bunny40k_twin_{s}"),
           ("band", "bunny40k_band_{arm}_{s}", G / "d160" / "runs40" / "bunny40k_band_P{s}"),
           ("ears", "bunny40k_ears_{arm}_{s}", G / "d160" / "runs40" / "bunny40k_ears_P{s}"))
-ARMS = (("S", G / "d162b" / "runs40"), ("F", G / "d162" / "runs40"))
+ARMS = (("Lp", G / "d162d" / "runs40"), ("S", G / "d162b" / "runs40"), ("F", G / "d162" / "runs40"))
 
 
 def end_reason(log, H, cap):

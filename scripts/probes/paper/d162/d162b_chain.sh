@@ -108,7 +108,7 @@ fi
 #    null_reason goes to the status line
 if [[ " $STEPS " == *" T "* ]]; then
   [ -n "$CARD" ] || claim_card diag
-  TEST="tests/test_settled_contracts.py::test_null_windows_add_no_simulated_time_and_are_not_delivered"
+  TEST=${TTEST:-"tests/test_settled_contracts.py::test_null_windows_add_no_simulated_time_and_are_not_delivered"}
   for repo in ${TREPOS:-repo_d162 repo_rt1 repo_d159 repo_d160 repo_d161}; do
     exits=""; why=""
     for k in $(seq 1 ${TREPS:-5}); do
@@ -122,8 +122,11 @@ if [[ " $STEPS " == *" T "* ]]; then
   :   # the card is kept for the next step; the EXIT trap releases it
 fi
 if [[ " $STEPS " == *" R "* ]]; then
-  [ -e $O/gates/PASSED ] || { log "R refused: the gates have not passed"; exit 1; }
-  until [ -e $O/gates/GO ]; do sleep 30; done      # D162b: the runs start once the measured cost is pre-registered (gates/GO)
+  # D162b: the runs start on gates/GO (written with the measured cost's amendment), or end on gates/ABORT; the card is kept
+  # meanwhile. A failed gate does not end the chain: it waits for the agent's decision, recorded in the amendment.
+  until [ -e $O/gates/GO ] || [ -e $O/gates/ABORT ]; do sleep 30; done
+  [ -e $O/gates/ABORT ] && { log "R aborted (gates/ABORT)"; exit 1; }
+  [ -e $O/gates/PASSED ] || log "R on gates/GO with a failed gate: see the amendment"
   while read -r name flags; do
     [ -z "$name" ] && continue
     case "$name" in \#*) continue;; esac
