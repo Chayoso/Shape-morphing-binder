@@ -19608,6 +19608,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     slab flowed under its own weight, because the frozen F smoothing keeps only 4.5 % of each step as elastic strain.
     The reader's ring contrast and high-pass were added before the 300k reading.
   - Local: `output/results_2026-10-23/d165_stamp/`. Code: `wip/d165` e81cd89.
+  **D165 at 500k (the coordinator's order; it ran 11:11–11:32 CDT on gpu3 after D162 job 52).** The plaques are
+  `d162k/runs/plq500k_{HC,T}_97`, each taken with its end shape as the rest shape (job 52 keeps no F or Fp), pressed
+  without gravity.
+  - **The full arm (H+C).** Plaque word contrast 0.68 a0. Print contrast 0.27 a0, with high-pass correlation 0.65
+    with the letters.
+  - **The twin plus the decal.** Plaque 0.03 a0. Print contrast 0.00 a0, correlation −0.13.
+  - **The studio image.** At a raking light of 84 degrees the print reads SIGGRAPH; the twin's print is blank.
+  - Files: `output/gpu/d165/summary_500k.md` and `s500/`; local copy in `d165_stamp/500k/`.
     `output/results_2026-10-23/d165_stamp/`.
 
 ## To run next, in order
