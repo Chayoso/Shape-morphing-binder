@@ -19436,6 +19436,55 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - The test now states the contract exactly: a window from a new state records the reading's seconds; one retried from
     the same state after a null or rejected window records None (9496c83). No pipeline code changed.
   - The job is queued again as 03 (after D164's 20, which had started), and reruns all its gates.
+  *Read (22:05 CDT; job 03 on the gpu1 queue, runs 20:38–21:43; reads output/gpu/d162d/after/).*
+  - Gates try 2: V2 46 passed; V3 SAME; V4 exit 0 (L_floor^lp 3.23e-4 coin, 3.04e-4 band). The low-passed reading costs
+    0.05–0.1 s a window.
+  - P1 (share of the ceiling, 97 / 99): coin 0.13 / 0.23 (corr 0.18 / 0.31), bunny 0.17 / 0.30 (corr 0.08 / 0.16).
+    FAILS (F 0.05–0.25, S −0.01–0.42, D161c 0.47–0.58).
+    - P4 passes everywhere (0.8–1.0× the twin).
+    - P3 misses sil_iou (coin 97) and thin_uncovered (coin, both seeds), and held-out 1 − IoU (bunny, both seeds).
+  - C1: band 0.93 / 0.91 PASS (held-out PSNR 21.4 / 21.4); ears 0.30 / 0.32 fail. C2 misses 3/6 cells on each. C3
+    fails on all four (band 3.5× / 2.3×, ears 9.0× / 2.2×).
+  - The trace (after/trace.png, trace.md).
+    - After arrival λ / λ_0 = 0.2–0.35 on the coin through about 16 s, then falling.
+    - The low-passed term still crosses its floor: switches 86 / 0 (coin), 31 / 217 (bunny; 99 ran to the cap).
+    - R1 fails everywhere. e first drops to ≤ 0.05 at 3.7–10.2 s while 59–77 % of the letters are still to carve, and
+      at the end 71–88 % of the relief is still to do.
+    - On colour, e stays at 0.45–0.90 to the end (held, as F), so rest fails.
+  - Reading.
+    - A one-pitch low-pass attenuates the 1-pitch letters as well (transfer about 0.25 at the stroke), so the
+      low-passed term's excess is dominated by coarse differences the physics already matches. It does not track
+      the letters (R1).
+    - No reference read so far (on the particles, on a resample, on low-passed pictures) both stays up while the
+      letters remain and falls when they are cut.
+    - The held weight is the only arm that carves (D161c 40k, D163 H 300k), with its rest cost.
+
+- **D162e, is it the render or u? (an ablation; pre-registered 2026-10-22 ~22:10 CDT, before its runs; the user's
+  question relayed by the coordinator; gpu1 queue job 22, output/gpu/d162e/).**
+  - Arm Hu: D161c's λ-held full arm (`--lambda_ema 0`) with the layer's u off (`--u_off`), on D161's coin and bunny
+    relief at 40k, seeds 97 / 99 (repo_d162ds, code = the tag on this path).
+  - References: D161c (the same arm, u on; 0.47–0.58 of the ceiling) and D161's twins (u on, λ = 0).
+  - Reading: D161's reader. Hu's carved share is what dF_c writes alone; D161c's minus Hu's is u's addition. The
+    channels do not add exactly (u moves the layer, dF_c the body under it), so the split is read as two arms, not as
+    a sum. P3–P5 as D161.
+  - Predictions: dF_c alone carves less than with u, since u moves the outer layer along its normals, the direction of
+    an emboss. Hu 0.2–0.4 of the ceiling, so u's addition is 0.1–0.3.
+- **D162f, the 300k deliverables (visible results; the coordinator's order after D162d's failure: λ held, the rest
+  cost stated; gpu1 queue jobs 23–24; output/gpu/d162f/).**
+  - (a) the plaque, SIGGRAPH / VANDERBILT: D163's 300k H 97 (λ held) and its twin T 97 already exist, with their
+    videos (output/gpu/d163/video/p300_H_T). Reused, no new run.
+  - (b) surface ripples from pictures (job 23).
+    - The scene: D161's smoothed bunny, whose render target carries concentric ridges on its flank (d161_mesh.py
+      rings [[0, 4], [8, 12], [16, 20], [24, 28]] pitches, 1.5 pitches high, edge 1 pitch; ridges 4 pitches wide,
+      period 8, at the D161 curve's resolvable scale; output/gpu/d162f/assets/d162fR300ripple_bunny.obj, pitch
+      0.0481 wu).
+    - rip300k_H_97 (λ held) and rip300k_T_97 (its twin, dF_c + layer u), seed 97.
+  - (c) colour from pictures (job 24): the bunny band scene at 300k with D160d's arm, the best colour arm at 40k (r
+    0.99–1.00, C2 0/6 and C3 passing on band). That is the colour term at its first weight and the geometry terms on
+    the rule (repo_d160s 963cd2b). band300k_D_97 and its twin band300k_T_97, seed 97.
+  - Readings: D161's reader (b), D160's reader (c), D163's renderer for the studio-look stacked videos, close-ups and
+    contact sheets (CPU), each against its twin.
+  - The rest cost is stated: the held arm's end speed against its twin's, from the run records.
 
 ## To run next, in order
 
