@@ -12262,6 +12262,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     | bunny D156g | 14.7 % | 0.49 | 0.62 | **0.040** (0.23) | 0.8 % | 4.6 % |
     | dragon D156i | 35.4 % | 0.00 | 0.00 | 0.000 (0.30) | 0.0 % | 0.1 % |
     | bob D156i | 24.1 % | 0.41 | 0.74 | **0.186** (0.59) | 0.8 % | 2.9 % |
+    | dragon D156g | 35.3 % | 0.28 | 0.40 | **0.007** (0.30) | 1.6 % | 4.8 % |
 
     - The carve removes the shallow excess, the overshoot and the excess within a pixel of the hull. **It removes
       almost none of the deep excess, the hollows: 1–4 %.**
@@ -12273,6 +12274,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     - Excess removed 0.537; over-carve +5.1 points (3.8 → 8.9 %), so it fails by the letter; ρ 0.43.
     - Its solid is the lowest any D156 carve reached: 0.60 of the way from D156's hull file (7.774) to the floor.
       By the volume reading, that is the overshoot and the shallow excess, not the hollows.
+  - **Dragon D156g (finished 18:54, stopped by the 6-hour wall; read alongside).** 230 steps.
+    - Total score: 13.644 → 5.498 (floor 2.145). Way 0.708; 0.73 of the way from D156's hull file (14.647).
+    - Excess removed 0.312; over-carve +6.1 points by the sample, so it fails by the letter; ρ −0.07.
+    - By the volume reading: shallow 0.40, deep 0.007, a 1.6 % cut into the mesh. The gain is the conservative
+      overshoot, not the coil gap.
+  - **The reading, as of 19:35 CDT.** Bob's D156g is still running (level 2 at 19:29, its 6-hour wall at about 00:03).
+    - **D156i on the conservative hull: stage 1 FAIL**, 0 of 3 by the letter.
+      - Bunny and bob pass way and excess, and fail on the over-carve bar. That bar counts the sampler's overhang.
+        The sampler-free cut into the mesh is 0.5–0.8 %, but 3–5 % of the mesh surface ends more than ¼ pixel outside
+        the solid.
+      - The dragon does not move.
+    - **D156g (read alongside): bunny and dragon also fail by the over-carve bar**, with way 0.71–0.76.
+    - What the images carve, measured sampler-free:
+      - nearly all of the gain is the shallow layer (40–74 % of the excess within a pixel of the hull removed);
+      - the hollows (the deep excess, 23–59 % of each mesh's excess) lose 0.7–4 % on the bunny and dragon, and 19 %
+        on bob (D156i).
+      - Bob is the one case where the shading reaches into a hollow (ρ 0.63).
+    - Root cause, consistent with D156–D156i: the training pictures constrain the rims and outlines strongly. They
+      constrain the hollows only through the shading of walls that the headlight Lambertian model reads weakly
+      (D156 (ii)). A carve that is free to move the rims spends its gain there.
+    - The D156 rerun on the conservative hull stays on hold (above).
+    - The solids of the finished runs were deleted after the volume reading (cleanup.log). The hulls, the d fields
+      (npz), the rows and the logs are kept.
 - **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
   pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
   processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
