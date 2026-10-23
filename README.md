@@ -12,6 +12,10 @@ earlier pipelines and why this one replaced them).
 
 ## The pipeline
 
+For English text -> local LLM material inference -> guarded simulation -> GIF, see
+[the material entry guide](docs/material-safety-comparison.md). The guide also covers the
+seven-material comparison and reusable numerical safety wrapper.
+
 **Setup.** The source and target meshes are sampled into `N` particles each (stratified volume sampling). The MPM cell
 is set from the shape: `dx` = source bounding-box diagonal / 26 at every `N` (about 23 particles a cell at 40k, 183 at
 300k; `--cell_follows_n` makes it follow `N` above 40k instead, D137/D139). Every particle has the same dynamics mass

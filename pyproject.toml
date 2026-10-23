@@ -20,9 +20,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "matplotlib", "pillow", "rtree"]
+language = ["transformers>=4.51,<5", "huggingface-hub>=0.30,<1"]
+video = ["imageio-ffmpeg>=0.6"]
 
 [tool.setuptools.packages.find]
 include = ["physmorph*"]
+
+[tool.setuptools.package-data]
+physmorph = ["material_presets.json", "shape_assets.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,0 +1,80 @@
+{
+  "sources": {
+    "ashby_2021": {
+      "title": "Mike Ashby, Material property data for engineering materials, 5th edition, October 2021",
+      "url": "https://www.ansys.com/content/dam/amp/2021/august/webpage-requests/education-resources-dam-upload-batch-2/material-property-data-for-eng-materials-BOKENGEN21.pdf",
+      "accessed": "2026-10-05"
+    },
+    "ansys_motion_2025r2": {
+      "title": "Ansys Motion Theory Reference 2025 R2, 7.2 Materials",
+      "url": "https://ansyshelp.ansys.com/public/Views/Secured/corp/v252/en/motion_theory/motion_theory_materials.html",
+      "accessed": "2026-10-05"
+    },
+    "schott_borofloat33": {
+      "title": "SCHOTT BOROFLOAT 33 technical details",
+      "url": "https://www.schott.com/en-gb/products/b/borofloat/content/technical-details",
+      "accessed": "2026-10-05"
+    }
+  },
+  "mapping": {
+    "id": "common_stress_unit_v3",
+    "selection": "arithmetic_midpoint",
+    "unit_to_pa": {"MPa": 1000000, "GPa": 1000000000, "1e3 MPa": 1000000000, "kN/mm2": 1000000000},
+    "formula": "stress_unit_pa=young_anchor_pa/young_anchor_effective; E_eff=E_pa/stress_unit_pa; nu_eff=nu_raw; K_eff=K_raw/stress_unit_pa; G_eff=G_raw/stress_unit_pa",
+    "young_anchor_pa": 12500000000,
+    "young_anchor_effective": 140000,
+    "effective_young_unit": "reference_normalized_stress_units",
+    "poisson": "identity",
+    "rationale": "One common stress unit anchored at the original wood E=140000 preserves all reference stiffness ratios and every selected Poisson ratio. No nonlinear compression, material-specific scale or speed rule. Constitutive calibration is separate from physical object length, mass and playback time, which are not specified by the normalized assets."
+  },
+  "presets": {
+    "foam-like": {
+      "young": {"range": [0.001, 0.003], "unit": "GPa", "basis": "reference", "source": "ashby_2021", "location": "Table A3, printed page 9, Flexible Polymer Foam (LD)"},
+      "poisson": {"range": null, "assumed": 0.2, "unit": "1", "basis": "assumption", "source": "ansys_motion_2025r2", "location": "7.2.3, qualitative description of compressible foams", "note": "0.2 is a baseline assumption for compressibility, not a reported measurement or the Ansys foam-model constant."}
+    },
+    "rubber-like": {
+      "young": {"range": [0.0015, 0.0025], "unit": "GPa", "basis": "reference", "source": "ashby_2021", "location": "Table A3, printed page 9, Natural rubber", "note": "The Motion table gives a different generic rubber E range; use this handbook consistently for E, not an average across sources."},
+      "poisson": {"range": [0.49, 0.49], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Natural Rubbers", "note": "Representative family value, not a measurement paired with the handbook E."}
+    },
+    "silicone-like": {
+      "young": {"range": [0.005, 0.022], "unit": "GPa", "basis": "reference", "source": "ashby_2021", "location": "Table A3, printed page 9, Silicone elastomers", "note": "Not an Ecoflex-specific value."},
+      "poisson": {"range": null, "assumed": 0.49, "unit": "1", "basis": "assumption", "source": "ansys_motion_2025r2", "location": "7.2.3, qualitative description of nearly incompressible elastomers", "note": "0.49 is a baseline near-incompressibility assumption, not a silicone measurement supplied by this source."}
+    },
+    "pu-elastomer-like": {
+      "young": {"range": [0.002, 0.030], "unit": "GPa", "basis": "reference", "source": "ashby_2021", "location": "Table A3, printed page 9, Polyurethane under Elastomers", "note": "Not the thermoplastic PU row."},
+      "poisson": {"range": null, "assumed": 0.49, "unit": "1", "basis": "assumption", "source": "ansys_motion_2025r2", "location": "7.2.3, qualitative description of nearly incompressible elastomers", "note": "0.49 is a baseline near-incompressibility assumption, not a polyurethane measurement supplied by this source."}
+    },
+    "pvc-like": {
+      "young": {"range": [1.5, 1.5], "unit": "1e3 MPa", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, PVC; table unit 1e3 MPa", "note": "1e3 MPa equals GPa."},
+      "poisson": {"range": [0.41, 0.41], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, PVC"}
+    },
+    "nylon-like": {
+      "young": {"range": [2, 4], "unit": "1e3 MPa", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Nylon; table unit 1e3 MPa", "note": "1e3 MPa equals GPa."},
+      "poisson": {"range": [0.25, 0.25], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Nylon"}
+    },
+    "polycarbonate-like": {
+      "young": {"range": [2.6, 2.6], "unit": "1e3 MPa", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Polycarbonate; table unit 1e3 MPa", "note": "1e3 MPa equals GPa."},
+      "poisson": {"range": [0.36, 0.36], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Polycarbonate"}
+    },
+    "acrylic-like": {
+      "young": {"range": [3.4, 3.4], "unit": "1e3 MPa", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, PMMA; table unit 1e3 MPa", "note": "1e3 MPa equals GPa."},
+      "poisson": {"range": [0.35, 0.4], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, PMMA"}
+    },
+    "wood-like": {
+      "young": {"range": [9, 16], "unit": "1e3 MPa", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Wood, Parallel Grain; table unit 1e3 MPa", "note": "1e3 MPa equals GPa. Apply this scalar isotropically as a wood-like baseline; no grain-direction model."},
+      "poisson": {"range": [0.2, 0.2], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Wood, Parallel Grain"}
+    },
+    "glass-like": {
+      "young": {"range": [64, 64], "unit": "kN/mm2", "basis": "reference", "source": "schott_borofloat33", "location": "Mechanical properties, Young's modulus according to DIN 13316", "note": "1 kN/mm2 equals 1 GPa. Use BOROFLOAT 33 as the scalar glass reference; no fracture model."},
+      "poisson": {"range": [0.2, 0.2], "unit": "1", "basis": "reference", "source": "schott_borofloat33", "location": "Mechanical properties, Poisson's ratio according to DIN 13316"}
+    },
+    "aluminum-like": {
+      "young": {"range": [69, 79], "unit": "1e3 MPa", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Aluminum & Alloys; table unit 1e3 MPa", "note": "1e3 MPa equals GPa; no material-specific yield model."},
+      "poisson": {"range": [0.35, 0.35], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Aluminum & Alloys"}
+    },
+    "steel-like": {
+      "young": {"range": [200, 210], "unit": "1e3 MPa", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Low Alloy Steels; table unit 1e3 MPa", "note": "1e3 MPa equals GPa; no material-specific yield model."},
+      "poisson": {"range": [0.3, 0.3], "unit": "1", "basis": "reference", "source": "ansys_motion_2025r2", "location": "Figure 7.37, Low Alloy Steels"}
+    }
+  }
+}

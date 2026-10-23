@@ -1,0 +1,357 @@
+{
+  "basis": "Frozen LLM point estimates; not measurements or sourced material constants.",
+  "stress_unit_pa": 89285.71428571429,
+  "seed": 97,
+  "particles": 40000,
+  "source": "assets/bunny.obj",
+  "target": "assets/dragon.obj",
+  "materials": [
+    {
+      "key": "soft_rubber",
+      "label": "Soft rubber",
+      "young_pa": 316227.7660168382,
+      "poisson": 0.47,
+      "substeps": 1,
+      "source_prompt": "A soft rubber bunny, nearly incompressible, morphs into a dragon.",
+      "raw": {
+        "young": {
+          "range": [
+            100000,
+            1000000
+          ],
+          "unit": "Pa",
+          "basis": "model_estimate"
+        },
+        "poisson": {
+          "range": [
+            0.45,
+            0.49
+          ],
+          "unit": "1",
+          "basis": "model_estimate"
+        }
+      },
+      "estimator": {
+        "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+        "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+        "system_prompt_sha256": "8af91567532a7ca1647cf7dc54e27b2d1a00173e1bd6a737065fec44a4ecccba",
+        "response_sha256": "63ce30addb46c24f72a68f8c06b57a49b9b3a3857a61a41af5ba7b0dcdbccb67"
+      },
+      "assumptions": [
+        "Soft rubber implies low Young's modulus and near-incompressibility, leading to a Poisson ratio close to 0.5; the morphing process is assumed to preserve material identity with no phase change or structural degradation.",
+        "The term 'nearly incompressible' is interpreted as a Poisson ratio approaching 0.5, consistent with nearly incompressible elastomers like silicone or natural rubber under compression."
+      ],
+      "limitations": [
+        "Anisotropy of rubber, viscoelastic behavior, fracture, plasticity, and large-strain effects are not captured; the material's behavior under dynamic or cyclic loading is not modeled; no information on density or thermal properties is provided."
+      ],
+      "source_request_sha256": "e37e750942be21a18ce032cdab96ef8808a59dfc5b636e8f74a779e6f2e40ffa",
+      "effective": {
+        "young": 3.5417509793885875,
+        "poisson": 0.47
+      }
+    },
+    {
+      "key": "hard_rubber",
+      "label": "Hard rubber",
+      "young_pa": 22360679.774997864,
+      "poisson": 0.35,
+      "substeps": 1,
+      "source_prompt": "A hard rubber bunny morphs into a dragon.",
+      "raw": {
+        "young": {
+          "range": [
+            10000000,
+            50000000
+          ],
+          "unit": "Pa",
+          "basis": "model_estimate"
+        },
+        "poisson": {
+          "range": [
+            0.3,
+            0.4
+          ],
+          "unit": "1",
+          "basis": "model_estimate"
+        }
+      },
+      "estimator": {
+        "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+        "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+        "system_prompt_sha256": "8af91567532a7ca1647cf7dc54e27b2d1a00173e1bd6a737065fec44a4ecccba",
+        "response_sha256": "7bcfc309f78ca2f78fb88a86e0db6ee12a957b132d6b32f464ae875aa0f58b1c"
+      },
+      "assumptions": [
+        "Hard rubber is assumed to be isotropic and elastic with typical stiffness for rubber-like materials; the morphing implies a continuous shape transition without material phase change or fracture.",
+        "The Young's modulus range is based on standard values for hard rubber (e.g., 10–50 MPa), converted to Pa; Poisson's ratio is typical for elastomers."
+      ],
+      "limitations": [
+        "Anisotropy, plasticity, viscoelasticity, and fracture behavior are not captured; the morphing process may involve non-elastic deformation or material failure; no information on density or thermal effects is provided."
+      ],
+      "source_request_sha256": "076b5330a4b87d32cf5c81cd444310374b511f48eeeda26e82fb70a7a5e2f374",
+      "effective": {
+        "young": 250.43961347997606,
+        "poisson": 0.35
+      }
+    },
+    {
+      "key": "pmma",
+      "label": "Acrylic (PMMA)",
+      "young_pa": 3240370349.2039356,
+      "poisson": 0.35,
+      "substeps": 1,
+      "source_prompt": "A bunny made of PMMA morphs into a dragon.",
+      "raw": {
+        "young": {
+          "range": [
+            3000000000,
+            3500000000
+          ],
+          "unit": "Pa",
+          "basis": "model_estimate"
+        },
+        "poisson": {
+          "range": [
+            0.33,
+            0.37
+          ],
+          "unit": "1",
+          "basis": "model_estimate"
+        }
+      },
+      "estimator": {
+        "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+        "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+        "system_prompt_sha256": "d39c0787cbcb9cc7e4d348317a844181af69f1217a00816f7250748bb52ce504",
+        "response_sha256": "88cbc17367ba1be23043327881357651bc576d9c6672d139c9a26b2fe46749a0",
+        "semantic_response_sha256": "e08af9ab1a9585ad9c5d03e3cf7f750ff6c559446ccd5bf1fe133f07b0f60c72"
+      },
+      "assumptions": [
+        "PMMA (polymethyl methacrylate) is a rigid thermoplastic with typical isotropic elastic behavior under small strains.",
+        "Young's modulus is estimated based on standard literature values of ~3.0–3.5 GPa for PMMA in its solid, homogeneous form.",
+        "Poisson's ratio is inferred from typical values for amorphous polymers like PMMA, which range between 0.33 and 0.37.",
+        "The material is assumed to be isotropic and homogeneous, with no significant anisotropy or microstructural defects.",
+        "All values are reference small-strain moduli and do not account for temperature, humidity, or loading history effects."
+      ],
+      "limitations": [
+        "No explicit stiffness, compressibility, or geometric evidence was provided to refine the estimates.",
+        "The values are not derived from experimental measurements but from established material property databases.",
+        "No information on temperature, strain rate, or environmental conditions was given, which can significantly affect E and ν.",
+        "The assumption of isotropy may not hold for PMMA under certain processing conditions or in thin films where surface effects dominate."
+      ],
+      "source_request_sha256": "2bbb796052936d30f223b75d2ee94ce03af7581ec65dc93039b1518c48ec4a22",
+      "effective": {
+        "young": 36292.147911084074,
+        "poisson": 0.35
+      }
+    },
+    {
+      "key": "wood",
+      "label": "Wood",
+      "young_pa": 5477225575.051663,
+      "poisson": 0.3,
+      "substeps": 1,
+      "source_prompt": "A bunny made of stiff wood morphs into a dragon.",
+      "raw": {
+        "young": {
+          "range": [
+            1000000000,
+            30000000000
+          ],
+          "unit": "Pa",
+          "basis": "model_estimate"
+        },
+        "poisson": {
+          "range": [
+            0.25,
+            0.35
+          ],
+          "unit": "1",
+          "basis": "model_estimate"
+        }
+      },
+      "estimator": {
+        "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+        "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+        "system_prompt_sha256": "8af91567532a7ca1647cf7dc54e27b2d1a00173e1bd6a737065fec44a4ecccba",
+        "response_sha256": "b999c7fdd50155dc563f86d8441a108525f095ef48263ad5098e2659e237d983"
+      },
+      "assumptions": [
+        "Stiff wood is assumed to have a Young's modulus in the range of 1 to 30 GPa, typical for hardwoods like oak or maple; Poisson's ratio is estimated between 0.25 and 0.35, typical for such materials; the morphing process is treated as a shape transformation without material phase change or loss of integrity.",
+        "The transformation from a bunny to a dragon is interpreted as a change in geometry and form, not a change in material composition or phase, so the material remains stiff wood throughout.",
+        "No explicit information on density, compressibility, or viscoelastic behavior is provided, so these are not used to infer E or nu."
+      ],
+      "limitations": [
+        "fracture behavior",
+        "anisotropy",
+        "plasticity",
+        "viscosity",
+        "finite-strain behavior",
+        "density",
+        "color",
+        "surface texture"
+      ],
+      "source_request_sha256": "5b3e31cdaf1461c8d87a2b83c3bafe6d41bfdb1d21523461ed1dbf1e5098d799",
+      "effective": {
+        "young": 61344.92644057863,
+        "poisson": 0.3
+      }
+    },
+    {
+      "key": "concrete",
+      "label": "Concrete",
+      "young_pa": 28284271247.46189,
+      "poisson": 0.2,
+      "substeps": 1,
+      "source_prompt": "A bunny made of concrete morphs into a dragon.",
+      "raw": {
+        "young": {
+          "range": [
+            20000000000,
+            40000000000
+          ],
+          "unit": "Pa",
+          "basis": "model_estimate"
+        },
+        "poisson": {
+          "range": [
+            0.15,
+            0.25
+          ],
+          "unit": "1",
+          "basis": "model_estimate"
+        }
+      },
+      "estimator": {
+        "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+        "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+        "system_prompt_sha256": "d39c0787cbcb9cc7e4d348317a844181af69f1217a00816f7250748bb52ce504",
+        "response_sha256": "cb3b42bd367249c8e3c567c3f0b3bbbd23206690cbb6e30b8322ad07d5112567",
+        "semantic_response_sha256": "3622fd8e5756978e4d2f331e1be976d5cca116fdeb3bf28e79bfe16ad2e10028"
+      },
+      "assumptions": [
+        "Concrete is modeled as an isotropic, homogeneous elastic solid under small strains.",
+        "Young's modulus is estimated based on typical values for normal-weight concrete (20–40 GPa), converted to pascals.",
+        "Poisson's ratio is inferred from standard values for concrete, which typically range between 0.15 and 0.25.",
+        "No explicit stiffness, compressibility, or geometric evidence is provided, so values are based on established material behavior."
+      ],
+      "limitations": [
+        "No explicit input values for stiffness, compressibility, or Poisson's ratio were provided.",
+        "The model assumes isotropy and homogeneity, which are not fully realized in real concrete due to aggregate distribution and microcracking.",
+        "Geometry and unsupported evidence are absent, so structural effects like thinness or loading direction are not considered.",
+        "Elastic behavior is limited to small-strain linear response; no consideration of creep, plasticity, or viscoelasticity is included."
+      ],
+      "source_request_sha256": "18adceecb31a7c9533f76b879c918f8a4f1fc4970901579484e75a4f457d1fc5",
+      "effective": {
+        "young": 316783.8379715732,
+        "poisson": 0.2
+      }
+    },
+    {
+      "key": "aluminum",
+      "label": "Aluminum alloy",
+      "young_pa": 83666002653.40756,
+      "poisson": 0.335,
+      "substeps": 1,
+      "source_prompt": "A bunny made of aluminum alloy morphs into a dragon.",
+      "raw": {
+        "young": {
+          "range": [
+            70000000000,
+            100000000000
+          ],
+          "unit": "Pa",
+          "basis": "model_estimate"
+        },
+        "poisson": {
+          "range": [
+            0.33,
+            0.34
+          ],
+          "unit": "1",
+          "basis": "model_estimate"
+        }
+      },
+      "estimator": {
+        "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+        "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+        "system_prompt_sha256": "d39c0787cbcb9cc7e4d348317a844181af69f1217a00816f7250748bb52ce504",
+        "response_sha256": "4d41474bdbfb010184de229a425612232af55d1b2f88d030d80b85838c2ce645",
+        "semantic_response_sha256": "5e828039bec7612756c0eb62a3fccc4d86e1dfc7448866b7651f2ada7ef639b1"
+      },
+      "assumptions": [
+        "Aluminum alloys typically have a Young's modulus in the range of 69 to 100 GPa, converted to pascals as 69000000000 to 100000000000 Pa.",
+        "Poisson's ratio for aluminum alloys is generally around 0.33 to 0.34, consistent with typical metallic behavior.",
+        "The material is assumed to be isotropic and homogeneous, with no significant anisotropy or microstructural variation.",
+        "Stiffness and compressibility evidence are absent, so values are based on standard material properties of aluminum alloys."
+      ],
+      "limitations": [
+        "No explicit stiffness, compressibility, Young's modulus, or Poisson's ratio values were provided in the input evidence.",
+        "Geometry and unsupported evidence are missing, so geometric effects or porosity are not considered.",
+        "The estimate assumes a standard aluminum alloy (e.g., 6061 or 7075) without specific alloy composition or processing details.",
+        "No information on temperature, strain rate, or loading conditions, which can affect elastic moduli."
+      ],
+      "source_request_sha256": "2d17158cde109d0deb16e80bb0d2866ca07145405eb01d7644aae2dd2912e01d",
+      "effective": {
+        "young": 937059.2297181647,
+        "poisson": 0.335
+      }
+    },
+    {
+      "key": "steel",
+      "label": "Steel",
+      "young_pa": 223606797749.97882,
+      "poisson": 0.29000000000000004,
+      "substeps": 2,
+      "source_prompt": "A bunny made of steel morphs into a dragon.",
+      "raw": {
+        "young": {
+          "range": [
+            200000000000,
+            250000000000
+          ],
+          "unit": "Pa",
+          "basis": "model_estimate"
+        },
+        "poisson": {
+          "range": [
+            0.28,
+            0.3
+          ],
+          "unit": "1",
+          "basis": "model_estimate"
+        }
+      },
+      "estimator": {
+        "model_id": "Qwen/Qwen3-4B-Instruct-2507",
+        "revision": "cdbee75f17c01a7cc42f958dc650907174af0554",
+        "system_prompt_sha256": "d39c0787cbcb9cc7e4d348317a844181af69f1217a00816f7250748bb52ce504",
+        "response_sha256": "c14e3f1bfeb33e9cafdb228f1de2c432f5c30811cc078f810922d8ccb7333769",
+        "semantic_response_sha256": "8a99138b138f4d29236c23a0dd9dbb1b79abb704bfc6fe986f0a6d614672218e"
+      },
+      "assumptions": [
+        "Steel is modeled as isotropic and homogeneous under small-strain elastic conditions.",
+        "Young's modulus for steel is estimated based on typical values for common carbon steel (e.g., AISI 1020).",
+        "Poisson's ratio is assumed to be in the typical range for steel, around 0.29–0.30, consistent with ductile metallic behavior.",
+        "No geometric or structural effects (e.g., thinness, shape) are considered as they do not alter intrinsic elastic moduli.",
+        "The material is assumed to be in a standard room-temperature, unalloyed, and unprocessed state."
+      ],
+      "limitations": [
+        "No explicit stiffness, compressibility, or Young's modulus values were provided in the input evidence.",
+        "The estimate does not account for variations due to alloy composition, heat treatment, or microstructure (e.g., stainless vs. carbon steel).",
+        "No information on porosity, anisotropy, or non-linear behavior (e.g., plasticity, hysteresis) is available.",
+        "The Poisson ratio is not derived from compressibility data, which was absent in evidence."
+      ],
+      "source_request_sha256": "c62191b268e6fc41ffc80189ea5d480585df9ceb480d6cd0257f38f386bbe9dc",
+      "effective": {
+        "young": 2504396.1347997626,
+        "poisson": 0.29000000000000004
+      }
+    }
+  ],
+  "selection": {
+    "young": "geometric_midpoint",
+    "poisson": "arithmetic_midpoint",
+    "formula": "E_selected=sqrt(E_low*E_high); nu_selected=(nu_low+nu_high)/2; E_solver=E_selected/stress_unit_pa"
+  }
+}
