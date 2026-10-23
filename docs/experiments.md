@@ -19570,6 +19570,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 
 - **Job 82 (pre-registered 2026-10-22 ~23:40 CDT):** the plaque, the ripples (each full + twin) and the band (D160d + twin) at 500k, or at 300k when gpu1 has < 36 GB free (logged). The definition is taken from the auto summaries: D162h A → held + settle 30; D162g passing rest → held + placement at the cell; else held. Output output/gpu/d162k/; run outcomes in output/gpu/d162/auto/82/summary.md.
 
+- **D165, the stamp test: are D163's letters in the material? (pre-registered 2026-10-23 10:27 CDT server clock,
+  before any run; the user's top priority, relayed by the coordinator. A showcase measurement, not a gate.)**
+  The reviewer's question: why not simulate without the render and fit the look afterwards, with a massless display
+  layer such as D115 (`render_deliverable.py +fit=1`)?
+  - **Arms.** H is D163's full arm (dF_c + layer u + render loss, λ held). T is its twin (dF_c + layer u). Both are run
+    again at 300k with D163's flags. The only change is that the end state (x, F, Fp, J, vol0) is now kept:
+    `repo_d165s` = `repo_d163s` + `tmp/d165/repo_d165s.patch`, `--save_end_state`, off by default.
+  - **(1) The decal still.** D115's layer on T's last kept frames is fitted to the pictures of D163's relief mesh
+    (sampled at 1.5M in the run's frame). It is shown beside H's end and T's base display, at the front word, in the
+    studio look. Expected: the decal looks lettered too.
+  - **(2) The stamp.** `scripts/probes/d165/stamp.py` on `wip/d165`, the mpm/bodies.py contact of D147, forward only.
+    - Setup: each plaque's end state, front word face down, is pressed into a soft slab on the floor, held, then
+      lifted. The plaque keeps its F and Fp, is stiff (E×7) and is split into 8 children per particle. The slab is
+      soft (E/20) and its grid is twice the run's pitch. A hand sets the plaque's mean velocity; its deformation is
+      free. T's decal is display only and takes no part.
+    - Read (`d165_read.py`): the word's contrast in the slab's top after the lift (the mean depth inside the letters
+      minus the depth away from them) and its correlation with D163's letter raster; the plaque's own contrast as
+      loaded and after it settles without controls; D163's ceiling.
+    - Expected: (a) H prints the word, a contrast near its plaque's own and a positive correlation; (b) T prints a
+      flat face, contrast about 0.
+  - **(3) A variant.** The same stamp on the kept frames' end positions with F = Fp = I (the end shape taken as the
+    rest shape).
+  - **The drop test** (item 3 of the request) is not run: the decal is advected with the particles either way.
+  - Output: `output/gpu/d165/` (`summary.md`, `read/`, `video/`, `decal/`); local copy
+    `output/results_2026-10-23/d165_stamp/`.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
