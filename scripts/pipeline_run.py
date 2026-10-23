@@ -57,6 +57,8 @@ def parse_args(argv=None):
                          "own excess over the render term of the pictures' own first sample; shape (D162b) = the same weight "
                          "with the excess read on the body's shape, 1 - b_floor / b (physmorph/pipeline/shape_read.py); floor_pitch (D162d) = floor with L_r and "
                          "L_floor read on pictures low-passed at one pitch")
+    ap.add_argument("--cleanup_off", action="store_true",
+                    help="29b (render-centric recipe): the cleanup off, w_dt = w_nn = 0 (the spray W1 pull and the near band)")
     ap.add_argument("--settle_windows", type=int, default=0,
                     help="D162h / D162i: windows of released physics with zero controls after the run stops (delivered)")
     ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
@@ -292,6 +294,8 @@ def run_config(args, cfg0, prep):
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale)
+    if getattr(args, "cleanup_off", False):  # 29b: the cleanup off (the spray W1 pull, the near band)
+        cfg = dataclasses.replace(cfg, w_dt=0.0, w_nn=0.0)
     if args.baseline.startswith("xu"):     # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     return cfg

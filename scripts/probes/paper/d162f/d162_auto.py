@@ -144,5 +144,47 @@ def stiff(out):
     open(out, "w").write("\n".join(L) + "\n")
 
 
+def minimal(out):
+    """Job 29b: the render-centric recipe (held weight, cleanup off, placement at the loss cell) against the tag's V
+    (render arm) and W (twin) on six gallery meshes (sil_iou, chamfer, thin_uncovered, particles off the body, pieces
+    >= 10, end v_mean / kin), the coin lettering (D161's reader: share of the ceiling, corr) and the band colour (D160's
+    reader: r against D160's P)."""
+    sys.path.insert(0, "/data/relcfd/chayo/physmorph_v2/tmp/d162")
+    import d162_gallery as GL
+    Z = G / "d162z"
+    L = ["# Job 29b: the render-centric recipe (held weight, cleanup off, placement at the cell) vs the tag V / twin W, seed 97",
+         "", "| mesh | arm | sil_iou | chamfer | thin | off body | pieces>=10 | v_mean end |", "|---|---|---|---|---|---|---|---|"]
+    for m in ("bunny", "dragon", "armadilo", "bob", "homer", "teapot"):
+        rows = [("V", GL.read(m, "V", 97)), ("W", GL.read(m, "W", 97))]
+        p = Z / "runs" / f"gal_{m}40k_M_97"
+        GL.paths = (lambda f: (lambda mesh, arm, seed: (f"{p}.json", f"{p}_frames12.npz") if arm == "M" else f(mesh, arm, seed)))(GL.paths)
+        rows.append(("M", GL.read(m, "M", 97)))
+        for arm, r in rows:
+            if r is None:
+                L.append(f"| {m} | {arm} | - | - | - | - | - | - |")
+                continue
+            L.append(f"| {m} | {arm} | {r['sil_iou']:.4f} | {r['chamfer']:.4f} | {r['thin_uncovered']:.3f} | {r['outside']} | "
+                     f"{r['pieces10']} | {r['v_mean']:.2e} |")
+    D = Z / "after"
+    try:
+        j = summ_json(D / "summary_coin.md") if (D / "summary_coin.md").exists() else None
+        rd = json.load(open(D / "read_coin.json"))
+        ceil = np.mean([v["relief"]["A"] for k, v in rd["refs"].items() if k.startswith("relief_s")])
+        e = rd["runs"]["full97"]["series"][-1]["relief"]
+        L += ["", f"- coin lettering: share of the ceiling {e['A'] / ceil:.2f}, corr {e['corr']:.2f} (D161c 0.47-0.53; twin 0.04)"]
+    except Exception as ex:  # noqa: BLE001
+        L += ["", f"- coin lettering: not read ({ex})"]
+    try:
+        rows = {json.loads(line)["name"]: json.loads(line) for line in open(D / "read_colour.jsonl")}
+        a, t = rows["bunny40k_band_M_97"], rows["bunny40k_band_P97"]
+        r = (t["end"]["mis"] - a["end"]["mis"]) / max(t["end"]["mis"] - t["floor"], 1e-9)
+        L.append(f"- colour band: r {r:.2f} (D160d 1.00, D160c 0.91), held-out PSNR {a['img']['held']['colour']['psnr']:.2f} "
+                 f"vs twin {t['img']['held']['colour']['psnr']:.2f}")
+    except Exception as ex:  # noqa: BLE001
+        L.append(f"- colour band: not read ({ex})")
+    open(out, "w").write("\n".join(L) + "\n")
+
+
 if __name__ == "__main__":
-    {"relief": relief, "ripple": ripple, "band": band, "settle": settle, "stiff": stiff}[sys.argv[1]](*sys.argv[2:])
+    {"relief": relief, "ripple": ripple, "band": band, "settle": settle, "stiff": stiff,
+     "minimal": minimal}[sys.argv[1]](*sys.argv[2:])
