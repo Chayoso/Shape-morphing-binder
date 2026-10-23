@@ -19327,6 +19327,57 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     renamed .done, 30 min idle then release). The V1 `test_volume_exact` flake on shared cards is the D164 atomics
     issue, noted and not changed.
 
+- **D162d, F's floor-referenced weight read at the pitch scale (a gated A/B experiment, adoption the user's call;
+  pre-registered 2026-10-22 ~20:00 CDT, before any D162d run; the coordinator's go after D162c; code `wip/d162`
+  148706f, `--render_weight_ref floor_pitch`, default off; server repo_d162d / repo_d162ds, output/gpu/d162d/, run as
+  gpu1 queue job 02; arm name Lp).**
+  *Why.* D162c: the render's push decomposes alike in succeeding and failing runs. What separates them is the realized
+  motion after arrival, 2–30× the twin's when the weight stays near λ_0 against about 1× when it fades.
+  - F faded because the sub-pitch arrangement crossed the floor.
+  - S faded because b's 3-pitch field cannot see 1-pitch letters.
+  - A reference read on pictures low-passed at one pitch drops the arrangement (below the pitch) and keeps the strokes
+    (3.8 pitches and up).
+  *The definition.* λ_t = λ_0 · max(0, 1 − L_floor^lp / L_r^lp).
+  - L^lp is the render term (silhouette + w_pbr shading; with paint on colour scenes) of the particles, read as the
+    body is read (`target.render_term_lowpass`).
+  - Both the body's pictures and the target pictures are blurred by a Gaussian of σ = one exterior pitch (the field's
+    own size; the project's blur widths are σ in spacings) before d_exterior's measures compare them.
+    - Its transfer is about 0.25 at the strokes' 3.8 pitches and e^−10 at the particle spacing of 1.4 pitches.
+  - L_r^lp is read at each window's start state; L_floor^lp on the pictures' own first sample once a run.
+  - The render loss and its gradient are F's, unchanged. No new constant: σ is the field's pitch.
+  *Gates (job 02 on the gpu1 queue, before its runs).*
+  - V2: the references and options' tests, with the new D162d tests (the zero-width identity with render_floor; a run
+    records one floor and λ = λ_0 × excess).
+  - V3: SAME at the defaults against rt1's S1.
+  - V4: four-window runs on the coin relief and on band (exit 0, the L_floor line).
+  - V1, the full suite, is not rerun: the change adds code only under the new option, and V3 covers the default path
+    bit for bit. Its known flake on shared cards (D162b amendment 1, the D164 atomics issue) is noted.
+  *Runs (40k, seeds 97 / 99, 8 runs).* Lp on the coin and bunny relief, band and ears.
+  - Twins as F's (D161's on relief, D160's P on colour).
+  - References: F, S, D161c / D160c (held), D160d, the twins.
+  *Readings.*
+  - Relief and colour as D162 (`d161_read.py` / `d161_summary.py`, `d160_read.py`, `d162_colour.py`, `d162_c23.py`).
+  - `d162b_read.py` (switches, how the run ended, the rest after the excess, the cost).
+  - The per-window trace: λ / λ_0, e and v_mean per committed window, with the relief share or the colour's
+    mis-coloured share at the kept frames.
+  *Criteria.*
+  - P1 / C1, P3–P5 / C2–C4 and the pass rule as D162's.
+  - The rest question, explicit:
+    - (R1) does the excess vanish once the letters are carved? On relief: e ≤ 0.05 at the first kept frame whose relief
+      share is within 0.1 of the run's last, or earlier.
+    - (R2) does the body then come to rest before the stop rule ends the run? The delivered end's v_mean ≤ 2 × the
+      twin's, the stop reason, and the seconds run after e first fell to ≤ 0.05.
+  *Predictions.*
+  - At arrival, e^lp ≈ 0.3–0.6 on relief (the letters' excess, no longer hidden by the arrangement), so λ ≈ 0.3–0.6
+    λ_0, against F's and S's 0.05–0.2.
+  - e falls as the letters are cut, without on/off switching (the low-passed term swings little from window to
+    window).
+  - Relief 0.35–0.55 of the ceiling: above F / S (0.05–0.42), at or below D161c (0.47–0.58).
+  - Colour band r ≈ 0.8–0.9, ears 0.3–0.5.
+  - Rest: where e reaches ≤ 0.05 the body rests within about 2 s (D162b); where e plateaus above it, rest is at risk
+    as for the held arms.
+  - Cost: one field and one render a window (< 1 s at 40k).
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
