@@ -132,6 +132,8 @@ class PipelineConfig:
                                     #   render term of the pictures' own first sample read as the body is read (amendment 2);
                                     #   "shape" (D162b) = the same weight with the excess read on the body's shape, 1 - b_floor / b(t):
                                     #   b the render term of uniform resamples of the body's solid (pipeline/shape_read.py)
+                                    #   "floor_pitch" (D162d) = F's weight with L_r and L_floor read on pictures low-passed at one
+                                    #   exterior pitch (target.render_term_lowpass): the sub-pitch arrangement below, the strokes above
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
     render_exterior: bool = False   # the render terms read on the exterior (surface discs on the particles' zero set,
                                     #   render/exterior.py) in place of the particle cloud (D62)
@@ -211,9 +213,9 @@ class PipelineConfig:
             raise ValueError("gap_split must be \"off\", \"on\", \"interface\", \"soft\", \"fine\" or \"walls\"")
         if self.gap_split in ("interface", "walls") and not self.gap_vp > 0:
             raise ValueError("gap_split interface reads the node volume: gap_vp must be the volume per particle")
-        if self.render_weight_ref not in ("residual", "floor", "shape"):
-            raise ValueError("render_weight_ref must be \"residual\", \"floor\" or \"shape\"")
-        if self.render_weight_ref in ("floor", "shape") and not self.render_exterior:
+        if self.render_weight_ref not in ("residual", "floor", "shape", "floor_pitch"):
+            raise ValueError("render_weight_ref must be \"residual\", \"floor\", \"shape\" or \"floor_pitch\"")
+        if self.render_weight_ref in ("floor", "shape", "floor_pitch") and not self.render_exterior:
             raise ValueError("render_weight_ref floor / shape reads the render term on the exterior: it needs render_exterior")
         if self.exterior_field not in ("zb", "aniso", "zbs"):
             raise ValueError("exterior_field must be \"zb\", \"aniso\" or \"zbs\"")

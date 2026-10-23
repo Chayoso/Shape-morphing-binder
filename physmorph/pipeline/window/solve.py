@@ -311,6 +311,14 @@ class WindowOptimizer:
             self.tele.update(lam_rule=lam, lam0=bal.lam0, render_L=float(lr) if lr is not None else None,
                              render_b=b, render_b_se=self.tgt.render_b_se, render_b_floor=b_floor, render_excess=exc)
             lam = floor_referenced_weight(bal.lam0, b, b_floor)
+        elif ref == "floor_pitch":       # D162d: F's excess read on pictures low-passed at one pitch (runner, window start)
+            if bal.lam0 is None:
+                bal.lam0 = lam
+            Lp, Lp_floor = float(self.tgt.render_lp), float(self.tgt.render_lp_floor)
+            exc = max(0.0, 1.0 - Lp_floor / Lp) if Lp > 0.0 else 0.0
+            self.tele.update(lam_rule=lam, lam0=bal.lam0, render_L=float(lr) if lr is not None else None,
+                             render_lp=Lp, render_lp_floor=Lp_floor, render_excess=exc)
+            lam = floor_referenced_weight(bal.lam0, Lp, Lp_floor)
         self.lam_r = lam * float(self.cfg.render_weight_scale)
         self.lam_capped = int(bool(bal.capped))
         np_, nr_ = _norm(gp), _norm(gr)
@@ -541,9 +549,10 @@ class WindowOptimizer:
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
                  "dfc": self.leaves[0].detach()[:cfg.T].clone(),       # (B13: the force, the next warm start's)
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
-        if getattr(cfg, "render_weight_ref", "residual") in ("floor", "shape"):   # D162 (1) / D162b: the weight's reference,
-            stats.update({k: self.tele.get(k) for k in ("lam_rule", "lam0", "render_L", "render_floor", "render_excess",   # recorded
-                                                        "render_b", "render_b_se", "render_b_floor")})   # on that path only
+        if getattr(cfg, "render_weight_ref", "residual") in ("floor", "shape", "floor_pitch"):   # D162 (1) / b / d: the
+            stats.update({k: self.tele.get(k) for k in ("lam_rule", "lam0", "render_L", "render_floor", "render_excess",
+                                                        "render_b", "render_b_se", "render_b_floor",   # weight's reference,
+                                                        "render_lp", "render_lp_floor")})   # on those paths only
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)

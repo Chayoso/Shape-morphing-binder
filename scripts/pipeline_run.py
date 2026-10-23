@@ -51,11 +51,12 @@ def parse_args(argv=None):
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
-    ap.add_argument("--render_weight_ref", default="residual", choices=["residual", "floor", "shape"],
+    ap.add_argument("--render_weight_ref", default="residual", choices=["residual", "floor", "shape", "floor_pitch"],
                     help="D162 (1) A/B: residual (the default, the frozen path) = the rule lambda |g_r| = 0.5 |g_p| at every "
                          "window; floor = lambda_0 max(0, 1 - L_floor / L_r): the render weight referenced to the render's "
                          "own excess over the render term of the pictures' own first sample; shape (D162b) = the same weight "
-                         "with the excess read on the body's shape, 1 - b_floor / b (physmorph/pipeline/shape_read.py)")
+                         "with the excess read on the body's shape, 1 - b_floor / b (physmorph/pipeline/shape_read.py); floor_pitch (D162d) = floor with L_r and "
+                         "L_floor read on pictures low-passed at one pitch")
     ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
                     help="D162 (2) A/B (off by default): the placement terms read the body at the loss cell (the "
                          "proximity covers within one loss cell, the near band's band is empty, the spray gate in loss cells)")

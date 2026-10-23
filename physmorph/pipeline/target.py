@@ -86,6 +86,8 @@ class TargetPack:
     render_b: float | None = None       # D162b: the shape reading b at the current window's start (shape_read.ShapeRead)
     render_b_se: float | None = None    #   its standard error over the eight resamples
     render_b_floor: float | None = None  #   the floor sample read the same way, once a run
+    render_lp: float | None = None      # D162d: the pitch-low-passed render term at the current window's start
+    render_lp_floor: float | None = None  #   the floor sample read the same way, once a run
 
 
 def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
@@ -332,4 +334,54 @@ def render_floor(tgt: TargetPack, cfg: PipelineConfig, x_floor, albedo=None) -> 
             p, n, _, c = discs.read(x, a, e.albedo_ref if e.albedo_ref is not None else a.mean(0))
             sil, pbr = d_exterior(p, n, e.sils, e.shade, tgt.views, cfg.render_res, tgt.extent, cfg.sil_k, cfg.w_hole,
                                   cfg.w_spray, cfg.pbr_ambient, albedo=c)
+    return float(sil + cfg.w_pbr * pbr)
+
+
+def _gauss_blur(img: torch.Tensor, sigma_px: float) -> torch.Tensor:
+    """Separable Gaussian blur of the last two axes (zero outside the picture), sigma in pixels."""
+    import torch.nn.functional as Fn
+    rad = max(1, int(np.ceil(3.0 * sigma_px)))
+    k = torch.exp(-torch.arange(-rad, rad + 1, device=img.device, dtype=img.dtype) ** 2 / (2.0 * sigma_px * sigma_px))
+    k = k / k.sum()
+    shape = img.shape
+    b = img.reshape(-1, 1, shape[-2], shape[-1])
+    b = Fn.conv2d(b, k.view(1, 1, -1, 1), padding=(rad, 0))
+    b = Fn.conv2d(b, k.view(1, 1, 1, -1), padding=(0, rad))
+    return b.reshape(shape)
+
+
+def render_term_lowpass(tgt: TargetPack, cfg: PipelineConfig, x, albedo=None, sigma=None) -> float:
+    """D162d (cfg.render_weight_ref "floor_pitch"): the render term (silhouette + w_pbr shading) of the particles x as the
+    body is read (the tracked exterior discs of a field found at x; with albedo, D160, the particles' paint), with both
+    its pictures and the run's target pictures low-passed by a Gaussian of sigma wu (default: one exterior pitch, the
+    field's own size) before they are compared by d_exterior's own measures (the asymmetric silhouette penalty, the
+    shading's mean square, per colour channel). The sub-pitch arrangement of the exterior (D162 read 1, D162c) is below
+    that scale, the letters' strokes (3.8 pitches) above it. sigma -> 0 reads render_floor's value (tests)."""
+    from ..losses.silhouette import soft_silhouette_multi
+    from ..render.exterior import tracked
+    from .render_loss import shaded_discs
+    e = tgt.ext
+    xg = gpu.tensor(np.asarray(x.detach().cpu().numpy() if torch.is_tensor(x) else x, np.float32))
+    sig_px = (e.pitch if sigma is None else float(sigma)) / (2.0 * tgt.extent / cfg.render_res)
+    blur = (lambda t: t) if sig_px < 1e-3 else (lambda t: _gauss_blur(t, sig_px))  # noqa: E731
+    with torch.no_grad():
+        discs = tracked(make_field(e.field, xg, e.pitch, radius=e.radius, offset=e.offset, device_field=True),
+                        e.lattice, e.h, e.skin)
+        if albedo is None:
+            p, n, _ = discs.read(xg)
+            c = None
+        else:
+            a = gpu.tensor(np.asarray(albedo.detach().cpu().numpy() if torch.is_tensor(albedo) else albedo, np.float32))
+            p, n, _, c = discs.read(xg, a, e.albedo_ref if e.albedo_ref is not None else a.mean(0))
+        al = blur(soft_silhouette_multi(p, tgt.views, cfg.render_res, tgt.extent, cfg.sil_k))
+        al_t = blur(torch.stack(list(e.sils), 0))
+        sil = (cfg.w_hole * torch.clamp(al_t - al, min=0.0).pow(2)
+               + cfg.w_spray * torch.clamp(al - al_t, min=0.0).pow(2)).mean(dim=(1, 2)).mean()
+        s, _ = shaded_discs(p, n, tgt.views, cfg.render_res, tgt.extent, cfg.sil_k, cfg.pbr_ambient, albedo=c)
+        if c is None:
+            pbr = (blur(s) - blur(torch.stack(list(e.shade), 0))).pow(2).mean(dim=(1, 2)).mean()
+        else:
+            t = torch.stack(list(e.shade), 0).movedim(1, 0).contiguous()
+            s, t = blur(s), blur(t)
+            pbr = sum((s[k] - t[k]).pow(2).mean(dim=(1, 2)).mean() for k in range(len(s))) / len(s)
     return float(sil + cfg.w_pbr * pbr)

@@ -47,7 +47,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "sup_E", "sup_B", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio",
                 "ext_discs", "ext_builds")
 _FLOOR_FIELDS = ("lam_rule", "lam0", "render_L", "render_floor", "render_excess",   # D162 (1) / D162b, those modes only
-                 "render_b", "render_b_se", "render_b_floor", "t_shape")
+                 "render_b", "render_b_se", "render_b_floor", "render_lp", "render_lp_floor", "t_shape")
 _NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason",
                 "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason")
@@ -136,6 +136,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             alb = appearance.tgt if (floor_x is None and render_x is None) else appearance.albedo_at(np.asarray(fx))
         shape = ShapeRead(tgt, cfg, fx, mesh, float(target_fill), N, (lo, hi), alb, log)
         tgt.render_b_floor = shape.b_floor
+    lowpass = cfg.render_weight_ref == "floor_pitch"   # D162d: F's excess read on pictures low-passed at one pitch
+    if lowpass:
+        from ..target import render_term_lowpass
+        fx = floor_x if floor_x is not None else (render_x if render_x is not None else target_x)
+        alb = None
+        if appearance is not None:
+            alb = appearance.tgt if (floor_x is None and render_x is None) else appearance.albedo_at(np.asarray(fx))
+        tgt.render_lp_floor = render_term_lowpass(tgt, cfg, fx, alb)
+        log(f"[v2] render weight referenced to the floor at the pitch scale (D162d): pictures low-passed at one pitch "
+            f"({tgt.ext.pitch:.4f} wu), L_floor = {tgt.render_lp_floor:.4e} (the pictures' own first sample)")
     shape_at = None                                 # the state b was last read at (a retried window starts there again)
     x = src.clone()
     vol0 = compute_rest_volumes(src, 1.0, prm, cfg.device)
@@ -180,11 +190,15 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             t0s = time.time()
             tgt.render_b, tgt.render_b_se, _ = shape.read(x_start, None if appearance is None else appearance.src)
             shape_at, t_shape = x_start.clone(), time.time() - t0s
+        if lowpass and (shape_at is None or not torch.equal(shape_at, x_start)):
+            t0s = time.time()
+            tgt.render_lp = render_term_lowpass(tgt, cfg, x_start, None if appearance is None else appearance.src)
+            shape_at, t_shape = x_start.clone(), time.time() - t0s
         res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer,
                               vol0, (coh_nbr, bond_rest, frag.float()), dfc_init=dfc_prev,
                               alpha_scale=sel.anneal, on_iter=on_iter, log=lambda *_: None)
         stats = res.stats
-        if shape is not None:
+        if shape is not None or lowpass:
             stats["t_shape"] = t_shape                # the shape reading's seconds at this window (None: reused)
         dfc_prev = stats["dfc"]
         if res.commit is None:
@@ -325,7 +339,7 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
            "Jmin_traj": commit.jmin_traj, **counts,
            "selection_merit": stats["selection_merit"], "transport_energy": energy, **diag,
            **{k: v for k, v in stats.items() if k.startswith("force_")}}    # B13's records (baseline force*), else none
-    if getattr(cfg, "render_weight_ref", "residual") in ("floor", "shape"):   # D162 (1) / D162b: the weight's reference,
+    if getattr(cfg, "render_weight_ref", "residual") in ("floor", "shape", "floor_pitch"):   # D162 (1) / b / d: the reference,
         rec.update({k: stats.get(k) for k in _FLOOR_FIELDS})                  # a record (those paths only)
     if thin is not None and cfg.work_telemetry:
         m = thin_metrics(x, thin)

@@ -152,3 +152,43 @@ def test_a_shape_reading_repeats_and_ignores_the_particle_order():
     b1, _, n1 = sr.read(tgt)
     b2, _, n2 = sr.read(tgt[np.random.default_rng(0).permutation(len(tgt))])
     assert b1 == pytest.approx(sr.b_floor, rel=1e-3) and b2 == pytest.approx(b1, rel=1e-3) and n1 == n2 > 0   # (atomics)
+
+
+def test_floor_pitch_needs_the_exterior():
+    with pytest.raises(ValueError):
+        PipelineConfig(render_weight_ref="floor_pitch")
+    PipelineConfig(render_exterior=True, render_weight_ref="floor_pitch")
+
+
+@cuda
+def test_the_lowpassed_term_is_the_render_term_at_zero_width():
+    """D162d: with no blur the low-passed reading is render_floor's value (the same pictures, the same measures), and a
+    blur changes it."""
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline.target import build_target, render_floor, render_term_lowpass
+    _, tgt, _, _ = _box_scene()
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5), render_res=24, dt_res=32,
+                         render_exterior=True, render_weight_ref="floor_pitch")
+    pack = build_target(tgt, prm, cfg)
+    x = tgt + 0.05
+    assert render_term_lowpass(pack, cfg, x, sigma=1e-9) == pytest.approx(render_floor(pack, cfg, x), rel=1e-4)
+    assert render_term_lowpass(pack, cfg, x) != pytest.approx(render_floor(pack, cfg, x), rel=1e-4)
+
+
+@cuda
+def test_a_floor_pitch_run_records_its_reference_and_holds_lambda_to_it():
+    from physmorph.mpm.state import MPMParams
+    from physmorph.pipeline import run_pipeline
+    src, tgt, _, _ = _box_scene()
+    prm = MPMParams(dx=1.0, nx=32, ny=32, nz=32)
+    cfg = PipelineConfig(T=4, iters=2, animations=3, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                         render_res=24, dt_res=32, patience=3, render_exterior=True, render_weight_ref="floor_pitch")
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    rows = [r for r in res["history"] if r.get("frame_end") and not r.get("null_commit")]
+    assert rows
+    assert len({r["render_lp_floor"] for r in rows}) == 1 and rows[0]["render_lp_floor"] > 0.0
+    for r in rows:
+        assert r["render_lp"] > 0.0
+        assert r["render_excess"] == pytest.approx(max(0.0, 1.0 - r["render_lp_floor"] / r["render_lp"]))
+        assert r["lambda"] == pytest.approx(r["lam0"] * r["render_excess"] * cfg.render_weight_scale)
