@@ -19523,6 +19523,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - If H+C holds rest (P4 at both seeds) with P1, the 300k ripples and plaque are rerun with H+C. It then becomes the
     candidate definition: the render keeps its first-window weight; placement reads at the transport's resolution.
 
+- **D162h, the settle test, and D162i, the held weight with a settled end (pre-registered 2026-10-22 ~23:10 CDT,
+  before their runs; the user's order relayed by the coordinator: the rest cost under render authority must be solved,
+  measured first; code wip/d162 d9f07b1, `--settle_windows K`, default 0; gpu1 queue jobs 27 / 28; summaries in
+  output/gpu/d162/auto/27_settle/, 28_d162i/).**
+  - The option: after the run stops (any stop rule), K windows of released physics with zero controls (dF_c = 0, u =
+    0), the same material and plastic assimilation, delivered and recorded (`settle` rows: v_mean, v_absmax). The
+    default path is unchanged (V3 SAME is checked in job 27).
+  - D162h (job 27): the λ-held arm (`--lambda_ema 0`) with K = 30 (about 5 s) on coin and bunny relief and band, 40k,
+    seeds 97 / 99.
+    - It is a rerun, because the kept archives hold positions only: no F, so they cannot be continued.
+    - Twins: D161's (relief) and D160's P (band).
+    - The 300k plaque is not continued for the same reason.
+  - Reading (`d162_auto.py settle`). Per run, the stop (the last optimised window) against the settled end: v_mean
+    against the twin's end, and the relief share (D161's reader) or the recovered colour r (D160's reader) at both.
+    - (A) premature stop: every run settles to ≤ 2 × its twin's end speed and keeps ≥ 0.8 of its relief or colour.
+    - (B) tension: a relief run keeps < 0.8 (the letters spring back once the controls are zero).
+    - Otherwise mixed.
+  - D162i (job 28, queued automatically on (A)): the held weight with a settled end (K = 30) on ears (97 / 99) and a 40k
+    gallery spot check (dragon, armadilo, bimba, seed 97). Coin, bunny relief and band are job 27's own runs.
+  - On (B): D162g (job 26) as queued, and the next definition designed from the measurement (plastic baking of the
+    carve).
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
