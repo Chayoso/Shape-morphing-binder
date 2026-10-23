@@ -132,7 +132,11 @@ def test_a_shape_run_records_b_and_holds_lambda_to_its_excess():
         assert r["render_b"] > 0.0 and r["render_b_se"] >= 0.0
         assert r["render_excess"] == pytest.approx(max(0.0, 1.0 - r["render_b_floor"] / r["render_b"]))
         assert r["lambda"] == pytest.approx(r["lam0"] * r["render_excess"] * cfg.render_weight_scale)
-    assert rows[0]["t_shape"] is not None and rows[0]["t_shape"] > 0.0
+    H = res["history"]            # a window that starts from a new state reads b (its seconds recorded); one retried from
+    for i, r in enumerate(H):     # the same state after a null or rejected window reuses that reading (None)
+        if r.get("frame_end") and not r.get("null_commit"):
+            retry = i > 0 and bool(H[i - 1].get("null_commit"))
+            assert (r["t_shape"] is None) if retry else (r["t_shape"] is not None and r["t_shape"] > 0.0), (i, r["t_shape"])
 
 
 @cuda
