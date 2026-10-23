@@ -19486,6 +19486,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     contact sheets (CPU), each against its twin.
   - The rest cost is stated: the held arm's end speed against its twin's, from the run records.
 
+- **D162g, the held weight with the placement terms at the loss cell (H+C; an A/B, adoption the user's call;
+  pre-registered 2026-10-22 ~22:30 CDT, before its runs; the coordinator's order after D162d; gpu1 queue job 26,
+  output/gpu/d162g/).**
+  - Why: under the held weight the carve costs rest (D161c's end v_mean 3–11× its twin's). The render fights the
+    proximity and the near band at sub-cell scale, so the body is held in tension. With the placement terms reading
+    only at the loss cell (D162's (2), `--placement_at_cell`), that fight should shrink.
+  - Arm H+C: `--lambda_ema 0 --placement_at_cell` on D161's coin and bunny relief, 40k, seeds 97 / 99 (repo_d162ds).
+  - Twin: D162's TC (`--render_weight_scale 0 --placement_at_cell`, the same physics; output/gpu/d162/runs40, archives
+    thinned to one kept frame a window).
+  - References: D161c (H, the placement terms as frozen) and D161's twins.
+  - Readings: D161's reader and summary (H+C against TC); P4 and P3 also against D161's twins. The per-window weight
+    and g_share from the records.
+  - Prediction to test: relief stays near D161c's 0.47–0.58 of the ceiling, while P4 (rest) and P3 (shape) improve
+    toward the twin.
+  - If H+C holds rest (P4 at both seeds) with P1, the 300k ripples and plaque are rerun with H+C. It then becomes the
+    candidate definition: the render keeps its first-window weight; placement reads at the transport's resolution.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
