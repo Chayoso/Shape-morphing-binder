@@ -19568,6 +19568,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     and the end v_mean against V and W; the coin's lettering share and corr; the band's r. D157's exact-mesh metrics
     are not in this pass.
 
+- **Job 82 (pre-registered 2026-10-22 ~23:40 CDT):** the plaque, the ripples (each full + twin) and the band (D160d + twin) at 500k, or at 300k when gpu1 has < 36 GB free (logged). The definition is taken from the auto summaries: D162h A → held + settle 30; D162g passing rest → held + placement at the cell; else held. Output output/gpu/d162k/; run outcomes in output/gpu/d162/auto/82/summary.md.
+
 ## To run next, in order
 
 0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
