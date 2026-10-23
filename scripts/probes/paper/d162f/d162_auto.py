@@ -39,15 +39,15 @@ def relief(out, title, *mds):
     open(out, "w").write("\n".join(L) + "\n")
 
 
-def ripple(out, read_json, run_dir, *videos):
+def ripple(out, read_json, run_dir, full="rip300k_H_97", twin="rip300k_T_97", *videos):
     d = json.load(open(read_json))
     ceil = np.mean([v["relief"]["A"] for k, v in d["refs"].items() if k.startswith("relief_s")])
     L = ["# D162f (b): 300k surface ripples from pictures (held vs twin dF_c + layer u)", ""]
     for lab in ("full97", "twin97"):
         e = d["runs"][lab]["series"][-1]["relief"]
         L.append(f"- {lab}: ridge share of the target's own {e['A'] / ceil:.2f} (corr {e['corr']:.2f})")
-    vh, _, _ = end_v(f"{run_dir}/rip300k_H_97")
-    vt, _, _ = end_v(f"{run_dir}/rip300k_T_97")
+    vh, _, _ = end_v(f"{run_dir}/{full}")
+    vt, _, _ = end_v(f"{run_dir}/{twin}")
     L += [f"- rest cost: end v_mean held {vh:.2e} vs twin {vt:.2e} ({vh / vt:.1f}x)", "- videos: " + ", ".join(videos), ""]
     open(out, "w").write("\n".join(L) + "\n")
 
