@@ -59,37 +59,80 @@ def contrast(depth, L):
     return con, corr
 
 
+def highpass(m, h, sigma=0.3):
+    """m less its own normalized-convolution Gaussian blur (sigma wu): the letters' scale kept, the plaque's bend and
+    the press's large-scale tilt removed."""
+    from scipy.ndimage import gaussian_filter
+    w = np.isfinite(m).astype(np.float64)
+    low = gaussian_filter(np.nan_to_num(m) * w, sigma / h) / np.maximum(gaussian_filter(w, sigma / h), 1e-9)
+    return np.where(w > 0, m - low, np.nan)
+
+
+def letters_map(h):
+    nx, nz = int(np.ceil((X1 - X0) / h)), int(np.ceil((Z1 - Z0) / h))
+    XX, ZZ = np.meshgrid(X0 + (np.arange(nx) + 0.5) * h, Z0 + (np.arange(nz) + 0.5) * h, indexing="ij")
+    return letters(XX.ravel(), ZZ.ravel()).reshape(nx, nz)
+
+
+def ring(m, L, h, r_in=0.05, r_out=0.15):
+    """The local contrast: the mean over the letters' bins (L > 0.5) minus the mean over the bins away from ink
+    (L < 0.05) between r_in and r_out wu of them (a ring around every stroke: the plaque's bend and the word band's
+    edges drop out)."""
+    from scipy.ndimage import binary_dilation
+    inn = L > 0.5
+
+    def disk(k):
+        k = int(k)
+        yy, xx = np.mgrid[-k:k + 1, -k:k + 1]
+        return xx ** 2 + yy ** 2 <= k * k
+    k_in = max(1, int(round(r_in / h)))
+    k_out = k_in + max(1, int(round((r_out - r_in) / h)))
+    rg = binary_dilation(inn, disk(k_out)) & ~binary_dilation(inn, disk(k_in)) & (L < 0.05)
+    ok = np.isfinite(m)
+    a, b = m[inn & ok], m[rg & ok]
+    return float(a.mean() - b.mean()) if len(a) and len(b) else float("nan")
+
+
+def both(m, L, h):
+    """(ring contrast, corr) of the map, and of its high-pass (corr against the letters' high-pass)."""
+    con, corr = ring(m, L, h), contrast(m, L)[1]
+    hm, hl = highpass(m, h), highpass(L, h)
+    ok = np.isfinite(hm)
+    con_h = ring(hm, L, h)
+    corr_h = float(np.corrcoef(hm[ok], hl[ok])[0, 1]) if ok.sum() > 10 else float("nan")
+    return con, corr, con_h, corr_h
+
+
 rows, maps = [], {}
 for label, prefix in items:
     z = np.load(prefix + "_end.npz", allow_pickle=True)
     info = json.loads(str(z["info"]))
     a0 = float(info["a0"])
-    h = a0
-    nx, nz = int(np.ceil((X1 - X0) / h)), int(np.ceil((Z1 - Z0) / h))
-    xc = X0 + (np.arange(nx) + 0.5) * h
-    zc = Z0 + (np.arange(nz) + 0.5) * h
-    XX, ZZ = np.meshgrid(xc, zc, indexing="ij")
-    L = letters(XX.ravel(), ZZ.ravel()).reshape(nx, nz)
-    slab = -column(np.asarray(z["slab_end"], np.float64), h, "top")          # the imprint's depth below y = 0
-    row = {"label": label, "kind": info["kind"], "a0": a0, "stage_end": info.get("stage_end"),
-           "end_press": info.get("end_press"), "seconds": info.get("seconds")}
-    con, corr = contrast(slab, L)
-    row.update(slab_contrast=con, slab_contrast_a0=con / a0, slab_corr=corr,
-               slab_depth_away=float(np.nanmean(np.where(L < 0.05, slab, np.nan))))
+    h = a0                                                                  # the plaque's maps: bins of its pitch
+    hs = 2.0 * float(info["s"])                                             # the slab's: two of its spacings
+    L = letters_map(h)
+    Ls = letters_map(hs)
+    slab = -column(np.asarray(z["slab_end"], np.float64), hs, "top")         # the imprint's depth below y = 0
+    row = {"label": label, "kind": info["kind"], "a0": a0, "split": info.get("split", 2), "g": info.get("g"),
+           "stage_end": info.get("stage_end"), "end_press": info.get("end_press"), "seconds": info.get("seconds")}
+    con, corr, con_h, corr_h = both(slab, Ls, hs)
+    row.update(slab_contrast=con, slab_contrast_a0=con / a0, slab_corr=corr, slab_hp_contrast_a0=con_h / a0,
+               slab_hp_corr=corr_h, slab_depth_away=float(np.nanmean(np.where(Ls < 0.05, slab, np.nan))))
     for key in ("parents_load", "parents_settle", "parents_end"):
         P = np.asarray(z[key], np.float64)
         bottom = column(P, h, "bottom")
         prot = np.nanmedian(bottom) - bottom                                # how far below the face plane
-        con_p, corr_p = contrast(prot, L)
+        con_p, corr_p, con_ph, corr_ph = both(prot, L, h)
         tag = key.split("_")[1]
-        row.update({f"plaque_{tag}_contrast": con_p, f"plaque_{tag}_contrast_a0": con_p / a0, f"plaque_{tag}_corr": corr_p})
+        row.update({f"plaque_{tag}_contrast": con_p, f"plaque_{tag}_contrast_a0": con_p / a0, f"plaque_{tag}_corr": corr_p,
+                    f"plaque_{tag}_hp_contrast_a0": con_ph / a0, f"plaque_{tag}_hp_corr": corr_ph})
         maps[f"{label.split(' ')[0]}_plaque_{tag}"] = prot
     row["printed_share"] = con / row["plaque_settle_contrast"] if row["plaque_settle_contrast"] > 0 else float("nan")
     maps[f"{label.split(' ')[0]}_slab"] = slab
     maps["L"] = L
     rows.append(row)
     tag0 = label.split(" ")[0]
-    np.savez(out / f"maps_{tag0}.npz", slab=slab, L=L, h=h, X0=X0, Z0=Z0,
+    np.savez(out / f"maps_{tag0}.npz", slab=slab, slab_hp=highpass(slab, hs), Ls=Ls, hs=hs, L=L, h=h, X0=X0, Z0=Z0,
              **{k[len(tag0) + 1:]: v for k, v in maps.items() if k.startswith(tag0 + "_plaque")})
     print(json.dumps(row), flush=True)
 
@@ -99,8 +142,9 @@ bottom = column(C, h, "bottom")
 prot = np.nanmedian(bottom) - bottom
 nx, nz = bottom.shape
 XX, ZZ = np.meshgrid(X0 + (np.arange(nx) + 0.5) * h, Z0 + (np.arange(nz) + 0.5) * h, indexing="ij")
-con_c, corr_c = contrast(prot, letters(XX.ravel(), ZZ.ravel()).reshape(nx, nz))
-ceiling = {"label": "ceiling", "contrast": con_c, "contrast_a0": con_c / h, "corr": corr_c}
+con_c, corr_c, con_ch, corr_ch = both(prot, letters(XX.ravel(), ZZ.ravel()).reshape(nx, nz), h)
+ceiling = {"label": "ceiling", "contrast": con_c, "contrast_a0": con_c / h, "corr": corr_c, "hp_contrast_a0": con_ch / h,
+           "hp_corr": corr_ch}
 print(json.dumps(ceiling), flush=True)
 (out / "read.json").write_text(json.dumps({"runs": rows, "ceiling": ceiling}, indent=1))
 
@@ -108,7 +152,8 @@ try:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    slabs = [(r["label"], maps[f"{r['label'].split(' ')[0]}_slab"] / r["a0"]) for r in rows]
+    slabs = [(r["label"], highpass(maps[f"{r['label'].split(' ')[0]}_slab"], 2.0 * r["a0"] / r["split"]) / r["a0"])
+             for r in rows]
     vals = np.concatenate([m[np.isfinite(m)].ravel() for _, m in slabs]) if slabs else np.zeros(1)
     lo_, hi_ = np.quantile(vals, 0.01), np.quantile(vals, 0.99)
     fig, axes = plt.subplots(len(slabs), 1, figsize=(12, 2.4 * max(1, len(slabs))), squeeze=False)
@@ -116,25 +161,27 @@ try:
         # rows z (the run's y, the word's up), columns x: the plaque's front view, i.e. the top view mirrored
         im = ax.imshow(m.T, origin="lower", cmap="gray_r", vmin=lo_, vmax=hi_, extent=(X0, X1, Z0, Z1),
                        aspect="equal")
-        ax.set_title(f"{label}: how deep the slab was pressed (in particle spacings), seen from above, mirrored to read")
+        ax.set_title(f"{label}: the slab's print (depth less its 0.3-wu blur, in particle spacings), mirrored to read")
         ax.set_xticks([])
         ax.set_yticks([])
-    fig.colorbar(im, ax=axes[:, 0].tolist(), shrink=0.8, label="depth below the slab's top (particle spacings)")
+    fig.colorbar(im, ax=axes[:, 0].tolist(), shrink=0.8, label="deeper than its surroundings (particle spacings)")
     fig.savefig(out / "imprint_depth.png", dpi=150, bbox_inches="tight")
 except Exception as e:  # noqa: BLE001  (a figure; its failure must not cost the reading)
     print(json.dumps({"figure_failed": repr(e)}), flush=True)
 
 lines = ["# D165 stamp test: reading (auto)", "",
-         "| run | plaque word contrast loaded / settled / end (a0) | slab imprint contrast (a0) | imprint corr with the "
-         "letters | printed share | press reached |", "|---|---|---|---|---|---|"]
+         "| run | plaque word contrast loaded / settled (a0); high-pass corr settled | slab print contrast (a0); "
+         "corr | slab print high-pass contrast (a0); corr | press reached |", "|---|---|---|---|---|"]
 for r in rows:
-    lines.append(f"| {r['label']} | {r['plaque_load_contrast_a0']:.3f} / {r['plaque_settle_contrast_a0']:.3f} / "
-                 f"{r['plaque_end_contrast_a0']:.3f} | {r['slab_contrast_a0']:.3f} | {r['slab_corr']:.3f} | "
-                 f"{r['printed_share']:.2f} | {'yes' if r['end_press'] is not None else 'no'} |")
+    lines.append(f"| {r['label']} | {r['plaque_load_contrast_a0']:.3f} / {r['plaque_settle_contrast_a0']:.3f}; "
+                 f"{r['plaque_settle_hp_corr']:.2f} | {r['slab_contrast_a0']:.3f}; {r['slab_corr']:.2f} | "
+                 f"{r['slab_hp_contrast_a0']:.3f}; {r['slab_hp_corr']:.2f} | "
+                 f"{'yes' if r['end_press'] is not None else 'no'} |")
 lines += ["", f"Ceiling (the relief mesh sampled at 300k): word contrast {ceiling['contrast_a0']:.3f} a0, corr "
-          f"{ceiling['corr']:.3f}.", "",
-          "Contrast: the mean over the letters' bins minus the mean away from them (bins of a0, the run's (volume per "
-          "particle)^(1/3)); plaque: reach below its face plane; slab: depth of its top after the lift. Figure: "
-          "imprint_depth.png; close-ups: imprint_*.png (d165_render.py)."]
+          f"{ceiling['corr']:.2f}, high-pass corr {ceiling['hp_corr']:.2f}.", "",
+          "Contrast: the mean over the letters' bins minus the mean over the ink-free bins 0.05-0.15 wu around them (a0 = the run's (volume per "
+          "particle)^(1/3)); plaque: reach below its face plane; slab: depth of its top after the lift. High-pass: "
+          "the map less its 0.3-wu normalized Gaussian blur (the plaque's bend and the press's tilt removed), its "
+          "correlation taken against the letters' high-pass. Figure imprint_depth.png; close-ups imprint_*.png."]
 (out / "summary.md").write_text("\n".join(lines) + "\n")
 print("wrote", out / "summary.md")

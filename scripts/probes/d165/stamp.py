@@ -45,7 +45,10 @@ STATE, OUT = argv[0], argv[1]
 f = lambda k, d: float(opts.get(k, d))  # noqa: E731
 E0 = 1.4e5
 E_P, E_S, NU, RHO, G = f("E_plaque", 7 * E0), f("E_slab", E0 / 20), f("poisson", 0.2), f("rho", 800.0), f("g", 1.0)
-DT, TW = f("dt", 2.5e-4), int(opts.get("T", 10))
+SPLIT = int(opts.get("split", 2))                # children per axis: SPLIT^3 per particle, the grid at 2 / SPLIT of a0
+CROP = f("crop", 0.0)                           # > 0: only the plaque within CROP wu of its face (a hand-held face plate)
+BOX = [float(v) for v in opts["box"].split(",")] if "box" in opts else None   # x0,x1,z0,z1: only the plaque over it
+DT, TW = f("dt", 2.5e-4 * 2.0 / SPLIT), int(opts.get("T", 10))
 THICK, MARGIN, DEPTH, GAP0 = f("slab", 0.5), f("margin", 0.4), f("depth", 0.06), f("gap", 0.1)
 V_PRESS, V_LIFT = f("v_press", 0.5), f("v_lift", 1.0)
 SETTLE, HOLD, LIFT, REST = f("settle", 0.1), f("hold", 0.1), f("lift", 0.3), f("rest", 0.15)
@@ -85,7 +88,7 @@ X = X @ R.T
 if F is not None:
     F = np.einsum("ij,njk,lk->nil", R, F, R)
     Fp = np.einsum("ij,njk,lk->nil", R, Fp, R)
-s = (vpp / 8.0) ** (1.0 / 3.0)                  # the children's spacing
+s = vpp ** (1.0 / 3.0) / SPLIT                 # the children's spacing
 dx = 2.0 * s
 a0 = vpp ** (1.0 / 3.0)
 
@@ -101,16 +104,27 @@ def face_plane(P, h):
     return float(np.median(np.minimum.reduceat(ys, start)))
 
 
-offs = np.array([[i, j, k] for i in (-1, 1) for j in (-1, 1) for k in (-1, 1)], np.float64) * (0.5 * s)
+if CROP > 0.0 or BOX is not None:               # the face plate: the parents within CROP of the face (and over BOX)
+    keep_p = np.ones(N, bool)
+    if CROP > 0.0:
+        keep_p &= X[:, 1] < face_plane(X, 2.0 * a0) + CROP
+    if BOX is not None:
+        keep_p &= (X[:, 0] > BOX[0]) & (X[:, 0] < BOX[1]) & (X[:, 2] > BOX[2]) & (X[:, 2] < BOX[3])
+    X, vol0 = X[keep_p], vol0[keep_p]
+    F, Fp = (F[keep_p], Fp[keep_p]) if F is not None else (None, None)
+    N = len(X)
+K3 = SPLIT ** 3
+g1 = (np.arange(SPLIT) + 0.5 - 0.5 * SPLIT) * s
+offs = np.array([[i, j, k] for i in g1 for j in g1 for k in g1], np.float64)
 XC = (X[:, None, :] + offs[None]).reshape(-1, 3)
 face0 = face_plane(XC, 2.0 * a0)
 shift = GAP0 - face0
 X[:, 1] += shift
 XC[:, 1] += shift
 NC = len(XC)
-FC = np.repeat(F, 8, axis=0).astype(np.float32) if F is not None else None
-FpC = np.repeat(Fp, 8, axis=0).astype(np.float32) if Fp is not None else None
-volC = np.repeat(vol0 / 8.0, 8).astype(np.float32)
+FC = np.repeat(F, K3, axis=0).astype(np.float32) if F is not None else None
+FpC = np.repeat(Fp, K3, axis=0).astype(np.float32) if Fp is not None else None
+volC = np.repeat(vol0 / K3, K3).astype(np.float32)
 
 # ── the slab ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 lo_xz = XC[:, [0, 2]].min(0) - MARGIN
@@ -139,7 +153,7 @@ trS = FloorTrajectory(XS.astype(np.float32), np.full(NS, RHO * vc, np.float32), 
                       persistent=True)
 bod = Bodies([trP, trS], [vc, vc], MU_C)
 graph = bod.capture()
-info = dict(state=STATE, kind=kind, N=N, children=NC, slab=NS, vpp=vpp, a0=a0, s=s, dx=dx, grid=n, dt=DT, T=TW,
+info = dict(state=STATE, kind=kind, N=N, split=SPLIT, crop=CROP, box=BOX, children=NC, slab=NS, vpp=vpp, a0=a0, s=s, dx=dx, grid=n, dt=DT, T=TW,
             E_plaque=E_P, E_slab=E_S, poisson=NU, rho=RHO, g=G, depth=DEPTH, gap=GAP0, v_press=V_PRESS, v_lift=V_LIFT,
             stages=dict(settle=SETTLE, hold=HOLD, lift=LIFT, rest=REST), shift_y=shift, face0=face0 + shift,
             detF=[float(np.quantile(detF, q)) for q in (0.01, 0.5, 0.99)], graph=bool(graph), floor_y=floor_y)
@@ -154,7 +168,7 @@ dec_t = torch.as_tensor(np.nonzero(dec)[0], device=xP0.device)
 
 
 def parents():
-    return T_(trP.x[0]).view(N, 8, 3).mean(1)
+    return T_(trP.x[0]).view(N, K3, 3).mean(1)
 
 
 frames, raws, times, stages = [], [], [], []

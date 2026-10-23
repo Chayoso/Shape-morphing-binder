@@ -13,8 +13,12 @@ log "start (CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES)"
   for arm in H T; do
     st=$O/runs300/plq300k_${arm}_97_end.npz
     [ -f $st ] || { log "no end state $st"; continue; }
-    $PY scripts/probes/d165/stamp.py $st $O/stamp/e_$arm > $O/stamp/e_$arm.log 2>&1
+    $PY scripts/probes/d165/stamp.py $st $O/stamp/e_$arm +g=0 > $O/stamp/e_$arm.log 2>&1
     log "stamp e_$arm exit $?: $(tail -1 $O/stamp/e_$arm.log | cut -c1-300)"
+  done
+  for arm in H T; do                            # the kept-frame variant again without gravity (job a: the slab flowed under its weight)
+    $PY scripts/probes/d165/stamp.py $B/output/gpu/d163/runs300/plq300k_${arm}_97_frames12.npz $O/stamp/k_$arm +g=0 > $O/stamp/k_$arm.log 2>&1
+    log "stamp k_$arm (g 0) exit $?: $(tail -1 $O/stamp/k_$arm.log | cut -c1-200)"
   done
   for arm in H T k_H k_T; do
     f=$O/stamp/e_$arm; case $arm in k_*) f=$O/stamp/$arm;; esac

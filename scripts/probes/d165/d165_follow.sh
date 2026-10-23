@@ -14,6 +14,8 @@ A=()
 [ -f $O/stamp/e_T_end.npz ] && A+=("twin (dF_c + layer u) + post-hoc decal:$O/stamp/e_T")
 [ -f $O/stamp/k_H_end.npz ] && A+=("full-endframe (end shape as rest shape):$O/stamp/k_H")
 [ -f $O/stamp/k_T_end.npz ] && A+=("twin-endframe (end shape as rest shape):$O/stamp/k_T")
+[ -f $O/stamp/k40_H_end.npz ] && A+=("full40 (40k, end shape as rest shape):$O/stamp/k40_H")
+[ -f $O/stamp/k40_T_end.npz ] && A+=("twin40 (40k, end shape as rest shape):$O/stamp/k40_T")
 log "reading ${#A[@]} runs"
 nice -n 10 $PY $W/d165_read.py $O/read $PAT $CEIL "${A[@]}" > $O/read.log 2>&1
 log "read exit $?"
