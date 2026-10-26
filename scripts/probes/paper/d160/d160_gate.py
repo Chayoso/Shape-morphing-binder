@@ -17,6 +17,8 @@ G, O = f"{B}/output/gpu", f"{B}/output/gpu/d160"
 SCENES = [("bunny", "half"), ("bunny", "band"), ("bunny", "ears"), ("bunny", "turn"), ("dragon", "band")]
 SEEDS = (97, 99)
 out = Path(sys.argv[1])
+FULL = sys.argv[2] if len(sys.argv) > 2 else "L"           # the full arm's label: L (D160, the rule's weight), H (D160c, held)
+FULL_LABEL = "dF_c + layer u + render loss (full)" + {"H": ", lambda held", "D": ", colour weight held"}.get(FULL, "")
 out.mkdir(parents=True, exist_ok=True)
 
 
@@ -27,13 +29,13 @@ def jl(p):
     return rows
 
 
-col = {r["name"]: r for r in jl(f"{O}/read_colour.jsonl")}
-gate = {r["name"]: r for r in jl(f"{O}/gate_d160.jsonl")}
+col = {r["name"]: r for r in jl(f"{O}/read_colour*.jsonl")}
+gate = {r["name"]: r for r in jl(f"{O}/gate_d160*.jsonl")}
 tagg = {r["name"]: r for r in jl(f"{G}/d155/gate/gate_all.jsonl")}
 pieces = {r["run"]: r for r in jl(f"{O}/pieces.jsonl")}
 d157 = {}
-for r in jl(f"{G}/d157/read40_*.jsonl") + jl(f"{O}/d157_L.jsonl"):
-    if r.get("label") in ("V",) or r.get("label", "").endswith("_L"):
+for r in jl(f"{G}/d157/read40_*.jsonl") + jl(f"{O}/d157_*.jsonl"):
+    if r.get("label") in ("V",) or r.get("label", "").endswith(f"_{FULL}"):
         d157[(r["mesh"], r["seed"], r["label"])] = dict(
             biou=r["sil"]["zb"]["cor"]["1024"]["held"]["biou2pct_err"], f05=r["d3"]["zb"]["cor"]["f0.5"],
             psnr=float(np.mean(r["img"]["cor"]["shaded"]["psnr"])))
@@ -56,7 +58,8 @@ c1 = {}
 for mesh, sc in SCENES:
     per = []
     for s in SEEDS:
-        L, P = col.get(name(mesh, sc, "L", s)), col.get(name(mesh, sc, "P", s))
+        L, P = col.get(name(mesh, sc, FULL, s)), col.get(name(mesh, sc, "P", s))
+        Lr = col.get(name(mesh, sc, "L", s))
         if not (L and P):
             per.append(None)
             continue
@@ -66,7 +69,7 @@ for mesh, sc in SCENES:
                         psnr_P=hP["psnr"], psnr_L=hL["psnr"], lpips_P=hP["lpips"], lpips_L=hL["lpips"],
                         de_P=hP["de"], de_L=hL["de"], travel_P=P["end"]["travel_med"], travel_L=L["end"]["travel_med"],
                         recall_P=P["end"]["recall"], recall_L=L["end"]["recall"], false_P=P["end"]["false"],
-                        false_L=L["end"]["false"], vs_twin=L.get("vs_twin"),
+                        false_L=L["end"]["false"], vs_twin=L.get("vs_twin"), mis_Lrule=Lr["end"]["mis"] if Lr else None,
                         tl_P=P.get("timeline"), tl_L=L.get("timeline")))
     ok = [p for p in per if p]
     if sc == "half" and mesh == "bunny":
@@ -84,14 +87,14 @@ LOWER = {"ind_sil": False, "yard_sil": True, "yard_pbr": True, "display": True, 
 c2, cells, miss = {}, 0, 0
 for mesh, sc in SCENES:
     for s in SEEDS:
-        n = name(mesh, sc, "L", s)
+        n = name(mesh, sc, FULL, s)
         if n not in gate:
             continue
         row = {}
         for k, low in LOWER.items():
             if k in ("biou", "f05", "psnr"):
                 ref = [d157[(mesh, t, "V")][k] for t in (97, 99, 101) if (mesh, t, "V") in d157]
-                v = d157.get((mesh, s, f"{sc}_L"), {}).get(k)
+                v = d157.get((mesh, s, f"{sc}_{FULL}"), {}).get(k)
             else:
                 ref = [tagg[f"{mesh}40k_V{t}"]["end"].get(k) for t in (97, 99, 101) if f"{mesh}40k_V{t}" in tagg]
                 ref = [x for x in ref if x is not None]
@@ -114,7 +117,7 @@ kin_ref = {m: max(tagg[f"{m}40k_V{t}"]["kin_end"] for t in (97, 99, 101) if f"{m
 c3, c4 = {}, {}
 for mesh, sc in SCENES:
     for s in SEEDS:
-        n = name(mesh, sc, "L", s)
+        n = name(mesh, sc, FULL, s)
         if n not in gate:
             continue
         ok3, drift, jit = g3(n)
@@ -130,7 +133,7 @@ C4 = bool(c4) and all(v["passed"] for v in c4.values())
 runs = {}
 for mesh, sc in SCENES:
     for s in SEEDS:
-        for arm in "LP":
+        for arm in (FULL, "P"):
             n = name(mesh, sc, arm, s)
             if n in gate:
                 g = gate[n]
@@ -142,8 +145,9 @@ res = dict(C1=C1, C2=C2, C3=C3, C4=C4, PASS=bool(C1 and C2 and C3 and C4), c1=c1
 
 # ---- the table ----
 L_ = ["| scene | seed | mis twin → full (floor) | recovered r | held-out colour PSNR twin → full | LPIPS twin → full | "
-      "ΔE twin → full | travel twin → full (pitches) | red outer shift full − twin (pitches) | outer |Δ| med / p90 |",
-      "|---|---|---|---|---|---|---|---|---|---|"]
+      "ΔE twin → full | travel twin → full (pitches) | red outer shift full − twin (pitches) | outer |Δ| med / p90 | "
+      "D160 full (the rule's λ) mis |",
+      "|---|---|---|---|---|---|---|---|---|---|---|"]
 for k, v in c1.items():
     for p in v["seeds"]:
         if not p:
@@ -152,7 +156,8 @@ for k, v in c1.items():
         L_.append(f"| {k} | {p['seed']} | {p['mis_P']:.3f} → {p['mis_L']:.3f} ({p['floor']:.3f}) | {p['r']:.2f} | "
                   f"{p['psnr_P']:.2f} → {p['psnr_L']:.2f} | {p['lpips_P']:.3f} → {p['lpips_L']:.3f} | "
                   f"{p['de_P']:.1f} → {p['de_L']:.1f} | {p['travel_P']:.1f} → {p['travel_L']:.1f} | "
-                  f"{(vt.get('red_outer_shift') or 0):+.2f} | {vt.get('d_outer_med', 0):.2f} / {vt.get('d_outer_p90', 0):.2f} |")
+                  f"{(vt.get('red_outer_shift') or 0):+.2f} | {vt.get('d_outer_med', 0):.2f} / {vt.get('d_outer_p90', 0):.2f} | "
+                  f"{p['mis_Lrule'] if p['mis_Lrule'] is not None else float('nan'):.3f} |")
 L_ += ["", f"C1 colour {'PASS' if C1 else 'FAIL'}: " + ", ".join(f"{k} {'pass' if v['passed'] else 'fail'}"
                                                               for k, v in c1.items()),
        f"C2 geometry {'PASS' if C2 else 'FAIL'}: {miss} of {cells} cells worse than the tag's worst V by more than its spread",
@@ -186,7 +191,7 @@ for i, k in enumerate(keys):
     for j, (arm, c) in enumerate((("P", TW), ("L", FU))):
         vals = [p[f"mis_{arm}"] for p in ps]
         ax.bar(i + (j - .5) * .36, np.mean(vals), .32, color=c, edgecolor=SURF, linewidth=2,
-               label=("dF_c + layer u (twin)" if arm == "P" else "dF_c + layer u + render loss (full)") if i == 0 else None)
+               label=("dF_c + layer u (twin)" if arm == "P" else FULL_LABEL) if i == 0 else None)
         ax.scatter([i + (j - .5) * .36] * len(vals), vals, s=18, color=INK, zorder=3)
     ax.hlines(np.mean([p["floor"] for p in ps]), i - .4, i + .4, colors=INK2, linestyles="--", linewidth=1,
               label="a perfect sample's own share" if i == 0 else None)
@@ -214,11 +219,11 @@ for ax, k in zip(np.atleast_1d(axs), keys):
     ax.set_title(labels[k].replace("\n", " "), color=INK, fontsize=10, loc="left")
     ax.set_xlabel("time (s)")
     ax.grid(color="#e6e5e1", linewidth=.8)
-np.atleast_1d(axs)[0].set_ylabel("share of the surface in the wrong colour")
+np.atleast_1d(axs)[0].set_ylabel("wrong-colour share")
 from matplotlib.lines import Line2D  # noqa: E402
 fig.legend([Line2D([], [], color=TW, lw=2), Line2D([], [], color=FU, lw=2), Line2D([], [], color=INK2, lw=2),
             Line2D([], [], color=INK2, lw=2, ls="--")],
-           ["dF_c + layer u (twin)", "dF_c + layer u + render loss (full)", "seed 97", "seed 99"],
+           ["dF_c + layer u (twin)", FULL_LABEL, "seed 97", "seed 99"],
            frameon=False, loc="upper center", ncol=4)
 fig.suptitle("When does the colour get placed?", x=0.01, ha="left", y=0.86, color=INK)
 fig.tight_layout(rect=(0, 0, 1, .82))
@@ -233,7 +238,7 @@ for i, k in enumerate(keys):
         ax.plot([i - .15, i + .15], [p["psnr_P"], p["psnr_L"]], color=INK2, linewidth=1, zorder=1)
         ax.scatter([i - .15], [p["psnr_P"]], s=40, color=TW, zorder=2, label="dF_c + layer u (twin)" if i == 0 and p["seed"] == 97 else None)
         ax.scatter([i + .15], [p["psnr_L"]], s=40, color=FU, zorder=2,
-                   label="dF_c + layer u + render loss (full)" if i == 0 and p["seed"] == 97 else None)
+                   label=FULL_LABEL if i == 0 and p["seed"] == 97 else None)
 ax.set_xticks(range(len(keys)), [labels[k] for k in keys])
 ax.set_ylabel("PSNR (dB), higher is closer")
 ax.set_title("Do pictures from new viewpoints look like the painted target? (46 held-out views)", color=INK, loc="left")

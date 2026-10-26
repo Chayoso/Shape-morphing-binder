@@ -19,13 +19,13 @@ G = "/data/relcfd/chayo/physmorph_v2/output/gpu/d156/runs40"
 L, P = f"{G}/{mesh}40k_L_{seed}_frames12.npz", f"{G}/{mesh}40k_P_{seed}_frames12.npz"
 ctx = R.Ctx(mesh, seed, "hull", L)
 end = lambda p: np.asarray(np.load(p, allow_pickle=True)["frames"][-1], np.float32)   # noqa: E731
-surfs = {"hull (H)": D7.field_mesh("zbs", ctx.H, ctx.a)[0], "P (render off)": D7.field_mesh("zbs", end(P), ctx.a)[0],
-         "L (render on)": D7.field_mesh("zbs", end(L), ctx.a)[0], "true mesh (M)": D7.field_mesh("zbs", ctx.M, ctx.a)[0],
+surfs = {"visual hull (H)": D7.field_mesh("zbs", ctx.H, ctx.a)[0], "dF_c + layer u (λ=0)": D7.field_mesh("zbs", end(P), ctx.a)[0],
+         "full (+ render loss)": D7.field_mesh("zbs", end(L), ctx.a)[0], "true mesh (M)": D7.field_mesh("zbs", ctx.M, ctx.a)[0],
          "true mesh (exact)": ctx.true_cn}
 if len(sys.argv) > 4:
     views = [tuple(np.radians(float(v)) for v in s.split(":")) for s in sys.argv[4].split(",")]
 else:
-    hv = [D7.render(surfs["hull (H)"], ctx.center, ctx.radius, v)[0] for v in R.HELD]
+    hv = [D7.render(surfs["visual hull (H)"], ctx.center, ctx.radius, v)[0] for v in R.HELD]
     mse = [float(((h - m[0]) ** 2).mean()) for h, m in zip(hv, ctx.img_M)]
     views = [R.HELD[i] for i in np.argsort(mse)[::-1][:3]]
 import matplotlib                                                         # noqa: E402

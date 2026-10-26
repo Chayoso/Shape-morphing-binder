@@ -6188,6 +6188,168 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
      (`t3_` / `e3_`, as bunny and dragon have); then `r4_tail.py` on all six, and the change of the yardstick silhouette,
      shading and display front per wall minute in the last 50 / 25 / 10 % of the wall.
      *Expected.* As on bunny and dragon: 90 % of the tail's gain with a quarter to two fifths of the wall still to go.
+  **D145 post-tag reading 5, read (2026-10-21 13:21 – 22:55 CDT server clock; drivers and readers
+  `scripts/probes/paper/posttag/r5_*` — `r5_gpu.sh` (one card for the chain, a PAUSE file; GPU 1 14:33–14:46 and
+  17:10–20:48), `r5_runcpu.sh`, `r5_timeline.sh`, `r5_late.sh`, `r5_far.py`, `r5_queue.sh` (three CPU slots, nice 10),
+  `r5_d157x.py` / `.sh` (D157's reader imported unchanged), `r5_jobs.py`, `r5_tail.py`, `r5_table.py`, `r5_resume.sh`;
+  runs `output/gpu/d145t_cell/`, readings `output/gpu/d145_ext/r5/` (`r5_tables.md`, `r5_tail.md`); local
+  `output/results_2026-10-20/d145_external/` (`r5_*`)).**
+  *Operations.*
+  - The chain waited for a card from 13:21 to 14:33 (all four were locked).
+  - The coordinator asked for the cards for the user's 17:00 demo.
+    - After teapot LC97 had finished, I stopped the chain loop by its own PID 2565002 (SIGKILL, so that its trap
+      could not drop the lock under a running reading) and let the run's GPU readings finish.
+    - I released the lock at 14:46 and resumed at 17:00 (`r5_resume.sh`); the resumed chain did LC97's end reading
+      first.
+  - D157's reader on Xu et al.'s homer XU101 grew past 80 GB of the server's memory.
+    - I stopped it by its PID and added a guard: an end with more than 1 % of its particles outside the largest linked
+      set is recorded and not read.
+    - 12 of 304 route-(A) states were not read: Xu et al. on bob, dragon and homer, OT's dragon, 4Deform bob FDn3 and
+      dragon FDn2.
+  - One inline late-timeline task lost its topology step to an unexpanded variable; it was redone by `r5_late.sh`.
+  - No queue edit; no other process touched.
+
+  **(1) The cell-size evidence** (one run per arm against B1's seeds 97 / 99 / 101).
+  The run cell, `--cell_follows_n`: dx 0.1555 wu, 3.2 pitches, about 24 particles a cell. The shape's cell: 0.3047 wu,
+  about 183 particles a cell.
+
+  | mesh, arm | end genus (target) | yardstick sil / shading e-4 | display front % | thin % | D157 BIoU err / F@0.5 / PSNR | end kinetic | wall min / windows / s per attempt / GPU GB | far-piece frames / most particles |
+  |---|---|---|---|---|---|---|---|---|
+  | teapot L, shape (B1) | 0 / 0 / 0 (1) | 6.9–7.9 / 4.0–4.4 | 0.83–0.92 | 2.6–4.6 | 0.068–0.073 / 0.81–0.84 / 34.8–35.3 | 0.4–1.5e-6 | 13.2–14.3 / 117–124 / 6.0 / 20 | 0 / 0 |
+  | teapot LC97 | **1** (1) | **5.59 / 3.33** | **0.795** | 4.2 | **0.0545 / 0.893 / 35.70** | 4.2e-7 | 12.0 / 90 / 6.8 / 20 | 0 / 0 |
+  | teapot P, shape | 0 (P97) | 10.8–13.8 / 5.9–6.8 | 1.09–1.29 | – | 0.080–0.082 / 0.80–0.81 / 34.5–34.6 | 0.6–1.1e-6 | 12.3–14.2 / 108–129 / 6.0 / 20 | – |
+  | teapot PC97 | **1** | **7.42 / 4.30** | **0.965** | 5.5 | **0.0567 / 0.896 / 35.76** | 1.2e-6 | 9.4 / 77 / 6.7 / 20 | 0 / 0 |
+  | homer L, shape | 0 / 1 / 2 (0) | 2.65–3.69 / 1.98–2.08 | 0.73–0.84 | 5.2–6.2 | 0.050–0.064 / 0.92–0.93 / 38.4–38.7 | 1.4–4.9e-6 | 24.3–34.6 / 156–237 / 8.0–8.4 / 22–23 | 1 / 1 (L97) |
+  | homer LC97 | 1 | 2.71 / **1.78** | 0.728 | 6.9 | **0.0381 / 0.946 / 38.82** | 1.8e-6 | **17.2** / 97 / 9.2 / 26 | **18 / 88** |
+  | homer P, shape | 2 (P97) | 4.51–5.66 / 2.52–2.72 | 1.02–1.07 | – | 0.067–0.069 / 0.87–0.88 / 37.5–37.7 | 2.5–6.5e-6 | 20.6–22.9 / 134–152 / 8.2–8.5 / 22 | – |
+  | homer PC97 | 1 | 5.47 / **2.43** | **0.909** | 7.2 | **0.0460 / 0.896 / 38.30** | 2.0e-6 | 17.4 / 92 / 9.8 / 25 | 1 / 1 |
+  | dragon L, shape | 2 / 2 / 2 (15) | 5.28–5.79 / 4.55–4.64 | 0.88–0.99 | 4.0–4.7 | 0.078–0.081 / 0.85–0.86 / 34.1–34.2 | 0.9–1.3e-5 | 27.9–29.6 / 164–186 / 8.8–9.1 / 19–20 | 6–12 / 4–10 |
+  | dragon LC97 | 3 | **4.70 / 3.84** | **0.826** | 5.2 | **0.0655 / 0.900 / 34.73** | 1.1e-5 | **44.1** / 118 / **20.3** / **35** | **19 / 49** |
+  | dragon P, shape | 2 (P97) | 10.7–13.6 / 6.3–7.3 | 1.19–1.40 | – | 0.087–0.093 / 0.81–0.83 / 33.5–33.6 | 0.7–1.7e-5 | 23.9–29.4 / 143–178 / 8.8–9.1 / 19–22 | 9–13 / 10–21 |
+  | dragon PC97 | 2 | **8.02 / 5.18** | **1.13** | 4.9 | **0.0726 / 0.888 / 34.37** | 8.2e-6 | 24.4 / 118 / 10.7 / 21 | 1 / 1 |
+
+  Bold: outside B1's three-seed range, on the better side. A perfect sample reads on D157's measures: teapot 0.066 /
+  0.86–0.87 / 34.1; homer 0.036–0.037 / 0.962 / 37.0–37.1; dragon 0.060–0.062 / 0.916–0.918 / 33.6–33.7.
+  - *Genus.*
+    - The teapot's handle opens on the finer cell in both arms. The handle plane's enclosed opening is 20.2 pitches²
+      in LC97 and 16.4 in PC97; the target has 30.2, and B1 has none in any arm.
+    - It opens late: genus 0 to 6.0 s, 1–2 from 6.5–7.0 s on in LC97; 1–3 from 7.0 s in PC97.
+    - Its extra-material cluster in the eye shrinks from 127–140 particles (B1) to 24–28.
+    - The dragon's loops do not open: genus 3 / 2 against B1's 2, a perfect sample's 9–12, the target's 15. The
+      crevice fills shrink (largest extra cluster 29–37 particles against 100–204), but its loops stay closed.
+    - Homer: genus 1 in both arms. The target is 0 and the display route itself gives 2 for a perfect sample, so
+      there is no change against B1's 0–2.
+  - *End quality.* On the finer cell, LC / PC against B1's median of the same arm:
+    - The teapot is better on every measure in both arms: yardstick −20 / −37 %, shading −20 / −33 %, display −7 /
+      −13 %, D157's Boundary IoU error −21 / −31 %, F@0.5 +0.07 / +0.09.
+      - LC97 is past a perfect sample: F@0.5 0.893 against 0.86–0.87, Boundary IoU 0.0545 against 0.066.
+    - The dragon is better on the exterior: yardstick −13 / −38 %, shading −16 / −26 %, display −8 / −10 %;
+      Boundary IoU −18 / −17 %, F@0.5 +0.05 / +0.07.
+    - Homer:
+      - D157's Boundary IoU −36 / −33 % (LC97 at a perfect sample's 0.036–0.037), F@0.5 +0.02 / +0.02, shading
+        −11 / −7 %;
+      - the yardstick silhouette within B1's range in both arms; the display within it (LC) and below it (PC).
+    - Thin uncovered: +0.7–1.7 points on homer and dragon (6.9–7.2 against 5.2–6.2; 4.9–5.2 against 4.0–4.7);
+      within B1's range on the teapot.
+    - At rest: the end kinetic energy is within B1's ranges, apart from teapot PC97 at 1.2e-6 against 0.6–1.1e-6.
+  - *Cost.*
+    - Fewer windows on every run: 77–118 against 108–237.
+    - Seconds per attempt: +12–20 % on teapot, homer and the dragon twin, but ×2.3 on the dragon render arm (20.3 s
+      against 8.8–9.1; GPU memory 35 GB against 19–20).
+    - Wall: teapot 12.0 / 9.4 min against 12.3–14.3, homer 17.2 / 17.4 against 20.6–34.6, dragon LC97 44.1 against
+      27.9–29.6, PC97 24.4 against 23.9–29.4.
+  - *The trajectory (the user's reason for keeping D135's cell).* Over 0–3 s the finer cell's display is more porous:
+    - Teapot: fewer cavities than B1 (168 against 284 at 0.3 s).
+    - Homer: genus up to 92 and 279 display components at 1.0–2.1 s, against ≤ 16 and ≤ 63. PC97 is the same (90 /
+      316), so this is the cell, not the render.
+    - Dragon over 1.5–2.6 s: genus 102 → 4 and up to 721 components, with 1–4 separate drawn pieces holding particles
+      at 1.85–2.6 s. B1 has genus ≤ 31 and none; D137's tear window.
+    - Far pieces (`r5_far.py`), render arm only. The twins have 1 frame of 1 particle. On B1's cell: the render arm
+      up to 12 frames and 10 particles, its twin up to 13 frames and 21 particles (dragon).
+      - Homer LC97: particles ≥ 5 pitches off the linked body at 0.95–1.95 s, at most 155 at 1.15 s in 49 sets
+        (largest 41 particles; 5–13 pitches off). They sit at the head's top (y 0.97–0.99 of the box) and the feet
+        (y 0.02–0.03). The same particles followed: 68 % still apart at 1.5 s, none ≥ 5 pitches after 1.6 s, all back
+        in the body by 2.55 s, none apart at the end.
+      - Dragon LC97: 0.95–2.15 s, at most 73 at 1.35 s (largest set 22), at the horns / head (y 0.85–0.94) and the
+        feet; all back by 2.25 s.
+      - These are D137's arrival-phase population of the render arm, arriving earlier with the finer cell.
+  - *Against the expectations:*
+    - Teapot eye: expected open in perhaps two in five runs; it opened in both runs (late, as expected).
+    - Dragon: expected 6–12 loops; it got 3 (not as expected).
+    - Homer: expected genus 0; it got 1.
+    - Cost: better than expected on the teapot and homer, worse on the dragon render arm (×2.3 per attempt).
+    - Thin: as expected (−1…+2 points). GPU memory: 20–35 GB against the expected 35–40.
+  - *Render → control → outcome on the finer cell (LC against PC).*
+    - The arm's lead holds: yardstick −25 / −50 / −41 %, shading −23 / −27 / −26 %, display −18 / −20 / −27 %
+      (teapot / homer / dragon). B1's L against P is −40 / −41 / −59 % on the yardstick.
+    - D157: level on the teapot; ahead on homer (Boundary IoU 0.038 against 0.046) and the dragon (0.066 against
+      0.073).
+    - What the render does not change: the genus (the teapot's eye opens in the twin too; the dragon's loops stay
+      closed in both) and the porous early display.
+    - What it adds: the early far pieces (homer 18 frames / up to 155 particles, dragon 25 / 73; the twins 1 / 1) and,
+      on the dragon, the doubled seconds per attempt.
+
+  **(2) D157's reader on the external methods** (route pts: every method's end sample through our display against the
+  corrected mesh, as D157 reads ours; route mesh: their own end meshes against the raw mesh; replication row for our L97
+  identical to D157's to every digit).
+  - ARAP's end is the target mesh itself: its vertices are within 7e-6 pitch of the referee, so its route-(A) state is a
+    perfect sample.
+  - Counts (meshes where the method is ahead / level / behind ours' seed range; from ours' side "behind" means ours is
+    better):
+
+    | method | route | BIoU err | F@0.5 | held-out PSNR |
+    |---|---|---|---|---|
+    | a perfect sample (own target sample) | pts | 4 / 2 / 0 | 5 / 1 / 0 | 0 / 0 / 6 |
+    | ISD | pts | 1 / 3 / 2 | 1 / 4 / 1 | 0 / 0 / 6 |
+    | Large Steps (b) | pts | 1 / 2 / 3 | 3 / 0 / 3 | 0 / 0 / 6 |
+    | ARAP (3 meshes) | pts | 2 / 1 / 0 | 3 / 0 / 0 | 0 / 0 / 3 |
+    | ISD | mesh | 3 / 3 / 0 | 4 / 2 / 0 | 4 / 2 / 0 |
+    | Large Steps (b) | mesh | 4 / 0 / 2 | 3 / 1 / 2 | 4 / 1 / 1 |
+    | Large Steps (a) | mesh | 1 / 2 / 3 | 3 / 1 / 2 | 3 / 1 / 2 |
+    | NISE, Buonomo et al., Xu et al., OT, 4Deform, FlexiCubes, our twin | both | 0 ahead anywhere | 0 (NISE mesh level once) | 0 |
+
+  - Read the same way (route pts), ours leads every method on the held-out studio images (PSNR) on all six meshes.
+    On the outline (Boundary IoU) it is level with or ahead of ISD and Large Steps on 5–6 of 6.
+  - Ours is behind a perfect sample on Boundary IoU on 4 and on F@0.5 on 5. ARAP and Large Steps (b) are effectively
+    perfect samples on the smooth meshes (armadilo 0.042–0.043 against ours 0.049–0.051). This is D157's outward bias
+    of the render arm's outline.
+  - Read as their own meshes (no sample anywhere), ISD and Large Steps (b) lead on the smooth meshes, e.g. bob ISD
+    0.015–0.017 / 0.99–1.00 / 47 dB against ours 0.044–0.047 / 0.97–0.98 / 38 dB. A perfect 300k sample read through the
+    display is behind them too, so this gap is the particle display's.
+  - The finer cell of (1) closes much of the route-(A) gap: teapot LC97 is past a perfect sample, homer LC97 at it.
+
+  **(3) The price of the run after the render's floor, all six meshes** (`r5_tail.md`; every-frame yardstick and
+  display now on all six L97s; bunny and dragon on three seeds).
+  - Over the stretch after the crossing:
+    - with every-frame readings: yardstick silhouette × 0.51–0.89, shading × 0.58–0.82, display front × 0.64–0.94;
+    - 90 % of each measure's gain comes with a median 34 % (yardstick), 31 % (shading) and 39 % (display) of the wall
+      still to go.
+  - The last part of the wall (the end measure's worsening had the run stopped there, median over 10 runs):
+
+    | last part of the wall | yardstick silhouette | shading | display front |
+    |---|---|---|---|
+    | 50 % | +14 % (1–32 %) | +9 % (0–30 %) | +5 % (−4…+10 %) |
+    | 25 % | +4 % (−3…+10 %) | +3 % (−1…+8 %) | +1 % (−4…+3 %) |
+    | 10 % | −1 % (−4…+4 %) | 0 % (−3…+2 %) | 0 % (−4…+1 %) |
+
+    The last 10 % of the wall (0.9–3.4 min) changes nothing measurable. The last quarter (2.2–8.4 min) gives 1–10 %
+    (homer 10 %, the dragon 5–8 %). The last half gives 5–14 % (median).
+
+  **Next steps (proposals; none run).**
+  - *The cell for the next freeze (the user's decision).*
+    - The finer cell is better on the teapot (genus and every quality measure), and on the exact-mesh measures on all
+      three meshes. It is faster on teapot and homer, and costs thin coverage on homer and the dragon, the dragon render
+      arm's ×2.3 seconds per attempt, a porous early display, and early far pieces that rejoin.
+    - Evidence still missing before a default change: the same pair on bunny, bob and armadilo (D137's bob rim shift,
+      +48 % yardstick, was on D135's code) and seeds 99 / 101 on the three meshes. That is 12–18 runs, one card,
+      about 5–7 h.
+    - Also: the dragon render arm's seconds per attempt traced to its step (profile one window).
+  - *The dragon's loops.* They stay closed at 3.2 pitches. Next: measure each loop's opening width against the
+    cell. D137 had the neck–body hole open, so read which of the 15 loops open at all.
+  - *The outline's outward bias (behind a perfect sample on F@0.5)*: D157's item (4), the 2:1 deficit weighting, read as
+    an A/B on the finer cell (the user's decision).
+  - *The end rule.* The last 10 % of every run is measurably free and the last 25 % worth 1–10 %; an end at 90 % of
+    the wall would save 1–3.4 min a run. A definition change for the user.
   **B9b, gravity with the floor through the scene path with one body (pre-registered 2026-10-17 17:10 CDT server
   clock, before any run; the user approved the rerun on 2026-10-17; code `wip/b9b` f0a26d5 = `wip/d147` 5dbcf6e + two
   scene-spec fields and the probes, server copy `repo_b9b`; `scripts/probes/b9b/`; `output/gpu/b9b/runs/`; local
@@ -6709,6 +6871,388 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
       - With no gravity, the share does move the frames beyond the rule's own difference: a moving body's
         uncontrolled continuation is not the identity, so its own elastic recovery is not assimilated. This is a
         change to the frozen rule, reported and not adopted.
+  - **The controls' share, the 40k read: GATE FAIL (read 2026-10-21 22:30–22:45 CDT; chain 17:23–19:38 on GPU 2, renders
+    on GPU 0; `share/read_share.md`; local `output/results_2026-10-21/b9b_gravity_world/share_40k/`).**
+    - *Proofs.* The first attempt stopped at 17:20 on its own suite: the new continuation test's precondition (6 steps
+      under g 3 moved the stored F by 5e-7). The test was given a load that deforms F (g 50 over 40 steps, pressed into
+      the floor; 88dba56); the second suite passed (456, 2 skipped), the pinned references included.
+    - *By the letter it fails on:* the dragon's end motion (median 0.0357 against the no-gravity level 0.0082); V1 rest
+      on 1 of 8 gravity runs (bunny L97 only); the dragon arms' silhouette IoU (0.9725–0.9751 against option 1's worst,
+      0.9752), thin (up to 7.6 %), yardstick silhouette (24–30e-4 against 20e-4) and shading; bunny L101's thin
+      (5.29 % against 4.73 %).
+    - *What it did as designed.* The assimilation reads far less: per-window p99 of 0.006–0.018 against the frozen
+      reading's 0.067–0.098 on the same states. On the bunny the end motion falls (render arms' median 0.0077 against
+      option 1's 0.0149; the no-gravity Z level is 0.0114, the D147 V0 level about 0.0035), and shape, height (within
+      0.05 pitches), shape tilt (≤ 0.67°), IoU and yardstick hold.
+    - *Why the end does not come to rest: measured (`tmp/b9b/rock.py`, `decay.py`, CPU).*
+      - Option 1's end motion is a steady one-way creep. After 4 s the material frame turns +0.5 to +0.9°/s in every
+        2-s band. The window records' angular velocity keeps one direction (the magnitude of its mean equals its mean
+        magnitude, 0.005–0.010 rad/s; no reversals). This is the assimilation's per-window sinking and the controls'
+        rebuilding (the option-1 300k reading).
+      - The share removes that creep but leaves an elastic oscillation that hardly decays. On the dragon the material
+        frame turns back and forth with alternating sign, band by band: L97 +2.9, −2.7, +1.6, −0.4, −0.4°/s; L101
+        +3.9, −3.3, +2.4, −1.4, +1.2°/s. The centroid's height oscillates with a 4.05-s period at twice option 1's
+        amplitude (std 0.013–0.028 pitches against 0.004–0.022).
+      - The angular velocity is 4–5× option 1's (mean |ω| 0.024–0.036 rad/s against 0.005–0.008), and its direction
+        wanders: the magnitude of its mean is only 0.001–0.007. That is a rocking on the floor, not a turn. The
+        deformation speed is 30–50 % higher (0.056–0.075 wu/s).
+      - On the bunny the same oscillation decays inside the run (L99: |ω| 0.050 → 0.036 → 0.008 rad/s; L97 reaches V1
+        rest).
+      - The cause in plain terms: the frozen reading's 0.07–0.10 of strain made rest shape every window was also the
+        body's only dissipation of the elastic energy the weight stores. The share keeps that energy elastic, so the
+        body is a soft spring on the floor. It rocks, with the soft response's period (about 4 s; B9b's Z5 sag
+        oscillated at about 5 s). The scene's damping acts on the deformation velocity only, so it leaves the rocking's
+        rigid part undamped; only the world target's velocity terms brake it, through the floor.
+    - *The frozen question: the share does move the unloaded body.* With no gravity (bunny, standing frame, g 0), the
+      RMS position difference is 0.32 / 0.68 / 0.68 pitches at 1 s / largest / end for the share against the current
+      rule. The current rule against itself gives 0.16 / 0.42 / 0.42. The share also reads 6× less in the unloaded body
+      (p99 0.0052 against 0.031): a moving body's uncontrolled continuation is not the identity, so its own recovery is
+      not assimilated. Ported as it is, it would change the frozen algorithm. Reported, not adopted.
+      - A confound to state: the no-gravity standing runs cannot reach the lifted target's height (nothing pulls the
+        centroid down: they end 1.6 pitches high, own IoU 0.955). So their end motion (0.0095–0.0114 bunny, 0.0082
+        dragon) is not a clean no-gravity level. D147's V0 runs (no gravity, no floor) give about 0.0035 (bunny) and
+        0.0075 (dragon) in the same pitch; against either level the dragon fails P1.
+    - *The render's influence.* Weight: g_share 0.333 in every window, λ median 0.0059 (bunny) / 0.0100 (dragon).
+      Against the twin at seed 97, the arm ends its silhouette term at ×0.37 (bunny) / ×0.29 (dragon), with yardstick
+      silhouette 3.43 against 4.10e-3 and 2.44 against 5.32e-3, and silhouette IoU +0.0029 / +0.0055. What it does not
+      change: the rest, the rocking and the assimilation's reading (the twins rock alike: dragon P97 |ω|R 0.058).
+    - *The next definition (a proposal; no card run without the coordinator).* Both parts take only existing
+      definitions or constants.
+      1. Remove only the loads' own effect from the assimilation's reading: the uncontrolled continuation with the
+         loads, set against the same continuation without them (zero control in both). Without loads the two are
+         equal, so the reading is the frozen one exactly; this makes the rule frozen-safe by construction, where the
+         share was not. One more rollout a window.
+      2. In the standing frame (a world-fixed target, a body resting on a floor), use the single-body recipe's drag on
+         the whole velocity (m v, 0.9 /s, B9's own dynamics; the existing `SceneSpec.drag = 0.9`, which sets the
+         deformation-only damping to zero). Rigid rocking on the floor is part of the world target's error, and only
+         this damping acts on it.
+      - Predicted: the 4-s rocking decays with an e-fold of about 1.1 s, so the end motion falls to the no-gravity
+        level and V1 rest holds on most runs. The creep stays gone (part 1 removes the load's strain as the share
+        did), and with no gravity the frames equal the current rule's to its run-to-run difference.
+      - Gate it as this one: the same 40k seeds, P1–P3, and the frozen check (no gravity, at window level and run
+        level).
+  - **The loads' own effect removed from the assimilation, with the recipe's drag in the standing frame: the 40k gate
+    (the coordinator's go 2026-10-21 night; an experiment, not adopted); pre-registered 2026-10-21 22:51 CDT server
+    clock, before any run** (pushed 22:51:17; the chain started at 22:51:32 and waits for its card claim, at least 10
+    min, before the suite and the first run. The first version of this line said 22:52, written ahead of the clock.)
+    (code `wip/b9b` d02c865 = 5985187 + a fix to the card claim's yield; server copy `repo_b9l`;
+    `output/gpu/b9b/load/`; chain `chainload.sh`).
+    - *The definition.* Two parts, both from existing definitions; no new constant.
+      1. `SceneSpec.assim_load` (off by default; scene path only). At every commit the assimilation reads
+         F_zf F_zl⁻¹ F_ctrl in place of the committed end's F_ctrl.
+         - F_zl is the end F of the window's zero-control continuation with the loads: zero control and zero u from
+           the window's start, with gravity, the floor with its position constraint, and contact (`window.zero_end_F`,
+           the share's).
+         - F_zf is the same continuation without the loads: zero control and zero u, the body alone, no gravity, no
+           floor (`window.free_zero_end_F`, new).
+         - L = F_zl F_zf⁻¹ is the loads' own effect on the uncontrolled continuation. It is taken off on the left, the
+           side where the loads act. `assimilate_elastic`'s stretch is the right one, so a rotation the loads add drops
+           out as well.
+         - Without loads F_zl = F_zf, so the reading is F_ctrl, the frozen rule's, to the rollouts' rounding. This is
+           where the share failed: it is frozen-safe by construction.
+         - Where F_zl is degenerate (det ≤ 1e-6) the reading falls back to F_ctrl. The per-window record (the read and
+           the frozen read, p50 / p90 / p99 of each particle's largest |log σ|) is the share's. Cost: two rollouts a
+           window, in place of the load-free one.
+      2. In the standing frame, the existing `SceneSpec.drag = 0.9`: the single-body recipe's drag on the whole
+         velocity (m v; B9's own dynamics), which sets the scene's deformation-only damping to zero.
+      - Tests (`tests/test_scene_assim.py`): without loads (a moving ball) the two continuations agree within 1e-5, the
+        reading equals F_ctrl and the assimilated Fp the frozen rule's within 1e-4; with gravity and the floor the two
+        continuations differ; the identities `load_free_F(F_c, F_0, F_0) = F_c` and `load_free_F(F_0, F_0, F_1) = F_1`.
+    - *Proof first, on the card:* the full suite (the pinned references, the throw scene's tests with the fields off,
+      the new tests); its exit status is recorded and a non-zero exit stops the chain.
+    - *The frozen checks (no gravity).*
+      - F1, the window level (`load_equal.py`). The frozen recipe's 40k bunny (seed 97) in the scene's one-body window:
+        no gravity, no floor, drag 0.9, the frame fixed at launch. Two windows: the first from rest, the second from
+        the first's committed end (moving and deformed), each under random controls (1e-2 a step), committed once and
+        then again (the replay: the CUDA atomics' rounding). Pass when, in both windows, the continuations with and
+        without the loads agree within the larger of 1e-5 and the frozen end's replay difference, and the assimilated
+        Fp of the new and the frozen readings agree within the larger of 1e-5 and the Fp's replay difference.
+      - F2, the run level. Bunny 40k seed 97, no gravity, frame fixed at launch, no floor, drag 0.9 (the frozen
+        dynamics, as D147's V0): ZA97, ZB97 and ZC97 (the current rule three times, its run-to-run difference) and
+        ZL97 (`assim_load`). Pass when the RMS position difference at the end, ZL against each of ZA / ZB / ZC,
+        overlaps the range of the three current-rule pairs (D145's convention: apart = the ranges do not overlap); the
+        largest over the run is also reported. The current rule equals the frozen one for a body without loads
+        (D147's test), so a pass means the frames are the frozen algorithm's.
+      - These runs (with dragon ZA97) also give the no-gravity level of P1. They replace the share gate's standing g-0
+        runs, which could not reach the lifted target (the confound stated in the share's reading).
+    - *Runs (40k, option 1's settings and seeds).*
+      - (1)+(2), the definition: `specs/b9d_MESH.json` (option 1's spec + `assim_load` + drag 0.9), bunny and dragon,
+        L97 / L99 / L101 and the twin P97 (`--render_weight_scale 0`).
+      - (1) alone: `specs/b9l_MESH.json` (drag 0, the deformation-only damping as in option 1), A97 / A99 / A101 on
+        both meshes. Read by the same items and reported, not gated: what each part does.
+      - Readings: the share gate's (tracks with the converged shape measure, the lifted independent sample, silhouette
+        IoU and chamfer, momentum, the 40k yardstick, `apart.py`); option 1's 40k runs as read for the share gate.
+    - *The gate* (`read_load.py`; the definition's runs).
+      - P1: for each mesh, the render arms' median end motion (the mean particle move per kept-frame pair over the
+        last second, pitches) at most the largest of that mesh's no-gravity current-rule runs; and V1's rest bar on at
+        least 6 of the 8 runs.
+      - P2: every render arm has shape tilt ≤ 3°, end height within one pitch, silhouette IoU at least the reach bar,
+        and silhouette IoU, chamfer, thin and both yardstick terms no worse than option 1's worst 40k render arm of the
+        mesh.
+      - P3: no serious piece at the end, and every window committed.
+      - F1 and F2 pass.
+    - *Cards.* One card under the lock protocol (agent B9b), a card idle for 10 min, and no claim while any chain of
+      the render experiments (D159 / D160 / D161) is alive without a lock, that is, waiting for a card (a chain's
+      subshells count as holding when an ancestor holds the lock; `claim.sh`, `YIELD_RENDER`). The 40k side renders
+      (the definition's L97 bunny and dragon, 1080p, studio look) follow on a second claim with the same yield.
+      - Amended 23:24 CDT, before any run (the first chain, 22:51–23:23, never left its claim wait and was stopped by its
+        PID). Its pattern missed D161's second chain (`d161_chain_b.sh`). The yield now covers every D159 / D160 / D161
+        script alive without a lock, and only the cards their own claim rules take (3, 1, 0). None of them takes GPU 2
+        (another user's desktop runs there), so a 10-minute idle GPU 2 is never taken from them. Code 1adb0f5.
+    - *Predictions.*
+      - F1 passes (exact by construction) and F2 overlaps.
+      - (1) alone removes the creep as the share did (the read p99 far below the frozen read's) but keeps the rocking:
+        nothing dissipates the stored elastic energy and nothing damps the rigid part. So the dragon's end motion
+        stays above its level and V1 rest holds on few runs.
+      - (1)+(2): the 4-s rocking decays with an e-fold of about 1.1 s, the end motion falls to the no-gravity level,
+        and V1 rest holds on at least 6 of 8. P2 holds; B9's single-body runs reached with this drag.
+      - The risk to state: the drag also slows the morph's own late flow. If the end motion stays above the level
+        with the rocking gone, the remainder is that flow, and it is read by its kind (rigid or deformation) frame
+        by frame before any next definition.
+  - **The loads' own effect, the 40k read: GATE FAIL (read 2026-10-22 01:54–02:20 CDT; chain 23:24–01:54 on GPU 2:
+    claim 23:50, suite to 23:58, runs 23:59–01:00, GPU readings to 01:49; `load/read_load.md`, the forensic readers'
+    output `load/assim_bands.txt` and `load/rock_decay.txt` (`tmp/b9b/assim_bands.py`, `rock.py`, `decay.py`); local
+    `output/results_2026-10-21/b9b_gravity_world/load_40k/`).**
+    - *Proofs.* The full suite passed (458, 2 skipped; exit 0; the pinned references included). F1 passes. Window 1
+      (from rest): the continuations with and without loads are 3.6e-7 apart (the frozen end's replay 7.2e-7), and Fp
+      is 4.95e-6 from the frozen rule's (its replay 4.89e-6; the step itself 3.7e-3). Window 2 (moving start; the
+      continuation moved F by 9.5e-3): 8.3e-7 (replay 8.3e-7), Fp 5.25e-6 (replay 5.0e-6).
+    - *By the letter it fails on:*
+      - End motion: the bunny's median 0.0253 against the no-gravity level 0.0021; the dragon's 0.0136 against
+        0.0042. V1 rest holds on 0 of 8 runs.
+      - F2: apart (below).
+      - P2: the bunny's thin on L97 / L99 / L101 (5.31 / 5.65 / 6.41 % against option 1's worst, 4.73 %); bunny L99's
+        yardstick (44.2 / 17.9 against 36.5 / 16.1e-4); dragon L99's IoU (0.9748 against 0.9752) and yardstick
+        silhouette (21.6 against 20.0e-4).
+      - The thin bar lies inside the spread of the three identical no-gravity runs (4.53–5.94 %). The end motion and
+        rest misses are 3–12× beyond any run-to-run spread.
+    - *What holds:* every window committed, no serious piece at the end, height within 0.23 pitches, shape tilt ≤ 0.63°
+      (the definition) and ≤ 0.93° ((1) alone). Minutes: 2.2–2.3 (bunny) and 3.3–3.7 (dragon), +10–15 % for the two
+      rollouts a window. The clean no-gravity level (frame fixed, no floor) is 0.0016–0.0023 (bunny) and 0.0042
+      (dragon), below the share gate's standing g-0 runs (0.0095–0.0114).
+    - *Which part does what* (the render arms' median end motion; the material frame's tilt at the end):
+      - option 1: bunny 0.0149, 4.1–12.1°; dragon 0.0184, 14.6–20.7°.
+      - (1) alone: bunny 0.0222, 4.9–12.5°; dragon 0.0169, 14.4–19.4°.
+      - (1)+(2): bunny 0.0253, 3.8–12.1°; dragon 0.0136, 7.2–10.5°.
+      - The share (for reference): bunny 0.0077; dragon 0.0357 (its rocking).
+      - Every (1) and (1)+(2) run turns one way over the last 4 s: no reversals, and the magnitude of the mean angular
+        velocity is 78–100 % of its mean magnitude (97–100 % on all but bunny A99; the share's dragon: 4–28 %). So the
+        share's rocking is absent, and option 1's creep is back. The material turn rate over the last 4 s is +0.68 to
+        +1.59°/s on the bunny and +0.47 to +0.51°/s on the dragon ((1)+(2)); (1) alone −0.16 to +0.76 and +0.67 to
+        +1.31; option 1's was +0.39 to +0.77 and +0.66 to +0.73.
+      - (1) changes nothing that the runs can tell from option 1. To first order it is option 1's load-free reading
+        written frozen-exactly: F_free(ctrl) ≈ F_ctrl − (F_zl − F_zf).
+      - (2) halves the dragon's material turn (end tilt 7–10.5° against 14–19°) and lowers its end motion by 20 % and
+        its early dip (−1.7 to −2.0 against −2.3 pitches). On the bunny the end motion is 14 % higher (0.0253 against
+        0.0222). The drag damps the rigid part, but it cannot stop a motion that the controls drive every window.
+    - *The measured root cause* (`assim_bands.txt`).
+      - In every band after 1 s, on both meshes and every seed, (1) removes only 15–29 % of the frozen read, and the
+        read stays at 0.029–0.046 (p99) to the end.
+      - Without gravity (ZL) the read falls to 0.0024–0.0030 after 4 s. Under gravity the assimilation therefore still
+        reads about 15× the unloaded level, and the one-window comparison does not see most of it.
+      - The share removed 90–98 % in the same bands. Its frozen read grew to 0.09–0.11, because it kept the sag
+        elastic.
+      - Why: both continuations start from the window's start state, which already carries the sag stored by the
+        earlier windows. In one window the unloaded continuation recovers only part of that stored strain. A window is
+        1/6 s and the elastic period 1.19 s at 40k, so undamped it recovers 1 − cos(2π · 0.167 / 1.19) ≈ 0.36 of it,
+        and less with damping. So F_zl F_zf⁻¹ is the loads' increment over the window, not their strain.
+      - The rest, at least 64 %, is read, and half of it becomes rest shape each window. The body sinks and the
+        controls rebuild it: option 1's creep.
+      - So (1) is frozen-exact but blind to the stored load strain. The share saw that strain, but it also removed the
+        unloaded body's own stored strain. What is needed is the loads' whole static strain on the current body.
+    - *F2, the run level.* At the window level the definition reads the unloaded body as the frozen rule does, to
+      rounding (F1). But the run's frames end 0.329–0.335 pitches from the current rule's, against 0.263–0.275 between
+      the current rule's own runs: apart by the letter.
+      - The one source in the definition: F_zf F_zl⁻¹ is the identity only to the rollouts' rounding (3.6e-7–8.3e-7 a
+        window, the replay's own size). That is a second rounding source each window beside the atomics, and the
+        chaotic run grows it.
+      - Without loads the exact value is the identity, and computing it only adds rounding. For the frozen path to
+        stay bitwise, the next definition takes the identity where no load acts.
+    - *The render's influence.*
+      - The weight: g_share 0.333 in every window, λ median 0.0068 (bunny) and 0.0071 (dragon).
+      - Against the twin at seed 97, the arm ends its silhouette term at ×0.42 (bunny, 1.12 against 2.68e-3) and ×0.33
+        (dragon, 0.69 against 2.09e-3). Silhouette IoU is +0.0032 / +0.0027; the yardstick silhouette is 3.64 against
+        4.67e-3 and 1.97 against 3.35e-3; shading is 1.55 against 1.78e-3 and 1.36 against 1.74e-3.
+      - The path: the render's gradient reaches dF_c and the layer's u, and through them the end shape.
+      - What it does not change: the creep and the rest. The twins creep alike (end motion 0.0183 / 0.0143 against
+        the arms' 0.0253 / 0.0136; V1 no on both), and the assimilation's read is the same (twin p99 0.0337 / 0.0351).
+        The assimilation's reading is a path the render does not enter.
+    - *The next definition (a proposal; no card run without the coordinator).* Remove the loads' static strain, not
+      their one-window increment.
+      - L∞ = F_l∞ F_f∞⁻¹, from the zero-control continuations with and without the loads run until they settle (F
+        changing by less than the rollouts' rounding over a window). The damping is the scene's drag; the settled state
+        does not depend on it.
+      - The reading is F_f∞ F_l∞⁻¹ F_ctrl, and L∞ is taken as the identity where no load acts (no gravity, no floor).
+      - This is the sag-free rest-shape idea: the stress that carries the weight stays elastic, and only what the
+        controls add becomes rest shape. References to read before implementing (the standing rule): Twigg &
+        Kačić-Alesić 2011 (sag-free simulation), Hsu et al. 2023 (sag-free initialization for hair), Chen et al. 2014
+        (inverse elastic shape design).
+      - Step 1, measure (one card, about 20 min at 40k). Dump bunny L97's committed windows at 4–6 s (`--dump`). Per
+        window, compute the one-window L and the settled L, the read with each, and the settle time, against the
+        no-gravity read. Predicted: the settled L removes at least 80 % (towards the share's 90–98 %); settling takes
+        3–5 s of simulation, about 20–30 windows of steps.
+      - Step 2, cost. Carry the settled pair across windows, one window of each continuation per commit, re-based on
+        the body's rest shape after each assimilation, so the cost stays at two rollouts a window. Step 1 checks this
+        carried L against the freshly settled one on the dumped windows.
+      - Gate it as this one, with (2) kept: once the stored sag stays elastic, the share's rocking can return, and the
+        drag on m v is the only damping of its rigid part.
+  - **Step 1: the one-window load effect against the settled one (the coordinator's go 2026-10-22: step 1 only; a
+    measurement, no definition change); pre-registered 2026-10-22 02:33 CDT server clock, before its run** (pushed 02:33:00; the chain started 02:33:08 and runs only after its card claim, at least 10 min; the first version of this line said 02:34, written ahead of the clock) (code
+    `wip/b9b` 60b7ba0, server copy `repo_b9t`; `output/gpu/b9b/settle/`; chain `chainsettle.sh`).
+    - *The papers, read first* (the standing rule). Full text: Chen et al. 2014 (inverse elastic shape design, ANM),
+      Hsu et al. 2022 (a general two-stage sag-free initialization: FEM, cloth, MPM, PBD), Hsu et al. 2023 (sag-free
+      initialization for hybrid MPM hair). Twigg & Kačić-Alesić 2011 is behind the ACM and EG libraries (both refused
+      the download), so it was read through its descriptions in Chen 2014, Hsu 2022 / 2023 and Takahashi & Batty 2024:
+      mass-spring rest lengths and angles optimised so that the force norm at the modelled shape under gravity is zero
+      (a nonlinear global solve, box constraints, contacts as penalties or fixed positions). What they say for this:
+      1. All four define sag-free by the static equilibrium under the full load. The rest configuration is set so that
+         the internal forces balance gravity (and contact) at the given shape: Chen eq. (1)–(2); Hsu 2022 §3.1; Hsu 2023
+         eq. (12), on the MPM grid nodes with v = C = 0. With no load the answer is the shape itself (Chen: λ = 0 gives
+         X = x). So the quantity to keep elastic is the static load strain, and the identity without load is exact.
+      2. Plasticity is what breaks it. Hsu 2022 leaves plasticity out of MPM "because plasticity can simply overwrite
+         the internal deformations we compute for maintaining static equilibrium". Hsu 2023 keeps the load-carrying
+         stress inside the yield surface, since otherwise it flows. The scene's assimilation is a flow without a yield
+         surface, so it overwrites the load-carrying strain each window: the B9b creep.
+      3. Two ways to reach the static state. One is to settle with damping (dynamic relaxation; Chen compares against
+         the kinetic-damping solver, 78–454 iterations). The other is a direct equilibrium solve on the MPM grid (Hsu
+         2022 / 2023): one global linear least-norm solve for stresses that balance gravity at every grid node, the
+         contact's normal degrees of freedom removed, then each particle's F from its stress through the constitutive
+         model. The second is the cost route for step 2 if settling is slow.
+      4. The static equilibrium need not be unique when the body is statically indeterminate (Hsu 2022: a rest shape
+         need not exist; they take the least-norm stress). Settling takes the one the dynamics reach from the current
+         state.
+    - *What is measured* (`settle_probe.py`, read-only on the run). The definition's 40k bunny L97 (specs/b9d_bunny.json,
+      seed 97) is run again to 6 s; its own assimilation is unchanged. At each committed window starting in [4, 6) s (12
+      windows), before the assimilation:
+      - the frozen read (the committed end F against the window's Fp);
+      - the definition's one-window read;
+      - the chained continuations: zero control and zero u from the window's start, with the loads (gravity, the floor
+        and its position constraint) and without (alone, no gravity, no floor). Each window is rebuilt from the
+        previous end as the scene builds one: the layer's data, the relief and the spacing neighbours from the new
+        positions; Fp, the bonds and the volumes are the window's. The chains run 48 windows (8 s); the drag 0.9 /s damps
+        by e⁻⁷.
+      - At k = 1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 40, 48 windows it records: the read with L_k (p50 / p90 / p99 of each
+        particle's largest |log σ| of F_e); the size of L_k; each continuation's elastic stretch against Fp; its largest F
+        change over its last window and its RMS speed (the settle profile).
+      - A check: the chains' first window equals the definition's own continuations.
+      - Step 2's candidate, the carried pair. It is settled at the first measured window, then advanced one window per
+        commit with that commit's Fp, and read against the freshly settled pair.
+    - *References:* the frozen read on the same states; the no-gravity read (ZL97, 4–8.33 s: 0.0024–0.0030 p99); the
+      share's removal (90–98 %).
+    - *Predictions:* the one-window read removes 15–29 %, as in the gate. The settled read removes at least 80 % of the
+      frozen read, towards the share's, and settles within 3–5 s (20–30 windows). The carried read lies within 20 % of
+      the settled one.
+    - *What follows:* the numbers go to the coordinator in Korean before any step 2. Step 2's definition takes the
+      identity exactly where no load acts (no gravity and no floor: L is not computed), so F2 can pass.
+    - *Cards:* one, the lowest priority. GPU 2 by the 10-minute idle rule; cards 3, 1 and 0 only while none of
+      D159 / D160(c) / D161 / D162 waits (`claim.sh`, `YIELD_RENDER`). No suite run: no library code changed.
+  - **Step 1, read: the chained load effect removes at most about half, and the loaded continuation does not settle
+    (read 2026-10-22 03:00–03:05 CDT).**
+    - *Runs.* The first attempt (claim 02:43) stopped at the first measured window: the probe recursed, because the
+      measurement called the runner's wrapped name. It was fixed (41766c6); this changes no measurement. The second run
+      went 02:56–03:00 on GPU 2. Output: `settle/settle.json`, `settle/settle_read.txt`; readers `settle_read.py`,
+      `zl_levels.py`.
+    - *Checks.*
+      - The chains' first window equals the definition's own continuations to 0.8–1.3e-6, the replay's rounding.
+      - The re-run reproduces the gate's L97 at 4–6 s: read p99 0.0300 against 0.0345, frozen read 0.0386 against
+        0.0426.
+    - *The one-window read* removes 22 % of the frozen read's p99 (18–25 % over the 12 windows), as predicted.
+    - *The chained read, by chain length.* Medians over the 12 windows: p99 removed / L's p99 / the loaded
+      continuation's RMS speed.
+      - 1 window: 22 % / 0.012 / 0.068 wu/s.
+      - 4 windows: 41 % / 0.020 / 0.15.
+      - 8 windows: 51 % / 0.027 / 0.17.
+      - 12 windows: 53 % / 0.031 / 0.13.
+      - 16 windows: 52 % / 0.032 / 0.10.
+      - 24 windows: 52 % / 0.034 / 0.074.
+      - 48 windows (8 s): 44 % / 0.037 / 0.061.
+      - The free continuation slows to 0.006 wu/s by 8 s, and its F changes by 1.8e-4 over its last window. The loaded
+        one's F still changes by 2.2e-3.
+    - *Against the predictions.*
+      - The chained read removes at most 53 % (at 2–2.7 s), not ≥ 80 %.
+      - The loaded continuation has not settled in 8 s. Its elastic stretch still grows (p99 0.022 → 0.037), and so
+        does L, by 0.001 every 8 windows.
+      - Longer chains read worse again (44 % at 8 s): L outgrows the load strain that the committed state carries.
+      - Everywhere the read stays above the no-gravity level. At 12 windows p50 / p90 / p99 are 0.0025 / 0.0077 /
+        0.0183, against ZL97's 0.0007 / 0.0015 / 0.0029 at 4–6 s and the frozen read's 0.0058 / 0.0161 / 0.0386.
+      - The carried pair, step 2's candidate, drifts from the freshly settled one. L's RMS difference grows from 0.003
+        to 0.025 over 11 windows, and its read from 0.020 to 0.049, above the frozen read (0.043) by window 36. As
+        designed, it fails.
+    - *A likely reason, read from the code (not yet measured): the frozen integrator's F smoothing.*
+      - `MPMParams.smoothing` is 0.955 in `kernels.k_update`, so the stored F keeps 4.5 % of each step's deformation
+        increment. D131 restores its volume, not its shape.
+      - The stress therefore sees about 1/22 of the geometric shear. Under its weight the body has to shear its geometry
+        about 22× the elastic strain before the stress carries the weight. This matches the sag of about 20× the elastic
+        G strain that B9b measured earlier.
+      - The body approaches that state by a slow creep. Step 1b measures this.
+  - **Step 1b, a diagnostic of step 1 (pre-registered 2026-10-22 03:05 CDT server clock, before its run; code
+    `wip/b9b` 3f617ca, `settle_diag.py`, `chaindiag.sh`, server copy `repo_b9t`; `output/gpu/b9b/settle_diag/`).**
+    - *What it runs.* The same run as step 1. At windows 25, 30 and 35 the two continuations are chained for 48 windows,
+      twice: with the integrator as it is, and with its F smoothing off in the continuations only (`smoothing` 0).
+      This is a diagnostic: nothing here proposes to change the frozen integrator.
+    - *What it records,* at each chain length and for each continuation: the motion by kind (|v_c|, |ω|R and the
+      deformation's RMS speed), the centroid's drop, the elastic stretch, the F change, and the read with each L.
+    - *Predicted, if the smoothing hypothesis holds.*
+      - As it is, the loaded continuation's motion is mostly deformation, not a rigid topple or slide, and its
+        centroid keeps dropping.
+      - With the smoothing off, it settles within about 2–3 s (the elastic period at 40k is 1.19 s, the drag's e-fold
+        1.1 s), with a far smaller drop, and its L converges.
+      - If the loaded continuation's motion is instead rigid (a topple), the smoothing is not the reason, and that is
+        reported.
+    - *Cards* as in step 1. The step 1 and step 1b numbers go to the coordinator in Korean before any step 2.
+  - **Step 1b, read: the smoothing is why the loaded continuation does not settle, and a settled L is not the committed
+    state's load strain (ran 04:53–04:55 CDT on GPU 2; read 2026-10-22 10:15–10:25; `settle_diag/diag.json`,
+    `diag_read.txt` (`tmp/b9b/diag_read.py`); the re-run's frames deleted after reading, `cleanup.log`).**
+    - *As it is* (windows 25 / 30 / 35):
+      - The loaded zero-control continuation first sinks (centroid speed up to 0.14–0.15 wu/s at 4–8 windows). It then
+        turns: from 16 windows on, its motion is mostly rigid rotation (|ω|R 0.10–0.18 wu/s against a deformation
+        speed of 0.026–0.045 and a centroid speed of 0.013–0.028).
+      - At 8 s its centroid has dropped 0.38–0.41 wu (3.5–3.8 pitches) and is still dropping. It sinks and topples; it
+        does not settle.
+      - Its read removes 18–19 % at 1 window, 46–54 % at 8–16 windows, and 38–46 % at 48.
+    - *With the F smoothing off in the continuations:*
+      - The loaded continuation settles within about 4–5 s: at 24–32 windows its speeds are about 1e-3 wu/s, and at 48
+        windows 5e-4–1e-3.
+      - It drops only 0.066–0.077 wu (0.6–0.7 pitch), 5–6× less.
+      - So the smoothing is the cause of the deep sag and of the non-settling (confirmed).
+      - Its L (p99 0.069) is not a reading for the smoothed committed F. The read then removes −21 % to 0 % at 48
+        windows: the two integrators' F do not compare. This was a diagnostic of settling only.
+    - *What it implies.*
+      - Under the frozen integrator, the zero-control loaded body has no static state near the committed one. Its
+        stress keeps 4.5 % of each increment, so it sinks about 4 pitches and topples before it settles. A settled L
+        therefore describes another, collapsed shape. That is why longer chains over-correct.
+      - Dynamic relaxation is ruled out as the way to the loads' static strain. It does not settle, choosing a chain
+        length would be a new constant, and the carried pair drifts.
+      - The loads' static strain has to be taken at the committed configuration itself, with the body not allowed to
+        move: the global step of Hsu et al. 2022 / 2023. Solve for the least-norm stress that balances gravity and the
+        floor at every grid node of the committed state (the floor's normal degrees of freedom removed). Take each
+        particle's load strain from that stress through the constitutive model. Read the committed F with it removed.
+      - No settling is involved, so the smoothing's creep plays no part. Without loads the stress is zero and nothing is
+        computed: the identity is exact.
+      - The cost is one linear solve on the grid per commit. It is new code: a conjugate-gradient solve with the MPM's
+        own stress-to-node operator and its transpose.
+      - A proposal for the coordinator. Nothing is implemented or run before the answer.
+  - **What the F smoothing means for any loaded scene (2026-10-22; the coordinator: on hold, both options go to the
+    user: (a) the grid static-equilibrium subtraction, new code; (b) the smoothing's behaviour under sustained load,
+    addressed at its definition).**
+    - The frozen integrator keeps 4.5 % of each step's deformation increment in the stored F (`smoothing` 0.955).
+      To small strain, the stress therefore sees 0.045 of the geometric strain. Against a sustained load (gravity,
+      resting contact, a held pose) the material answers as if E were about 22× smaller.
+    - Measured in B9b:
+      - The sag is about 20× the elastic G strain. At G 0.02, gravity acts on the shape like G ≈ 0.44.
+      - The zero-control 40k bunny sinks 3.5–3.8 pitches and tips over within 8 s. With the smoothing off, it settles
+        within 4–5 s at 0.6–0.7 pitch.
+      - The slow load response fits the elastic period lengthened by √22 ≈ 4.7: 1.19 s from the wave speed becomes
+        about 5.6 s. The share's rocking had a 4.05-s period, and the Z5 sag oscillated at about 5 s.
+    - The drop scene's stiff material (E × 7, D147) was compensating for this: 7 × E/22 ≈ E/3.
+      - Its landing came at v/c 0.10–0.12 instead of 0.28–0.31.
+      - Its ear tips stretched 1.07–1.16 (95th percentile 1.33–1.45), against 2.0–3.2 (3.7–10.1) for the frozen
+        material.
+      - The frozen material lay squashed on the floor for 2 s, bouncing 0.6–0.8 spacings. The stiff one bounced 11–20
+        spacings and did not come to rest.
+      - So E × 7 moves the response; it does not remove the factor 22.
+    - Every run with a sustained load inherits this factor from the frozen integrator, the single-body gravity runs of
+      B9 included. Unloaded morphs meet it only as the stress's lag behind the motion they make.
 - **D146, the late wobble of the frozen deliverable: a frame-by-frame forensic, its root cause, and one definition
   change (opened 2026-10-14 00:48 CDT; the user, on the final videos (`output/results_2026-10-13/final/`): "뒤로 갈 수록
   흔들리는 거 줄여야 할 듯"; the coordinator measured the 4K dragon front: a frame-difference plateau of 0.083–0.091 from
@@ -10748,6 +11292,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     surface, which also cut the sampler's own outer shell) was stopped by its PID; its output is kept as
     `path97_cut_v1.jsonl` and not used.
   - Disk: runs40 2.1 GB of kept frames, kept for the next definition's comparison. Nothing deleted.
+  *Note added 2026-10-22 11:50 CDT (D156i's silhouette diagnostic, D156j): the hull used here under-fills every
+  training silhouette.* hull_carve.py put each view's zero half-way between an inside and an outside pixel node and
+  meshed at the picture pitch.
+  - The hull lies up to half a pixel inside the true silhouettes along 35–42 % of the mesh's surface (this entry's own
+    hull record; "the mesh's surface lies inside the hull up to the half-pixel discretisation" above).
+    - Corrected 12:05 (D156j): the record's "10–13 % of the mesh's sample outside the hull" is no evidence of this.
+      The sampler's jitter in its surface voxels puts 13–26 % of the mesh's own sample outside the mesh itself.
+  - In the render's soft silhouette that is a hole along every rim: the hull's hole mass is 3.2–7.7 × the mesh
+    floor's (bunny, dragon, bob; D156i).
+  - Readings of D156 this confounds:
+    - Fact (a), "the hull's 18 silhouettes are the mesh's to half a pixel, the silhouette term barely tells them
+      apart", is false in the render's sense.
+    - The hull's silhouette score of 3.4–11 × the floor is partly the under-fill, not only the excess.
+    - (ii)'s "the silhouette term pushes [the excess region's particles] outward on 8 of 9: its deficit weight 2 acts
+      at the rims" is very likely this hole guard (the w_hole 2 deficit at under-filled rims), not information about
+      the concavities.
+    - "L removes 0.40–0.97 of the hull's excess on the silhouette term" and L's held-out silhouette and studio gains
+      (+0.06…+0.36, +0.03…+0.20) may be in part L refilling the eroded rims toward the true silhouette, which P (whose
+      target is the eroded hull) cannot do.
+    - The root-cause reading that the image information acts as "a local, rim-bound force" is partly the under-fill's
+      rim force.
+  - Readings it does not confound: the decision measure itself. Δ_surf on the concave surface at least half a pitch
+    below the hull, and Δ_vol in R = hull \ mesh, are read inside the hull, away from the rims. The FAIL on the
+    concavities stands as measured, but with the rim force present in both arms.
+  - It also sits under D156b–D156i, which all start from this hull. D156i's root cause is the revised one.
+  - D156j builds the conservative hull and checks it. A rerun of the 36 runs on it is proposed there if its
+    containment check passes.
 - **D156b, the photo hull: the 3D target carved from the pictures by the render's own shading model, and what the
   in-loop render adds on top (pre-registered 2026-10-21 17:11 CDT server clock, before any carve or run of it; the
   coordinator's go 2026-10-21 after D156's FAIL; no pipeline change: the runs use repo_d156s (wip/d156 fa115a5, gates
@@ -10934,6 +11505,921 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   - (a) on the concave surface 0.3–0.7 on the deep meshes, less on the shallow ones; over-carve ≤ the visual
     hull's own (the loss refuses holes).
   - (b) ≈ (a); (c) small on the concave surface, positive on the held-out views (as D156).
+  **Result of D156c (carves 18:10–19:30 CDT on the CPU at nice 10, PIDs 652152 / 652157 / 652162; read 22:35;
+  `assets_hull/rcarve_r96.jsonl`, logs `output/gpu/d156b/rcarve_*.log`): the render-loss carve stalls at once and
+  removes almost nothing.**
+  - Two implementation errors were found on the bunny before this reading and fixed.
+    - Skin: the sampler's shell particles rounded to empty nodes and were never removed, so a detached skin kept
+      the exterior. The first bunny carve therefore removed three whole layers (36 % of the mesh outside the
+      carved solid); kept as `*_skinbug*`.
+    - The remesh capped the kept field at half a pixel, which shrank the uncarved surface. The decisions were
+      unaffected; the earlier outputs are in `rcarve_v1/`.
+  - Per mesh: voxels carved of the hull's; accepted steps / loss evaluations; the loss at the hull → at the end,
+    against the floor (an independent sample of the mesh), with the share of the way to the floor; the share of
+    the hull's excess volume removed; the mesh sample outside the solid (hull → carve).
+
+    | mesh | carved / hull voxels | steps / evals | loss hull → end (floor), e-3 | way to floor | excess removed | mesh outside |
+    |---|---|---|---|---|---|---|
+    | bunny | 17 / 43 928 | 3 / 45 | 7.74 → 7.49 (2.26) | 4.6 % | 0.7 % | 0.101 → 0.102 |
+    | dragon | 68 / 25 846 | 7 / 88 | 14.5 → 14.2 (2.04) | 2.3 % | 1.3 % | 0.137 → 0.138 |
+    | armadilo | 7 / 18 647 | 1 / 22 | 13.7 → 13.6 (1.87) | 0.9 % | 0.9 % | 0.167 → 0.167 |
+    | homer | 99 / 13 461 | 6 / 66 | 7.11 → 7.02 (1.01) | 1.4 % | 17.4 % | 0.153 → 0.154 |
+    | cow | 10 / 13 962 | 1 / 21 | 13.2 → 13.1 (1.34) | 0.9 % | 1.8 % | 0.119 → 0.119 |
+    | bob | 1 / 45 860 | 1 / 24 | 4.60 → 4.60 (1.64) | 0.1 % | 0.0 % | 0.115 → 0.115 |
+    | cheburashka | 2 / 32 639 | 1 / 25 | 11.2 → 11.2 (2.16) | 0.1 % | 0.1 % | 0.123 → 0.123 |
+    | C | 0 / 74 786 | 0 / 14 | 12.8 → 12.8 (4.06) | 0 % | 0 % | 0.126 → 0.126 |
+    | A | 19 / 64 863 | 2 / 37 | 16.0 → 16.0 (3.55) | 0.1 % | 0.1 % | 0.113 → 0.113 |
+
+    The pictures still score every carved solid 2.8–9.8 × above the floor.
+  - Decision (the pre-registration: "a mesh whose carve removes nothing is reported; its runs would be D156's").
+    The carved solids differ from the visual hull by ≤ 0.4 % of its voxels, and by ≤ 2 % of the excess volume on 8
+    of 9 meshes (homer 17 %). (a) is therefore ≈ 0 on every mesh. (b) and (c) are not run: they would repeat
+    D156's P and L (same targets to within those voxels). No card was used.
+  - The landscape diagnostic (`d156_single_voxel.py`, uses the mesh; bunny / dragon / bob; 40 phantom and 40
+    on-mesh surface voxels removed one at a time from the carried sample, and coordinated removals):
+    - a single phantom voxel lowers the loss in 53 / 55 / 70 % of cases (on-mesh 33 / 50 / 48 %);
+    - the median change is −6e-7 / −2e-6 / −3e-5 of the loss, the 10–90 % range about ±2e-4: a coin flip at the
+      level of the operator's own noise;
+    - removing all phantom surface voxels at once lowers it by 5.5 / 4.8 / 6.9 %;
+    - removing every excess voxel lowers it by 6.9 / 5.4 / 25 %. On the carried sample even that end stays far
+      above the floor (bunny 7.2 against 2.3e-3).
+    - D156's carve path, which re-sampled each smooth solid, reached 3.5e-3 at the mesh.
+  *Root cause, across D156, D156b and D156c.* The pictures carry the hidden concavities: the hull scores
+  3.4–11 × the floor, and the loss of freshly sampled smooth solids falls 1.5–5 × along a carve to the mesh. But
+  every local decision is uphill or at the noise:
+  - a particle's push (D156: 15–39 % inward);
+  - a point's consistency (D156b: the operator is not a point shader, its error 5.6–37 × the noise);
+  - a voxel's removal (D156c: ±2e-4 of the loss, half the time each way).
+
+  A voxel-staircase solid at one pitch per pixel is itself rougher than the smooth hull it replaces, which the
+  shading punishes. The information is in a coordinated, smooth change of the surface, and none of the three
+  methods has such a degree of freedom.
+  *Next method (proposed as D156d; not pre-registered or run, the coordinator to decide): multiview shape from
+  shading of the target, from the visual hull, with the render's own operator.* This follows Hernández, Vogiatzis
+  and Cipolla (PAMI 2008), who deform the visual hull with shading under known light.
+  - The unknown: an inward normal displacement field d ≥ 0 on the visual hull's exterior surface, carried by its
+    discs (the exterior operator's own surface elements).
+  - The pictures of the displaced surface: each disc moves to p − d n, its normal tilts with the surface
+    gradient of d.
+  - These are drawn by exterior_targets and scored by the run's own d_exterior against the eight-draw pictures,
+    differentiable in d.
+  - The descent is coordinated: the gradient in d is smoothed by the Sobolev (H¹) metric on the disc graph,
+    (I − ℓ² Δ) g_S = g, a standard shape-optimisation preconditioner (Neuberger; Sundaramoorthi, Yezzi and
+    Mennucci, "Sobolev active contours", 2007). ℓ is one picture pixel, the finest scale the pictures resolve, so
+    no constant is added.
+  - Stop when the loss stops falling; d ≥ 0 means only carving.
+  - The solved surface becomes the solid (the hull minus the displaced layer). It is meshed and sampled as any
+    target, and then D156b's readings (a), (b) and (c) follow with the same runs.
+  - Its reach is checked first, on D156's carve path, since the method moves only the surface: does a smooth
+    displacement descend from the hull to the mesh's loss level? On a card it takes minutes per mesh (the loss
+    with autograd through the exterior pictures).
+- **D156d, multiview shape from shading of the target: the visual hull's surface carved as a whole by the render's
+  own operator (pre-registered 2026-10-21 22:54 CDT server clock, before any run of it; the coordinator's go after
+  D156c; scripts `scripts/probes/paper/d156/d156_sfs.py`, `d156d_chain.sh`; server `output/gpu/d156d/`).**
+  *Why.* D156, D156b and D156c show where the hidden concavities live.
+  - They are in the pictures: the hull scores 3.4–11 × the floor, and freshly sampled smooth solids fall 1.5–5 × in
+    loss along a carve to the mesh.
+  - But every local decision is uphill or at the noise level (a particle, a point test, a voxel).
+  - The missing degree of freedom is a coordinated, smooth change of the whole surface. That is what multiview
+    shape from shading does from a visual hull (Hernández, Vogiatzis and Cipolla, "Multiview Photometric Stereo",
+    PAMI 2008), here with our operator in place of theirs.
+  *The method (no new constant).*
+  - Frame, photographs, operator and loss are D156c's: the true mesh's 40k frame (seed 97); the mean pictures of its
+    eight samples at 96 px; the exterior operator (pitch, lattice, h of the seed-98 sample); the loss sil + w_pbr pbr
+    of d_exterior (w_hole 2, w_spray 1, ambient 0.25).
+  - The surface: the exterior discs of the visual hull's carried sample (D156c's, at the mesh sample's density),
+    found once: positions p0, unit normals n0.
+  - The unknown: an inward displacement d ≥ 0 per disc. The displaced surface has discs p = p0 − d n0 and normals
+    n = normalize(n0 + ∇_s d).
+    - ∇_s d is the least-squares tangential gradient of d over each disc's lattice neighbours (the 26 cells around
+      its cell), which is linear in d.
+    - The pictures of (p, n) are drawn by exterior_targets and scored by d_exterior, differentiable in d.
+  - The descent: the gradient ∂L/∂d is smoothed in the Sobolev (H¹) metric on the disc graph, (I + ℓ² L) g_S = g.
+    - L is the graph Laplacian scaled as a surface Laplacian: (L f)_i = (4 / Σ_j |Δp_ij|²) Σ_j (f_i − f_j) over the
+      lattice neighbours.
+    - ℓ is one picture pixel (2 box / 96), the finest scale the pictures resolve.
+    - The system is solved by conjugate gradients.
+    - This is Neuberger's Sobolev gradient (Sundaramoorthi, Yezzi and Mennucci, "Sobolev Active Contours", IJCV
+      2007, for shape optimisation).
+  - The step: d ← max(0, d − α g_S). The first trial moves the largest disc by one picture pixel. A trial is
+    accepted iff the loss falls; it is halved on a refusal, and the next step starts at twice the last accepted.
+  - The stop: when the loss stops falling, i.e. no trial down to a largest move of 1e-3 pixel lowers it (a
+    numerical floor, not a modelling constant). The run budget is 500 accepted steps; reaching it is reported.
+  - The solid: the visual hull minus the displaced layer, {x : depth below the hull surface > d of the nearest disc}.
+    It is meshed by marching cubes on a half-pitch grid and written in the mesh's oriented coordinates as
+    `assets_hull/MESH_sfs18_r96.obj`.
+  *Step 1, the reachability check (bunny, dragon, bob; one card for a few minutes each, before anything else).*
+  Reported per mesh:
+  - the loss of the hull's discs L0, of the solved discs L_end, and the floor (an independent sample of the mesh,
+    seed 99, through the same operator);
+  - L_solid, the loss of a fresh sample of the solved solid at the hull's density (what a morph's target would
+    carry);
+  - the share of the hull's excess volume removed, and the over-carve (the mesh sample's share outside the solid,
+    against the hull's);
+  - the steps and the time.
+
+  The check passes on a mesh if L_solid lies at least halfway from L0 to the floor and the solid removes at least a
+  quarter of the hull's excess volume with an over-carve below the hull's own plus one percentage point. The step
+  continues to 9 meshes and the runs only if the check passes on at least two of the three.
+  *Step 2 (if step 1 passes): D156b's readings.* All 9 meshes are solved. The runs are 9 meshes × L / P × 97 / 99 at
+  40k, `--tgt assets_hull/MESH_sfs18_r96.obj --render_tgt assets/MESH.obj`, one card under the lock protocol and the
+  courtesy rule (D159, D160 and D161 first). The readings and rules are D156b's:
+  - (a) the solved solid alone (its own sample: concave surface, excess volume, held-out silhouettes, held-out
+    studio images; 0 = the visual hull's sample, 1 = the mesh's);
+  - (b) "dF_c + layer u" on it;
+  - (c) full minus "dF_c + layer u", by D156's rule (adds concavity: Δ_surf ≥ 0.15 and Δ_vol ≥ 0.10 on at least 6 of
+    9; none: Δ_surf < 0.05 on at least 6 of 9, then the held-out Δs say whether it is rim polish only);
+  - the 300k gate: (b) ≥ 0.5 on the concave surface on at least 6 of 9 meshes, without damage to the held-out views
+    against D156.
+  *Predictions (inferred).*
+  - Step 1: the smooth descent carves the broad hollows whose walls the training views shade (bob's, the dragon's
+    coil partly) but stops short of the mesh level, as normals-only shading constrains depth only up to a
+    low-frequency ambiguity. L_solid falls 30–60 % of the way to the floor on bob and the dragon, less on the bunny.
+  - (c): the in-loop render adds rim polish on top of the carved target (held-out silhouettes +0.1…+0.3, as in D156),
+    and little concavity, since the target now carries it.
+  **Step 1, the reachability check (read 23:30 CDT): FAIL by the pre-registered rule on 3 of 3. The carve goes in
+  the right places, but only to part of the depth, with rare spikes, and its solid does not keep the gain. Step 2
+  is not run.**
+  - Where it ran. All cards were held (D160, D161, SHOWCASE) and D159 was waiting. The courtesy rule made the chain
+    wait, so I stopped it by its own PID (23:17) and ran the check on the CPU at nice 10 (three processes, 2 min
+    each; it is cheaper than expected). No card was used.
+  - Per mesh: steps (loss evaluations), all ending because the loss stopped falling, not at the budget; the disc
+    loss from the hull to the end against the floor; the loss of a fresh sample of the solid, against the same
+    remesh and fresh sample of the hull itself; the excess volume removed; the over-carve.
+
+    | mesh | steps | disc loss hull → end (floor), e-3 | way | L_solid against fresh hull, e-3 | excess removed | mesh outside: hull → solid |
+    |---|---|---|---|---|---|---|
+    | bunny | 141 (288) | 7.74 → 5.94 (2.26) | 0.33 | 8.38 against 8.00 | 0.51 | 0.101 → 0.113 |
+    | dragon | 31 (69) | 14.5 → 11.7 (2.04) | 0.22 | 14.6 against 14.7 | 0.64 | 0.137 → 0.192 |
+    | bob | 146 (300) | 4.60 → 2.66 (1.64) | 0.65 | 5.65 against 9.33* | 0.23 | 0.115 → 0.122 |
+
+    *Bob's fresh hull sample scores 2 × its carried one (4.60). Its remeshed hull differs from the hull file (not
+    resolved), so that baseline is not trusted.
+  - By the rule (L_solid at least halfway from L0 to the floor, at least a quarter of the excess removed,
+    over-carve within the hull's + 1 point), all three fail.
+  - What the solved displacement does (`d156d_stats.py`, which uses the mesh; `fig_d156d_check.png`):
+    - It follows the true excess. The Spearman correlation between d and the excess depth under each disc is 0.68
+      (bunny), 0.64 (dragon) and 0.72 (bob).
+    - The mean d on the discs over more than a pixel of excess is 0.80 / 0.64 / 0.96 px, against 0.04 / 0.17 /
+      0.03 px where the hull touches the mesh.
+    - The figure shows the carve where the hull is too big: bob's hollow, the dragon's coil, the bunny's flanks.
+      The render's shading, as one coordinated descent, finds the hidden concavities, which no local method did
+      (D156, D156b, D156c).
+    - But it stops at a fraction of the depth: the excess there is 1–2.6 px at the median and 2.6–7.9 px at the
+      99th percentile.
+    - On bob, d carries a lattice-scale ripple (a checkerboard in the hollow): the one-pixel Sobolev metric does
+      not damp the disc lattice's own mode.
+    - A few discs sink deep (d > 2 px on 0.15–1.9 %, up to 30 px); in the dragon's thin parts they pierce the body,
+      hence its over-carve.
+  - Root causes:
+    - (i) The descent stops in the first minimum, because the gradient at the pixel scale carries the lattice's
+      ripple.
+    - (ii) Nothing keeps a disc's carve inside the body's own thickness.
+    - (iii) The solid is built from the nearest disc's d, unsmoothed, and is scored on one fresh sample (± 5–10 %
+      between samples of one solid). The disc-level gain is lost or hidden there.
+  - Next (proposed as D156e, the coordinator to decide; the first two touch the method's definition):
+    - (1) Coarse to fine in the Sobolev length: ℓ from the object's own scale (the box) halved down to one picture
+      pixel, the standard multi-scale form of Sobolev descent. The descent then moves broad regions first and does
+      not lock into the lattice's ripple. The factor 2 is a choice the coordinator should confirm.
+    - (2) The geometric bound d ≤ the hull's thickness under each disc (a ray from the disc inward to the hull's
+      far side): a carve cannot pass through the body. No constant.
+    - (3) The solid from the H¹-smoothed d (the same operator, applied once), not the nearest disc. L_solid is
+      scored as the mean over the eight draw seeds, so a pass is not noise.
+    - Then the same step-1 check on bunny, dragon and bob, and the 9 meshes with (a) / (b) / (c) only if it passes.
+- **D156e, D156d's shape-from-shading carve made coarse to fine, bounded by the body's thickness, and scored on the
+  pipeline's own samples (pre-registered 2026-10-21 23:31 CDT server clock, before any run of it; the coordinator's
+  go; CPU only, no card; `d156_sfs.py` with D156_MODE=e, server `output/gpu/d156e/`).**
+  *Bob's hull mismatch, found before this entry (`d156_hull_remesh_check.py`, `d156_hull_sample_check.py`, CPU).*
+  - The remesh itself is sound. Bob's hull remeshed from its signed distance has volume 50.90 against the file's
+    50.92, one component, no sign disagreement between distance and occupancy.
+  - The difference is the sampler's frame. The stratified fill (voxelisation, the reliable orthographic fill, the
+    streak strip, the pocket fill) depends on where its voxel grid lies on the mesh. Bob's hull filled in its own
+    coordinates (as `sample_in_frame` and every run's `load_normalized` do) has 49 139 voxels at 70³; filled in
+    world coordinates (as D156d's fresh samples were) it has 47 801.
+  - Its world-coordinate samples score 7.97 / 8.31e-3 (seeds 98 / 198) against the carried samples' 4.60 / 4.90e-3,
+    the silhouette term 5.6 against 2.4e-3. On the bunny and the dragon the same effect is 2–3 %.
+  - Consequence: D156d's L_solid and fresh-hull numbers mix two samplers. For bob they are not valid; for bunny and
+    dragon they carry a few per cent of this.
+  - D156e scores every solid by the pipeline's own path: the mesh written in its oriented coordinates and sampled
+    there (`draws_in_frame`, the fill in mesh coordinates, as a run's target is).
+  *Changes from D156d (the root causes (i)–(iii) of its check).*
+  - (1) Coarse to fine in the Sobolev length. The levels are ℓ_k = box / r^k for k = 0, 1, … while ℓ_k > one
+    picture pixel, then ℓ = one pixel. Each level descends until its loss stops falling, by D156d's line search, and
+    passes its d to the next.
+    - Why r = 2 is not a tuned constant: halving the length per level is the dyadic choice of multigrid and of
+      coarse-to-fine image and shape registration (each level resolves the band one octave finer, so the bands tile
+      the scales with no gap or overlap). It is not fitted to any result.
+    - As a check, the bunny is also run with r = 1.5 and r = 3. "The same end": the same stage-1 verdict, and the
+      excess removed and L_solid's share of the way within ±0.1 of r = 2's.
+  - (2) Thickness bound: d ≤ the hull's thickness under each disc, measured from the ray along −n0 (its first
+    entry into the hull and its exit, by two open3d casts). A carve cannot pass through the body. No constant.
+  - (3) The solid is built from the H¹-smoothed d (the same operator at one pixel, applied once), taking the
+    nearest disc's smoothed value.
+  - (4) Scoring:
+    - L_solid and the hull's own score are the means over the eight seeds 98 + 100 k of the solid's and of the
+      visual hull's samples, both drawn in mesh coordinates at the hull sample's density;
+    - the floor is the mean over the eight seeds 99 + 100 k of the mesh's own samples (independent of the
+      pictures' 98 + 100 k).
+  - Everything else is D156d's (frame, pictures, operator, loss, disc graph, normals, accept-if-lower line search,
+    the 1e-3-pixel numerical floor, the budget of 500 accepted steps in all).
+  *Stage-1 check (bunny, dragon, bob; CPU at nice 10, three processes; the bunny again with r = 1.5 and 3).* A mesh
+  passes if all three hold:
+  - the mean L_solid lies at least halfway from the hull's mean to the floor's mean;
+  - the solid removes at least a quarter of the hull's excess volume;
+  - its over-carve (the mesh sample's share outside it) is within the hull's own + 1 point.
+
+  The check passes on at least 2 of 3. Also reported: D156d's diagnostics (Spearman of d with the true excess depth;
+  mean d on deep and on touching discs), the levels and steps, the time.
+  *If it passes:* the 9 meshes are solved on the CPU, then the coordinator is told before the 36 card runs (L and
+  P on the solids, seeds 97 / 99, D156b's readings (a) / (b) / (c)), so the runs can be queued behind D159, D160 and
+  D161.
+  *Predictions (inferred).*
+  - The coarse levels move whole hollows: bob's hollow and the dragon's coil reach most of their depth. The bound
+    removes the dragon's over-carve.
+  - On the pipeline's samples L_solid falls 40–70 % of the way on bob and the dragon, 20–40 % on the bunny (shallow
+    excess, median 0.5 pitch).
+  - Passes on 2 of 3.
+  - r = 1.5 and r = 3 end the same.
+  **Stage-1 check (read 23:52 CDT; CPU at nice 10, no card; `output/gpu/d156e/`, `assets_hull/sfse_r96.jsonl`):
+  FAIL on 3 of 3 by the rule. The level ratio does not matter. The cause is the disc surrogate itself.**
+  - Per mesh at r = 2: levels / accepted steps; the disc loss from the hull to the end; the means over eight seeds
+    of the solid's samples, of the hull's and of the mesh's (the floor), on the pipeline's own sampler; the share
+    of the way; the excess removed; the over-carve; Spearman of the smoothed d with the true excess.
+
+    | mesh | levels / steps | discs, e-3 | solid / hull / floor, e-3 | way | excess removed | mesh outside: hull → solid | ρ |
+    |---|---|---|---|---|---|---|---|
+    | bunny | 7 / 473 | 7.74 → 5.91 | 8.42 / 7.95 / 2.31 | −0.08 | 0.64 | 0.101 → 0.118 | 0.74 |
+    | dragon | 7 / 129 | 14.45 → 11.61 | 14.78 / 14.67 / 2.15 | −0.01 | 0.56 | 0.137 → 0.183 | 0.69 |
+    | bob | 7 / 144 | 4.60 → 2.71 | 4.20 / 4.80 / 1.59 | 0.19 | 0.18 | 0.115 → 0.122 | 0.73 |
+
+  - The ratio check on the bunny (r = 1.5 / 2 / 3) ends the same: FAIL each time; way −0.06 / −0.08 / −0.02;
+    excess 0.63 / 0.64 / 0.61; disc loss 5.92 / 5.91 / 5.92; ρ 0.74 each. The dyadic choice is not a sensitive one.
+  - Bob's hull scores 4.80e-3 on the pipeline's sampler (the eight-seed mean), in line with its carried sample,
+    so the D156d mismatch is gone.
+  - Where the surrogate's gain comes from (`d156e_split.py`). Silhouette / shading / total e-3 for bunny, dragon,
+    bob:
+    - hull discs 5.22 / 2.52 / 7.74, 10.35 / 4.10 / 14.45, 2.42 / 2.18 / 4.60;
+    - the solved surrogate 4.45 / 1.45 / 5.91, 8.73 / 2.87 / 11.61, 1.82 / 0.89 / 2.71;
+    - positions alone 4.45 / 2.36 / 6.82 (dragon 12.47, bob 3.83);
+    - normals alone 5.22 / 1.76 / 6.99 (dragon 13.79, bob 3.55);
+    - the discs the true operator finds on the solid's samples 6.24 / 2.19 / 8.42, 11.06 / 3.72 / 14.78,
+      2.30 / 1.86 / 4.15.
+  - Two things in the surrogate have no counterpart in a solid.
+    - (1) Its normals tilt freely: 26–29° at the 90th percentile, 45–51° at the 99th. The solid's exterior normals
+      lie as far from the surrogate's as from the hull's (median 15°, 90th percentile 29–44°). The field smooths
+      the surface over three pitches, so those tilts cannot be realised, and most of the shading gain goes with them.
+    - (2) It keeps every disc, so the silhouette's coverage stays as the surface moves in. The operator, finding
+      discs on the smaller solid, finds fewer where the carve went, and the solid's silhouette term is worse than
+      the hull's on the bunny and the dragon (6.24 against 5.22; 11.06 against 10.35).
+    - The descent fits the surrogate, not a body. The solid's discs lie within 0.23 px of the surrogate's at the
+      median, so the place is right (ρ 0.69–0.74), but the shape the pictures score is not the solid's.
+  - Next definition (D156f, proposed): the same descent read through the pipeline's own path, with no surrogate.
+    - d moves the visual hull sample's particles, not discs, along a smooth inward field: Sobolev coarse to fine,
+      bounded by the thickness.
+    - The pictures come from the exterior the operator finds on those particles: the tracked discs of
+      Objective.render_terms, differentiable in the particles.
+    - Every accepted step is then one a sample of the solid would show, and stage 1 is read the same way.
+    - CPU only; the coordinator to decide.
+- **D156f, the shape-from-shading carve read through the run's own render path, with no disc surrogate
+  (pre-registered 2026-10-21 23:53 CDT server clock, before any run of it; the coordinator's go; CPU only, no card;
+  `d156_sfs_f.py`, server `output/gpu/d156f/`).**
+  *Why.* D156e's carve went to the right places (ρ 0.69–0.74 with the true excess), but its gain belonged to a disc
+  surrogate. Its normals tilted freely (26–51°) and it kept every disc, so the solid's own samples did not improve.
+  The fix is to let only the operator see the shape.
+  *The method.* Frame, photographs, operator and loss are D156e's.
+  - The unknown: an inward displacement δ_i ≥ 0 of each particle of the visual hull's carried sample (D156c's, at
+    the mesh sample's density).
+    - Each particle moves to x_i − δ_i ν_i, with ν_i the hull's outward normal at the particle's nearest hull point
+      (fixed).
+    - δ_i ≤ t_i, the hull's thickness from the particle along −ν_i (an open3d cast to the far side), so no particle
+      crosses the body.
+  - The pictures of a state are the run's render path, `Objective.render_terms`:
+    - the Zhu–Bridson field of the particles at the operator's pitch;
+    - the tracked discs (`render.exterior.tracked`), found at a state and read differentiably at the particles,
+      found again when a tenth of them have moved more than half a lattice pitch (the run's rule);
+    - d_exterior against the eight-draw pictures.
+
+    No disc carries a free position or normal: every disc is where the field of the particles puts it.
+  - The descent:
+    - ∂L/∂δ_i = −(∂L/∂x_i) · ν_i, smoothed by (I + ℓ² L) g_S = g;
+    - L is the Laplacian of the particles' graph (pairs within one picture pixel), scaled as a volume Laplacian,
+      (L f)_i = (6 / Σ_j |Δx_ij|²) Σ_j (f_i − f_j), symmetrised;
+    - coarse to fine, ℓ_k = box / 2^k down to one picture pixel (D156e: r = 1.5 / 2 / 3 end the same);
+    - steps as D156e (accept iff the loss falls; halve on a refusal; start at twice the last accepted; a level ends
+      when no trial down to a largest move of 1e-3 pixel lowers the loss); 500 accepted steps in all.
+  - Extracting the carved solid. The moved particles are a compressed sample: they keep the hull's mass in a
+    smaller volume, so they are not the solid.
+    - The solid is the region their exterior encloses, taken back by the exterior's own offset. The exterior is the
+      operator's zero set, as a triangle mesh (D157's field_mesh at the pitch). The offset c is the mesh sample's
+      measured exterior offset (D156b's). So the solid is {x : signed distance to the exterior < −c}, by marching
+      cubes on a half-pitch grid. It is written in the mesh's oriented coordinates.
+    - It is then **resampled uniformly by the run's own sampler** (draws_in_frame, the fill in mesh coordinates) at
+      the hull sample's density, n = n_hull × fill(solid) / fill(hull).
+    - **Every score is the mean over the eight seeds 98 + 100 k of that resample.** A compressed sample therefore
+      cannot pass by its density: what is scored is a fresh uniform sample of the solid, as a run's target would be.
+    - The same extraction applied to the unmoved hull sample (δ = 0) is the baseline, so the extraction's own bias
+      cancels. The hull file's own eight-seed score is reported beside it.
+  *Stage-1 check (bunny, dragon, bob; CPU, nice 10, three processes).* A mesh passes if all three hold:
+  - the extracted solid's mean score lies at least halfway from the δ = 0 extraction's mean to the floor's mean (the
+    mesh's own samples at seeds 99 + 100 k);
+  - the solid removes at least a quarter of the excess volume, (V(δ = 0 extraction) − V(solid)) / (V(δ = 0
+    extraction) − V(mesh));
+  - its over-carve (the mesh sample's share outside it) is within the δ = 0 extraction's + 1 point.
+
+  The check passes on at least 2 of 3. Also reported: the moved sample's own exterior score (the loss the descent
+  saw), Spearman of δ on the surface particles with the true excess depth under them, steps and time.
+  *If it passes:* solve the 9 meshes on the CPU, then ask the coordinator before the 36 card runs (L and P on the
+  solids, seeds 97 / 99, D156b's readings (a) / (b) / (c)).
+  *Predictions (inferred).*
+  - The descent gains less than D156e's surrogate on its own loss (no free normals, no kept coverage), but what it
+    gains carries over to the resample.
+  - Way 0.2–0.5 on bob and the dragon, 0.1–0.3 on the bunny.
+  - It may fail the halfway bar; if so, the moved sample's score against the resample's says whether the loss is
+    lost in the extraction or never gained.
+
+  **Stage-1 check (runs 2026-10-21 23:57 to 2026-10-22 01:06 CDT, CPU at nice 10, no card; logs in
+  `output/gpu/d156f/`, rows in `assets_hull/sfsf_r96.jsonl` and `sfsg_r96.jsonl`). It FAILS on 3 of 3 by the
+  rule. The descent through the true operator gains a lot on its own sample, but a uniform resample of an extracted
+  solid keeps only part of that gain (bunny, bob) or none of it (dragon).**
+  - **The moved sample** (the loss the descent saw). Start → end against the floor, with the share of the way:
+
+    | mesh | start | end | floor | share of the way |
+    |---|---|---|---|---|
+    | bunny | 7.74 | 5.07 | 2.31 | 0.49 |
+    | dragon | 14.45 | 12.56 | 2.15 | 0.15 |
+    | bob | 4.60 | 2.40 | 1.59 | 0.73 |
+
+    - The tracked read is not exploited. With the discs found fresh at the end, the loss is the same: 5.08 / 12.62 /
+      2.405.
+    - Steps: 199 / 54 / 489, none at the budget. Time: 44 / 21 / 70 min.
+    - Spearman of δ on the hull's surface particles with the true excess under them: 0.43 / 0.38 / 0.43. D156e's
+      surrogate reached 0.69–0.74.
+  - **The pre-registered extraction.** The solid is the moved particles' exterior, taken back by c (0.74 / 0.94 /
+    0.85 pitch), resampled uniformly, with eight-seed means.
+
+    | mesh | δ = 0 extraction | solid | hull file | floor | way (rule ≥ 0.5) | excess removed (≥ 0.25) | mesh outside: base → solid (≤ +1 pt) |
+    |---|---|---|---|---|---|---|---|
+    | bunny | 10.22 | 7.09 | 7.95 | 2.31 | 0.40 | 0.39 | 0.088 → 0.099 |
+    | dragon | 23.65 | 22.13 | 14.67 | 2.15 | 0.07 | 0.18 | 0.133 → 0.151 |
+    | bob | 5.27 | 3.96 | 4.80 | 1.59 | 0.36 | 0.16 | 0.117 → 0.126 |
+
+    - At δ = 0, the extraction costs 29 % (bunny), 61 % (dragon) and 10 % (bob) over the hull file, so the baseline
+      does not cancel its own bias. On the dragon it erases thin parts.
+    - Measured from the hull file instead, the bunny's and bob's solids are 15 % and 26 % of the way to the floor.
+      That gain does survive a uniform resample. The dragon's solid stays far above the hull file.
+  - **A second extraction** (an amendment written after the reading, `d156f_extract2.py`). The solid is the hull
+    minus the layer its surface particles left: {depth below the hull > δ of the nearest particle within one pitch
+    of the hull}. The base is the same remesh at δ = 0: 8.24 / 16.41 / 4.30.
+    - Way −0.10 / +0.005 / −0.03; excess removed 0.45 / 0.12 / 0.15; over-carve +1.5 / +0.6 / +0.9 pt.
+    - So the surface particles' δ, read as a carve depth, does not hold the gain.
+  - **The answer to the pre-registered question.** The loss was gained on the moved sample (0.49 / 0.15 / 0.73 of
+    the way) and mostly lost in the resample (0.15 / < 0 / 0.26 from the hull file). On the dragon the descent also
+    gained little.
+  - **Root cause (inferred from the two extractions and the fresh read).**
+    - The render loss reads the field of the particles. Moving the particles inward compresses them, and a compressed
+      layer bends the field's zero set and its normals: a different exterior offset, and density gradients the field
+      turns into shape.
+    - The descent lowers the loss through that arrangement as well as through the solid's shape. Only the shape part
+      survives a fresh uniform sample of a solid.
+    - D156e (free disc normals) and D156f (a compressible sample) are the same failure. Any descent whose state is
+      not forced to stay a uniformly sampled solid finds a route cheaper than carving.
+    - By the same reasoning (not tested here), a run's full arm can lower its render term by arrangement inside the
+      body rather than by shape. That fits D161's arrival carve, which the physics took back.
+  - **Next definition (D156g, proposed, not run; CPU only, an estimated 2–3 h per mesh; the coordinator to decide).**
+    The resampled solid decides every step.
+    - The state is a solid: the hull minus a carve-depth field d ≥ 0 on the hull's surface (exactly the hull at
+      d = 0), capped by the thickness.
+    - Each step:
+      1. Sample the current solid uniformly with the run's sampler.
+      2. Take the true operator's gradient for an inward move of that sample's surface particles.
+      3. Smooth it coarse to fine as in D156e/f (H¹, ℓ = box / 2^k down to one picture pixel), and turn it into a
+         carve-depth increment on the surface.
+    - A step is accepted iff the eight-seed mean of the new solid's uniform resample falls.
+    - Every accepted state is a uniformly sampled solid, so no arrangement or density can carry a gain.
+    - Stage 1 is D156f's: the same three meshes, rule, floor and seeds.
+- **D156g, the carve whose state is a uniform solid (pre-registered 2026-10-22 01:23 CDT server clock, before any run
+  of it; the coordinator's go; CPU only, no card, at most three processes at nice 10; `d156_sfs_g.py`, server
+  `output/gpu/d156g/`).**
+  *Why.* In D156f the descent's gain lived in the compressed arrangement. Here every state the descent can accept is a
+  uniformly sampled solid, so only shape can carry a gain.
+  *The state.* The visual hull minus a carve depth d ≥ 0 defined at the hull mesh's vertices (11–15 k), read at a
+  point through the barycentric weights of its closest hull point.
+  - The solid is {x : depth_hull(x) > d(π(x))}, with π(x) the closest point of the hull's surface. Depth and π are
+    fixed (the hull does not move), so they are computed once on a half-pitch grid and at the sampler's voxel
+    centres.
+  - The cap is d_v ≤ t_v, the hull's thickness under the vertex along −n_v (an open3d cast to the far side). The
+    construction also keeps each side's carve on its own side of the medial axis, because a point is judged by
+    its closest side.
+  - At d ≡ 0 the solid is the hull.
+  *A uniform sample of a state.* The run's sampler (stratified: one jittered particle per fill voxel, the voxel's
+  centre inside) draws the hull at the mesh sample's density (n_hull, D156c's), seed by seed. The state's sample is
+  that draw restricted by the sampler's own rule: a particle is dropped iff its voxel centre c lies in the carved
+  layer, d(π(c)) > 0 and depth(c) < d(π(c)). This is uniform at the target's density, with no compression; at d ≡
+  0 it is the hull's draw bit for bit.
+  - Why the restriction, and not the sampler run on each state's mesh. The sampler re-indexes its whole draw when
+    one voxel changes.
+    - Two states would then be compared on unrelated draws, with noise σ√(2/J): about 1.2e-4 for the bunny at J =
+      8 (D156f's eight-seed spread).
+    - D156f's mean gain per accepted step was 1.3e-5, so the test would accept by chance.
+    - The restriction keeps the sampler's lattice, jitter and voxel rule and pairs the two states exactly: only the
+      voxels the step moves differ.
+  - Every reported score is the run's sampler itself (below).
+  *Each step.*
+  1. Fresh seeds s_t,j = 100 000 + 4t + j (j = 0..3): the hull's draws and the current state's restriction of them.
+  2. The gradient on draw 0, through the true operator (Objective.render_terms' path: the Zhu–Bridson field, tracked
+     discs found at the sample, read differentiably).
+     - Each particle gives g_i = −(∂L/∂x_i) · ν(π(x_i)) (an inward move of the material under its hull point).
+     - These are scattered to the vertices by π's barycentric weights and divided by the vertex areas (the L²
+       representative).
+  3. Smoothing by (I + ℓ² L) g_S = g on the hull's vertex graph, (L f)_v = (4 / Σ_j |Δx_vj|²) Σ_j (f_v − f_j),
+     symmetrised. This is the surface form of D156f's 6 / Σ|Δx|² (2 × dimension, from the neighbourhood's second
+     moment).
+     - Coarse to fine, ℓ_k = box / 2^k down to one picture pixel, as in D156e/f.
+  4. The trial d_t = clamp(d − s px g_S / max|g_S|, 0, t), steps as in D156f (start at one pixel, then twice the last
+     accepted; halve on a refusal).
+     - **Accepted iff the mean loss over the four paired draws falls.**
+     - This is four seeds and not eight (the coordinator's allowance, pre-registered here): the pairing removes the
+       sampling noise that eight seeds would average, and halving the cost doubles the steps the budget allows.
+       Every final score keeps eight seeds.
+     - A trial that moves no voxel centre of any of the four draws is identical to the current state. It is refused
+       without evaluation, and the halving goes on.
+       - Amendment, 01:27 CDT, before any run. The first text ended the level here, on the claim that a smaller step
+         moves a subset of the centres. That is false where neighbouring vertices move in opposite directions and are
+         clamped at different steps.
+       - D156f's rule (halve down to 1e-3 pixel) is kept instead, at no cost.
+     - Amendment 2, 01:42 CDT, before any run. The largest move s px is counted only over the vertices that can move
+       in the descent direction: a projected gradient. At d = 0 a vertex asked to un-carve is held, and at the cap a
+       vertex asked to carve deeper is held.
+       - The first text took max |g_S| over all vertices. The smoke test (bunny, budget 2, 01:26–01:40; not a
+         reading) showed what that does.
+       - At ℓ = 48 and 24 pixels the smoothed gradient asks to un-carve nearly everywhere, so the feasible move at s
+         = 1 was below 1e-3 pixel, and those levels ended without a trial.
+       - At 12 pixels the first accepted step moved 0.002 pixel (8.127 → 8.120e-3, 11 centres).
+       - Each trial is now also logged (s, its largest move, the centres it moves, the two means).
+     - **Amendment 3, 02:20 CDT, after a false start.** The three runs started at 01:56. They were stopped at 02:19
+       when their trial lines showed a fault in the restriction rule. No step or score was read beyond those lines,
+       and the runs were restarted from zero with the same seeds.
+       - The sampler does not keep only the voxels whose centre is inside. Its fill is trimesh's surface voxels
+         (every voxel the surface passes through) plus the interior (`_fill_centers`). About half the surface voxels'
+         centres lie outside the mesh.
+       - The first rule dropped all of those as soon as d > 0 under them. Even a 0.002-pixel trial then removed 3 000
+         – 9 000 voxels (bunny, bob), a jump the descent could only refuse: the loss rose 7–50 %, so 1 / 2 / 0
+         steps were accepted in 23 minutes.
+       - The rule is now the sampler's: a voxel leaves the solid only when it lies wholly in the carved layer,
+         d(π(c)) > 0 and depth(c) + h_n(c) < d(π(c)). Here h_n = (voxel pitch / 2) ‖n‖₁ is the voxel's half-extent
+         along the hull's normal at π(c), the cube's support function, exact for a locally flat surface.
+       - At d ≡ 0 the draw is still the hull's bit for bit. The count of fill voxels this rule calls wholly outside is
+         printed at the start.
+  5. The run ends after the last level, after 300 accepted steps, or at 6 h (reported as the budget).
+  *The score.*
+  - The final d is turned into a mesh by marching cubes of depth − d(π) on the half-pitch grid. At d = 0 this is
+    D156f's second extraction's base: the hull remeshed.
+  - The mesh is resampled by the run's sampler (draws_in_frame in mesh coordinates, n = n_hull × fill(solid) /
+    fill(hull)).
+  - **Every score is the mean over eight held-out seeds 95 + 100 k** that the descent never saw: the pictures use 98
+    + 100 k, the floor 99 + 100 k, the descent 100 000 +.
+  - The base (the d = 0 mesh) and the hull file are scored the same way.
+  - Also reported: the restricted draws' own score at the held-out seeds at the start (the hull file's draws) and
+    at the end; Spearman of d at the vertices with the true excess under them (the vertex's distance to the mesh);
+    steps; refusals; time.
+  *Stage-1 rule (D156f's, on bunny, dragon, bob; passes on 2 of 3).*
+  - The solid's score lies at least halfway from the d = 0 mesh's to the floor.
+  - It removes at least a quarter of the excess volume.
+  - Its over-carve is at most +1 point over the base's.
+  - The way from the hull file is reported beside it. The d = 0 mesh differs from the hull file by the remesh (D156f:
+    +4 / +12 / −10 %).
+  *Predictions (inferred).*
+  - The restricted score falls at every level on all three meshes. The run's sampler keeps most of it (shape only).
+  - Way 0.2–0.4 on the bunny and bob, below 0.15 on the dragon.
+  - FAIL by the halfway bar on at least two meshes. If so, the gap between the restricted and the run's sampler's
+    score says whether the remaining loss is the sampler's voxel alignment or the pictures' limit.
+  *If it passes:* ask the coordinator before any card run.
+
+  **Stage-1 check (the restarted runs, 02:20–04:20 CDT, CPU at nice 10; read 10:16 CDT; `output/gpu/d156g/`, rows in
+  `sfsgg_r96.jsonl`): FAIL on 3 of 3.** Every state is a uniform solid. The shape-only descent gains about a tenth of
+  the way on its own uniform measure, then stops by itself at every level. Scores are e-3, means over the eight
+  held-out seeds.
+
+  | mesh | steps / refused / min | d = 0 mesh → solid | hull file | floor | way (≥ 0.5) | way from hull file | restricted way | excess removed (≥ 0.25) | over-carve (≤ +1 pt) | ρ |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | bunny | 64 / 103 / 120 | 8.249 → 7.988 | 7.774 | 2.308 | 0.044 | −0.039 | 0.123 | 0.242 | +0.6 | 0.47 |
+  | dragon | 21 / 91 / 74 | 16.418 → 15.461 | 14.647 | 2.145 | 0.067 | −0.065 | 0.126 | 0.221 | +1.8 | 0.50 |
+  | bob | 23 / 65 / 64 | 4.459 → 4.202 | 4.683 | 1.593 | 0.090 | +0.156 | 0.085 | 0.023 | +0.4 | 0.35 |
+
+  - All three ended by the levels: no trial at any level lowered the paired mean. None hit the budget (300) or the
+    wall (6 h).
+  - The falls through the run's sampler are 0.26 / 0.96 / 0.26e-3. The unpaired standard error is 0.20 / 0.23 /
+    0.09e-3, so the falls are 1.3 / 4 / 3 SE.
+  - The half-pitch remesh itself costs +6 % / +12 % / −5 % over the hull file (the d = 0 mesh against the hull
+    file). On the bunny and the dragon that is more than the carve gains, so their solids end above the hull file.
+  - The descent's own measure (restricted draws, held-out seeds, no remesh) gains 0.12 / 0.13 / 0.09 of the way.
+    The gain is real but small. On the dragon, part of it is its 1 267 fill voxels that lie wholly outside the hull
+    by the rule and leave at any carve.
+  - The carve goes roughly to the right places (ρ 0.35–0.50) and removes 24 / 22 / 2 % of the excess volume. The loss
+    barely moves.
+  - Not in the pre-registered prediction: the restricted score did not fall at every level. The coarse levels of the
+    bunny and bob found no step (see the diagnostic below).
+  - **Direction diagnostic** (written after the reading; `d156g_dir.py`, `d156g_dir2.jsonl`; 10:17–10:22 CDT, CPU).
+    At d = 0, the proposal gradient is averaged over D156g's first four draws and split into its silhouette and
+    shading parts, before and after the H¹ smoothing. Vertices are grouped as excess (true excess ≥ 1 pixel) or on
+    the mesh (≤ ¼ pixel). Numbers are bob / bunny / dragon.
+    - The silhouette part is a one-sided guard. Its area mean is +1.4 / +2.6 / +2.3e-3 (do not carve) on the mesh
+      and −0.2 / −1.8 / −0.9e-4 in the excess. The visual hull already reproduces every training silhouette, so the
+      silhouette term has nothing to say about the excess and everything to say against carving where the hull
+      touches the mesh.
+    - The shading part points the right way. It would carve 77 / 82 / 66 % of the excess vertices and 30 / 28 / 23 %
+      of those on the mesh (area means −1.7 / −4.4 / −1.7e-4 in the excess, +1.5 / +4.1 / +5.2e-4 on the mesh),
+      with ρ with the excess 0.24 / 0.35 / 0.43.
+    - The shading's carve signal is 5–60 times smaller than the silhouette's guard.
+    - Smoothing the total at ℓ ≥ 12 pixels (bunny, bob) gives no excess vertex the carve sign: the guard spreads
+      over the excess. The shading part alone, smoothed at 3–6 pixels, still separates the regions (bunny 0.62 – 0.86
+      of the excess against 0.17 – 0.25 of the mesh; bob 0.82 – 0.97 against 0.40).
+    - Smoothing only the feasible part, min(g, 0), carves everywhere alike: ρ −0.3 to +0.3, and the excess and mesh
+      means are equal within 25 %. It is not a direction.
+  - **Root cause (measured).** At the visual hull the render loss's two terms play different roles.
+    - The silhouette term is already at its optimum, and its gradient only guards the rims.
+    - All the concavity information is in the shading term, which is 5–60 times weaker per vertex.
+    - D156g's direction is the H¹ map of their sum. At every scale where a step can move a sampler voxel (≥ 1.3
+      pixels), the guard dominates it, so only pixel-scale steps get through, and the descent stalls about a tenth
+      of the way in.
+    - The same imbalance explains D156c–f's local stalls (inferred).
+  - **Next definition (D156i, proposed; CPU, about 2–3 h per mesh; not run).** The silhouette as a constraint, the
+    shading as the objective.
+    - The direction is the coarse-to-fine H¹ map of the shading part alone.
+    - A trial is accepted iff the shading's paired mean falls and the silhouette's paired mean does not rise.
+    - Everything else is D156g's: state, restricted draws, levels, held-out scores and stage-1 rule.
+    - This is the visual hull's own definition: the photo hull is sought inside the silhouette-consistent set, which
+      the hull already satisfies (Laurentini; Kutulakos and Seitz). It drops w_pbr's relative weight from the carve
+      and adds no constant.
+    - To keep the remesh from eating the gain, the solid is scored at a quarter pitch. The d = 0 mesh's distance from
+      the hull file is reported, as now.
+- **D156i, the silhouette as a constraint and the shading as the objective (pre-registered 2026-10-22 10:27 CDT server
+  clock, before any run or test of it; the coordinator's go; CPU only, no card, three processes at nice 10;
+  `d156_sfs_i.py`, server `output/gpu/d156i/`).**
+  *Why.* D156g's direction diagnostic. At the visual hull the silhouette term is already at its optimum, and its
+  gradient is a rim guard 5–60 times the shading's carve signal. The H¹ map of the sum is the guard at every scale that
+  moves a sampler voxel.
+  *The method.* D156g's in every respect except three.
+  1. **The direction** is the shading part alone, g_i = −(∂(w_pbr · pbr)/∂x_i) · ν(π(x_i)). It is scattered to the
+     vertices and divided by their areas, smoothed by the same coarse-to-fine H¹, with the largest move counted over
+     the movable vertices (amendment 2).
+  2. **A trial is accepted iff, on the step's four paired draws, the shading's mean falls and the silhouette's mean
+     does not rise** (≤ the current state's on the same draws).
+     - There is no tolerance: the silhouette is held, as the visual hull already satisfies it.
+     - Refused trials are counted by reason: shading not lower, silhouette higher, or both.
+  3. **The score** is the marching-cubes solid at a quarter pitch (the grid of depth and π at pitch / 4), resampled by
+     the run's sampler, the eight held-out seeds 95 + 100 k.
+  - Everything else is D156g's: the state (the hull minus d at the vertices, the thickness cap), the restricted draws
+    (the sampler's surface-voxel rule, amendment 3), the fresh seeds 100 000 + 4t + j, the levels box / 2^k to one
+    pixel, the step rule, the budget (300 accepted steps or 6 h) and the floor (99 + 100 k).
+  *Stage-1 rule (D156g's, on the total render term sil + w_pbr · pbr; passes on 2 of 3).*
+  - Way ≥ 0.5 from the d = 0 quarter-pitch mesh to the floor.
+  - Excess removed ≥ 0.25.
+  - Over-carve within the base's + 1 point.
+  - Also reported: the way from the hull file; the restricted way; the shading-only and silhouette-only scores of
+    the base and the solid; the d = 0 mesh against the hull file; refusals by reason; ρ with the true excess; steps;
+    time.
+  *Predictions (inferred).*
+  - On the bunny and bob the coarse levels (≥ 12 pixels) find no step, because the shading's own smoothed direction
+    does not carve there. The carve happens at 3–6 pixels.
+  - The silhouette constraint refuses a sizeable share of trials: the soft compositing lowers coverage a little at
+    any carve near a rim.
+  - Restricted way 0.15–0.35; the quarter-pitch remesh within ±3 % of the hull file.
+  - More excess removed than D156g (≥ 0.3 on the bunny and dragon), but FAIL by the halfway bar on at least two
+    meshes.
+  *If it passes:* ask the coordinator before any card run.
+
+  **Stage-1 check (runs 10:31–11:43 CDT, CPU at nice 10; `output/gpu/d156i/`, rows in `sfsi_r96.jsonl`; a one-step
+  bunny smoke test at 10:28–10:31 checked the path and is not a reading): FAIL on 3 of 3.** Totals are sil + w_pbr ·
+  pbr, e-3, over the eight held-out seeds.
+
+  | mesh | steps / refused (silhouette · both · shading) / min | d = 0 mesh → solid | hull file | floor | way (≥ 0.5) | way from hull file | restricted way | shading way | excess removed | over-carve | ρ |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | bunny | 60 / 121 (64 · 46 · 11) / 72 | 8.150 → 7.560 | 7.774 | 2.308 | 0.101 | 0.039 | 0.100 | 0.210 | **0.309** | +0.7 | 0.47 |
+  | dragon | 8 / 78 (30 · 43 · 5) / 41 | 15.844 → 15.529 | 14.647 | 2.145 | 0.023 | −0.071 | 0.010 | 0.016 | 0.002 | +0.0 | 0.51 |
+  | bob | 5 / 72 (24 · 46 · 2) / 38 | 4.430 → 4.469 | 4.683 | 1.593 | −0.014 | 0.069 | 0.034 | 0.018 | 0.013 | +0.2 | 0.17 |
+
+  - **The bunny.** It goes further than D156g: the solid's fall is 0.59e-3, 4.3 SE. The shading goes 21 % of the
+    way, and 31 % of the excess is removed within the over-carve bar. It still fails the halfway bar.
+  - **The dragon and bob** stop after 8 and 5 steps.
+  - All three ended by the levels. **The silhouette refused 91 % of the trials (sil or both: 110 / 121, 73 / 78,
+    70 / 72).** The shading alone refused 2–9 %.
+  - The quarter-pitch remesh is +4.8 / +8.2 / −5.4 % against the hull file. The predicted ±3 % was wrong.
+  - Predictions. As predicted: the silhouette refusals, the restricted way 0.1 (at the low end) and the FAIL. Not
+    as predicted: the coarse levels did accept steps (bunny at 48 pixels), and the excess removed is ≥ 0.3 only on
+    the bunny.
+  - **Silhouette diagnostic** (written after the reading; `d156i_sil.py`, `d156i_sil.jsonl`). It measures the hole
+    and spray mass of the alpha pictures, eight-draw means against the target's, summed over the 18 views, in
+    pixels. Numbers are bunny / dragon / bob.
+    - The hull file's holes are 596 / 1 114 / 281 px, against the mesh's own floor 136 / 144 / 89 (4.4 / 7.7 / 3.2
+      times).
+    - Its spray is 247 / 361 / 185 px, against 119 / 106 / 82 (2.1 / 3.4 / 2.3 times).
+    - The silhouette term at the hull is 3.4 / 7.2 / 2.4 times its floor, and that excess is **mostly missing
+      material**.
+    - This agrees with D156's own hull record: 38 / 42 / 35 % of the mesh's surface lies outside the hull, by at most
+      0.48 / 0.58 / 0.46 pixel.
+    - Corrected 12:05 (D156j): the record's 10.0 / 13.3 / 9.8 % of the mesh's sample outside the hull is no evidence.
+      13–22 % of that sample lies outside the mesh itself (the sampler's surface-voxel jitter).
+    - The hull was carved with each view's signed distance at the half-way point between an inside and an outside
+      pixel node, and meshed at the picture pitch. It therefore lies up to half a pixel inside the true silhouettes,
+      and the render's soft silhouette counts that as holes along every rim.
+  - **Root cause (measured; it revises D156g's).**
+    - D156g's reading took the silhouette term to be at its optimum at the hull. It is not. The hull under-fills
+      every training silhouette by up to half a pixel, which is a hole along the rims.
+    - Hence the silhouette gradient guards the rims (carving deepens the holes). As a constraint it vetoes almost
+      every carve (91 % of refusals), because any carve near a rim deepens a hole that is already there.
+    - The shading alone gets 0.21 of the way on the bunny before the veto stops it.
+    - The visual hull used since D156 is not a superset of the object at the render's resolution. This also bears
+      on D156's own 36 hull-target runs: their target lacked up to half a pixel of material along 35–42 % of the
+      surface.
+  - **Next definition (D156j, proposed; CPU; not run).** The conservative visual hull: the textbook guarantee that
+    the hull contains the object, at the render's resolution.
+    - Each view's signed distance is taken to its pixels' outer edge (+½ pixel), and the hull field is meshed at half
+      the picture pitch.
+    - Check 1: no mesh-surface point lies outside the hull beyond the mesh grid's error.
+    - Check 2: its silhouette hole mass is at the floor's. Its spray is then the excess, and carving lowers it.
+    - Then D156i on it (the silhouette as a constraint is then satisfied at the start), and D156g's sum as the twin
+      reading.
+    - It adds no constant: half a pixel is the pixel's own footprint.
+- **D156j, the conservative visual hull, then D156i (and D156g) on it (pre-registered 2026-10-22 11:50 CDT server
+  clock, before any carve, check or run of it; the coordinator's go; CPU only, no card, at most three processes at
+  nice 10; `hull_carve_c.py`, `d156i_sil.py`, `d156_sfs_i.py`, `d156_sfs_g.py`; server `output/gpu/d156j/`).**
+  *The hull.* hull_carve.py with two changes, nothing else.
+  - Each view's signed distance is +½ pixel, so the zero lies on the first outside pixel node, beyond the true outline
+    along every pixel line. The hull then contains every point whose projection lies inside the outline of every view.
+  - The field (the minimum over the 18 views, bilinear) is meshed at half the picture pitch.
+  - The views, box, lattice, frame and outputs are D156's. It is built for D156's nine meshes (bunny, dragon,
+    armadilo, homer, cow, bob, cheburashka, C, A), in `output/gpu/d156j/assets_hull/MESH_hull18_r96.obj`.
+  *Check 1, containment* (on the meshed hull, by open3d's occupancy and signed distance in pixels). Per mesh:
+  - at most 1 % of the mesh's 40k sample outside the hull (D156's hull: 10–13 %);
+  - 99.9 % of 100k mesh-surface points inside, or within a quarter pixel of the hull (the half-pitch grid's own
+    marching-cubes error).
+  - It **passes** if both hold on all nine meshes.
+  *Check 2, silhouette holes* (bunny, dragon, bob; `d156i_sil.py`). The hull's eight-draw hole mass must be at most
+  the floor's (mesh draws 99 + 100 k) plus the floor's own reproducibility, |floor(99 + 100 k) − floor(96 + 100 k)|.
+  The spray mass is reported beside it. The conservative hull is fatter by up to a pixel at the rims, so its spray is
+  expected to rise; that is carvable excess.
+  *Then the carve* (bunny, dragon, bob): D156i exactly as pre-registered (shading as the objective, the silhouette as
+  a constraint, quarter-pitch score) with HULL_DIR = the conservative hulls. D156g is read alongside, exactly as
+  pre-registered.
+  - Each mesh is one process running D156i, then D156g.
+  - The stage-1 rule is unchanged. The decision is D156i's; D156g's is reported.
+  - Also reported: the refusals by reason against D156i on D156's hull (91 % silhouette), the d = 0 mesh against
+    the hull file, and the hull file's silhouette and shading terms against the floor.
+  *Predictions (inferred).*
+  - Check 1 passes on all nine (sample outside ≤ 1 %).
+  - Check 2: the holes are at the floor's level, and the spray rises 1.5–3 times.
+  - D156i: silhouette refusals well below 91 %. The rims carve first, because the silhouette now asks for it.
+    Restricted way 0.15–0.4.
+  - FAIL by the halfway bar on at least two meshes is still the likelier outcome. The shading is the only channel
+    into the hollows, and D156's path falls slowly.
+  *If check 1 passes:* propose (not start) the rerun of D156's 36 40k runs (L and P, seeds 97 / 99, the nine meshes)
+  on the conservative hulls, for the coordinator's card queue. *If stage 1 passes:* ask before any card run.
+
+  **The hulls and the two checks (11:52–11:59 CDT, CPU; `output/gpu/d156j/assets_hull/hulls_c_r96.jsonl`,
+  `d156i_sil.jsonl`, `overhang.jsonl`).**
+  - Implementation note. At half pitch, the zero on pixel nodes puts exact zeros on many grid nodes. Marching cubes at
+    level 0 (and at −1e-6) then gave non-manifold edges, so the hull was not watertight (bunny, checked in a scratch
+    run). The level is −1e-3 pixel: a thousandth of a pixel, on the conservative side. All nine are watertight.
+  - **Check 1: FAIL by the letter, on its first criterion; that criterion was mis-specified.**
+    - The surface criterion holds on 9 of 9. 0.00–0.40 % of the mesh-surface points are outside the hull, the 99.9th
+      percentile is −0.13 … +0.22 pixel against the ¼-pixel bar, and the largest is +1.1 pixel (cow; one point in
+      10⁵).
+    - The sample criterion (≤ 1 % of the mesh's 40k sample outside) fails on 9 of 9: 2.5–5.3 % is outside.
+    - Measured after the reading (`d156j_overhang.py`): **13–26 % of the mesh's own sample lies outside the mesh
+      itself** (bunny 12.8, dragon 21.6, bob 13.8, armadilo 18.5, homer 16.0, cow 13.7, cheburashka 15.0, C 20.5,
+      A 25.9 %). The stratified sampler keeps every surface voxel and jitters within it. So no hull that hugs the mesh
+      can pass that criterion, and the mesh itself would fail it.
+    - The conservative hull leaves out 2.5–5.3 %, a fifth to a third of the mesh's own overhang. D156's hull left out
+      10–17 %.
+    - Containment of the surface, the substantive check, holds.
+    - The hulls are fatter: hull / mesh 1.18–1.52 and excess 14–38 % of the hull, against D156's 1.04–1.34 and 7–31 %.
+  - **Check 2: PASS on 3 of 3.**
+    - Hole mass: 14 / 35 / 1 pixels (bunny / dragon / bob), against the floor's 136 / 144 / 89 plus its
+      reproducibility 8 / 11 / 3.
+    - Spray mass: 1 778 / 2 012 / 1 343, against the floor's 119 / 106 / 82. That is 13–19 times the floor, not the
+      predicted 1.5–3 times.
+    - The conservative hull overshoots every outline by up to a pixel. The silhouette term at d = 0 is now spray, so
+      it asks to carve the rims.
+  - The carves (D156i, then D156g, each mesh one chain) started at 11:59.
+
+  **D156i on the conservative hull: partial reading at 16:50 CDT.** Bob's D156i and all three D156g are still running,
+  three processes, each under its 6-hour wall. The decision is already fixed: **stage 1 FAIL**, because at most bob can
+  pass, which is 1 of 3. Totals are e-3 over the eight held-out seeds.
+
+  | mesh | steps / refused (shading · silhouette · both) / min | d = 0 mesh → solid | hull file | floor | way (≥ 0.5) | from hull file | shading way | excess removed (≥ 0.25) | over-carve (≤ +1 pt) | ρ |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | bunny | 23 / 76 (31 · 28 · 17) / 58 | 11.533 → 5.828 | 11.150 | 2.308 | **0.618** | 0.602 | 0.462 | **0.409** | +3.8 (3.8 → 7.6 %) | 0.14 |
+  | dragon | 5 / 75 (9 · 9 · 57) / 45 | 14.194 → 14.022 | 14.135 | 2.145 | 0.014 | 0.009 | 0.005 | 0.000 | +0.0 | −0.13 |
+  | bob | 239 / 293 (73 · 97 · 123) / 364, stopped by the 6-h wall | 9.097 → 2.460 | 8.793 | 1.593 | **0.884** | 0.880 | 0.712 | **0.442** | +5.6 (4.2 → 9.8 %) | **0.63** |
+
+  - **The bunny passes way and excess, and fails by the letter on the over-carve bar.** That bar counts the mesh
+    sample's share outside the solid, which includes the sampler's own overhang. A solid equal to the mesh would score
+    12.8 %; the bunny's solid scores 7.6 %. The sampler-free reading (`d156j_vol.py`: the volume removed inside and
+    outside the mesh) runs when a slot frees.
+  - Against D156's hull (7.774), the bunny's solid (5.828) is 0.36 of the way to the floor. D156i on D156's hull reached
+    7.560.
+    - The silhouette falls 7.95 → 3.55 (floor 1.55); the shading 3.58 → 2.27 (floor 0.75).
+    - ρ with the true excess is 0.14, so most of the gain is the conservative overshoot removed (d median 0.33, p90
+      0.58 pixel), not the hollows.
+  - **The dragon does not move.** Its conservative hull is 1.52 times the mesh's volume. 57 of its 75 refusals raised
+    both terms.
+  - **Bob (finished 18:03, stopped by the 6-hour wall, still descending).** Way 0.884 and excess removed 0.442.
+    - It fails by the letter on the over-carve bar: +5.6 points of the sample, a bar that counts the overhang.
+    - ρ with the true excess is 0.63. The silhouette is at its floor (1.17 against 1.05); the shading falls 3.13 →
+      1.29 (floor 0.54).
+    - It is 0.72 of the way from D156's hull file (4.683) to the floor.
+    - By the volume reading below, it removes 19 % of the deep excess, which is 59 % of bob's excess. It is the first
+      D156 carve that reaches into the hollows.
+  - D156g on the conservative hull, read alongside: still running. The descent's own paired means at 16:48 are, for the
+    bunny, about 4.3e-3 at level 6, step 117; for the dragon, about 5.7e-3, still at level 0, step 103, from about
+    14.1. These are not the held-out score.
+  - With a hull that does not under-fill, the silhouette is no longer a rim guard: the sum direction carves at the
+    coarsest level. This bears out D156i's revised root cause.
+  - **Proposal (D156's rerun).**
+    - Check 1 failed only on its mis-specified sample criterion; the surface criterion holds on 9 of 9.
+    - So the rerun of D156's 36 40k runs on the conservative hulls is proposed, conditional on the coordinator taking
+      the surface criterion as the containment check. It has not been started.
+    - Caveat for its reading: the conservative hull overshoots every outline by up to a pixel (spray 13–19 × the
+      floor; hull / mesh 1.18–1.52). L against P will then also contain the overshoot's removal at the rims. The
+      decision must rest on D156's inside-the-hull measures (surf_deep, Δ_vol in R), as before.
+  - **Post-hoc correction of check 1 (the coordinator, 16:55 CDT).** The surface criterion is accepted as the
+    containment check, so check 1 PASSES on 9 of 9 by that criterion.
+    - Reason: the sample criterion (≤ 1 % of the mesh's 40k sample outside the hull) is ill-posed. The mesh's own
+      sample fails it: 13–26 % of that sample lies outside the mesh itself, through the stratified sampler's
+      surface-voxel jitter.
+    - This correction was made after the check was read, and is recorded as such.
+  - **The rerun of D156's 36 runs on the conservative hulls is on hold (the coordinator, 16:55).** Every render arm so
+    far is limited by the λ coupling (D160, D161, D162), so a rerun under the frozen rule would mostly re-measure
+    that starvation. D156 is rerun once D162b gives a weight definition that works.
+  - **The volume reading** (`d156j_vol.py`, written after the bunny's D156i row; on the solids themselves, free of the
+    sampler). Uniform points of the d = 0 mesh are split by the true mesh and by depth below the d = 0 mesh. Shallow
+    means less than one picture pixel deep; that is where the conservative overshoot lies.
+
+    | mesh / run | excess of the base | excess removed | shallow removed | deep removed (deep share) | mesh volume cut | mesh surface > ¼ px outside the solid |
+    |---|---|---|---|---|---|---|
+    | bunny D156i | 14.7 % | 0.37 | 0.48 | **0.008** (0.23) | 0.5 % | 2.9 % |
+    | bunny D156g | 14.7 % | 0.49 | 0.62 | **0.040** (0.23) | 0.8 % | 4.6 % |
+    | dragon D156i | 35.4 % | 0.00 | 0.00 | 0.000 (0.30) | 0.0 % | 0.1 % |
+    | bob D156i | 24.1 % | 0.41 | 0.74 | **0.186** (0.59) | 0.8 % | 2.9 % |
+    | dragon D156g | 35.3 % | 0.28 | 0.40 | **0.007** (0.30) | 1.6 % | 4.8 % |
+
+    - The carve removes the shallow excess, the overshoot and the excess within a pixel of the hull. **It removes
+      almost none of the deep excess, the hollows: 1–4 %.**
+    - Its cut into the mesh is small: 0.5–0.8 % of the mesh's volume, but 3–5 % of the mesh surface ends more than a
+      quarter pixel outside the solid. The stage-1 over-carve (+3.8 / +5.1 points of the sample) overstates the
+      volume cut, because it counts the sampler's overhang.
+  - **Bunny D156g (finished 16:51; read alongside).** 117 steps, 233 min, ended by the levels.
+    - Total score: 11.444 → 4.467 (floor 2.308). Way 0.764, from the hull file 0.756, restricted 0.807.
+    - Excess removed 0.537; over-carve +5.1 points (3.8 → 8.9 %), so it fails by the letter; ρ 0.43.
+    - Its solid is the lowest any D156 carve reached: 0.60 of the way from D156's hull file (7.774) to the floor.
+      By the volume reading, that is the overshoot and the shallow excess, not the hollows.
+  - **Dragon D156g (finished 18:54, stopped by the 6-hour wall; read alongside).** 230 steps.
+    - Total score: 13.644 → 5.498 (floor 2.145). Way 0.708; 0.73 of the way from D156's hull file (14.647).
+    - Excess removed 0.312; over-carve +6.1 points by the sample, so it fails by the letter; ρ −0.07.
+    - By the volume reading: shallow 0.40, deep 0.007, a 1.6 % cut into the mesh. The gain is the conservative
+      overshoot, not the coil gap.
+  - **The reading, as of 19:35 CDT.** Bob's D156g is still running (level 2 at 19:29, its 6-hour wall at about 00:03).
+    - **D156i on the conservative hull: stage 1 FAIL**, 0 of 3 by the letter.
+      - Bunny and bob pass way and excess, and fail on the over-carve bar. That bar counts the sampler's overhang.
+        The sampler-free cut into the mesh is 0.5–0.8 %, but 3–5 % of the mesh surface ends more than ¼ pixel outside
+        the solid.
+      - The dragon does not move.
+    - **D156g (read alongside): bunny and dragon also fail by the over-carve bar**, with way 0.71–0.76.
+    - What the images carve, measured sampler-free:
+      - nearly all of the gain is the shallow layer (40–74 % of the excess within a pixel of the hull removed);
+      - the hollows (the deep excess, 23–59 % of each mesh's excess) lose 0.7–4 % on the bunny and dragon, and 19 %
+        on bob (D156i).
+      - Bob is the one case where the shading reaches into a hollow (ρ 0.63).
+    - Root cause, consistent with D156–D156i: the training pictures constrain the rims and outlines strongly. They
+      constrain the hollows only through the shading of walls that the headlight Lambertian model reads weakly
+      (D156 (ii)). A carve that is free to move the rims spends its gain there.
+    - The D156 rerun on the conservative hull stays on hold (above).
+    - The solids of the finished runs were deleted after the volume reading (cleanup.log). The hulls, the d fields
+      (npz), the rows and the logs are kept.
+- **D156h, does the in-loop full arm lower its render term by arrangement rather than by shape? (a measurement,
+  pre-registered 2026-10-22 01:23 CDT server clock, before it was run; the coordinator's request; CPU only, two
+  processes at nice 10; `d156h_arrange.py`, server `output/gpu/d156h/`.)**
+  *The states.* The tag's 300k end frames (`d145t_b1`, the delivered end, `*_end1.npz`): bunny and dragon, the full
+  arm L97 and its twin P97 ("dF_c + layer u").
+  - The reference is an independent uniform sample of the mesh: seed 99 (the run's seed + 2, the evaluation's
+    independent sample), in the run's frame.
+  *The term.* The run's own render term on the exterior, rebuilt as the run built it.
+  - The frame comes from prepare's calls (source seed 97, the target at seed 98 matched to its volume), checked
+    against `end1.npz`'s target bit for bit.
+  - The pictures are the mean over the eight samples (seed 98 and draws 198 … 798), each drawn by the run's exterior:
+    pitch 0.708 × the median 8th-neighbour distance, the lattice, h, 188 px.
+  - The term is sil + w_pbr · pbr (d_exterior; discs found at the state), with sil and pbr also reported apart.
+  *(a)* The term on the state's own particles.
+  *(b)* The term on the state's solid, made by D156f's δ = 0 extraction rule.
+  - The exterior's zero-set mesh (field_mesh "zb" at the pitch) taken back by c, the target sample's own measured
+    exterior offset from the mesh: {x : sd_exterior(x) < −c}, marching cubes at half a pitch.
+  - Resampled by the run's sampler at the target sample's number density, n = N × fill(solid) / fill(mesh).
+  - The mean over eight seeds 95 + 100 k, with its standard error.
+  *The readings.*
+  - r = (b) / (a) for L, P and the reference. r_ref is the extraction's own cost on a uniform sample.
+  - The lead: Δa = a_P − a_L and Δb = b_P − b_L; the shape share Δb / Δa; its standard error from the eight seeds.
+  *The plain reading (pre-registered).*
+  - **The full arm partly games the render through arrangement** if r_L − r_P > 2 SE and the shape share is below
+    0.5.
+  - **The lead is shape** if |r_L − r_P| ≤ 2 SE and the shape share is at least 0.8.
+  - Anything else is "partly", with the numbers.
+  *Predictions (inferred).* r_ref > 1, because the extraction costs (D156f: +10 to +60 % at 40k). r_L > r_P. Shape
+  share 0.3–0.7.
+
+  **Read (runs 01:24–01:55 CDT, CPU; `output/gpu/d156h/d156h.jsonl`).**
+  - **The reproduction check.** The run's target sample was reproduced bit for bit for both meshes. The pitch and
+    lattice equal the runs' logs (0.0480 / 0.54 and 0.0476 / 0.66).
+  - **The term** (e-3; sil + pbr; (b) is the mean of eight seeds, SE ≤ 4e-5):
+
+    | mesh | state | (a) own particles: total (sil / pbr) | (b) resampled solid | r = b / a | solid volume / mesh |
+    |---|---|---|---|---|---|
+    | bunny | reference (uniform mesh sample) | 1.328 (0.778 / 0.550) | 2.744 | 2.07 | 45.20 / 44.61 |
+    | bunny | P97 | 1.890 (1.189 / 0.701) | 4.036 | 2.14 | 46.11 |
+    | bunny | L97 | **0.743** (0.288 / 0.454) | 3.260 | 4.39 | 45.98 |
+    | dragon | reference | 1.082 (0.657 / 0.425) | 3.636 | 3.36 | 39.23 / 39.23 |
+    | dragon | P97 | 2.163 (1.320 / 0.843) | 3.297 | 1.52 | 40.95 |
+    | dragon | L97 | **0.771** (0.272 / 0.499) | 2.900 | 3.76 | 40.70 |
+
+  - **The pre-registered reading.**
+    - Bunny: r_L − r_P = 2.25 (SE 0.02); shape share 0.68 ± 0.02. Reading: **"partly"**.
+    - Dragon: r_L − r_P = 2.24 (SE 0.03); shape share 0.28 ± 0.03. Reading: **"the full arm partly games the render
+      through arrangement"**.
+  - **What the extraction can and cannot say.** Its own cost is large at 300k: r_ref = 2.07 and 3.36.
+    - On the dragon it ranks the true shape worst after extraction (3.64 against 3.30 for P and 2.90 for L). Taking
+      the exterior back by one constant c erodes the mesh's thin parts more than the run bodies' fatter ones (+4 %
+      volume).
+    - So (b) is not a clean shape score, and the dragon's shape share 0.28 is a lower bound only in a loose sense.
+  - **The extraction-free fact** (not in the pre-registered rule, read off column (a)).
+    - The full arm's own term ends **44 % (bunny) and 29 % (dragon) below what an independent uniform sample of the
+      true mesh scores** (0.743 against 1.328; 0.771 against 1.082). The twin ends 42 % and 100 % above it.
+    - Most of that is the silhouette: L 0.29 / 0.27 against the sample's 0.78 / 0.66. The shading is −17 % on the
+      bunny and +17 % on the dragon.
+    - A body of the true shape, sampled uniformly, does not get below that floor, and no other shape should in
+      expectation (inferred: the pictures are the eight draws' mean, so the expected picture of the true shape is the
+      optimum for uniform samples).
+    - What gets below it is an exterior smoother than any random draw, i.e. an ordered surface layer: arrangement.
+    - So **at least 51 % (bunny) and 22 % (dragon) of the full arm's render-term lead over its twin is arrangement**,
+      the part of the lead below the uniform floor. Whether the rest is shape is what (b) was meant to say, and (b)
+      is biased.
+    - This is one floor sample at one seed. D156h2 below puts the floor's own spread and the other seeds on it.
+  - **For the paper.**
+    - The render term is not a shape metric for the full arm. Its minimum is the expected picture, which an ordered
+      surface reaches better than any uniform sample of the true shape.
+    - Shape claims must rest on measures that do not reward that ordering: held-out views of a mesh made from the
+      body, distances to the mesh. They must not rest on the training render term.
+    - The ordering itself is real, and it is what only the render does (the physics objective cannot see sub-cell
+      arrangement). It is a smoother exterior, not a different shape.
+- **D156h2, the extraction-free reading of D156h (pre-registered 2026-10-22 01:58 CDT server clock, before it was run;
+  written after D156h's seed-97 numbers above, so its seed-97 floor is a check of a seen number and seeds 99–105 are
+  unseen; CPU, one process, chained after the first D156g process ends so at most three run; `d156h_floor.py`,
+  `output/gpu/d156h/d156h2.jsonl`).**
+  - For each run seed 97 / 99 / 101 / 103 / 105 of the bunny and the dragon (the tag's B1 runs): the run's own
+    render term, rebuilt as in D156h for that seed's pictures, on
+    - L's end frame,
+    - P's end frame,
+    - eight independent uniform samples of the mesh at seeds seed + 2 + 100 k: the uniform floor, with its mean,
+      standard error and minimum.
+  - Readings:
+    - L / floor and P / floor;
+    - how many floor standard errors L is below the floor;
+    - whether L is below every one of the eight draws;
+    - the share of L's lead over P that lies below the floor.
+  - **Pre-registered statement:** "the full arm reaches its render term partly by arrangement" holds at a seed if L
+    is below the minimum of the eight uniform draws. It holds for the claim if it holds at 5 of 5 seeds on both
+    meshes.
+  - Prediction (inferred): it holds at every seed; L / floor 0.5–0.75.
+
+  **Read (runs 03:25–04:25 CDT, CPU; `output/gpu/d156h/d156h2.jsonl`).** The statement **holds at 5 of 5 seeds on both
+  meshes**.
+  - Implementation note. Seed 99's run target differs from this reproduction by float32 rounding (at most 5e-7 wu);
+    seed 97's matches bit for bit. The first launch stopped on the bit-for-bit check at seed 99, after its seed-97
+    row. The relaunch uses the run's own target sample as the first picture sample and records the difference.
+
+  | mesh | seed | L | P | uniform floor (± SE, min of 8) | L / floor | P / floor | L below floor (SE) | lead below floor |
+  |---|---|---|---|---|---|---|---|---|
+  | bunny | 97 | 0.743 | 1.890 | 1.276 ± 0.013 (1.228) | 0.58 | 1.48 | 40 | 0.46 |
+  | bunny | 99 | 0.683 | 1.861 | 1.328 ± 0.017 (1.272) | 0.51 | 1.40 | 38 | 0.55 |
+  | bunny | 101 | 0.691 | 2.012 | 1.306 ± 0.011 (1.269) | 0.53 | 1.54 | 59 | 0.47 |
+  | bunny | 103 | 0.616 | 1.896 | 1.332 ± 0.020 (1.286) | 0.46 | 1.42 | 36 | 0.56 |
+  | bunny | 105 | 0.743 | 2.043 | 1.301 ± 0.018 (1.228) | 0.57 | 1.57 | 30 | 0.43 |
+  | dragon | 97 | 0.771 | 2.163 | 1.121 ± 0.015 (1.068) | 0.69 | 1.93 | 24 | 0.25 |
+  | dragon | 99 | 0.766 | 2.070 | 1.104 ± 0.016 (1.039) | 0.69 | 1.88 | 21 | 0.26 |
+  | dragon | 101 | 0.811 | 1.921 | 1.095 ± 0.013 (1.043) | 0.74 | 1.75 | 22 | 0.26 |
+  | dragon | 103 | 0.786 | 2.128 | 1.114 ± 0.013 (1.067) | 0.71 | 1.91 | 26 | 0.24 |
+  | dragon | 105 | 0.869 | 2.027 | 1.107 ± 0.016 (1.057) | 0.79 | 1.83 | 15 | 0.21 |
+
+  - L is below every one of the eight uniform draws of the true mesh at every seed: 15–59 floor SE below their
+    mean. The twin is 1.4–1.9 times above them.
+  - **The share of the full arm's lead over the twin that lies below the uniform floor is 0.43–0.56 (bunny) and
+    0.21–0.26 (dragon).** That share is arrangement, on the inference that no uniformly sampled body scores below the
+    true shape's uniform floor.
+  - It is the silhouette. L's silhouette part is 0.21–0.30 (bunny) and 0.27–0.33 (dragon) against the floor's
+    0.74–0.79 / 0.67–0.69. Its shading part is 15–24 % below the floor on the bunny and 15–27 % above it on the
+    dragon.
+  - The prediction held roughly: L / floor 0.46–0.58 (bunny; one seed below 0.5) and 0.69–0.79 (dragon; one seed
+    above 0.75).
+- **D113, do the physics and the render fall together
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
@@ -15571,6 +17057,189 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   *Disk.* Kept frames 1–2.3 GB a run (about 25 GB in all); the twins' kept frames are removed after their readings,
   the render frames after both videos exist (`cleanup.log`); the render arms' kept frames stay until the deliverable is
   accepted.
+  **Amendments (2026-10-22 00:13 CDT server clock; the coordinator's decisions of 00:00, relaying the user's priority of
+  2026-10-21 ~23:00: the render experiments D159 / D160 / D161 first, the showcase on one card).**
+  - *The studio renders are mirror images (found on the C, which reads "Ɔ").*
+    - `StudioRaster` builds its view as right = up × forward and then flips the image vertically (`image.flip(0)`), so the
+      picture is the horizontal mirror of a physical camera at the stated azimuth.
+    - It is display only: the render loss draws the body and its target pictures through the same operator.
+    - Every studio deliverable so far is mirrored.
+    - Not changed now, because D159 / D160 / D161 compare against earlier renders. The renderer's fix is to be done once,
+      later, for all deliverables together.
+    - The showcase's videos, stills and sheets are mirrored back at the encoding step (`hflip`):
+      - `sc_chain7.sh` and later chains for new renders;
+      - `sc_hflip_done.sh` once for the earlier ones, re-encoded from the mp4 at crf 16, with a marker `NAME_VIEW.hflip`.
+  - *C, the seed-97 early stop (read 23:55): the run ended at window 28 (7.8 min), still moving.*
+    - Windows 30, 32 and 33 were rejected; their candidates reverse the previous window's motion (reversal 0.6–0.8), so
+      `reject_stop` ended the run at the best state while the body still moved.
+    - End kinetic record 9.3e-4, about 500× the other runs' (1e-6).
+    - Other end readings: yardstick silhouette 5.1e-3 (about 10× the others), 293 end pieces (3 of ≥ 10 particles),
+      32 visible blobs at the end.
+    - It is the known "C stops early" behaviour (2026-10-03: C stops early in 3 of 4 runs of any code at 40k).
+    - Run again at seed 99, same code (`C300k_L99`), reported beside the seed-97 run.
+    - The root fix (do not stop on the reject count while the best state still moves) changes the frozen pipeline; the
+      coordinator takes it to the user with this evidence.
+  - *maxplanck, the render arm's thin uncovered +45 % against its twin (0.065 against 0.045).*
+    - CPU forensic `sc_thin.py`: the thin set recomputed on the CPU, 2283 points, exactly the run's record 0.0648.
+    - Where: single scattered points over the whole head. The largest connected set at 3 spacings holds 4 points (L only
+      123, P only 77, both 25); there is no missing feature.
+    - How far: every uncovered point lies 1.53–1.77 spacings from the body; none lies beyond 2 spacings in either arm.
+    - The 1.4–1.6-spacing band holds 11.6 % of the thin points with the render loss and 10.4 % without. The arm's outer
+      layer sits marginally farther out, by a few hundredths of a spacing, as D154 found at 40k.
+    - Per thickness bin: below 1 cell 8.1 % against 4.8 %; 1–2 cells 4.8 % against 4.1 %.
+    - When: L's uncovered share falls from 60 % at 0 s to 15 % at 1 s and about 6 % from 3 s on. Its end-uncovered points
+      have been uncovered since a median of 8.6 s (p10 1.0 s): sub-pitch jitter across the threshold late in the run, not
+      a feature that never formed.
+    - P's course: maxplanck P97 again with its kept frames (`maxplanck300k_P97k`, keep: no render). The run is
+      deterministic, so its end must equal `maxplanck300k_P97_end1` bit for bit; that check is part of the reading.
+  - *spot → cow* shows the head crossing over the back: spot faces +z and the cow +x, so the head's mass travels to the far
+    side. A scene choice fixes it: `spotx2cow300k_L97`, spot yawed +90° (`tmp/showcase/assets_extra/spotx.obj`: the
+    pipeline's x-90 orientation, then +z → +x), at the end of the queue.
+  - Cards: one card from 23:00, by `sc_chain6.sh` and later. The chain takes no card while a D159 / D160 / D161 chain is
+    alive without a lock of its agent, or before the card has been idle 15 min.
+- **SHOWCASE-CV, the shape's cell from the source's volume, a showcase-scene definition (pre-registered 2026-10-22 00:13
+  CDT server clock, before any test or run of it; the coordinator's go of 00:00; an option, off by default, on
+  `wip/showcase-cellvol` 03ad0ab = rt1 6c9b0e9 + the option, deployed as `repo_scv` / `repo_scvs`, kept frames).**
+  - *Why.* By the frozen rule the cell is the source's bounding-box diagonal / 26, and every source is normalised to a
+    diagonal of 8 wu. A less compact source is therefore fewer cells across: at 300k the sphere gives 183 particles a
+    cell and the armadillo 749. armadillo → homer stretched its arms and ears (1–1.5 of these cells thick) into tall
+    sheets that tore into lace at 0.5–2.5 s (1283 visible blobs over the run, none at the end).
+  - *Definition (`--cell_from_volume`).* dx × (diag_ref / diag) × (V / V_ref)^(1/3): the default source's cell scaled by the
+    cube root of the volume ratio, both read before the density match. The reference is `assets/isosphere.obj`,
+    sampled alike. Every source then gets the sphere's particles per cell. For the default source both ratios are
+    exactly 1.0, so its path is unchanged bit for bit. Everything downstream follows the new cell: the loss grid, the
+    u gate and the thin set, as they follow the shape's cell now. No constant is added.
+  - *Gate.* A job on the card: pytest on `repo_scv` with tests/test_cell_from_volume.py (new), tests/test_frozen_recipe.py
+    (gains the key, off), test_cell_follows_n, test_match_density, test_discretisation and test_refreeze_reference. The
+    gate passes on exit status 0, read from the status, not through a pipe.
+    - test_cell_from_volume checks: the default source unchanged bit for bit at 3k and 40k; from the armadillo the
+      sphere's particles per cell (rel 1e-6), a finer cell and loss grid, and the samples unchanged; the flag off by
+      default.
+  - *Run, only after the gate passes.* `armadilo2homer300k_CV97` (armadillo → homer, 300k, seed 97, render arm,
+    `--cell_from_volume`, on `repo_scvs`), read and rendered as the other showcase runs.
+  - *Predictions.*
+    - The cell 0.304 → about 0.19 wu (× (11.4 / 49.2)^(1/3) = 0.62); the loss grid 65³ → about 105³.
+    - The minutes up to about twice the default run's 13.6 (the grids are four times larger).
+    - Visible blobs over the run at least 50 % below the default run's 1283. The sheets above the head at 0.5–1 s
+      thinner in time and not torn into lace.
+    - The end readings within the default run's (silhouette IoU 0.9867, yardstick 2.8e-4, thin 1.5 %) or better.
+    - No early printing of features on the source surface: D139's printing came with a cell of 23 particles, and this
+      option restores the gallery's 183, not a finer one.
+    - If the lace remains, its frames say why; the next definition follows from that.
+  **SHOWCASE and SHOWCASE-CV result.**
+  - *Read:* 2026-10-22 10:20–10:40 CDT, CPU only.
+  - *Runs:* 2026-10-21 12:29 to 2026-10-22 07:13 on gpu 0–3 by the lock protocol: two cards until 23:00, then one.
+    Every run has rc 0.
+  - *Readers:* `sc_table.py`, `sc_topo.py`, `sc_thin.py`, `sc_montage.py`.
+  - *Where:* `output/gpu/showcase/`; locally `output/results_2026-10-21/showcase300k/`, with a Korean README.
+  - *Tables:* `data/showcase_table.md` (every reading per run, the twin leads), `data/topo.jsonl`, `data/maxplanck_thin*.json`.
+  - *Deliverables:* 28 renders (1080p, 4K, stills, contact sheets) and a montage of 27 examples, every picture mirrored
+    back (`hflip`).
+    - The renders after 02:55 cover the first 12 s; the end frame is rendered on its own for the sheets. The shape is
+      set by then.
+    - The long runs' full-length renders had taken 45–60 min a card.
+  - *A, the gallery (sphere → 13 meshes).* rc 0 on all 13.
+    - Silhouette IoU against the independent sample: 0.9838–0.9901 on the 12 that ran to the end; C 0.9813.
+      - The prediction (0.975–0.990 on ≥ 11 of 13) holds on 12 of 13; fandisk is 0.9901, just above.
+      - beast 0.9838 and ogre 0.9842 are among the lowest, as predicted.
+    - Thin: highest on C 0.075, maxplanck 0.065, heart 0.050 and beast 0.049. The prediction (beast, ogre, cheburashka)
+      holds only for beast.
+    - Minutes: 7.8–27.8.
+    - Pieces at the end: none of ≥ 10 particles that is also ≥ 5 pitches off on any run.
+    - Visible blobs at the end: 1–32 (C 32, cow 25, A 15, cheburashka 15).
+    - Rest: 5e-8 to 3e-6, except C.
+    - Momentum: the centre of mass moves at most 2e-4 pitches (C at seed 99: 8e-4); angular net / gross ≤ 0.044.
+  - *C, both seeds stop early.*
+    - Seed 97 ends at window 28 (7.8 min), seed 99 at window 27 (7.9 min).
+    - Rest 9.3e-4 / 5.6e-4 (the others ~1e-6); IoU 0.9813 / 0.9806; 293 / 352 end pieces, 3 / 2 of ≥ 10 particles.
+    - Correction of the amendment above: `reversal_cos` is the cosine between a window's displacement and the previous
+      one's (`selection.py`), so +0.4 … +0.9 means the motion continues in the same direction. It is not a reversal.
+    - The motion read on the CPU:
+      - The kinetic record falls monotonically by about 15–20 % a window (seed 97: 0.0075 → 0.0009 over windows 21–32).
+        There is no sign change: heart's last windows read −0.05 … −0.49, the jitter of a body at rest.
+      - At the end the body flows at a median 0.7 pitch/s.
+      - The fastest 5 % slide along the target surface: the cosine with the direction to the nearest target point is
+        −0.03; their directions are incoherent (0.1–0.2); they sit at the body's usual distance from the target (0.62 a
+        against 0.59 a).
+      - The released halves lose about 25 % of the motion per 20 steps (stab_end / stab 0.72–0.77): left with zero
+        controls the body would come to rest by itself in about 2–4 s.
+    - The stop path:
+      - Windows 26 and 28 had no accepted step (null commits), which latches the plateau gate.
+      - Then windows with a gain below the tolerance are rejected (29, 31, 32).
+      - The third rejection ends the run.
+      - The motion is mostly passive decay, so no control step lowers the merit further.
+    - The question for the user (the coordinator):
+      - (a) a null commit while the body moves above the rest level settles it with zero controls and is not stale;
+      - (b) the stop rule requires rest.
+  - *Twins: the render arm L against its λ = 0 twin P.* The calibration's render share is 1/3 in every committed window
+    of every L run.
+
+    | | yardstick silhouette | display front 1 − IoU | independent 1 − IoU | thin |
+    |---|---|---|---|---|
+    | bunny → dragon | −58 % | −34 % | −7 % | −8 % |
+    | teapot → bob | −57 % | −36 % | −8 % | +12 % |
+    | maxplanck against P97 | −41 % | −36 % | −4 % | +45 % |
+    | maxplanck against P97k | −41 % | −21 % | −2 % | +15 % |
+    | fandisk | −30 % | −21 % | −6 % | +3 % |
+
+    - Predictions: the yardstick 30–55 % ahead held with two beyond it; the display 15–30 % held, beyond it on three;
+      the IoU within ±0.002 held.
+    - Behind:
+      - thin on maxplanck, teapot → bob and fandisk;
+      - fandisk's angular net / gross 0.029 against 0.017;
+      - visible end blobs: fandisk 7 against 3, bunny → dragon 7 against 4;
+      - minutes +42 % on maxplanck and +13 % on bunny → dragon.
+    - The twin is not bit-reproducible across these two runs: maxplanck P97k (the twin again, same code and seed, on
+      gpu0 instead of gpu3) diverges at window 2, where one run had a null commit and the other an accepted step.
+      Its end thin is 5.65 % against P97's 4.47 %.
+    - The maxplanck thin forensic with P97k's frames:
+      - Both arms' uncovered thin points are single points scattered over the head, 1.53–1.90 spacings from the body,
+        none beyond 2 spacings.
+      - L's share is 60 % at 0 s, 15 % at 1 s, 8 % at 1.4 s and 6.5 % at the end.
+      - P97k's share is 60 %, 15 %, 6.7 % and 5.65 % at the same times.
+      - The end-uncovered points have been uncovered since a median 8.6 s (L) and 5.4 s (P): sub-pitch jitter across
+        the 1.5-spacing threshold.
+      - L's "+45 %" is within the twin's own rerun spread (4.5–5.7 %).
+      - Proposed for the paper: report thin at 1.5 and at 2 spacings (`thin_uncovered_2sp`, already recorded).
+  - *B, shape to shape.*
+    - Silhouette IoU: bunny → dragon 0.9875 (27.7 min), teapot → bob 0.9888 (19.2), spot → cow 0.9832 (23.7),
+      spotx → cow 0.9853 (12.3), armadillo → homer 0.9867 (13.6), bunny → happy 0.9874 (32.4).
+    - Predictions: IoU ≥ 0.97 held on all; armadillo → homer is not lower; the minutes are above the gallery's median
+      on four of six.
+    - Topology (`sc_topo.py`, tunnels of the particles' occupancy). The operator is the median 8th-neighbour distance
+      on a grid of the median spacing, one closing, holes filled. It is calibrated on the target samples: happy 6,
+      bob 1, A 1, dragon 3; the covering radius without closing reads 16–77 micro-tunnels of sampling noise.
+      - teapot → bob: 1 tunnel at 0.5 s (the handle), 0 at 1 s, 17 transient at 2 s, then 1 at 4 s and the end:
+        the handle's hole closes and bob's opens through a membrane at about 2.5 s. The prediction ("within the first
+        second") held for the closing only.
+      - bunny → happy: 4 of 6. sphere → happy: 7 against the target's 6 (every hole open).
+      - bunny → dragon and sphere → dragon: 2 against 5 / 4. A: 1 against 3. bob: 1 of 1.
+      - B1's sphere → teapot: 0 throughout (target 2), so the handle never opens. D145 reading 5 found that
+        `--cell_follows_n` opens it.
+    - spot → cow: spot faces +z and the cow +x, so the head's mass crosses over the back (a plate above it at
+      1.0–1.5 s). spotx → cow (spot yawed +90°, a scene choice):
+      - the head now moves forward;
+      - a flattened plate of the old head still forms at 0.75–1.0 s;
+      - 12.3 against 23.7 min; visible blobs 291 against 555; IoU 0.9853 against 0.9832.
+  - *SHOWCASE-CV, armadillo → homer with `--cell_from_volume`.*
+    - Gate passed: 24 tests, exit 0, 01:09.
+    - The cell is 0.188 wu against 0.304 (183.5 particles a cell, exactly the sphere's, against 749); the loss grid
+      100³ against 65³.
+    - 24.5 against 13.6 min (1.8×; the prediction ≤ 2× held).
+    - The lace: transient tunnels 5 against 17 at 1 s and 19 against 63 at 2 s. Visible blobs over the run 860 against
+      1283, −33 % (the prediction ≥ 50 % fails).
+    - The frames: the tall sheets above the head at 0.5–1.0 s remain. They are the armadillo's raised arms streaming
+      up to homer's head, so the transport plan, not the cell, makes them. The perforation of those sheets at 1.5–2.5 s
+      is mostly gone; one strand remains at 1.5 s.
+    - End: IoU 0.9865 against 0.9867; yardstick silhouette 3.8e-4 against 2.8e-4 (+38 %, behind); shading 2.1e-4
+      against 2.5e-4; display front 0.0068 against 0.0074; rest 6e-7 against 2.4e-6; angular net / gross 0.038
+      against 0.086.
+    - Thin is not comparable: the thin set is defined by the cell, so 3221 against 6628 points.
+    - Reading: the coarse cell causes the lace but not the sheets. The option is not proposed for adoption on this
+      evidence: one pair, +38 % yardstick, 1.8× time. The sheets' source is the transport's long paths from thin raised
+      features, the thin-feature transport question.
+  - *Disk.* Kept frames are removed after these readings (`cleanup.log`). Kept: the end frames (`*_end1.npz`), the
+    stills, the videos and every log.
 - **D158, why the render loss inside the run does not write the relief D115's display layer writes (a measurement; no
   run of the pipeline, no default changed; pre-registered 2026-10-21 16:07 CDT server clock [the stamp first read 16:10,
   three minutes ahead of the server clock: corrected; the runner started at 16:07:52, waiting for a card], before any
@@ -15875,6 +17544,207 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   exterior through its field, the layer through its 8 nearest layer particles, D158's weighting), as the code's
   docstring says. Also corrected: the seed-99 twins' re-run is a replicate of B1's P99, not equal to it bit for bit
   (production runs are not run-to-run deterministic; rt1 = the tag was shown under Warp's deterministic mode).
+  *Amendment 3 (22:42 CDT [first written 22:44, ahead of the server clock: corrected], before any run; the gate chain
+  that started 21:04 stopped at V1, the one restarted 22:36 was
+  stopped at 22:41 by its PID before it had a card).* (i) V1's failure: `test_the_default_path_ignores_the_mesh...`
+  asked two GPU builds of the same input for bit equality; the pictures are sums by `index_add` (CUDA atomics), equal
+  only to float rounding, and the code never reads the mesh on the default path. The test asked for determinism,
+  not for its claim: it now hands the default path a mesh that fails on any read and compares the pictures within the
+  operator's own run-to-run spread measured from two identical builds (< 1e-5; `wip/d159` 0480659; CPU part passes,
+  the full suite reruns as V1). (ii) The coordinator relaying D161's response curve (40k bunny): the physics' hold on
+  sub-cell relief is about 180 times the render's push per pitch, mostly the surface proximity, which pulls the
+  surface onto the target SAMPLE's (as blurred as a 300k sample) — detailed pictures may be held flat by it. Added
+  reading R5, the per-term hold on the detail band: the M97 runs get `--term_dump` (each term's per-particle position
+  gradient at every committed window: transport, surface proximity, near band, spray cleanup, the λ-weighted render;
+  read-only), and the tag's path is run again at seed 97 with the same dumps (bunny300k_T97, dragon300k_T97, also a
+  replicate of B1's L97). Per window and at the end, on the outer layer: each term's normal component split on the
+  layer's graph at σ = 2 pitches, its rms below 10.8 pitches, in the region and on the whole layer, against the render's;
+  the relaxation, a position edit and not a term, read at the end state by its own operator (the window's layer graph
+  and the relief reference rebuilt as `window/layer.py` builds them: its per-step move, pitches) in its own unit.
+  (iii) If D159 fails P1 with P2–P4 held, the next arm combines `--render_target mesh_shell` with D161b's definition
+  change of the proximity's reach, pre-registered then with D161's definition as the coordinator passes it on.
+  *Amendment 4 (written 2026-10-22 00:59 CDT with the first reading; asked by the coordinator at about 00:30, relaying
+  D160's finding that lambda falls about 120 times after arrival, and computed then, after the M97 runs and their early
+  R1, R2 and R5 readings, before the T97 runs).* R6, is the render starved after arrival:
+  per window of the run's history (`d159_window.py`), lambda, lambda |g_render| against |g_phys| on the controls, the
+  render's share, the step taken (the accepted step size times the gradient norm; `step_norm` is a telemetry field),
+  the body's move per window, and the decisions (accepted / rejected iterations, null commits, outer rejections, the
+  stop); arrival is the first window by which 90 % of the run's whole move is made (the same rule for every run).
+  **First reading (2026-10-22 00:59 CDT; the gates 23:30–23:38 on gpu3, the M97 and P99 runs 23:38–00:54, the T97 pair
+  running; `output/gpu/d159/read/{relief_tag,relief_early,course_tag,course_early,course_floor,terms_early,window}_*`).**
+  Gates: V1 the full suite exit 0 (442 passed, 2 skipped; the rewritten CUDA test among them), V2 the digest exit 0, V3
+  SAME against rt1's S1, V4 the D159 arm runs (40k bunny, c median 0.868 pitch). Runs (300k, two on one card): bunny
+  M97 20.6 min, 89 windows, silhouette IoU against its own sample 0.9877, chamfer 0.0551 (B1's L97: 0.9884, 0.0551,
+  102 windows); dragon M97 34.1 min, 153 windows, 0.9872, 0.0546; the twins at seed 99: 0.9875 / 0.9889. The shell
+  pictures' log line as in step 0 (c median 0.879 / 0.916 pitch; their difference from the samples' pictures 2.05e-4 /
+  2.03e-4 silhouette, 4.96e-4 / 4.93e-4 shading).
+  R1, the relief carried in the region by band (below 2.7 / 2.7–5.4 / 5.4–10.8 pitches; all below 10.8 in brackets):
+
+  | | outer layer (the particles) | exterior (the surface the loss reads) |
+  |---|---|---|
+  | bunny D159 M97 | 0.75 / 0.85 / 0.87 (0.87) | −0.13 / 0.41 / 0.67 (0.40) |
+  | bunny tag L97; L97–L105 range | 0.78 / 0.84 / 0.87; 0.76–0.81 / 0.82–0.86 / 0.85–0.88 | −0.02 / 0.43 / 0.65; −0.13…−0.02 / 0.39–0.44 / 0.64–0.67 |
+  | bunny twin P97; own sample | 0.79 / 0.86 / 0.88; 0.70 / 0.75 / 0.82 | −0.02 / 0.43 / 0.66; 0.11 / 0.55 / 0.74 |
+  | dragon D159 M97 | 0.83 / 0.82 / 0.82 (0.83) | −0.26 / 0.43 / 0.67 (0.40) |
+  | dragon tag L97; L97–L105 range | 0.83 / 0.81 / 0.81; 0.80–0.83 / 0.80–0.81 / 0.80–0.81 | −0.34 / 0.40 / 0.65; −0.40…−0.19 / 0.36–0.44 / 0.64–0.67 |
+  | dragon twin P97; own sample | 0.83 / 0.81 / 0.81; 0.69 / 0.71 / 0.75 | −0.07 / 0.48 / 0.67; −0.45 / 0.36 / 0.61 |
+
+  At 4 s D159 and the tag are alike too (bunny layer 0.74 / 0.82 / 0.85 against 0.74 / 0.82 / 0.85). The particles
+  carry about four fifths of the mesh's relief in the region with or without the new pictures, more than their own
+  300k sample; the exterior of radius 3 hides it.
+  R2, the arm's surface from the twin's (P97's layer, pitches; the floor = the seed-99 twin against P97):
+
+  | t (s) | 0.5 | 1 | 2 | 4 | end |
+  |---|---|---|---|---|---|
+  | bunny D159, all / detail band | 0.364 / 0.084 | 0.275 / 0.112 | 0.180 / 0.087 | 0.134 / 0.070 | 0.115 / 0.064 |
+  | bunny tag | 0.368 / 0.086 | 0.359 / 0.123 | 0.172 / 0.088 | 0.128 / 0.071 | 0.111 / 0.064 |
+  | bunny floor | 0.108 / 0.071 | 0.261 / 0.126 | 0.162 / 0.096 | 0.136 / 0.080 | 0.125 / 0.075 |
+  | dragon D159 | 0.738 / 0.231 | 0.650 / 0.227 | 0.305 / 0.159 | 0.204 / 0.107 | 0.135 / 0.078 |
+  | dragon tag | 0.820 / 0.280 | 0.850 / 0.327 | 0.551 / 0.252 | 0.202 / 0.111 | 0.137 / 0.077 |
+  | dragon floor | 0.170 / 0.065 | 0.294 / 0.078 | 0.267 / 0.145 | 0.190 / 0.107 | 0.136 / 0.080 |
+
+  During the arrival the full arm moves the surface far beyond the seed floor (the render steers the arrival, D155),
+  in the detail band too on the dragon (0.28–0.33 against 0.065–0.078 at 0.5–1 s); after arrival both arms fall to the
+  floor (end: detail band 0.064 / 0.078 against the floor's 0.075 / 0.080). D159 departs less than the tag on the
+  dragon early and as much afterwards. The particles themselves end 2.2 / 7.7 pitches from the twin's (the same
+  material goes elsewhere), the surfaces within the floor.
+  R5 (M97; `--term_dump`), the outer layer's detail band: the render's normal gradient 9e-6 / 2e-5 at window 0, about
+  1e-8 / 7e-9 from window 10–20 on; the physics' 4–15 times that (the near band the largest, then spray, proximity,
+  transport), each nearly orthogonal to the render's (|cos| ≤ 0.13; transport −0.13 / −0.08 at the end); the relaxation
+  at the end removes 0.040 / 0.050 pitch a step in the band (0.050 / 0.060 in the region), against the render's push
+  (cos −0.16 / −0.11). Proximity is not the largest detail-band gradient at 300k; the render's own detail push is small.
+  R6 (`read/window.jsonl`): arrival at window 8 of 89 (bunny) and 20 of 153 (dragon). Before → after arrival (medians):
+  lambda 0.026 → 0.0015 and 0.011 → 0.0016; |g_phys| 2.3e-4 → 5.9e-6 and 9.9e-5 → 4.6e-6, lambda |g_render| at half of
+  it throughout (the share 1/3 by the rule); the step 2.7e-6 → 3.9e-8 and 1.2e-6 → 6.6e-8; the body's move 1.5 → 0.009
+  and 1.4 → 0.021 target spacings a window (after arrival 1.8 and 4.7 spacings in all, over 80 and 133 windows); no
+  rejected iteration after arrival (624 / 952 accepted), 4 / 16 null commits, 2 / 3 outer rejections, the stop rule
+  ending the run. The tag's L97 and the twin show the same pattern (bunny after arrival: 0.008 spacing a window, lambda
+  0.0016). After arrival the render is starved: its weight follows the physics' gradient down 40–20 times and each
+  window moves the body about a hundredth of a spacing, so what the new pictures ask for there barely happens.
+  P1: failed. R1 in the region is within the tag's five-seed range on the bunny in every band and beyond it on the
+  dragon in the 5.4–10.8 band only (0.816 against at most 0.806; L97 + the range's width 0.811), and R2's detail band at
+  the end is not above the floor on either mesh. With P1 failed the arm is not a candidate whatever P2–P4 give;
+  the 40k gallery (P4, read for adoption only) is therefore not run, and the card is left to D160 / D161 (`drop_g.sh`
+  stops the chain after the renders). Pending (detached, `tmp/d159/RESUME.md`): T97 (the tag's path with the term
+  dumps), the CPU readings (R1–R3 with every state, R5 on T97, pieces, visible blobs), the renders, the close-ups.
+  Reading: neither the target pictures nor the proximity's hold is what keeps the relief off the particles' surface;
+  the particles already carry about four fifths of the region's relief (more than their own 300k sample), the exterior
+  of radius 3 hides it, and after arrival the render moves nothing in the detail band beyond the seed floor because
+  its weight and the step collapse with the physics' gradient. Next definition (a proposal to the user; a change of the
+  frozen render-weight rule): after arrival the render's authority must not follow the physics' gradient down; with it,
+  D159's pictures and the exterior field's radius (D123, 2.5) as the render's path to u.
+  **D159c, D159's pictures with the render weight held (pre-registered 2026-10-22 01:04 CDT server clock, before its
+  launch; the coordinator, 01:0x: the starvation D160 measured; D160c is its 40k test).** The definition: D159's arm
+  (`--render_target mesh_shell`) with `--lambda_ema 0`, the existing pre-D81 option: the balancer keeps the first
+  window's calibration (lambda = the value that made the render's gradient half the physics' there) for the whole run,
+  in place of following the physics' gradient down after arrival. Nothing else changes. Runs: bunny and dragon 300k,
+  seed 97, `--term_dump` (bunny300k_C97, dragon300k_C97; `repo_d159s`, kept frames; `tmp/d159/d159c.sh`, one card by
+  the lock protocol). Against D159's M97, the tag's L97 (and its five seeds), the twin P97 and the floor P99. Launched
+  only when D160c's after-arrival timeline (`output/gpu/d160/gate_H/`, or the coordinator's word) shows the colour still
+  moving with lambda held; if D160c shows no movement, D159c is not launched. Readings: R1 (end and 4 s), R2 (against P97
+  with the floor), R5 (the term dumps), R6 (per window, before and after arrival), and the end at rest (the run's last
+  kinetic record, the last ten windows' move) and pieces (`pieces145.py` at the end: count, ≥ 10 particles, ≥ 5
+  pitches; `visible_apart.py` over the run), B1's GPU readings (yardstick, display, momentum, arrangement) and D157's
+  decision set (14 measures, as D159's reading counts them). Predictions: with lambda held at its first value
+  (bunny about 0.026, dragon about 0.011) the render's share after arrival rises to about 0.9 (lambda |g_render| some
+  ten times |g_phys| there), the step and the body's move per window after arrival grow several times (R6), R2's detail
+  band after arrival rises above the floor (by 30 % or more at the end), and R1's exterior carried share in the region
+  rises at 2.7–5.4 and 5.4–10.8 pitches by 0.03–0.10 (the layer may pass 1, the particles over-shaping the relief so
+  that the field of radius 3 shows it); risks: the end not at rest (the render keeps moving the surface), more visible
+  pieces, longer runs, a worse thin share. Pass (P1c, on both meshes): R1's exterior carried share in the region above
+  the tag's five-seed range at 2.7–5.4 and 5.4–10.8 pitches, and R2's detail band at the end at least 1.3 times the
+  floor's; P3c: the end's kinetic record and the last ten windows' move not above the tag's five-seed maximum, no
+  piece of ≥ 10 particles or ≥ 5 pitches at the end beyond the tag's count, visible blobs over the run not above 1.5
+  times the tag's, thin uncovered not above the tag's maximum + 0.005; P2c: D157's decision set as D159's P2 (at most
+  two of 14 outside the tag's range on the worse side, none of the four 3D ones). The 40k gallery only if P1c and
+  P3c pass, then pre-registered on its own.
+  *The display reading the coordinator added (01:0x).* The close-ups get one more pair, the bunny's wrinkles and the
+  dragon's scutes at 4 s and the end, tag | D159, drawn through the field of radius 2.5 (D123, offset 0.8 × 2.5 / 3):
+  a display reading only (the loss reads radius 3), to show how much of the relief the particles hold today (R1: about
+  four fifths) that the radius-3 surface hides.
+  **D159, second reading (2026-10-22 02:47 CDT; the T97 pair 00:54–01:35, the CPU readings 01:36–02:00, the 40k gallery
+  01:51–02:34 and its reading 02:45; `output/gpu/d159/table/table.txt`, `table.json`, `course.png`, `relief.png`,
+  `holds.png`; the T97 term dumps read and deleted, `cleanup.log`).** The gallery ran: the chain runs its steps in the
+  order of its file, which put G before X, so `drop_g.sh` (waiting for X's end) never fired; at 02:00 the 19 short runs
+  were a third done and were left to finish; P4 is read below although P1 had already failed. T97, the tag's path
+  again with the dumps: bunny own-sample IoU 0.9880 (B1's L97 0.9884), dragon 0.9874; its R5 as M97's within a few
+  per cent (the render's detail push 1.1e-8 / 5.2e-9, the physics' 4.7e-8 / 3.8e-8, |cos| ≤ 0.1, the relaxation 0.040 /
+  0.046 pitch a step, cos −0.20 / −0.21): D159's pictures did not change who pushes the detail band.
+  R3, D157's decision set (14 measures; held-out views at 1024 px against the corrected referee, 3D on the exterior,
+  studio images), D159 M97 against the tag's five seeds: **bunny better than the whole range on 13 of 14, within on
+  one** (contour Chamfer 0.130 against 0.150–0.156 pitch, HD95 0.385 against 0.406–0.420, BIoU error 0.047 against
+  0.052–0.055, 3D Chamfer-L1 0.239 against 0.256–0.266, F@0.5 error 0.087 against 0.090–0.102, normal-consistency error
+  0.0200 against 0.0207–0.0216, every image measure); **dragon better on the 6 image measures, worse on 6** (BIoU
+  0.0815 against 0.0779–0.0809, boundary F, HD95 0.640 against 0.584–0.616, F@0.5, F@1, Chamfer-L1 0.321 against
+  0.307–0.320), within on 2. Read with its caveat: the corrected referee is the mesh grown by the own sample's mean
+  offset, close to D159's target surface, so a gain there is partly a fit to the referee's shell; the image measures
+  are the least tied to it.
+  R4 (B1's readers; the tag's five seeds): yardstick silhouette within (bunny 7.74e-4 at the range's top, dragon
+  5.52e-4), yardstick shading above the range on both (4.86e-4 against ≤ 4.77e-4; 4.87e-4 against ≤ 4.70e-4: the
+  yardstick is the independent 300k sample's pictures, which D159 no longer aims at); display front 1 − IoU 0.0088
+  (bunny, better than the range) and 0.0093 (within); back 0.0084 (within) and 0.0095 (above 0.0093); thin 0.0437 /
+  0.0378 (above the range's 0.0406 / 0.0358, within its + 0.005); the end's kinetic record 1.10e-6 (within) and
+  9.45e-6 (above the range's 7.91e-6); pieces at the end 61 / 120 (tag 44–59 / 99–143), none of ≥ 10 particles or ≥ 5
+  pitches (the tag's dragon L97 one of 11); visible blobs over the run 113 / 276 (within 88–140 / 243–294); minutes
+  20.6 / 34.1 with two runs sharing a card (not comparable with B1's single runs).
+  40k gallery (D154's reader, M97 against the tag's V97 / V99; worse = above max + the two runs' gap): 7 of 19 meshes
+  worse (thin on A, heart; 1 − IoU at 1024 px on fandisk, V; both on armadilo and dragon; the outline shape on
+  maxplanck); the outline shape against the exact mesh below both tag runs on 15 of 19 and the normal angle at the
+  nearest mesh point on 15 of 19.
+  Verdict by the letter: P1 failed (first reading), P2 passed on the bunny and failed on the dragon (6 of 14 worse,
+  three of them 3D), P3 failed (the yardstick's shading on both; the dragon's end above the kinetic range), P4 failed
+  (7 meshes). Not a candidate. What it does show: with the same physics and the same render weight, pictures drawn
+  from the mesh move the end surface toward the exact mesh's outline and normals (bunny 300k in every D157 measure,
+  the 40k gallery's outline and normals on 15 of 19 meshes) and away from the 300k sample's pictures (the yardstick's
+  shading, the thin share, the silhouette area on some meshes); the detail band itself, which forms after arrival, is
+  not moved (R1, R2, R5, R6). D159c (held lambda) waits for D160c's after-arrival reading.
+  *D159c launch condition read (02:51 CDT server clock).* D160c's ten full runs (`output/gpu/d160/gate_H/`,
+  `read_colour_H.jsonl` timelines, each run's own arrival = 90 % of its cumulative move): λ is the first window's value
+  at every window, and the wrong-colour share keeps falling after arrival in all ten (bunny half 54/56 %, band
+  60/67 %, ears 15/22 %, turn 16/17 %, dragon band 27/12 % of its value at arrival, seeds 97/99) while the twins are
+  flat after about 1 s. The condition holds; D159c is armed (`tmp/d159/d159c_after.sh`, PID 4161998): it starts
+  `d159c.sh` once D159's renders and close-ups are done, so D159 holds one card at a time.
+  **D159c read (2026-10-22 10:45 CDT; runs 04:39–04:58 on one card, the CPU readings 10:19–10:28; `output/gpu/d159/table/
+  table.txt` (C97 beside M97 in R1–R5, and R6), `course.png`, `relief.png`, `holds.png`, the three-row close-ups in
+  `closeups/`).** Two reader faults, fixed before reading: `d159c_read.sh` used `C` for the run name and
+  `tmp/d146/cache_env.sh` sets `C` (the cache dir), so the visible pieces, the end pieces, R5 and R6 read the wrong
+  paths (apart, R1 and R2 were right); re-read with `RUN` (`d159c_readfix.sh`, `d159c_terms.sh`), and D157's set was
+  added (`d159c_d157.sh`, not in the first script). The held λ is the first window's calibration, 0.32 (bunny) and
+  0.96 (dragon), not the 0.026 / 0.011 the prediction took from D159's mean over the approach: in D159 λ already falls
+  3–7× within the first three windows. The runs end early by the frozen stop rules: bunny at window 50 (three rejected
+  candidates in a row), dragon at window 49 (delivery merit plateau, delivered at the best commit, 43); 12.4 / 16.3
+  min; the ends are at 7.2 / 7.0 s against D159's 14.2 / 22.9 s.
+  R6, after arrival (against D159 M97): the render's share 0.97 / 0.98 (0.33), λ|g_r| 9.7e-4 / 4.0e-3 against
+  |g_p| 3.0e-5 / 6.7e-5 (2.9e-6 against 5.9e-6; 2.3e-6 against 4.6e-6); the step α|g| 8.5× / 32×, the move per window
+  0.031 / 0.151 spacing (0.0091 / 0.0213), the last ten windows 0.027 / 0.107 (the tag 0.0046 / 0.0105); the physics
+  gradient stays 5–14× above D159's: the render holds the body away from the physics' rest point. R5, the last ten
+  windows: the render's detail-band push 2.7e-6 / 1.1e-5 (D159 1.0e-8 / 6.8e-9), the physics' 3.9e-7 / 9.3e-7; the
+  render owns 0.97–0.99 of the detail-band push from the first window to the end (`holds.png`); the relaxation removes
+  0.052 / 0.092 pitch a step in the band (D159 0.040 / 0.050), cos with the render's push −0.07 / −0.02.
+  R1, the region, end: the outer layer's carried share is unchanged (bunny 0.75 / 0.84 / 0.86 by band against D159
+  0.75 / 0.84 / 0.87 and the tag's 0.76–0.81 / 0.82–0.86 / 0.85–0.88; dragon 0.82 / 0.81 / 0.82 against 0.83 / 0.82 /
+  0.82 and 0.80–0.83 / 0.80–0.81 / 0.80–0.81). The radius-3 exterior the loss reads follows the mesh more on the dragon
+  (0.26 / 0.67 / 0.80 against the tag's −0.40…−0.19 / 0.36–0.44 / 0.64–0.67) and just above the tag's range on the bunny
+  (−0.02 / 0.45 / 0.68 against −0.13…−0.02 / 0.39–0.44 / 0.64–0.67); in the dragon's high-contrast set the exterior
+  falls (−0.20 / 0.50 / 0.68 against 0.00–0.27 / 0.54–0.60 / 0.72–0.75). R2, the detail band from the twin at the run's
+  end (7 s): bunny 0.078 against the floor's 0.075 (1.0–1.1× the floor at its end or at 7 s), dragon 0.133 against
+  0.080 (1.4–1.7×); the course stays above D159's and the tag's from 0.5 s on and is still falling when the
+  run stops (`course.png`).
+  Rest, pieces, quality (against the tag's five seeds): the last kinetic record 1.0e-3 / 6.4e-4 against at most
+  1.8e-6 / 7.9e-6 (G3 still passes); thin 0.069 / 0.112 against at most 0.041 / 0.036; the yardstick 1.2× (bunny)
+  and 2.7–3.5× (dragon) the tag's; end pieces bunny 43 (none of 10+), dragon 578 with 10 of 10+ particles, the largest
+  35, one 5.6 pitches out (the tag 0–1 of 10+); visible blobs over the run 101 / 97 against 88–140 / 243–294 (the runs
+  are a third as long). D157's set: bunny better than the tag's whole range on 11 of 14, worse on 2 (boundary F, 3D
+  F@1); dragon worse on all 14 (HD95 9.9 pitches against 0.61, the far piece). Close-ups (tag | D159 | D159c, studio
+  look; and the r = 2.5 display pair): no new relief on the scutes or the haunch; D159c's ends look like the tag's
+  at 4 s.
+  Verdict by the letter: P1c failed (the bunny's R2 at 1.0–1.1× the floor; the dragon passes both parts), P2c failed
+  (the bunny's 3D F@1, the dragon's 14), P3c failed on both (rest, thin; the dragon's pieces). Not a candidate. What it
+  shows: holding the render's weight gives the render 97–99 % of the push on the detail band for the whole run, and
+  the outer layer still carries the same share of the scales and wrinkles as the twin, the tag and D159; what moves is
+  the field of radius 3 over it (the dragon's region) and the rest of the body (not at rest, thin, pieces). The render
+  after arrival does not carve the mesh's relief into the particles at this weight; its push is spent against the
+  physics' rest point.
 - **D160, the render routes material by its colour: which material ends where is the physics objective's null space
   (pre-registered 2026-10-21 17:58 CDT server clock, before any D160 gate or run; the coordinator's go relaying the
   user, 2026-10-21: the render's own contribution for the SIGGRAPH paper. An option, default off: `--appearance SCENE`
@@ -16077,6 +17947,1676 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
     colour-to-length scale is fixed by the pictures, not tuned.
   - C2 failing: measure the render gradient's split among the silhouette, the grey shading and the colour before any
     change.
+  **D160 read (gates and runs 2026-10-21 22:46 – 2026-10-22 00:08 CDT on GPU 0, readers to 00:17, read 00:25 CDT):
+  FAIL on C1 at every rearrangement scene. C2 holds (5 of 80 cells). C3 and C4 each miss by one run, by the letter.**
+  *Gates.*
+  - The first try stopped at V1 at 19:05: test_frozen_recipe's expected configurations lacked the new default-off key
+    `appearance`. Fixed as the earlier options did (209ba6d), nothing else changed.
+  - V1: 446 passed, exit 0. V2: the pinned references and D160's tests, 14 passed, exit 0.
+  - V3: the defaults and `--appearance white` are each the same as rt1's S1, every frame, metric and the 556 history
+    fields.
+  - V4: the twin's trajectory is the same with and without the band paint. The paint changes the full run.
+  *C1, colour.* r = (mis_P − mis_L) / (mis_P − floor); the held-out colour images are D157's 46 views.
+
+  | scene | seed | mis twin → full (floor) | r | PSNR twin → full | LPIPS twin → full | ΔE twin → full |
+  |---|---|---|---|---|---|---|
+  | bunny half (control) | 97 / 99 | 0.057 → 0.055 / 0.059 → 0.055 (0.003) | 0.04 / 0.07 | 18.80 → 19.03 / 18.73 → 19.03 | 0.070 → 0.066 / 0.071 → 0.068 | 9.8 → 9.5 / 10.0 → 9.6 |
+  | bunny band | 97 / 99 | 0.099 → 0.093 / 0.104 → 0.095 (0.006) | 0.06 / 0.09 | 16.77 → 17.12 / 16.64 → 17.08 | 0.089 → 0.085 / 0.091 → 0.085 | 12.4 → 11.9 / 12.6 → 11.9 |
+  | bunny ears | 97 / 99 | 0.128 → 0.123 / 0.128 → 0.124 (0.004) | 0.04 / 0.03 | 16.28 → 16.53 / 16.23 → 16.52 | 0.105 → 0.101 / 0.104 → 0.102 | 13.8 → 13.4 / 13.9 → 13.4 |
+  | bunny turn | 97 / 99 | 0.433 → 0.427 / 0.436 → 0.428 (0.012) | 0.01 / 0.02 | 10.70 → 10.76 / 10.67 → 10.75 | 0.168 → 0.168 / 0.168 → 0.166 | 32.0 → 31.6 / 32.2 → 31.6 |
+  | dragon band | 97 / 99 | 0.195 → 0.189 / 0.192 → 0.186 (0.004 / 0.005) | 0.03 / 0.03 | 15.22 → 15.50 / 15.30 → 15.37 | 0.092 → 0.089 / 0.091 → 0.091 | 16.5 → 16.0 / 16.3 → 16.1 |
+
+  - The full arm is better than its twin on every row, but by 0.002–0.009 of the surface (r 0.01–0.09; pass needs
+    0.5). Held-out PSNR is up 0.06–0.44 dB.
+  - The control holds: half's full arm is not worse.
+  - The twins repeat the tag's W layout within 0.001 (the same-paint run-to-run floor). The full arm's gains are real
+    but small.
+  *Locality readings.*
+  - The distance still to travel is unchanged (twin → full: band 3.7 → 3.7, ears 9.9 → 9.9, turn 12.4 → 12.3
+    pitches).
+  - The outer red material moves −0.01 to +0.09 pitches toward where red is wanted, against 3.7–12 needed. The tag's
+    V − W, without colour, gives ≤ 0.05.
+  - The full arm moves the outer layer from its twin by a median 0.41–0.45 pitches (bunny). That equals V − W's 0.41:
+    the colour adds no motion beyond what the render does without it.
+  - The timelines are flat after about 2.4 s in both arms.
+  - Where the gain appears (twin minus full): mostly during the flow.
+    - Band: 0.003–0.005 by 0.3–0.6 s, 0.006–0.009 at the end.
+    - Half: 0.000–0.002 by 0.6 s, 0.002–0.004 at the end.
+    - Ears: largest at 2.2 s (0.006), 0.004–0.005 at the end.
+    - Turn and dragon: largest at 0.6–0.8 s (0.011–0.017); half of it is lost during the arrival (0.006–0.008 at the
+      end).
+  *Why the front stops: the windows' records, band L97.*
+  - λ falls 120-fold over the run (0.31 → 0.0026) with the physics gradient norm (1.8e-3 → 1.65e-5); g_share stays
+    1/3.
+  - The colour shading term stays at 5.7e-3–6.2e-3 while the silhouette term falls to 7e-4. The colour error is
+    worth λ · d_pbr ≈ 1.5e-5 of a 7e-5 merit.
+  - The search length is 2–3e-3 and the per-window move 7.5e-4 wu, about 0.008 pitches. The colour term falls 2.4 %
+    over the last 12 windows.
+  - So the colour is placed while the body flows. After arrival the render's push and step are the polish's, and the
+    front does not move.
+  - This is not the colour gradient's locality alone: the short scene (3.7 pitches, within the kernel's reach plus the
+    adjoint's spread) fails as the long one does.
+  - It is the pattern D161 found for the carved relief: what the render writes during the arrival, the settling takes
+    back or never extends.
+  *C2–C4.*
+  - C2 holds: 5 of 80 cells worse than the tag's worst V by more than its spread (half L99 yardstick silhouette; turn
+    L97 IoU and yardstick silhouette; dragon L97 IoU; dragon L99 thin).
+  - The render's geometric lead over the twin is kept: yardstick silhouette 0.0026–0.0030 against the twins'
+    0.0036–0.0038; grey held-out PSNR +0.3–0.45 dB on the bunny.
+  - C3: G3 passes on every run. Half L99's delivered kinetic record is 7.05e-5 against the bound of 6.87e-5 (3 %
+    over).
+  - C4: ears L99 ends with one piece of 14 particles within 5 pitches of the body. The tag's dragon V99 ends with one
+    too.
+  - Minutes and windows: the full arm's equal the twin's (1.1–2.1 min). The predicted longer runs did not happen.
+  *Predictions against the outcome.*
+  - r: predicted 0.5–0.9 (band), 0.3–0.7 (ears), 0.05–0.3 (turn), 0.3–0.7 (dragon); measured 0.06–0.09, 0.03–0.04,
+    0.01–0.02, 0.03.
+  - PSNR: predicted +1–3 dB; measured +0.06–0.44.
+  - The red material's shift: predicted 1–6 pitches; measured ≤ 0.09.
+  - Geometry and gates as predicted.
+  *Correction of a description.* The ears scene's target paint (y ≥ 3.2 in the bunny's frame) colours the ears' upper
+  parts, as the sheets show, not the ears down to their base; the definition ran as registered.
+  *Next (proposed, not run).*
+  - D160b, the colour on D155's moving target. The measured routing window is the flow, and the moving target (D155's
+    ramp, an existing option on wip/d155) keeps the material flowing over the elastic period, about 3 s, with the
+    render at the rule's weight per unit of motion.
+    - 40k, the same five scenes and criteria.
+    - Before it: the state-level split of the colour push at the front, the share the transport and proximity cancel
+      against the share the step does not reach (decides "hold" or "pace").
+  - If routing still stalls during a long flow: DROT's OT term on (pixel position, colour).
+  - No 300k (the gate failed).
+  *Files.* `output/gpu/d160/`: `runs40/`, `read_colour.jsonl`, `gate/` (`gate.json`, `table.md`, figures), `video/`
+  (seed 97: full | twin | target paint, front and back), `pieces.jsonl`, `d157_L.jsonl`. Local:
+  `output/results_2026-10-21/d160_appearance/` (`README_ko.md`, `figs/`, `sheets/`, `video/`, `data/`).
+  **D160 step 1, what limits the colour after arrival (measurement only; the coordinator's go 2026-10-22 00:20 CDT;
+  read 00:49 CDT).**
+  - Part A (CPU) read every run's window records (`tmp/d160/d160_limiter.py`, `output/gpu/d160/limiter_A.json`).
+    Arrival is the first window whose move is ≤ 5 % of the run's largest: 1.7–1.8 s on the bunny, 2.7 s on the dragon.
+  - Part B is a diagnostic re-run of band / ears / turn L97 with `--term_dump --telemetry` (`step1/`, 00:39–00:46 on
+    GPU 1). At every committed state the render's gradient is split by the run's own operators into the colour's push
+    (through the discs' albedos alone) and the geometric push (`tmp/d160/d160_split.py`; the split matches the dump's
+    g_rend to 10–30 %, the discs being found afresh).
+  - The forces are compared at the front: the outer particles read by mis-coloured discs.
+
+  The coordinator's items:
+  - (v) The stop rule is not the limiter. 23–40 windows run after arrival (3–5 simulated seconds), as many in the full
+    arm as in the twin. The stops are patience or reject_stop, with no early end.
+  - (iv) The outer decisions are not the render's either. 1–4 windows are rejected after arrival in either arm, every
+    one by the merit's non-render part (physics plus cleanup worse by 0.5–7 %; the render part changes by −0.4 to
+    +0.3 %).
+  - (iii) The step is the same in both arms: search length median 2.5–4e-3, anneal 0.5–1.0, a move of 0.008–0.02
+    pitches a window.
+  - (ii) λ falls 0.31 → 0.005–0.008 before arrival and only 2–3× after (end 0.0015–0.0054). λ |g_render| = 0.5 |g_phys|
+    by the rule at every window. The render part is 14–62 % of the end merit, so the colour is not worthless in the
+    merit.
+  - After arrival the colour changes alike in both arms. Ears: full 0.134 → 0.123, twin 0.139 → 0.128 (the ears'
+    forming). Turn: worse in both.
+  - (i) At the front, the per-particle gradients as the objective weighs them (the dump's weighting):
+    - The colour's push is the weakest force at every time:
+      - during the flow (0.2–0.7 s) it is 1/5–1/10 of the transport plus proximity, 1/6–1/10 of the render's own
+        geometric push and comparable to the cleanup;
+      - after arrival it is 1/5–1/10 of the physics and 1/8–1/25 of the cleanup.
+    - The transport and proximity do not push back: cos(colour, physics) −0.08 to +0.05, with 40–50 % of the front
+      particles opposed (orthogonal).
+    - Along the direction each front particle must travel (to the nearest target disc wanting its colour):
+      - the colour's push is always positive (toward its colour);
+      - after arrival the cleanup's is negative on band and ears, 1–4 times the colour's. The near band (0.1 % of
+        the particles, a constant pull) and the spray cleanup (2 %) are comparable in size; both weights are fixed;
+      - the total descent along it is about zero.
+    - Relative to the physics the colour/physics ratio stays 0.1–0.2 at every time (the λ rule keeps it). Relative
+      to the fixed-weight cleanup it falls 0.49 → 0.08.
+  - The numbers close. The colour-directed motion is (the colour's share of the front's force, 0.1–0.2) × (the move
+    a window: about 0.5–0.9 pitches during the flow, 0.01 after arrival) × the windows. That gives about 1 pitch over
+    the ~10 flow windows and 0.03–0.08 pitches over the 25–40 later ones; measured: the gain made during the flow, and
+    0.002–0.09 pitches after.
+  - The limiter, named. The colour's push is an order of magnitude below every other force on the same material.
+    Its direction is lost in the step, so it moves the material only in proportion to the body's motion, which stops
+    at arrival. After arrival the λ rule keeps the render at half the physics' gradient norm, while the fixed-weight
+    cleanup's push-back along the needed direction outweighs it.
+  - The coordinator's hypothesis: the λ coupling half holds (against the cleanup, not against the physics); the stop
+    rule does not hold. The push-back that exists is the cleanup's, not the transport's or the proximity's.
+- **D160c, the colour with the render weight calibrated at the first window and held (pre-registered 2026-10-22 00:49
+  CDT server clock, before any D160c run; the coordinator's step 2 for "λ coupling is the limiter"; no code change:
+  `--lambda_ema 0` on repo_d160s (209ba6d).**
+  - The balancer then keeps its first window's value, λ = (1 − 0) λ + 0 · target. That is the path before D81, where
+    the rule's weight and its average "were held after the first window" (D81's entry). It is an existing option; no
+    new constant.
+  - `tmp/d160/d160c_chain.sh`; results `output/gpu/d160/` (runs `*_H{97,99}`, `read_colour_H.jsonl`, `gate_H/`,
+    `video/*_97_H/`).
+  *What it asks.* With λ held at its first-window value (0.31–0.35), the colour's push after arrival is about 100
+  times D160's: 10–20 times the physics and several times the cleanup at the front. Does the colour front then move
+  after arrival, with the twin and every other definition unchanged?
+  *Runs.*
+  - bunny40k_{half,band,ears,turn}_H{97,99} and dragon40k_band_H{97,99}: `--appearance SCENE --lambda_ema 0`. One card,
+    lock protocol (ten idle minutes).
+  - The twins are D160's P runs (λ = 0: the weight's rule does not enter, the same definition).
+  - The same readers as D160: the card readers, `d160_read.py` with timelines, pieces145, D155's gate reader, D157's
+    reader on the H ends, and `d160_gate.py` with arm H (which also lists D160's L for each row).
+  - Videos: seed 97, H | P | target paint.
+  *Criteria.* D160's C1–C4 unchanged, read on H against the same P and the tag's V references. Reported beside them:
+  - H against D160's L (does holding λ move the colour?);
+  - the timeline after arrival (does the colour still fall at the end?);
+  - λ constant in the records;
+  - windows and minutes against L and P.
+  *Predictions (inferred from step 1 and D81).*
+  - λ at its first value throughout; the render 0.8–0.95 of the merit after arrival (D81: 0.63–0.88 at 300k with λ
+    held).
+  - The colour keeps falling after arrival (the new signature). r: band 0.15–0.5, ears 0.1–0.4, turn 0.03–0.15,
+    dragon 0.1–0.4. C1 passes on at most band.
+  - The run may end earlier than L (D81: the render term's ±3–7 % window-to-window fluctuation made the merit noisy
+    and the held-λ arm stopped at about half its twin's windows).
+  - Geometry: the render's geometric push is also ×100 after arrival. The yardstick silhouette is at L's or better,
+    but C3 (at rest) and C4 (pieces) are at risk: a strong render share drove particles out early in D105 / D120; here
+    it acts after arrival, so less.
+  *Reading for the next step.*
+  - If the colour moves after arrival (H's late timeline falling, r well above L's), the coupling is confirmed as the
+    limiter. The definition question goes to the user: the render's weight for what the physics cannot see, since
+    the weight rule is frozen.
+  - If it still does not move with a dominant push, the step's reach after arrival is the limit; then D160b (D155's
+    moving target, a longer flow) is the measured next.
+  **D160c read (runs 01:18–01:52, readers to 02:38, read 02:42 CDT, GPU 0): C1 PASSES; the gate FAILS on C2, C3, C4.
+  The colour moves once the render keeps its weight: the coupling is confirmed as the colour's limiter, and holding
+  the whole render weight breaks the body's rest and the exact-mesh surface.**
+  *C1, colour.* r against the same twins (D160's L, the rule's λ, in brackets). The held-out colour PSNR and ΔE are
+  against D157's 46 views.
+
+  | scene | r 97 / 99 | mis twin → held | held-out PSNR twin → held | ΔE twin → held |
+  |---|---|---|---|---|
+  | half (control) | 0.89 / 0.79 (0.04 / 0.07) | 0.057 → 0.009 / 0.059 → 0.015 | 18.80 → 22.20 / 18.73 → 21.57 | 9.8 → 6.8 / 10.0 → 7.1 |
+  | band | 0.91 / 0.93 (0.06 / 0.09) | 0.099 → 0.015 / 0.104 → 0.013 | 16.77 → 21.19 / 16.64 → 21.49 | 12.4 → 7.5 / 12.6 → 7.1 |
+  | ears | 0.19 / 0.40 (0.04 / 0.03) | 0.128 → 0.105 / 0.128 → 0.078 | 16.28 → 16.79 / 16.23 → 17.67 | 13.8 → 12.5 / 13.9 → 10.7 |
+  | turn | 0.63 / 0.63 (0.01 / 0.02) | 0.433 → 0.168 / 0.436 → 0.169 | 10.70 → 14.73 / 10.67 → 14.65 | 32.0 → 17.8 / 32.2 → 18.1 |
+  | dragon band | 0.73 / 0.34 (0.03 / 0.03) | 0.195 → 0.056 / 0.192 → 0.129 | 15.22 → 18.27 / 15.30 → 15.50 | 16.5 → 10.4 / 16.3 → 15.3 |
+
+  - Band and turn pass at both seeds. Ears and dragon fail at one seed each; half (the control) passes. LPIPS falls
+    with PSNR (band 0.089 → 0.057, turn 0.168 → 0.114).
+  - The new signature: the colour keeps falling after arrival for as long as the run goes on.
+    - Turn H99: 0.499 → 0.395 at 1.6 s → 0.288 at 7.2 s → 0.169 at 21 s, still falling.
+    - Band H99: 0.067 → 0.013 by 8 s.
+  - The three runs that stopped early (band H97 at 4.0 s, ears H97 at 3.2 s, dragon H99 at 3.3 s) were still
+    falling when the stop rule ended them. Ears' and dragon's misses are those early stops.
+  - The red outer material moves +0.3 to +0.5 pitches beyond the twin's on band, turn and dragon H97 (0.0–0.16 on the
+    others; D160's L ≤ 0.09). The outer layer moves from the twin's by a median 0.8–2.6 pitches (p90 1.9–8.9).
+  - Sheets: the turn's paint turned toward the target's front/back split, with streaks along the boundary; the twin
+    keeps the transport's top/bottom split.
+  *C2–C4, the price.*
+  - C2: 40 of 80 cells miss, worse than the tag's worst V by more than its spread: F at 0.5 pitch 9 of 10 runs,
+    Boundary IoU 6, studio PSNR 6, yardstick silhouette 5, yardstick shading 5, IoU 4, thin 3, display 2. Thin on the
+    dragon 0.096 / 0.112 against the tag's 0.053–0.055.
+  - C3: G3 passes on every run (drift_rel ≤ 5e-4, jitter_rel ≤ 2.5e-5). The delivered kinetic record is 3.4e-4–8.0e-3,
+    5–80 times the bound: the body is still rearranging when the run ends.
+  - C4: turn H99 ends with one piece of ≥ 10 particles (within 5 pitches).
+  - g_share 0.64–0.70 (D160's L: 1/3). The windows run 19–128 (L 32–53), the D81 mode: with the merit mostly the
+    render term, its window-to-window swing stops some runs early, while others run long.
+  *Reading.*
+  - The pre-registered branch holds: the coupling of the render weight to the physics gradient is what keeps the
+    colour from moving after arrival. With the weight held, the render routes material by colour over 3–12 pitches,
+    and the λ = 0 twin cannot by construction. This is the render's own contribution D160 asked for.
+  - Holding the whole render weight also holds the render's geometric terms (silhouette, shading through points and
+    normals) at the first window's weight: the pre-D81 state, whose cost D81 measured. Together with the colour flow
+    that never finishes, the body does not come to rest and the exact-mesh surface falls behind the tag's.
+  - These runs do not separate the two causes; the next definition would.
+  *Next (the user's decision: the render weight is part of the frozen rule).*
+  - D160d: the render weight split by what each part competes with.
+    - The geometric render terms keep the rule's λ, as now: they compete with the physics for the same surface.
+    - The colour term, which lives in the physics' null space, keeps its first-window weight.
+    - Two existing rules, no new constant. Prediction: the colour as D160c, the geometry and rest as D160's L.
+    - It is a definition change of the render weight, so it waits for the user's go.
+  - The early stops (3 of 10) are the stop rule reading a render-dominated merit. They are read again under D160d
+    before any change to the stop rule.
+  - D160b (the moving target) is no longer the first next: D160c shows the authority, not the flow's length, decides.
+  *Files.* `output/gpu/d160/`: runs `runs40/*_H{97,99}*`, `read_colour_H.jsonl`, `gate_H/` (table, gate.json,
+  figures), `video/*_97_H/` (λ held | twin | target paint), `limiter_A.json`, `step1/split.jsonl`. Local:
+  `output/results_2026-10-21/d160_appearance/d160c/`.
+- **D160d, the colour on its own held weight, the render terms on the rule's (pre-registered 2026-10-22 02:51 CDT
+  server clock, before any D160d gate or run; the coordinator's go 2026-10-22; an experiment, adoption the user's call;
+  code `--appearance_weight held` on wip/d160 d3aa85e9, default `rule`, from rt1, kept mergeable with D162's wip/d162;
+  `tmp/d160/d160d_chain.sh`; results `output/gpu/d160/` (runs `*_D{97,99}`, `gate_D/`, `surfdisp.jsonl`); note for the
+  D162 agent `tmp/d160/for_d162.md`).**
+  *Why.* D160c moved the colour but held the whole render weight. That is the pre-D81 state, which D81 measured as
+  costly. D160d separates the two parts by what each competes with.
+  - The render terms stay exactly the tag's (silhouette and grey shading, the tag's grey pictures) on the rule's λ,
+    with PCGrad and the balance as now. They compete with the physics for the same surface.
+  - The colour is its own term: the colour pictures' error, its points and normals held at the window's disc set,
+    so its gradient reaches the particles through the discs' albedos alone.
+    - Its weight is the render weight's first calibrated value, held (tgt.lam_col, set at window 0's calibration;
+      zero in the twin).
+    - It sits beside the cleanup: fixed weight, outside the balance and PCGrad, in the merit with the window's
+      geometry, and in the selection merit with the committed state's own.
+    - It lives in the physics' null space, so it is not balanced against the physics.
+  - No new constant: the two weights are the rule's and its first value.
+  *Gates (`d160d_chain.sh V`).*
+  - V1: the full suite (exit status).
+  - V2: the pinned references and D160's tests, now with D160d's: d_colour is the colour shading term bit for bit,
+    its held-geometry gradient is the albedo path; on the pipeline, the held twin's trajectory is the plain twin's and
+    the held full arm acts.
+  - V3: deterministic 40k bunny seed 97, four windows: the defaults and white against rt1's S1, every field SAME (the
+    shading term's code was refactored).
+  - V4, the same setting:
+    - the held twin with the band paint against the plain twin: the trajectory SAME;
+    - the held full arm with the band paint: exit 0, the "[D160d] ... held" log line, and a trajectory unlike S1's.
+  *Runs.*
+  - bunny40k_{half,band,ears,turn}_D{97,99} and dragon40k_band_D{97,99} (`--appearance SCENE --appearance_weight
+    held`), on one card by the lock protocol.
+  - The twins are D160's P runs (the held weight is zero there, as V4 checks).
+  - The readers are D160's and D160c's; the gate is `d160_gate.py` with arm D, which lists D160's L beside it.
+  - Videos: seed 97, D | P | target paint.
+  *The added reading (the coordinator's): how much the colour push alone moves the surface geometry.*
+  `tmp/d160/d160_surfdisp.py`, delivered frames, for D, H (D160c) and L (D160) against their twins P, and for a twin
+  against a twin as the floor (bunny: two P runs of one seed, other paints; dragon: the tag's W against our P, one
+  colour-blind physics).
+  - The signed offset of the run's exterior surface from the twin's, along the twin's normal: rms and p90, pitches.
+  - The outer-layer particles' end displacement from their places in the twin, split along the run surface's normal
+    and along the surface: rms and p90.
+  - Colour coexists with C2 / C3 if D's surface offset and normal displacement are at L's and near the floor, while
+    its tangential displacement is H's.
+  *Criteria.* D160's C1–C4 unchanged, on D against P and the tag's V references. Reported beside them:
+  - D against L and H on every row;
+  - λ_col and the rule's λ in the records;
+  - the late timeline (is the colour still falling at the end?);
+  - the windows (early stops).
+  *Predictions.*
+  - V1–V4 pass. λ_col 0.30–0.36.
+  - The colour: r band 0.7–0.95, turn 0.4–0.65, half 0.6–0.9, dragon 0.3–0.7, ears 0.1–0.4 (about D160c's; the colour
+    push after arrival is the same, the geometric render push the rule's). C1 passes on band and turn.
+  - The surface: D's offset from the twin within 1.5 × L's and ≤ 2 × the floor. Its normal displacement about L's;
+    its tangential displacement about H's.
+  - C2: misses fewer than D160c's 40 / 80, at most 16. Whether C2 passes (≤ 8) is open.
+  - C3: the kinetic record still above the bound on the runs whose colour is still moving at the end (turn); G3
+    passes.
+  - Some early stops remain, since the colour term is a large fixed-weight part of the merit.
+  *Reading for the next step.*
+  - D holds C2–C4 with C1: an adoption candidate for the user (the weight's definition for the null-space term).
+  - D holds C2 but not C3: the colour is still moving at the end. The next question is the run's end (stop when the
+    colour converges, or a longer run), not the weight.
+  - D fails C2 with a surface offset above L's: the colour term's own geometric effect (through the albedos' kernel
+    weights) moves the surface. Measure that path before any change.
+  **D160d read (gates and runs 04:03–04:55, readers to 05:29 CDT on GPU 1; read 2026-10-22 10:25 CDT): C1 PASSES on
+  all five scenes, the best colour of D160 / D160c / D160d. The gate FAILS on C2 (12 of 80 cells, against D160c's 40),
+  C3 (7 of 10 runs above the kinetic bound, ×1.1–4.2; G3 passes on all) and C4 (one piece of 10 particles, the dragon,
+  as the tag's own dragon V99).**
+  *Code.* 963cd2b1 = the pre-registered d3aa85e9 plus two changes off the path: appearance_weight read with its
+  default where test_runtime_ab's stand-in config lacks it (try 1 stopped at V1), and the held weight's line printed
+  (the runner gives the optimiser a silent log; try 2 stopped at V4's log check, its trajectories already TH = T0, DH ≠
+  S1).
+  *Gates.* V1 447 passed (exit 0); V2 15 passed; V3 the defaults and white SAME as rt1's S1 (556 history fields); V4
+  the held twin's trajectory SAME as the plain twin's, the held arm acting. λ_col, the render weight's first value:
+  bunny 97 0.311, bunny 99 0.222, dragon 0.678 / 0.686.
+  *C1, colour.* r for D160d; in brackets D160c (λ held) and D160 (the rule's λ).
+
+  | scene | r 97 / 99 | mis twin → D | held-out colour PSNR twin → D | ΔE twin → D |
+  |---|---|---|---|---|
+  | half (control) | 0.97 / 0.97 (0.89 / 0.79; 0.04 / 0.07) | 0.057 → 0.004 / 0.059 → 0.004 | 18.80 → 22.66 / 18.73 → 22.74 | 9.8 → 6.5 / 10.0 → 6.4 |
+  | band | 1.00 / 0.99 (0.91 / 0.93; 0.06 / 0.09) | 0.099 → 0.006 / 0.104 → 0.007 | 16.77 → 22.36 / 16.64 → 22.24 | 12.4 → 6.5 / 12.6 → 6.6 |
+  | ears | 0.74 / 0.67 (0.19 / 0.40; 0.04 / 0.03) | 0.128 → 0.037 / 0.128 → 0.045 | 16.28 → 19.59 / 16.23 → 19.13 | 13.8 → 8.1 / 13.9 → 8.6 |
+  | turn | 0.75 / 0.69 (0.63 / 0.63; 0.01 / 0.02) | 0.433 → 0.119 / 0.436 → 0.142 | 10.70 → 16.20 / 10.67 → 15.42 | 32.0 → 15.1 / 32.2 → 16.4 |
+  | dragon band | 0.94 / 0.93 (0.73 / 0.34; 0.03 / 0.03) | 0.195 → 0.015 / 0.192 → 0.018 | 15.22 → 21.17 / 15.30 → 20.99 | 16.5 → 7.5 / 16.3 → 7.7 |
+
+  - Band and half reach their floor. The dragon's sheet matches the target paint's boundary; the twin's red runs
+    down the neck and flank.
+  - The colour is still falling at the delivered end on ears, turn and dragon (0.002–0.004 of the surface a second
+    over the last second; turn needs 15–17 s). It has converged on half and band (≤ 0.001).
+  - LPIPS: band 0.089 → 0.051, turn 0.168 → 0.096–0.102, dragon 0.092 → 0.043.
+  *C2, the cells (worse than the tag's worst V by more than its spread).*
+  - F at 0.5 pitch (D157's, corrected): half D97 0.934 against the bound 0.934 (a hair); band D97 0.933 (−0.002);
+    turn 0.862 / 0.899 (−0.07 / −0.04); dragon 0.811 / 0.808 (−0.010 / −0.013).
+  - Turn also misses Boundary IoU (0.108 / 0.099 against 0.088), studio PSNR (34.27 / 34.80 against 34.83) and, on
+    D97, the yardstick silhouette (0.0032 against 0.0029).
+  - Ears D97 misses thin (0.067 against 0.065).
+  - None on IoU, yardstick shading or display. Turn holds 7 of the 12 cells.
+  *The surface reading (`surfdisp.jsonl`, pitches; floor = twin against twin).*
+  - The exterior surface's offset from the twin's (rms):
+    - D 0.15–0.19 on half, band and ears; 0.24–0.28 on turn; 0.29–0.32 on the dragon;
+    - L (the rule) 0.13–0.15 and 0.21–0.23 (dragon); H (λ held) 0.20–0.29 and 0.48–0.69 (dragon);
+    - floor 0.06–0.13 (bunny), 0.15–0.21 (dragon).
+    - D's mean offset is +0.01 to +0.09 (L's +0.01 to +0.04; H's +0.07 to +0.45, an outward swelling).
+  - The outer layer's displacement from the twin:
+    - D normal 0.6–0.8 (turn 2.4–2.7, dragon 1.5–1.6) and tangential 1.3–1.8 (turn 4.3–4.6, dragon 3.4);
+    - about H's, against L's 0.3 / 0.65 and the floor's 0.06–0.5 / 0.14–1.1.
+  - So the colour is routed by a circulation of the outer material, in and out as well as along (red buried, white
+    raised), under a surface that moves 1.1–1.4 times L's offset on half / band / ears and 1.4–1.9 times on dragon /
+    turn.
+  - The pre-registered reading: within 1.5 × L's on half, band, ears and the dragon; turn above it. Where the surface
+    moves, F at 0.5 pitch misses (turn, dragon): the circulation leaves the surface rougher at the half-pitch scale.
+  *C3 and C4.*
+  - The runs above the kinetic bound are those whose colour is still moving at the end: turn ×4.2 / ×2.3, ears D97
+    ×1.9, D99 ×1.2, dragon ×1.1 / ×1.2.
+  - Half D97 is ×1.1 with a nearly converged colour; band is ×0.4 / ×1.0.
+  - The body is still rearranging at the delivered window, as the timeline says.
+  - The runs are longer than L's (37–102 windows against 32–53): the colour keeps the merit falling. The stop rule
+    ends the long scenes before the colour has converged.
+  - C4: one piece of 10 particles within 5 pitches on dragon D97, the tag's dragon V99 having the same.
+  *Reading.*
+  - Splitting the weight by what each part competes with works for the colour. It routes material by colour (half /
+    band / dragon to their floor, turn and ears two thirds to three quarters of the way) while the render terms keep
+    the rule's weight. Geometry falls 40 → 12 cells, and the surface stays within 1.4 × L's except where the routing
+    is longest.
+  - What remains is the end: the long scenes stop while the colour still flows, which is C3, and the turn's
+    half-pitch surface, which is most of C2.
+  - Both come from a colour term whose weight never fades: it is held, so the body keeps working on the colour at
+    the delivered window.
+  - The colour's weight should follow the colour's own remaining error. That is high while the layout is far from the
+    target paint, and it goes to nothing at the paint's own floor (the target sample's own colour error, D160's
+    floor 0.003–0.012). The body then comes to rest when the colour is done, and the stop rule reads a converged
+    colour.
+  - This is the definition D162 proposes for the render weight (the render term's excess above its own measured
+    floor). D160d's numbers are the reference for D162 on these scenes: D162 has to keep the colour's weight
+    independent of |g_phys| (the measured limiter) and gain C3 by the fade.
+  *Files.* `output/gpu/d160/`: runs `runs40/*_D{97,99}*`, `gate_D/`, `surfdisp.jsonl`, `read_colour_D.jsonl`,
+  `video/*_97_D/`, `gates_d/`. The read kept frames of D160's L, D160c's H and step 1's diagnostic runs were deleted
+  after reading (`cleanup.log`). The twins P and D160d's D are kept, for D162. Local:
+  `output/results_2026-10-21/d160_appearance/d160d/`.
+
+- **D161, the render carves a relief that only its pictures carry: the 3D target a smooth mesh, the render's target
+  pictures the same mesh with embossed letters (pre-registered 2026-10-21 22:51 CDT server clock, before any run of
+  it; the user, 2026-10-21: "색이나 surface를 깎아서 진짜 그걸 만들게 하는 건 어때"; the coordinator's additions the same
+  evening: the dragon's scales and the bunny's wrinkles placed on the response curve, the blocking definition named
+  at 40k and 300k, and a definition change as a second arm D161b run after the plain arm; code: branch `wip/d161` =
+  `wip/d156` fa115a5 (freeze-2026-10-15-rt1 + `--render_tgt`, default off; D156's gates (suite, digest, deterministic
+  SAME) passed on these pipeline files, which D161 leaves byte for byte: `git diff fa115a5 -- physmorph
+  scripts/pipeline_run.py tests` is empty) + scripts `scripts/probes/paper/d161/`; server `repo_d161` / `repo_d161s`
+  (+ `tmp/d145/patch_s.py`, kept frames), `tmp/d161/` (RESUME.md), `output/gpu/d161/`; local
+  `output/results_2026-10-21/d161_relief/` with a Korean README).**
+  *Why.* The render's pictures have so far carried what the 3D target carries, so the render only polished rims
+  (D152–D157); an image-only target could not carve concavities (D156, D156b, D156c); the in-loop pictures are as
+  blurred as the run's own surface (D158). Here the 3D target (transport, surface proximity, near band, spray cleanup,
+  the relaxation's relief reference) stays smooth, and only the render's pictures (drawn by the same operators from
+  the render target's samples, `--render_tgt`) carry an embossed pattern. "dF_c + layer u" (the λ = 0 twin) must end
+  smooth; "dF_c + layer u + render loss (full)" must carve the pattern into its own particles. Sub-pitch relief from
+  the physics, not a display layer (the user, 2026-10-07): this is that test, with a relief no other term asks for.
+  *Papers (read before the design).* Alexa and Matusik 2010 (Reliefs as Images): a relief reads through its slopes; a
+  sub-pixel relief is fragile; the target's mean brightness must equal the flat surface's, else the fit moves the whole
+  shape (our relief is volume-neutral, h = δ (P − P̄)). Weyrich et al. 2007 (digital bas-relief): shape is perceived
+  in the gradients; readability is the slope 2πδ/w, not the depth. Mitra and Pauly 2009 (Shadow Art): a silhouette
+  sees relief only where it crosses the rim, and only above a pixel. Belhumeur et al. 1999 (bas-relief ambiguity) and
+  Pentland 1990: under a headlight a front-facing patch's shading is second order in the slope (the same for h and
+  −h), first order only under an oblique light; the loss's light is each view's headlight, so a patch reads at first
+  order only in the views that see it obliquely (a face of the coin below is seen by 9 of the 18 views, obliquely (34–81°) by 8). Nicolet et
+  al. 2021 (Large Steps): a Laplacian penalty costs k² a mode, a bi-Laplacian k⁴, and per-coordinate Adam undoes a
+  smoothing of the gradient; the outer-layer relaxation (d − d̄ relaxed at 1/T a step) is such a bi-Laplacian
+  low-pass in spacings. Expected before measuring: a band-pass, the short wavelengths cut by the field, the pictures
+  and the relaxation, the long ones held by the transport.
+  *Step 1, the response curve (measured before this entry; `d161_curve.py`, the pipeline's own operators at the
+  frozen recipe's flags, N = 40k and 300k, seed 97, one card by the lock protocol 19:00–20:02, `output/gpu/d161/
+  curve/`; reading `d161_curve_table.py`, `d161_blockers.py` → `curve_read/{table,blockers}.md`, `curve.png`).* The
+  arrived state X0 is an independent sample of the smooth target (seed + 2). A relief state X(ds) = X0 + ds·a·Φ, Φ the
+  incompressible relief field of one wavelength w (exp(−kd)[P n + ∇_s P / k]: material moved, not compressed), a the
+  field's pitch; the render's target pictures drawn from the target sample and its seven draws displaced by dt·a·Φ.
+  Meshes: a coin (below; planar stripes over the whole coin, exact on its flat faces), the bunny (stripes inside a
+  1.8-wu window on its flank), a sphere (zonal cos mθ; its units are noise-calibrated, see the scenes). Per (w, dt): each
+  physics term at nine ds and its derivative along Φ, the render term against the relief pictures, the exterior's and
+  the layer's relief at X(1), one window of the relaxation (R: what it leaves of the layer's relief; G: what one
+  window of u = 1 pitch writes), the minimiser ds* of physics + λ render, λ the tag's late windows' (median of the
+  last ten committed windows of B1/D155's render arm at that N: 2.45e-3 at 40k, 1.35e-3 at 300k) and λ_adapt (the
+  same times the ratio of the render gradient norms, smooth/relief pictures; within 1 % of it). Readings:
+  - The pictures carry the relief and ask for all of it. The render term alone is minimised at ds_r = 0.9–1.1 dt for
+    every w = 4–32 pitches and dt = 0.25–2 at both N (the coin: the relief pictures cost the arrived smooth body
+    +42 % … +2760 % over its own floor; the bunny's window, a small part of each picture: +0.4 … +66 %). D158's T does
+    not arise here: the pictures and the state pass through the same field.
+  - The physics holds it. The minimiser of physics + λ render is ds* ≤ 0.15 pitch at every (w, dt) on the coin and
+    the bunny at both N, mostly 0.02–0.10 a (λ_adapt; 0.05–0.10 a at w ≤ 8 a on the coin), almost independent of dt (share
+    ds*/dt 0.14–0.32 at dt = 0.25 for w ≤ 16 a on the coin, 0.02–0.10 at dt = 1, ≤ 0.03 at dt = 2). Per pitch of relief the physics' hold is
+    10–200 times the render's push (coin 40k, w = 8, dt = 1: the render's push λ dL_r/dds at 0 is 6.3e-5, the hold at
+    one pitch 1.8e-3: transport 3.2e-4, surface proximity 1.2e-3, near band 1.8e-4, spray 6e-5).
+  - Which term (leave-one-out minimisers, dt = 1; the share at dt = 0.25 in brackets): with every term, coin 40k
+    0.07–0.09 (0.23–0.26) at w = 4–8; without the transport 0.08–0.14; without the proximity 0.10–0.14; with the
+    transport alone (proximity, near band and spray removed) 0.57 / 0.23 / 0.12 at w = 4 / 6 / 8 (0.64 / 0.37 / 0.27);
+    at 300k 0.72 / 0.43 / 0.20 (0.76 / 0.66 / 0.44). Beyond w ≈ 11 a the transport alone holds it (0.02–0.09) and so
+    does the proximity alone (0.15–0.22). So: below about two loss cells (w ≤ 6 a; the loss cell 3.2 a at both N, the
+    transport's blur) the relief is held by the three placement terms together, the surface proximity the largest
+    (43–73 % of the hold at one pitch at w ≤ 11 a on the coin at both N; at 300k the near band a quarter); above two to three
+    loss cells by the transport as well, which resolves it and reads it as mass moved off the smooth target.
+  - The scale the blocking definition acts at: the proximity counts a target outer point as uncovered when its nearest
+    body particle is beyond 1.53 of the target's nearest spacings, 1.1 a: a placement to within one sampling pitch of
+    the target SAMPLE, inside the near band's berth (1.44 a, where the near band and the relaxation's reference already
+    leave the surface alone) and a third of the loss cell, where the target itself, a stratified sample, holds no
+    surface detail beyond its own noise (an independent smooth sample already pays it: 5.4e-6 on the bunny at 40k).
+  - The window (the relaxation and u's rate). R of the layer's relief per window: 0.51–0.59 at w = 4, 0.60–0.65 at 6,
+    0.75–0.83 at 8, 0.84–0.94 at 11, ≥ 0.98 from 16 (the discs, which also read the layer below, 0.8–0.99); G 0.54–0.91.
+    With the step of the tag's late windows (iters × alpha_last: 0.19 a at 40k, 0.73 a at 300k) the relief the
+    relaxation lets u hold is A_ss = G u_win / (1 − R): 0.21–0.35 a at w ≤ 6, 0.55–2.4 at 8–11 (40k); 0.85–1.4 at
+    w ≤ 6 and more beyond (300k). Not the binding limit at the physics' ds*; it binds at 40k for w ≤ 6 once the
+    placement terms let go. PCGrad's projection keeps the render's push along the relief whole for dt ≤ 1 (cos with
+    the physics gradient +0.09); at dt = 2 it removes 10–45 %.
+  *The real features on the curve (`d161_features.py`, `features/features.json`; the mesh's own relief by D107's
+  bands, h_2s − h_s minus its mean at 4s, over 60k points; top = where the band's local energy is in its top decile).*
+  Bunny wrinkles: 300k pitches, band 5.4–10.8 a rms 0.067 (top 0.13), 10.8–21.6 a 0.11 (0.24), 21.6–43 a 0.23 (0.58);
+  dragon scales: 0.12 (0.24), 0.20 (0.41; p99 0.66), 0.45 (1.10); at 40k half these amplitudes at half these
+  wavelengths (bunny 0.03–0.12 a40, dragon 0.06–0.20 a40 at 2.7–10.6 a40); the meshes' own edges 1.19 a300 (bunny),
+  0.70 a300 (dragon). At 40k they lie below the sample's own surface noise and below the pictures' signal (the curve
+  at dt = 0.25 is already near the pictures' floor on the bunny): not representable at 40k by any term. At 300k the
+  part the 3D sample does not carry (D105/D122: a 300k sample carries 0.55–0.74 of the mesh's relief at 5.4 pitches)
+  is in D161's situation: by the curve (bunny / coin 300k, dt = 0.25, w = 6–22 a) the physics keeps at most 32 % of it
+  (≤ 0.08 a), held at w = 6–8 a by the surface proximity (leaving it out raises the share to 0.42–0.51) and at
+  w ≥ 11 a by the transport (leaving it out: 0.38–0.49 on the coin). The u rate and the relaxation do not bind there at 300k
+  (A_ss ≥ 1.2 a).
+  *The scenes (chosen from the measurements).*
+  - The coin in place of the sphere. With the sphere as the target the source is the target: the run calibrates its
+    units at the source and read sampling noise there (sphere→sphere: unit_ratio 1428 against the bunny's 14 500 and the
+    coin's 12 950; ot_scale 1.09 against 0.41), so the cleanups would weigh ten times their usual share. The coin
+    (`assets/d161coin.obj`: the points within 0.9 of a flat disc of radius 1.85, flat faces and a round rim, marching
+    cubes of its exact distance, watertight; 5.8 × 5.8 × 2.0 wu at 40k) is a real morph from the sphere with a flat
+    canvas, the bas-relief case of Weyrich et al.
+  - The bunny's flank on a smoothed bunny (`d161smooth_bunny.obj`: Taubin λ 0.5, μ −0.51, 300 iterations; the scan's
+    fine bumps out, the shape kept: median move 0.12 a40). Its coarser lumps (about 1 wu) remain and the letters read
+    faintly on it in a still (`assets/look_L40bunny*.png`); the reading below is by correlation with the pattern, which
+    the lumps do not share.
+  - The pattern (`d161_mesh.py`, `d161_pattern.py`): "PM" in DejaVu Sans Bold, em 20 a (stem 3.8 a, so the strokes'
+    wavelength ≈ 7.6 a, about 2.4 loss cells: where the curve has the placement terms and the transport both
+    holding), edges a Gaussian of 1 a, embossed δ = 1 a along the smooth mesh's normals, volume-neutral (h = δ (P −
+    P̄)); on both flat faces of the coin (each read from outside), on the bunny's +x flank (orthographic, the faces
+    that see that side). Meshes subdivided 4-way until the longest edge is 0.21 / 0.19 a (no slivers, no T-junction):
+    `d161L40coin.obj` (1.39M faces, watertight, volume +0.003 %), `d161L40_bunny.obj` (4.4M faces; the base is open as
+    the bunny is). The 300k scale is the coordinator's call after the 40k reading.
+  *Runs (40k, `repo_d161s`, kept frames; `d161_chain.sh R`, one card by the lock protocol with a 90-s courtesy wait).*
+  coin40k_{full,twin}_{97,99}: `--tgt d161coin.obj --render_tgt d161L40coin.obj --n 40000 --seed S` (twin: +
+  `--render_weight_scale 0`); bunny40k_{full,twin}_{97,99}: `--tgt d161smooth_bunny.obj --render_tgt
+  d161L40_bunny.obj`. Everything else the frozen recipe's defaults.
+  *Readings (`d161_read.py`, CPU; tested on the tag's bunny V97/W97 with a test pattern).* (1) The relief in the run's
+  own particles: the pipeline's outer layer (offset from the mean of the 32 nearest ≥ 0.5 spacing), each layer
+  particle's outward offset h from the smooth mesh at its foot, over the pattern's region (within 2 s_bg of P > 0.05,
+  s_bg = em / 2 = 10 a) and |h| < 3 a; h and P high-passed by the same Gaussian of s_bg over those points; the carved
+  amplitude A = ⟨h̃, P̃⟩ / ⟨P̃, P̃⟩ (pitches; the relief mesh has δ = 1) and corr = Pearson(h̃, P̃). The ceiling: the
+  same reading on the relief mesh's own 40k samples (seed + 1, + 2); the floor: the smooth target's samples. On every
+  kept frame, and at the end also on the display surface (zbs). (2) Held-out shading: D157's studio look on the 46
+  held-out views at 384 px, the display surface against the relief mesh: the mean squared error over the pattern's
+  pixels and over all covered pixels. (3) Geometry against the smooth mesh: orthographic 1 − IoU at 512 px (training,
+  held-out), the display surface's Chamfer-L1 and F at 0.5 / 1 a (D157's d3_metrics), the run's own sil_iou, chamfer,
+  thin_uncovered. (4) Rest: the last committed window's v_mean, kin, stab_end. (5) Pieces at the end: particles outside
+  the largest component at radius 2 × the median nearest distance, the largest piece. (6) Render → physics over time:
+  at each kept frame, full vs twin at one seed (the same source particles), each twin layer particle's distance to its
+  full-arm counterpart (median, p90; in the region / elsewhere) and the two layers' surface distance, against the
+  twin97–twin99 surface distance (the seed floor). Records: λ, g_share, windows, wall time.
+  *Pass (per scene; both seeds).* P1 A_full ≥ 0.5 × the ceiling's A and corr_full ≥ 0.5, while the twin's A ≤ 0.1 ×
+  the ceiling's and |corr_twin| ≤ 0.2. P2 the held-out shading error in the pattern's pixels against the relief mesh:
+  full below twin on both seeds by more than |twin97 − twin99|. P3 geometry against the smooth mesh: full not worse than
+  twin by more than the larger of the two arms' seed spreads (held-out 1 − IoU, Chamfer-L1, sil_iou, thin_uncovered).
+  P4 the end's v_mean ≤ 2 × the twin's. P5 no piece of ≥ 10 particles beyond the twin's count. PASS: P1–P5 on both
+  scenes; PARTIAL: P1 at A ≥ 0.2 × the ceiling and corr ≥ 0.3 on ≥ 3 of the 4 scene-seeds with P3–P5; FAIL otherwise.
+  *Predictions (from the curve; the letters' main wavelength ≈ 7.6 a, δ = 1 a).* The full arm carves A ≈ 0.07–0.10 a on
+  the coin (0.08–0.12 of a ceiling near 0.8–0.9), corr 0.2–0.4; the bunny less (0–0.07 a, corr ≤ 0.2). The twin 0 ± the
+  floor. P1 fails on both scenes; P2 holds on the coin (a tenth of the relief lowers the pattern pixels' error a
+  little), not on the bunny; P3–P5 hold. FAIL by P1, PARTIAL not reached. The full-vs-twin distance in the region above
+  the seed floor by a tenth of a pitch at most after arrival.
+  *D161b (pre-registered now as a definition; run after D161 at 40k with the same eight runs, the plain arm the
+  baseline; an option, default off, `--proximity_berth`, to be written on `wip/d161`).* The surface proximity counts a
+  target outer point as covered when a body particle lies within the berth (prepare's sampling-scale berth
+  `nn_berth_k` × the target's nearest spacing, the near band's inner edge): its floor is K(berth) in place of K(sp)/2,
+  so the free radius goes from 1.53 sp (1.1 a) to the berth (about 2 sp, 1.44 a). The two placement terms then share
+  one free radius, inside which the surface's shape is left to the render and the relaxation. No new constant.
+  Prediction from the curve: a modest gain, bounded by the curve's "without the proximity" column (coin 40k at w ≈ 8:
+  ≤ 0.14 a at dt = 1, against 0.08), because the near band, the spray cleanup and the transport hold the rest; D161b
+  is expected to FAIL P1 too, and to show by how much the proximity alone holds. Risk: thin features' gaps of 1.6–2
+  spacings were the proximity's reason (R-series, 2026-09-30); read thin_uncovered against the plain arm.
+  *What the curve says is needed beyond D161b (a proposal, not pre-registered).* With the transport alone the curve
+  keeps 0.57–0.72 of the relief at w = 4 a, 0.23–0.43 at 6 a, 0.12–0.20 at 8 a: the render can own the band the 3D
+  target does not resolve (below about two loss cells) only if all three placement terms read the body at the
+  transport's resolution, not at the sampling pitch; letters in that band need strokes of 2–3 a, legible at 300k
+  ("SIGGRAPH" at em ≈ 13 a fits a coin face). Above two loss cells the smooth 3D target and the relief contradict
+  each other, and the transport holds the target's shape as it should.
+  *Amendment 1 (23:12 CDT, before any D161b gate or run; the plain arm's eight runs are under way since 23:03 on
+  gpu3).* D161b's code: `wip/d161` 63c31f6 + chain (`--proximity_berth`, default off: `SurfaceProximity(berth_k)` sets
+  the floor to K(nn_berth_k × the target's median nearest spacing)), deployed as `repo_d161b` / `repo_d161bs` (kept
+  frames). Gates on one card before its runs (`d161_chain.sh B`): `tests/test_proximity_berth.py` and
+  `tests/test_render_tgt.py` (exit 0); Warp's deterministic mode, 40k bunny seed 97 four windows, `repo_d161bs` at the
+  defaults against rt1's S1 (SAME) and with `--proximity_berth` (exit 0). Then the eight runs of `d161_runs.txt` with
+  `--proximity_berth` (`NAME_pb`), read by `d161_read.py`: the proximity is physics, so D161b has its own twins
+  (`*_twin_*_pb`), and the plain arm's eight runs are its baseline. Readings and pass as D161's; in addition D161b
+  against D161 (the carved A and corr, full_pb − full, against the twins' seed spread) and thin_uncovered / sil_iou
+  (the risk). The relief meshes' render samples hold 1–2 % more particles than the smooth targets' (40 783 / 40 418:
+  the stratified sampler's fill counts the bumps' voxels; the meshes' volumes agree to 0.003 %): read as a possible
+  outward lean of the full arms' rims in P3.
+  **Result (runs 23:03–23:19 CDT on gpu3, read 23:19–23:38 on the CPU; `output/gpu/d161/runs40/`, `after/
+  {read,summary}_{coin,bunny}.*`; local `output/results_2026-10-21/d161_relief/`): FAIL by P1 on both scenes, as
+  predicted. The full arm carves about a tenth of the relief its pictures ask for, in its own particles only; the
+  display surface does not show it.** The relief reading (pitches; the ceiling is the relief mesh's own 40k samples,
+  the floor the smooth target's):
+
+  | scene | ceiling A (corr) | floor A | full97 A (share, corr) | full99 | twin97 | twin99 |
+  |---|---|---|---|---|---|---|
+  | coin | 1.17–1.27 (0.55–0.56) | −0.04…+0.03 | 0.103 (0.085, 0.09) | 0.102 (0.082, 0.11) | 0.044 (0.037, 0.04) | 0.012 (0.010, 0.01) |
+  | bunny | 0.83–0.91 (0.31–0.35) | −0.01…+0.06 | 0.118 (0.135, 0.06) | 0.162 (0.186, 0.09) | −0.049 | 0.027 |
+
+  On the display surface (zbs) the full arms read 0.003–0.022 (coin) and 0.008–0.091 (bunny): the field's
+  Solenthaler correction smooths the carved tenth away. The time course differs by scene: on the bunny the full arms
+  carve during the arrival, 0.18 / 0.47 a at 1 s and 0.33 / 0.27 at 1.5 s (a third to half of the ceiling), and the
+  settling physics takes it back to 0.17 / 0.11 by 4 s and 0.12 / 0.16 at the end (the twins −0.08…+0.03); on the
+  coin nothing shows on the kept frames to 4.2 s (−0.05…+0.07) and 0.10 at the end. The full arms run longer (coin
+  35 / 38 windows against the twins' 25 / 29; bunny 41 / 39 against 27 / 47).
+  P2 (held-out shading error in the pattern's pixels against the relief mesh): coin full 8.92e-4 / 8.67e-4 against
+  twin 9.39e-4 / 9.59e-4 (−5 / −10 %, the twins' spread 2.0e-5): holds; bunny 1.85e-3 / 1.57e-3 against 1.76e-3 /
+  1.62e-3 (+5 / −3 %, spread 1.5e-4): fails. P3 (against the smooth mesh): the coin within the seed spread on every
+  item; the bunny's held-out 1 − IoU worse by 0.003 / 0.004 (spread 0.0012) and Chamfer-L1 at seed 99 by 0.023 a
+  (spread 0.013), while its own sil_iou is higher (0.9776 / 0.9775 against 0.9755 / 0.9749): the full bunny leans
+  outward, the risk recorded in Amendment 1 (the render sample's +1 % fill). P4 (the end's v_mean ≤ 2× the twin's):
+  holds (coin 3.2e-3 / 2.8e-3 against 3.3e-3 / 3.4e-3; bunny 3.6e-3 / 3.9e-3 against 4.9e-3 / 3.7e-3). P5: no piece
+  of 10 particles or more in any run.
+  Render → physics over time (`summary_*.md`): on the twin's outer layer the full arm's particles end a median 0.77–0.79
+  a (coin) / 0.67–0.80 a (bunny) from their twin counterparts in the pattern region and 1.0–1.3 / 0.83–0.86 a
+  elsewhere (the trajectories part from the first window, as two runs of different λ do); the two layers' surface
+  distance 0.55–0.57 a, below the twin97–twin99 seed floor 0.59–0.62 a at every kept time after 1 s. λ in the full
+  arms' last ten windows 1.0e-3–1.95e-3, g_share 1/3 (the rule).
+  Predictions: A 0.07–0.10 a and share 0.08–0.12 on the coin, less on the bunny, P1 failing, P2 on the coin only,
+  P3–P5 holding: right except corr (0.09–0.11 against 0.2–0.4 predicted; the carve is a uniform tenth, buried in the
+  layer's own sampling roughness, rms 0.14–0.16 a after the high-pass) and the bunny's P3 (the outward lean) and its
+  carve (0.12–0.16, more than the curve's 0–0.07 on the bunny's noisier rows).
+  *What it means.* The curve's static balance holds in the closed loop: the render asks for all of the relief, the
+  physics keeps a tenth once the body has arrived (on the bunny it carved a third to half on the way, while the
+  placement terms had no settled surface to hold, and lost it as the body settled), and the rest of the window
+  (relaxation, u's rate) is not what limits at this amplitude.
+  D161b (the proximity's free radius at the berth) is queued for the next free card (`d161_chain.sh B`, waiting
+  since 23:19; gates first). Its curve-bound gain is small; the curve's next step is the placement terms at the
+  transport's resolution (above).
+  **D161b result (gates 23:58–00:10 CDT on gpu1: the two tests 9 passed, rt1's S1 SAME at the defaults, the flag's
+  four windows exit 0; runs 00:10–00:29; read 00:29–00:54; `after_b/`, local `d161_relief/d161b/`): FAIL by P1, and
+  below the plain arm.** Carved A: coin 0.028 / 0.058 a (share 0.02 / 0.05; the plain arm 0.10), bunny 0.053 / 0.094
+  (0.06 / 0.11; plain 0.12–0.16); twins −0.03…+0.06. The bunny's carve on arrival 0.23–0.26 at 1.4 s (plain 0.33–0.47),
+  back to 0.06–0.11 at the end. P2 on 1 of 4 scene-seeds; thin_uncovered on the coin 0.10–0.12 against 0.07–0.10 (the
+  recorded risk, small); P4, P5 hold. The prediction (a small gain, bounded by the curve's "without the proximity")
+  was wrong in sign; the per-window records below say why.
+  *Amendment 2 (00:56 CDT, before any D161c run; the coordinator, relaying D160's finding: after arrival λ falls with the physics gradient and
+  the colour freezes; read per window λ, λ |g_render| against |g_phys|, the step taken, the rejections and the stop).*
+  `d161_windows.py` on the 16 runs (`after/windows*.md`). After arrival (the first committed window whose transport
+  energy is within twice its end value, 1.8–3.8 s): λ = 0.6–2.3e-3, 110–380 times below window 0 (0.27–0.35), falling
+  with |g_phys| (110–160 times in the plain arm, 200–380 in D161b); λ |g_render| = |g_phys| / 2 in every window
+  (g_share 1/3, the rule). The step is not what is short: Adam's accepted length is 0.03–0.04 a an iteration, eight
+  accepted iterations a window and none rejected after arrival in any run, so u could write about 0.25 a a window; the
+  window moves the body 0.005–0.009 a. The runs stop by three rejected windows at the end (21–47 committed windows; the
+  full arms 4–14 more than their twins). The curve, read as a function of λ (the minimiser of physics + λ render from
+  the stored values; coin 40k, w = 8 a, dt = 1): 0.07 kept at λ = 1e-3, 0.13 at 2.45e-3, 0.41 at 1e-2, 0.64 at 3e-2, 0.86
+  at 0.1, 0.97 at 0.3 (300k 0.13 / 0.26 / 0.54 / 0.78 / 0.92 / 0.99; the bunny alike, w = 4–16 a). The runs' λ is
+  0.27–0.35 in window 0, 0.006–0.024 at 1 s, 1–2e-3 after arrival: the bunny's carve on arrival (0.33–0.47 at 1–1.5 s,
+  λ 0.016–0.04) matches the curve's 0.35–0.63 there, and its loss follows λ down. So "the proximity holds it" and "the
+  render is starved" are one ratio: the physics' hold against relief (the curvature of its terms, which arrival does not
+  change) against a render weight that the rule ties to the physics' residual gradient, which arrival removes. D161b
+  weakened one hold and the rule lowered λ with it (λ follows |g_phys|): it carved less. The blocking definition is the
+  render weight's reference, the physics residual; the placement terms and the transport are what it is weighed against.
+  *D161c (pre-registered here, before any of its runs; an existing A/B switch, no code).* The render weight held at its
+  first calibration: `--lambda_ema 0` (the balancer keeps the source window's λ, 0.27–0.35, as the code did before D81
+  / D120), the four full runs of `d161_runs.txt` (`NAME_lh`, `repo_d161s`; λ = 0 has no weight to hold, so the twins are the plain arm's), read by `d161_read.py` and `d161_windows.py`.
+  Prediction from the curve at λ ≈ 0.3: the coin keeps 0.9–1.0 of the relief in the band w ≤ 16 a, the bunny 0.7–1.0,
+  in the particles, so P1 passes on the coin and probably on the bunny. Risks, read in P3–P5 and the records: D73 / D81 (with λ held the render took nine tenths of the step and two
+  thirds of the merit late in the run), D157's outward bias of the 2:1 silhouette (the rims lean out), the run not
+  stopping (patience against a render-dominated merit), floaters (D108: the render's push on protruding particles). A
+  pass here says the physics lets the relief through when the render keeps its weight: the next definition is then the
+  render weight's reference (the physics' stiffness or its residual at the source), the user's call.
+  **D161c result (runs 01:08–01:14 CDT on gpu1, read 01:14–01:35; `after_c/`, local `d161_relief/d161c/`): with the
+  render weight held, the render carves half of the relief into the particles, at the ceiling's own correlation, and it
+  shows on the display surface; the body does not come to rest and the shape leaves the smooth mesh: FAIL by the letter
+  (P3, P4), P1 reached on the relief.** Carved A (share of the ceiling, corr): coin 0.64 / 0.58 a (0.53 / 0.47, 0.56 /
+  0.54; the ceiling's own corr 0.55–0.56), bunny 0.51 / 0.47 a (0.58 / 0.54, 0.32 / 0.28; the ceiling's own 0.31–0.35:
+  P1's corr ≥ 0.5 is out of reach of the relief mesh's own sample on the lumpy bunny, a criterion fixed too high there).
+  On the display surface (zbs) 0.54–0.56 a (coin, corr 0.50–0.56) and 0.50–0.65 a (bunny): the letters show. The carve
+  is made on arrival and held: from 1 s on 0.44–0.70 a on the coin, 0.39–0.63 on the bunny. P2: coin −35 / −38 % in
+  the pattern's pixels; bunny within the twins' spread. P3: coin Chamfer-L1 +0.035 / +0.042 a against the smooth mesh
+  (spread 0.024), thin_uncovered +0.015 / +0.029; bunny held-out 1 − IoU +0.011 / +0.014 (spread 0.0023), Chamfer
+  +0.12 / +0.13 a. P4: the end's v_mean 7–11× the twin's (coin) and 3–11× (bunny): the render keeps 92–97 % of the step
+  after arrival (g_share), the transport energy stays at about 4e-4 (the plain arm 3e-5), the body keeps moving. P5
+  holds. The runs stop earlier (coin 30 / 31 windows, bunny 28 / 17). Predictions: the share right in kind, short of the
+  curve's 0.9–1.0 (the closed loop's own costs: the u step falls to 0.003–0.02 a an iteration, the window moves 0.03–0.05
+  a and the merit stalls); the D81 risks came true (not at rest, the shape leaves the target).
+  *What D161 shows (the three arms).* The pictures ask for the whole relief; the physics' hold against it (placement
+  terms below about two loss cells, the transport above) does not change on arrival, while the render weight's
+  reference, the physics residual, falls 100–400×. With the weight on the rule the render carves a tenth (D161), less
+  when a hold is weakened (D161b: the rule lowers λ with it), half when the weight is held (D161c), at the price of a
+  body that never settles. The next definition is the render weight's reference: a weight that keeps the render's say
+  on what the physics does not resolve, without driving what it does. Proposals, the user's call: (i) the render's push
+  measured over its own floor (the arrived smooth sample's render term against the same pictures, 0.0023 on the bunny's
+  curve), so the render weighs what the pictures still ask beyond sampling noise and stops pushing at it; (ii) the
+  placement terms at the transport's resolution (the curve's "transport alone" column) with the rule's λ; the two
+  together are what the curve says would carve sub-cell letters and still settle.
+
+- **D162, one definition of the render's weight for what only the pictures carry: the render weight referenced to the
+  render's own excess over its floor (1), and the placement terms at the transport's resolution (2) (a gated A/B
+  experiment, adoption the user's call; pre-registered 2026-10-22 02:29 CDT server clock, before any D162 run; the
+  coordinator, 2026-10-22, after D161c, D160c and D159 measured the same starvation (λ falls 100–400× with the physics
+  residual after arrival; held, the render writes but the body never settles); code: branch `wip/d162` 0cd7245 =
+  freeze-2026-10-15-rt1 + wip/d159 (`--render_target mesh_shell`) + wip/d160 (`--appearance`) + wip/d161
+  (`--render_tgt`, `--proximity_berth`) + `--render_weight_ref`, `--placement_at_cell`, every option default off;
+  server `repo_d162` / `repo_d162s` (+ `tmp/d160/patch_s.pl`, kept frames with the albedos), `tmp/d162/`,
+  `output/gpu/d162/`; scripts `scripts/probes/paper/d162/`; local `output/results_2026-10-22/d162_render_weight/`
+  with a Korean README).**
+  *Why.* D161 (relief), D160 (colour) and D159 (the mesh's detail) each found the render starved after arrival: the
+  rule λ |g_r| = λ_auto |g_p| ties the render's weight to the physics' residual gradient, which falls 100–400× as the
+  body arrives, while the physics' hold against what only the pictures ask (its curvature: the placement terms below
+  about two loss cells, the transport above) stays (D161's curve, its λ sweep, the per-window records). Held at its
+  first value (D161c, D160c), the render writes (relief 47–58 % of the ceiling; colour half r 0.88) but takes 92–97 %
+  of the step after arrival, keeps pushing at its own noise and the body does not come to rest; the shape drifts.
+  *Papers (read first; the agent's summary in the local README).* GradNorm (Chen et al. 2018): our rule is GradNorm
+  with α = 0; a stuck task's weight rises without bound. Kendall et al. 2018: the weight 1 / (2 L) grows as the loss
+  falls and saturates at its noise, never fading. MGDA (Sener and Koltun 2018): the min-norm step is bounded by the
+  smallest gradient, so after arrival it starves the render as the rule does. CAGrad (Liu et al. 2021) and PCGrad (Yu
+  et al. 2020): they remove conflict, not scale; the rest point is the fixed weighted sum's, which with a held weight
+  contains the render's noise. Nash-MTL (Navon et al. 2022): scale-free shares, a noise gradient keeps its unit share.
+  FAMO (Liu et al. 2023): balances log-loss rates with each loss's floor subtracted (ℓ − ℓ*), the closest precedent;
+  in log form it up-weights near the floor. RHO-LOSS (Mindermann et al. 2022) and DoReMi (Xie et al. 2023): weight by the
+  excess over an irreducible (reference) loss, max(ℓ − ℓ_ref, 0). Implications fixed before the runs: no method in the
+  set fades a converged task without an estimate of its floor; the floor must be measured at the run's own N, pixels,
+  views and read path; max(0, ·) bounds the weight in [0, λ_0] (no blow-up); rest then coincides with the physics-only
+  stationary point once the excess is spent.
+  *(1) The definition (`--render_weight_ref floor`).* λ_t = λ_0 · max(0, 1 − L_floor / L_r(t)): λ_0 the rule's value at
+  the run's first calibration (λ_0 |g_r'| = 0.5 |g_p| at window 0, the frozen rule), L_r(t) the render term
+  (silhouette + w_pbr shading) at the window's first evaluation, L_floor the render term of the pictures' own first
+  sample (the render target's sample at seed + 1, else the target sample itself; with its paint under `--appearance`),
+  read as the body is read (the tracked exterior discs of a field found at that state, `d_exterior`;
+  `target.render_floor`). No new constant: 0.5 is the rule's, L_floor is measured once a run. PCGrad unchanged.
+  - Why this floor and not an independent sample's. Measured before this entry on D161's runs: an independent smooth
+    sample (seed + 2) scores 3.5e-3 on the coin's pictures, above what the λ = 0 twins reach (3.1–3.3e-3, against the
+    relief pictures): the body converges to the transport's target sample, one of the pictures' eight draws, which
+    shares 1/8 of their noise (E = σ²(1 − 1/8) against σ²(1 + 1/8) for an independent draw). An independent floor
+    would read zero excess at arrival and starve the render again (the paper agent's first pitfall). The pictures' own
+    first sample is what a body that reaches the physics' target scores: the reachable floor. For a plain target the
+    render then fades once the body matches the pictures as well as its target sample does; for a relief (colour)
+    target it keeps weight while the letters (paint) are not yet carved (routed).
+  - What it predicts mechanically: after arrival λ = λ_0 · e with e the excess fraction; the render's push then
+    dominates the physics residual as in D161c while e is large, and fades as L_r approaches the floor; the body can
+    rest once e → 0 or at the balance of push and hold.
+  - Not covered: `--render_target mesh_shell` (D159), whose pictures have no sample; its floor would be the target
+    sample's score against the shell, which the transport reaches at arrival (zero excess). Recorded, not run here.
+  *(2) The definition (`--placement_at_cell`).* The placement terms read the body at the transport's resolution, one
+  loss cell (ldx, 3.2 pitches at 40k): the surface proximity counts a target outer point as covered when a body
+  particle lies within one loss cell (its floor K(ldx) in place of K(sp)/2, sp the target's nearest spacing); the near
+  band's berth is the loss cell, so its band (berth to one loss cell) is empty; the spray cleanup's isolation gate reads
+  the 8th-neighbour distance in loss cells (ramp 1.2–1.8 ldx in place of 1.2–1.8 × its median). No new constant. The
+  relaxation and its relief reference (D105) are unchanged. Risk: thin features' gaps of 1.6–2 spacings were the
+  proximity's reason (R-series); read thin_uncovered.
+  *Gates (`d162_chain.sh V`, one card, before any run; a failure stops the chain).* V1 the full suite on repo_d162 (exit
+  status). V2 the pinned references and the merged options' tests (`test_refreeze_reference`, `test_d162`,
+  `test_render_tgt`, `test_proximity_berth`, `test_appearance`, `test_appearance_pipeline`, `test_render_target_shell`,
+  `test_frozen_recipe`; exit 0). V3 Warp's deterministic mode, 40k bunny seed 97, four windows, repo_d162s at the
+  defaults against rt1's S1: SAME. V4 four-window runs, exit 0 and the floor's log line: `--render_weight_ref floor`
+  (bunny), `--placement_at_cell` (bunny), both on the coin relief (`--render_tgt`), floor with `--appearance band`, floor
+  with `--render_target mesh_shell`.
+  *Runs (40k, seeds 97 / 99, repo_d162s, kept frames; two chains, one card each, lock protocol with the courtesy wait;
+  `d162_runs_A.txt`, `d162_runs_B.txt`).* Arms: F = (1) alone; FC = (1) + (2); TC = FC's λ = 0 twin (`--render_weight_scale
+  0 --placement_at_cell`: (2) changes the physics). Scenes: D161's relief (coin `d161coin.obj` + `d161L40coin.obj`;
+  the smoothed bunny's flank `d161smooth_bunny.obj` + `d161L40_bunny.obj`), D160's colour (bunny band, ears), each F, FC,
+  TC × 2 seeds (24 runs); the 19-mesh gallery on plain targets, F and FC × 2 seeds (76 runs). References: the tag (D161
+  plain, D160 L, the tag's gallery V), the held weight (D161c, D160c H), the twins (D161 twins, D160 P, the gallery W).
+  *Readings.* Relief: `d161_read.py` and `d161_summary.py` (F against D161's twins, FC against TC). Colour: `d160_read.py`
+  (F against D160's P, FC against TC), `d162_colour.py`. Gallery: `d162_gallery.py`. Per window (all runs):
+  `d161_windows.py` with λ, λ_rule, the floor, the excess e, g_share, |g_phys|, the step, rejections, the stop.
+  *Criteria (per arm).*
+  - P1 (relief, per scene, both seeds): the carved A ≥ 0.5 × the relief sample's own A and corr ≥ 0.5 × the ceiling's own
+    corr (D161's absolute 0.5 was out of reach of the bunny's own sample), the twin's A ≤ 0.1 × and |corr| ≤ 0.2.
+  - C1 (colour, per scene, both seeds): D160's: r = (mis_twin − mis) / (mis_twin − floor) ≥ 0.5, held-out colour PSNR
+    above and LPIPS below the twin's.
+  - P3 / C2 (shape, the scenes): against the smooth mesh / the target, held-out 1 − IoU, Chamfer-L1 (relief: D161's
+    reader), the run's sil_iou, thin_uncovered: not worse than the twin's by more than the larger of the two arms' seed
+    spreads.
+  - P4 / C3 (rest): the end's v_mean ≤ 2 × the twin's (scenes).
+  - P5 / C4 (pieces): no piece of ≥ 10 particles beyond the twin's count.
+  - G (the gallery, per arm): a mesh misses a reading (sil_iou, thin_uncovered, chamfer) if the arm's two-seed mean is
+    worse than the tag's worse seed by more than |V97 − V99|; rest misses if its larger end v_mean exceeds 1.25 × the
+    tag's larger; pieces miss if it has more pieces of ≥ 10 particles than the tag. G holds if at most a tenth of the
+    57 reading cells miss, at most one mesh misses rest and none misses pieces.
+  - An arm PASSES if P1 holds on both relief scenes or C1 on at least one colour scene, with P3–P5 / C2–C4 on those
+    scenes and G on the gallery. Then the coordinator is asked for 300k (D159's scales / wrinkles, the relief).
+  *Predictions.* (From D161's λ sweep and the floors: on the coin the twins end at L_r ≈ 3.2e-3 against an in-picture
+  floor near 2.7e-3, so e ≈ 0.1–0.2 at arrival, λ ≈ 0.03–0.06, which by the curve keeps 0.5–0.7 of the relief and fades
+  as the carve proceeds.) F: relief share 0.25–0.45, corr 0.3–0.5 of the ceiling's; colour r 0.2–0.5 on band, lower on
+  ears; at rest (the excess falls as the carve proceeds); P1 / C1 narrowly missed or met on the coin and band. FC: more
+  relief (the placement terms' hold below two cells gone: the curve's transport-only column, 0.12–0.20 at w ≈ 8 a with
+  the rule's λ, more with the floor's), colour about as F (the placement terms do not hold the colour); thin_uncovered
+  worse on the gallery (thin gaps no longer seen below a loss cell), G at risk on thin. Gallery F: the render fades
+  once the body matches its target sample, so its late polishing (the tag's tail) is shorter; sil_iou within the
+  spread, G holds narrowly. The window records: λ_0 · e between the rule's λ and the held λ after arrival.
+  *Amendment 1 (02:50 CDT, before any D162 run; the gates wait for a card).* The coordinator relayed D160c (colour, λ held:
+  r 0.63–0.93, held-out colour PSNR +3–5 dB, but shape (C2, 40 of 80 cells) and rest (C3, end kinetic 5–80× the limit)
+  fail, as D161c) and D160's proposal D160d (the colour term keeps its first weight, the geometry render terms the
+  rule's λ), asking which arms answer, with the fewest options, what lets the render act after arrival without breaking
+  rest and shape. The arms stay F and FC, unchanged, for three reasons. (i) The relief lives in the geometry render terms
+  themselves (the silhouette and the shading of the letters): a split by term cannot give it weight without giving it to
+  the geometry, so for relief the split is the held weight; F's excess, measured on the whole render term, is the one
+  form that reaches both tracks. (ii) D160d runs the split on colour at 40k (its numbers in tmp/d160/for_d162.md), so the
+  split is measured without a D162 arm. (iii) If F carves / routes but misses rest or shape on colour while D160d holds
+  them, the combination (the geometry terms at the floor-referenced weight, the colour term at its own excess over its
+  own floor) is the next arm, pre-registered then with both results; if F holds rest and shape, the split is not needed.
+  Reported beside D162's tables: D160c / D160d's r, C2, C3 rows for band and ears.
+  *Amendment 2 (03:32 CDT, before any D162 run).* The gates' first try (03:04–03:31 on gpu0) stopped at V1: three
+  test_runtime_ab tests drive WindowOptimizer.gradient with a SimpleNamespace config that has no render_weight_ref
+  (AttributeError); the options are now read with getattr, the default path unchanged (2e42f6e). The rest of that try,
+  on the code before the fix: V2 39 passed (exit 0), V3 SAME against rt1's S1 (556 history fields), V4 exit 0 on all
+  five. The floors measured in V4 (the pictures' own first sample, read as the body): bunny 1.98e-3, bunny band
+  (colour) 1.78e-3, the coin relief 2.53e-3, the bunny with the shell pictures (D159) 3.12e-3. Against D161's records on
+  the coin: the twins end at 3.1–3.3e-3 (e ≈ 0.19–0.23, λ ≈ 0.06 at arrival), the rule's full arm at 1.76e-3 and the held
+  arm at 1.34e-3, both below this floor: under F the render fades once the coin matches its pictures as well as the
+  relief sample does. The gates rerun in full on 2e42f6e before any run (the chain refuses the runs otherwise).
+  *Amendment 3 (11:27 CDT server clock, before any D162 run; the gates restarted then).* Gate try 2 (03:45–04:13, 2e42f6e, gpu0): V2–V4 passed (V3 SAME,
+  bit for bit under Warp's deterministic atomics against rt1's S1, 556 history fields). V1 had one failure:
+  `test_null_windows_add_no_simulated_time_and_are_not_delivered`. The test's stub needs the first real window to
+  commit, and it came back with no commit (`null_reason` commit_replay).
+  - The diagnosis: that test alone, `-vv`, on gpu1 and gpu3, 10:20–11:24.
+    - The tag as tagged (6c9b0e9, deployed as repo_d162tag): 0/60 failures.
+    - wip/d162: 5/45 on gpu1 and 0/35 on gpu3, the gate's 1/1 on gpu0.
+    - d161 (tag + D156's render target): 2/20. Its changed lines on this path all sit behind `render_x is None` and
+      compute what the tag computes.
+    - d159 0/5, d160 0/5, the older rt1 tree 0/30.
+  - Every failure is the same event. The accepted candidate's commit rollout lands 2.5–11 float32 ulps (3e-7 to
+    1.3e-6 relative) above its line-search value. The tolerance is max(ls_noise_rel 1e-7, 10 × replay_rel), where
+    replay_rel is one pair of rollouts at the start control. At the first window the body is at rest there, so the
+    pair agrees bit for bit or to one ulp (replay_rel 0 or 1.16e-7).
+  - So the tolerance falls below the noise of the moving candidate's own rollout. This is a definition in the
+    frozen commit check (solve.py commit / replay_noise), unchanged by every merged branch. It is not a merge
+    interaction, and the stub is not wrong.
+  - The same check in production: in the tag's own runs (d145t_b1, 40 runs), 222 of 5370 windows judged (4.1 %)
+    were nulled by commit_replay, median mismatch 3.7e-7 relative, max 2.2e-5. In D160/D161's 40k runs it was
+    103 of 3014 (3.4 %), none at the first window.
+  - Not changed here (frozen; the user's call). Reported to the coordinator. The test is unchanged and the gates
+    rerun as they are.
+  Two changes since 2e42f6e, both before any run.
+  - (i) The floor mode's per-window records (lam_rule, lam0, render_L, render_floor, render_excess) were in the
+    window's stats but not in the history (the runner's field whitelist). They are now copied in floor mode only,
+    the default history unchanged. tests/test_d162.py checks it on the contracts' small cloud: one floor a run,
+    and λ = λ_0 × excess per window.
+  - (ii) The coordinator's request after D156h/h2: at the tag's 300k ends the full arm's render term lies at
+    0.46–0.79 of the uniform floor, so arrangement alone could drive L_r to the floor. Step X (d162_arrange.py)
+    reads coin F / TC / FC 97 and band F / TC 97, about 30 kept frames each:
+    - (a) the render term on the state, read by target.render_floor, the weight's own scale;
+    - (b) the mean over eight uniform resamples (the run's sampler, the target's number density) of the state's
+      solid, extracted by D156h's rule (zb zero set at 0.708 spacings, taken back by the floor sample's offset c,
+      marching cubes at half a pitch);
+    - e_a = 1 − L_floor / a (what the weight reads), e_b = 1 − b_floor / b, where b_floor is the floor sample put
+      through the same extraction. In the smoke b_floor was 4.67e-3 (coin) and 4.46e-3 (band), against uniform
+      true-mesh samples at 3.39e-3 / 2.06e-3; the extraction loses that much itself.
+    - The descent's shape share (b_0 − b) / (a_0 − a).
+    Reading: at the first kept frame with e_a ≤ 0.05 (the weight at most 5 % of λ_0), e_b above 0.05 by more than
+    two standard errors means arrangement ate the floor: the weight vanished with shape work left. Then the next
+    definition is named, with no tuning. Within that band, the weight vanished with the shape at its floor.
+  - Run plan: card α runs the gates, list A1 (the 24 scene runs) and X, then A2 (26 gallery runs); card β runs
+    list B after the gate verdict. The scene read starts after A1. Code wip/d162 539b52a.
+  *Read 1: the 40k scenes and the arrangement step (14:56 CDT; the gallery, lists A2 / B, still running).* Gates try 3
+  (11:29–11:45, gpu3, 539b52a): V1 468 passed, 2 skipped (exit 0); V2 40 passed; V3 SAME; V4 exit 0 ×5. Readers:
+  `output/gpu/d162/after/` (summary_*.md, colour.md, c23_colour.md, arrange.md, arrange_stats.txt, windows_scenes.md);
+  local `output/results_2026-10-22/d162_render_weight/`.
+  - P1 (relief, share of the ceiling, seeds 97 / 99). Every case FAILS; bunny FC 97 (0.47) is the closest.
+
+    | scene | F | FC | D161 rule | D161c held | twins |
+    |---|---|---|---|---|---|
+    | coin | 0.05 / 0.10 (corr 0.07 / 0.19) | −0.01 / −0.06 | 0.08 | 0.47–0.53 | 0.01–0.04 |
+    | bunny | 0.23 / 0.25 (corr 0.12 / 0.11) | 0.47 / 0.34 (corr 0.21 / 0.15) | 0.14–0.19 | 0.54–0.58 | −0.06–0.03 |
+
+    - P4 (rest) passes for F (against D161's twins). For FC it fails: bunny 13–16× TC, coin 97 3.2×.
+    - P3 (shape) misses on coin F (sil_iou 97, thin_uncovered at both seeds) and on bunny F / FC (held-out 1 − IoU at
+      both seeds). P5 passes.
+  - C1 (colour, r at seeds 97 / 99).
+
+    | scene | F | FC | D160c H | D160d |
+    |---|---|---|---|---|
+    | band | 0.78 / 0.82 (PASS; held-out PSNR 20.3 / 20.8 vs 16.8 / 16.6) | 0.85 / 0.94 (PASS) | 0.91 / 0.93 | 1.00 / 0.99 |
+    | ears | 0.35 / 0.23 (fail) | 0.31 / 0.37 (fail) | 0.19 / 0.40 | 0.74 / 0.67 |
+
+    - The colour scenes' C2 / C3 come from the runs' own records (`d162_c23.py`): sil_iou, chamfer and thin_uncovered
+      against the twin, outside the larger seed spread; the delivered end's v_mean ≤ 2 × the twin's. F is paired with
+      D160's P, FC with TC.
+
+      | arm | C2 cells missed | C3 |
+      |---|---|---|
+      | band F | 2/6 | pass (1.5×, 1.2×) |
+      | band FC | 3/6 | FAIL (36×, 8.4×) |
+      | ears F | 3/6 | FAIL (3.4×) |
+      | ears FC | 3/6 | FAIL (15.9×, 8.7×) |
+      | band D160d (same reader) | 0/6 | pass |
+      | band D160c H | 2/6 | FAIL |
+
+  - X, the arrangement (amendment 3's rule). On coin F and coin FC, ARRANGEMENT ATE THE FLOOR.
+    - e_a reaches 0 at 1.5 / 1.6 s while e_b = 0.129 ± 0.019 / 0.121 ± 0.018. After 2 s, e_a = 0 in 82 / 90 % of the
+      kept frames, while e_b stays at 0.13 / 0.08 on average.
+    - The full arm's state reads a / b = 0.40–0.41, against 0.54 for the floor sample and 0.60 for the twin. Its
+      arrangement scores the same shape about 27 % below a sampled arrangement, and this hides the shape excess left:
+      a sits at 0.82–0.85 of L_floor.
+    - The end's full-vs-twin gap is still mostly shape: 0.92 (coin F), 0.65 (coin FC), 0.80 (band F).
+    - On band F the floor is never reached (a / L_floor 1.44): "the weight never vanished".
+  - The window records show two ways to fail.
+    - (i) Relief, where the floor is crossed (windows 10–31): after that λ > 0 in only 21–53 % of the windows, with
+      22–212 on/off switches. A λ > 0 window takes 85–96 % of the step and pushes L_r below the floor in that window,
+      by arrangement. The λ = 0 window after it lets the physics undo it. Each switch rescales the selection's
+      references, so the stop rule never fires: 6 of the 8 relief runs end at about 290 windows (the cap).
+    - (ii) Colour, where the floor is never reached: λ / λ_0 = 0.28–0.67 after arrival, g_share 0.87–0.95, which is
+      D160c's held weight. So rest fails.
+    - Also in the gallery so far: armadillo FC 97's render term rises while the transport moves the body, so e and λ
+      rise, three outer rejections follow, and the run stops at 2.3 s.
+  - Render → control → outcome.
+    - λ_0 = 0.30–0.31 (the rule's first value). After arrival the render takes 0.85–0.96 of the step in the windows
+      where it is on: on relief, on 21–53 % of the windows after the crossing; on colour, at all times at 0.3–0.67 λ_0.
+    - Outcome as in the tables above. Colour sil_iou / chamfer stay within 0.002 / 0.0005 of the λ = 0 twin, about the
+      seed spread.
+    - The path: PCGrad-projected render gradient into dF_c and layer u; no per-channel split recorded.
+  - Reading, before the gallery. Neither arm meets the pass rule (P1 on both relief scenes, or C1 on a colour scene,
+    with that scene's P3–P5 / C2–C4). Band F comes closest: C1 and C3 pass, C2 misses 2 cells.
+    - The floor-referenced excess of the whole render term reads the arrangement. On relief the arrangement crosses
+      it and the per-window weight turns into an on/off switch. On colour the floor is out of reach and the weight
+      stays held.
+    - The next definition, named and not run: (1b) the excess read on the shape, e = 1 − b_floor / b. Here b is the
+      render term of a uniform resample of the body's solid, and b_floor is the floor sample read the same way. The
+      arrangement cannot lower b, and b's frame-to-frame swing is 0.08 (cv) against a's 0.17–0.22.
+    - Its risk: where shape excess remains (band e_b 0.15–0.23), the weight stays held, so rest needs its own check.
+  - Disk: the 24 scene archives were thinned in place after their reads (every 4th kept frame + the last; 5.4 → 1.3
+    GB; `cleanup.log`).
+
+- **D163, the words only the pictures carry: "SIGGRAPH" and "VANDERBILT" on a plaque, in the render's target pictures
+  only (a showcase of D161's relief; pre-registered 2026-10-22 14:10 CDT server clock, before any D163 run; the user,
+  2026-10-22: "PM글자가 쓰인 거 morphing 된 거 봐서 괜찮다 생각하는데, VANDERBILT나 SIGGRAPH 글자 만들어서 해 보는 것도
+  괜찮을듯 해. 그러면 확실히 그 굴곡이나 주름을 이미지로부터 랜더가 가지고 와서 보일 수 있으니까. 일단 빠르게 랜더가
+  영향을 주게끔 만들어야 하니까 가능한 모든 방법을 사용 해 보자."; code: branch `wip/d163` = `wip/d162` 71b27ed with
+  no pipeline change, the scripts in `scripts/probes/paper/d163/`; server `repo_d163` / `repo_d163s` (byte copies of
+  `repo_d162` / `repo_d162s`, 539b52a, kept frames), `tmp/d163/`, `output/gpu/d163/`; local
+  `output/results_2026-10-22/d163_text_relief/` with a Korean README).**
+  *Why.* D161 showed that the render can carve a relief its pictures alone carry (the 3D target smooth) when its weight
+  is held (D161c: 47–58 % of the ceiling, the letters readable), and that the rule's weight, tied to the physics residual,
+  keeps a tenth. Here the relief is a pair of words the user asked for, at the delivery resolution, so that the render's
+  share of the result is legible in a picture: "dF_c + layer u" (the λ = 0 twin) must end a smooth plaque; "dF_c + layer
+  u + render loss (full)" carries the words in its own particles. Every arm is an existing option (no code, no new
+  constant); the user sees what each one does.
+  *The scene (`d163_mesh.py`; looked at before any run: `output/gpu/d163/assets/truth_R300.png`, the true right-handed
+  view of each face, and `look_R300_{front,back}_hflip.png`, the raking light; both words read correctly).*
+  - Source: the sphere (`assets/isosphere.obj`). 3D target: the plaque `d163plaque.obj`, the points within r of a flat
+    rectangle L0 × W0 (axis z, flat faces at ±r, a round rim), marching cubes of the exact distance (watertight),
+    designed in pitches at 300k: L0 = 179.5, W0 = 32.6 (the longer word at em 24 with 0.3 em on every side), r = 16.2
+    from the volume (Steiner's formula, V = 1.27 N a³, D161's coin's measured fill). In the run's frame at 300k:
+    a = 0.0477 wu, the sample's box 217 × 67 × 35 a; at 40k a = 0.0942 wu, 109 × 34 × 17 a.
+  - Render target: the same plaque with "SIGGRAPH" on +z and "VANDERBILT" on −z (`d163R300plaque.obj`,
+    `d163R40plaque.obj`; the plaque map of `d163_pattern.py`: each face's word reads correctly from outside in the true
+    geometry, whereas D161's coin map was laid for a mirrored camera). DejaVu Sans Bold, em 24 a300 (stem 4.5 a300 =
+    2.3 a40, the strokes' wavelength ≈ 9 a300 ≈ 2.8 loss cells, D161's regime), embossed δ = 1.5 a300 (0.76 a40) along
+    the normals, edges a Gaussian of 1 a300, volume-neutral (h = δ (P − P̄); volume +0.003 %); the same world sizes at
+    40k, so the 40k check runs the deliverable's lettering on a coarser body.
+  - The in-loop pictures (the frozen rule: 96 px × (N / 40k)^(1/3), 188 px at 300k; extent 136 a300 / 68 a40): a pixel
+    is 1.45 a300 (1.42 a40), the stem 3.1 px (D161's coin: 4.8 px), the depth 1.0 px. Each face is seen by 9 of the 18
+    views, obliquely (34–81°) by 8, as the coin's.
+  *Arms (existing options only; seed 97, the twin also 99).*
+  - T "dF_c + layer u": `--render_weight_scale 0`.
+  - R "dF_c + layer u + render loss (full)" at the frozen rule (the tag's defaults).
+  - H the same with the render weight held at its first calibration, `--lambda_ema 0` (D161c).
+  - H2 H with the pictures at twice the rule's resolution from the first window, `--render_res_hi` 192 at 40k / 376 at
+    300k (D83's 192 px from the start at 40k): the stem in ≈ 6 px. The lattice of the exterior's discs follows the pixel
+    (half a pixel), so the render costs more; recorded.
+  - F `--render_weight_ref floor` and FC `--render_weight_ref floor --placement_at_cell` with its twin TC
+    (`--render_weight_scale 0 --placement_at_cell`): D162's pre-registered arms. D162's 40k coin read (13:50, before this
+    entry): F carved 0.4–0.7 a on the way (1–3 s) and ended at 0.06–0.12 a (share 0.05–0.10, its λ zero in the last ten
+    windows: the body beat the floor without the relief); FC ended at 0. They run at 40k so the user sees them, at 300k
+    only if they pass P1 at 40k.
+  - 40k (`d163_runs40.txt`): T97, T99, R97, H97, H2_97, F97, FC97, TC97. 300k: T97, R97 and the best 40k arm (P1 first,
+    then P3–P5), T99 if a card is free (P2's spread); at most two cards, the lock protocol.
+  *Readings (`d163_read.py`: D161's reader with the plaque map, any arm against the twin of its seed; CPU).* (1) The
+  relief in the run's own particles (the pipeline's outer layer; offset from the smooth plaque at its foot over the
+  letters' region; high-passed at s_bg = em / 2; A in pitches, corr), the ceiling the relief mesh's own samples at N
+  (seed + 1, + 2), the floor the smooth target's sample; per face as well; on every kept frame, and at the end on the
+  display surface (zbs). (2) Held-out shading (D157's studio look, 46 held-out views, 384 px): the mean squared error in
+  the letters' pixels against the relief mesh. (3) Shape against the smooth plaque: held-out 1 − IoU, the display
+  surface's Chamfer-L1 and F at 0.5 a, the run's sil_iou and thin_uncovered. (4) Rest: the last committed window's
+  v_mean, kin. (5) Pieces of ≥ 10 particles outside the largest component. (6) Render → control → outcome: per window
+  λ, g_share, |g_phys|, λ |g_render|, the step, the stop (`d161_windows.py`); full vs twin per kept frame (median
+  particle distance in the region / elsewhere, the layers' surface distance) against the twins' seed floor.
+  *Criteria (per arm, at seed 97 against T97).* P1 A ≥ 0.5 × the ceiling's A and corr ≥ 0.5 × the ceiling's corr, the
+  twin's A ≤ 0.1 × and |corr| ≤ 0.2. P2 the letters' held-out shading error: full below T by more than |T97 − T99| (at
+  300k without T99: by more than the 40k spread relative to T97's error). P3 shape: full not worse than T by more than
+  |T97 − T99| on held-out 1 − IoU, Chamfer-L1, sil_iou, thin_uncovered. P4 the end's v_mean ≤ 2 × T's. P5 no more pieces of
+  ≥ 10 particles than T. An arm PASSES with P1–P5; it CARVES with P1 (with P2). The video takes the arm that carves the
+  most (A share, then P2) among those with P5; if that arm misses P3 or P4, the video still uses it and its costs are
+  reported beside it, with R's video as the frozen recipe's answer.
+  *Predictions (D161, D161c, D162).* At 40k the ceiling is weak (stem 2.3 a40, depth 0.76 a40: ceiling corr 0.3–0.45).
+  R keeps about a tenth (P1 fails); H 0.4–0.6 of the ceiling at about the ceiling's corr, failing P3 / P4 (v_mean 3–11×,
+  Chamfer +0.04–0.13 a, as D161c); H2 at least H's share (the stem in 6 px in place of 3); F about R at the end (carve on
+  the way, lost); FC and TC near 0. At 300k H / H2 carve 0.5–0.7 of the ceiling, the words legible on the display
+  surface under a raking light, the body not at rest by P4's letter.
+  *Deliverables.* 1080p and 4K studio-look videos (raking key light, the letters reading correctly: D161's camera is a
+  mirror, flipped back at the image), the full arm above its twin over the morph, then the end turned to show both
+  faces; close-ups of the words at the end; a contact sheet; `output/results_2026-10-22/d163_text_relief/`.
+  **40k read (runs 14:11–14:52 CDT on gpu0, read 14:52–15:10 on the CPU; `output/gpu/d163/after/summary_p40.md`,
+  `windows_p40.md`, `sheets/p40_TRH.jpg`; local `output/results_2026-10-22/d163_text_relief/40k/`): only the held weight
+  carves the words, at the ceiling's own share and correlation; it pays in rest and shape as D161c did. No arm passes by
+  the letter.** The relief in the particles (40k pitches; the ceiling is the relief mesh's own 40k samples, A 0.51–0.56,
+  corr 0.24–0.26; the reading's floor, the smooth target's own sample, A 0.12–0.14 = 0.21–0.27 of the ceiling):
+
+  | arm (seed 97) | A (share of ceiling, corr) | display A / corr | letters' shading vs T | Chamfer-L1 vs smooth | thin_uncovered | v_mean / T's | windows (s) |
+  |---|---|---|---|---|---|---|---|
+  | T "dF_c + layer u" (T_99) | 0.104 (0.20, 0.11) (0.144: 0.26, 0.14) | 0.09 / 0.10 | – | 0.605 (0.598) | 0.074 (0.086) | 1 | 40 (6.7) |
+  | R the rule | 0.136 (0.26, 0.14) | 0.10 / 0.13 | −1.0 % | 0.574 | 0.043 | 0.85 | 67 (11.2) |
+  | H weight held | **0.470 (0.91, 0.31)** | **0.50 / 0.34** | **−27 %** | 0.697 | 0.110 | 75 | 22 (3.7) |
+  | H2 held, 192 px | 0.342 (0.66, 0.31) | 0.34 / 0.31 | −20 % | 0.703 | 0.055 | 31 | 32 (5.3) |
+  | F floor | 0.117 (0.23, 0.13) | 0.09 / 0.12 | −0.6 % | 0.568 | 0.055 | 0.74 | 198 (33) |
+  | FC (against TC) | 0.107 (0.21, 0.12) | 0.11 / 0.13 | +0.8 % | 0.579 | 0.092 | 7.9 | 288 (48) |
+  | TC (FC's twin) | 0.127 (0.25, 0.12) | 0.08 / 0.10 | – | 0.588 | 0.074 | – | 92 (15) |
+
+  - P1 fails by the letter for every arm on its twin's side: the twins read 0.20–0.26 of the ceiling, the reading's own
+    floor at 40k (the smooth target sample reads 0.21–0.27), above the 0.1 bar; the criterion was set below the reading's
+    floor at 40k (recorded, not changed). Against the twins, H's share is 0.91 at corr 0.31, above the ceiling's own
+    0.24–0.26; H2 0.66; R, F, FC at the twins' level.
+  - P2 (the twins' spread 1.4 %): H −27 %, H2 −20 % hold; R, F, FC do not.
+  - P3 (the twins' spreads: held 1 − IoU 0.0014, Chamfer 0.007 a, sil_iou 0.0017, thin 0.013): H misses held 1 − IoU
+    (+0.003), Chamfer (+0.092 a) and thin (+0.037); H2 held 1 − IoU and Chamfer (+0.099 a); R and F miss sil_iou (−0.0067 /
+    −0.0062: the rims, as in the tag's gallery); FC misses thin (+0.018).
+  - P4: H 75×, H2 31×, FC 7.9× the twin's v_mean; R and F at rest. P5 holds everywhere (no piece of ≥ 10 particles).
+  - Render → control → outcome (`windows_p40.md`). R: λ 0.875 at window 0, 1.5e-3 over the last ten (600× lower), g_share
+    1/3; no carve. H: λ held at 0.875, g_share 0.94–0.96 from window 10 on; the carve is made from 2 s (0.37 a at 2.2 s,
+    0.44 at 3.3 s); the run stops at 3.7 s by three outer rejections with the transport energy at 2.0e-3 (the twin ends at
+    2.4e-5) and v_mean 0.12: the body has not finished arriving. H2: the same with λ 0.957, stopped at 5.3 s; at 40k the
+    stem (2.3 a40) is what the body cannot hold, not the pixel (the 2× pictures carve less). F: its floor (the relief sample
+    read as the body) 6.6e-4; the body's render term falls below it by 3 s (4.9e-4) without the letters, λ = 0 from then
+    on; F carves 0.40 a on the way (4.75 s) and loses it (0.12 at the end), D162's coin course; 198 windows. FC the same,
+    288 windows.
+  - The protocol, recorded: the 40k chain claimed gpu0 at 14:11 on an idle-since mark from D163's own monitor (gpu0 idle
+    13:52–14:05), although another user's process had held gpu0 for under a minute at 14:08; the mark was removed at 14:12.
+    Every card carried that user's job from 14:15 on.
+  *300k (the pre-registered choice: H carves the most, P2 holds).* T97 ran 14:35–15:01 (23.4 min; sil_iou 0.9919,
+  Chamfer 0.0546), H97 from 15:02, then R97, all on gpu0; the video H over T. H's costs at 40k (rest, shape, the
+  unfinished arrival) are expected at 300k and are reported with it.
+  *Amendment 2 (15:25 CDT server clock, before any S run; the 300k H97 has run, 15:02–15:09, unread).* Arm S added:
+  D162b's `--render_weight_ref shape` (λ_t = λ_0 · max(0, 1 − b_floor / b_t), b the render term of eight uniform
+  resamples of the body's solid, which arrangement cannot lower; D162's pre-registered option, `wip/d162` 2200b08 /
+  56ed3c8, gated by D162b's chain). It is the one pre-registered definition that keeps the render's weight while the
+  letters are not in the body's shape and releases it once they are, the pair H (carves, never settles) and R / F (settle,
+  never carve) leave open. Runs: `plq40k_S_97` (the 40k scene as above) on a byte copy of repo_d162bs once D162b's gates
+  pass (`output/gpu/d162b/gates/GO`), on the card D163 holds; read against T97 / T99 with the other arms' rules. At 300k
+  (`plq300k_S_97`) if S carves at 40k (share ≥ 0.5 of the ceiling, with P2); its video then beside H's. Prediction
+  (D162b's): λ ≈ 0.1–0.2 λ_0 at arrival, a carve between F's and H's (0.3–0.6 of the ceiling at 40k), P4 holding if the
+  shape excess reaches zero before the stop rule.
+  **300k read (T97 14:35–15:01, H97 15:02–15:09, both on gpu0; read 15:14–15:57 and the video 15:17–16:13 on the CPU;
+  `output/gpu/d163/after/summary_p300early.md`, `windows_p300early.md`, `video/p300_H_T/`; local
+  `output/results_2026-10-22/d163_text_relief/300k/`): with the weight held the render writes both words into the
+  particles at 300k. P1, P2 and P5 hold, P3 and P4 miss, and the video takes H.**
+  - The ceiling (the relief mesh's own 300k samples) reads A 1.16–1.23 a at corr 0.59–0.60; the floor (the smooth target
+    sample) +0.005.
+  - T97 ("dF_c + layer u"): A −0.050 a (share −0.04, corr −0.05), display −0.02. The plaque is smooth. 112 committed windows
+    to 18.7 s, transport energy 7e-6, v_mean 2.0e-4, sil_iou 0.9919, thin_uncovered 0.032.
+  - H97: A 0.689 a, share 0.58, corr 0.50 (0.84 of the ceiling's); per face 0.67 / 0.55 (SIGGRAPH) and 0.74 / 0.50
+    (VANDERBILT); on the display surface 0.73 a, corr 0.43 (the ceiling's display 1.22 / 0.64). The carve over time: 0.55 a
+    at 1.85 s, 0.75 at 3.7 s.
+    - P1 passes (share ≥ 0.5, corr ≥ 0.5 × 0.595, the twin −0.04 / −0.05).
+    - P2 passes: the letters' held-out shading error is −40 % against the twin (the spread, by the 40k rule, 1.4 %).
+    - P3: held-out 1 − IoU holds (+0.0001). It misses Chamfer-L1 (+0.088 a, spread 0.011), sil_iou (−0.0068, spread
+      0.0017) and thin_uncovered (0.110 against 0.032, spread 0.006).
+    - P4: v_mean 0.096, 479 × the twin's. P5 holds.
+  - Render → control → outcome (`windows_p300early.md`). λ is held at 1.34, window 0's rule value. The render's share of
+    the step is 0.80 by window 3 and 0.94–0.99 from window 6 on (λ |g_render| 2–5e-3 against |g_phys| 3–9e-5: the push is
+    40–100 × the physics gradient). The transport energy falls to 2–4e-3 by 2 s and stays there, where the twin goes on to
+    7e-6. Late windows move the body 0.15–0.5 a (the twin's 1e-4). The run ends at 4.0 s after three outer rejections (24
+    committed windows, 6.1 min). The letters appear from about 2 s; the plaque's ends are still unfilled at the end
+    (thin_uncovered 0.11).
+  - The ceiling sample itself, displayed (`p300_ceiling_quick.jpg`), shows the words with the stratified sampler's
+    roughness; H's end surface is smoother, its words about as legible (`closeup/`, `p300_end_quick.jpg`).
+  - R97 (the rule) at 300k died of a CUDA allocation failure at 26.7 min. It was near window 160, still running, with λ
+    2.8e-4 = λ_0 / 4800; another user's new job had taken 32 GB of gpu0 at 15:35. It is requeued under the claim
+    protocol, which needs a card with no other user's job; at 16:10 each card carries that user's 29–33 GB job, more than
+    a 300k run leaves free. S (amendment 2) is queued behind D162b's gates (V1 one failure at 15:51, V2 passed at 16:06)
+    and the same claim. Their reads are armed (`d163_after.sh p300`, `p40S`).
+  - What it means. With its weight held, the render alone puts the words into the body: 0.58 of the ceiling at 0.84 of
+    the ceiling's correlation, legible on the display surface in the video. The price is that after 1 s the held weight is
+    40–100 × the physics gradient. The arrival stalls (transport energy 300 × the twin's end), the ends stay unfilled,
+    the body never settles, and the stop rule ends the run at 4 s. The weight needed holds while the shape lacks the
+    letters and fades once they are carved. F's floor cannot be it: at 40k F's λ was zero from 3 s with the letters
+    absent, because arrangement beat the floor. D162b's S reads the excess on the shape, so it is the next run (queued).
+  *Note (16:55 CDT): the R97 300k rerun is dropped on the coordinator's call.* At 40k the rule does not carve (0.26 of
+  the ceiling against the twins' 0.20–0.26), and the deliverable at 300k is H against its twin. The rerun's waiting chain
+  and its reader were stopped; neither held a card. S stays armed on D162b's `gates/GO` only (`startS40c.sh`). The
+  first waiter had exited on D162b's gate STOP at 16:17, and D162b may retry its gates.
+
+- **D164, the commit check's replay noise measured on the window's own replays (the user's decision of 2026-10-22, "fix
+  it", relayed by the coordinator after D162's amendment 3; a change of the frozen pipeline, gated and measured; no tag
+  is cut here; pre-registered 2026-10-22 14:21 CDT server clock, before any D164 gate or run; code: branch `wip/d164`
+  003075a = freeze-2026-10-15-rt1 (6c9b0e9) + this change, the new measure the branch's default, `--replay_noise start`
+  the tag's; server `repo_d164` / `repo_d164s` (+ `tmp/d164/patch_s164.pl`, kept frames only, the tag's form),
+  `tmp/d164/`, `output/gpu/d164/`; scripts `scripts/probes/paper/d164/`; local `output/results_2026-10-22/d164_replay/`).**
+  *Why.* The commit check nulls a window when the commit rollout of the accepted controls lands above the line search's
+  value by more than max(ls_noise_rel 1e-7, 10 × replay_rel) × max(|E|, floor), with replay_rel from one pair of
+  rollouts at the start control (E3, 2026-09-02). At the first window the body rests there and the pair agrees to 0 or
+  one ulp, while the moving candidate's rollouts differ by a few ulps of the transfers' atomics: D162 found the contracts
+  test failing that way (`test_null_windows_add_no_simulated_time_and_are_not_delivered`: 0/60 on the tag, 5/80 on
+  wip/d162, 2/20 on d161) and the tag's own production runs nulling 4.1 % of their windows so (d145t_b1). Read again for
+  this entry (`tmp/d164/nulls_scan.py`, the runs' JSON): 300k (d145t_b1, 44 runs) 240 of 5882 judged windows (4.08 %),
+  mismatch median 4.2e-7 relative = 5 float32 ulps of E (p90 37, max 362 ulps), the start pair exactly 0 in 98 of them;
+  40k (the tag-equivalent gallery V / W × 97 / 99 / 101 of d155/gate and d154/g40runs, 114 runs) 202 of 5783 (3.49 %),
+  median 33 ulps = 2.7e-6 (p90 208, max 561 = 5.6e-5), the start pair 0 in 48. None in the first window; most fall
+  late (median window index 63 at 300k, 23 at 40k), where the line search accepts decreases near the noise. At 40k the
+  median mismatch is about 40 times the start pair's median (7e-8): step 0 below reads whether that is the noise of
+  the moving state or a share the commit and the line search do not have in common.
+  *What the check exists for (the history above: E3, D4, D129, D130 (1), the 2026-09-24 eval-trajectory lesson).* The
+  commit rollout is what the runner promotes and delivers; it must be the accepted candidate. Two rollouts of one control
+  differ only by the order of the atomic sums (bit for bit under Warp's run-to-run deterministic atomics, D141); anything
+  more means the commit read a state or a cache the line search's evaluation did not (D129 / D130: the render term read
+  on discs a later trial had found, 3.9e-5 relative; the source windows' commits 5e-6 to 3.4e-4 above). The check is E3's
+  rule: null a commit whose E exceeds the accepted value by more than ten times what two rollouts of one control differ
+  by. The defect is only where that "what two rollouts differ by" is measured.
+  *The definition (`cfg.replay_noise` "window", `solve.WindowOptimizer.window_replay_noise`).* The replay noise of a
+  window is the largest relative difference among the replay pairs the window already computes, and never below the
+  float32 resolution of the compared quantity:
+  noise = max(start pair, taped pairs, ulp(E_accept) / max(|E_accept|, floor)), tolerance = max(ls_noise_rel, 10 × noise)
+  × max(|E_accept|, floor). The taped pairs: each accepted candidate against the next iteration's taped rollout of the
+  same control (the next gradient's point is the accepted candidate; its value `cur` is computed anyway). They are pairs
+  at the window's own moving states, up to iters − 1 = 7 a window, and one is at the committed control itself whenever
+  the window ends by an exhausted search or by convergence. The ulp: E's physics part is one float32 sum, so a pair that
+  reads 0 says the noise is below one ulp of E, not zero; the tag's 1e-7 floor is below one ulp for E in the lower half
+  of its binade (D162's failure: tolerance 7.8e-10 against an ulp of 9.3e-10, mismatch 2.5 ulps). Unchanged: the 10 and
+  ls_noise_rel (E3's rule), the start pair (still measured: D47 / D50 build on its rollouts), every evaluation and its
+  order (no rollout added, none moved), and the selection's rejected-merit replay test (`selection.rejected` keeps the
+  start pair; its floor outer_merit_tol 1e-4 is about 100 × any measured noise, and that test compares two windows'
+  merits, not two rollouts of one control; outside the user's decision). The new tolerance is never below the tag's (the
+  start pair is one of the pairs): the change can only remove nulls.
+  *Why this measure and not the alternatives.* (i) One extra rollout of the accepted control before the commit: one more
+  rollout and two transport solves a window (D50 removed one such evaluation for −4 % of a window), and still a single
+  draw: a pair reads exactly 0 in 6–36 % of repeats (R-series (b)) and the tag's start pair read 0 in 146 of its 442
+  nulls. The taped pairs are free and several. (ii) A bound from float32 ulp × summation depth: the replay difference is
+  not E's own rounding but the trajectory's (atomic sums at every node over 2T steps of the dynamics, then the objective);
+  any worst-case bound through 2T steps is far above the measured noise (the measured median is 5–33 ulps of E) and
+  above the structural mismatches the check has caught (5e-6 relative), so the check would stop catching them; with
+  depth one it is the resolution floor used here. (iii) Deterministic atomics: an exact check, but 9–14 × a window
+  (D141), not adopted. (iv) A larger constant: a tuned number, refused.
+  *Why it still catches a non-replayable commit.* The taped pairs are replays of one control by the window's own
+  evaluations (same discs, same transport potentials by D47, same proximity lists by D153): under deterministic atomics
+  they read 0 bit for bit (test (3) below). A commit that reads a state or cache the line search did not share, of the
+  sizes seen so far (≥ 5e-6), still exceeds ten times them unless the window's own replays already differ by that much,
+  where no output check can tell it from noise. Test (4): a commit rollout that forgets the controls is nulled under
+  both measures.
+  *Records (no trajectory effect).* Every judged window logs a `[replay]` line (accepted and committed E, the mismatch,
+  the start pair, the largest taped pair, the pair count, the ulp, the measure, the tolerance, the tag's verdict on the
+  same window, the null reason). Null windows carry the same fields; a committed window carries them, with
+  `replay_rescued`, only where the tag's measure would have nulled it. So a deterministic run's history is the tag's.
+  Tests: `tests/test_d164_replay.py` ((1) the measure on stubs, (2) a pair for each accepted candidate the next gradient
+  starts from, finite and noise-sized, (3) `tests/d164_det_runs.py`: under deterministic atomics every pair and every
+  commit mismatch 0, (4) a commit that is not the accepted candidate nulled, both measures); `tests/test_frozen_recipe.py`
+  gains the switch (D135's and the tag's argument sets at "start", the default "window"; the reason: a new switch, the
+  user-approved default, the tag one switch back).
+  *Step 0, the pilot (measurement only, before the gates; one card, about 20 min; `tmp/d164/replay_probe.py`).* 40k bunny
+  and dragon, seed 97, the full arm, repo_d164 with `--replay_noise start` (the tag's decisions). The probe evaluates
+  the committed control once more with the commit's own protocol (eval_terms: a fresh transport solve, a fresh proximity
+  search, the scored discs restored after it) just before the commit, so each window has three evaluations of one
+  control: a (the line search's), x (the probe's) and c (the commit), each with its terms (lv geometry, lk kinetic, lr
+  render, lstab, cleanup), plus the taped pairs and the start pair.
+  - P0a: the share of committed-control comparisons with c − a above 10 × the D164 measure (D164's false-null rate) and
+    above 10 × the start pair (the tag's).
+  - P0b: whether the fresh pair |c − x| lies within 10 × the D164 measure (the taped pairs reuse the potentials and
+    lists: do they miss a fresh solve's own noise?).
+  - P0c: per term, where c − a lies.
+  - Stop rules (pre-registered). If the median |c − a| exceeds ten times the median |c − x| on either mesh, the
+    mismatch is not replay noise but a share the commit and the line search do not have in common: D164 stops before the
+    gates, the term is named, and the next definition (that state shared) goes to the coordinator. If |c − x| exceeds
+    10 × the D164 measure in more than 1 % of windows, the measure misses the fresh solve's noise: the definition is
+    amended (the fresh pair added, option (i) and its cost) and pre-registered before the gates.
+  - Predictions: the tag's measure would null 3–5 % of these windows, D164's at most 0.5 %; |c − x| and the taped pairs
+    of the same order (medians within 3×); c − a positive on average (the line search keeps the trial whose value came
+    out low: a selection, not a mismatch) and spread over lv and lr at a few ulps.
+  *Gates (`d164_chain.sh V`, one card, before any run; a failure stops the chain).*
+  - V1: the full suite on repo_d164 (exit status, not a pipe).
+  - V2: `test_null_windows_add_no_simulated_time_and_are_not_delivered` 20 times on repo_d164: 0 failures. Reported
+    beside it, not gates: the same 20 times on `repo_d164_start` (repo_d164 with the config default "start", the tag's
+    check on this tree, a byte copy otherwise), and the two other contracts tests known to be lost to commit_replay nulls
+    (`test_a_nonfinite_window_cost_cannot_commit`, `test_the_commit_scores_the_accepted_candidate_on_its_own_discs`)
+    20 times each on both.
+  - V3: the pinned references and the switch's tests (`test_refreeze_reference.py`, `test_frozen_recipe.py`,
+    `test_d164_replay.py`): exit 0. The digest (`refreeze_pipeline_ref.json`) is not updated: the definition does not
+    require it (under deterministic atomics no pair or mismatch is nonzero, no decision changes, and the added history
+    fields appear only on null and rescued windows, of which that run has none). If it fails, the chain stops and the
+    difference is read before anything is changed.
+  - V4: Warp's run-to-run deterministic mode (`tmp/rt/det_run.py`), 40k bunny seed 97, four windows, repo_d164s at the
+    defaults, run twice on the same card: the two runs SAME (`det_cmp12.py`; the run-to-run determinism) and SAME against
+    rt1's S1 (`output/gpu/d153/rt1/S1`; bit for bit the tag's deterministic run).
+  *Runs (repo_d164s, kept frames, one card by the lock protocol with D162 / D163 first; `d164_runs40.txt`,
+  `d164_runs300.txt`).* (1) The 40k gallery: the 19 meshes of D145 / D154 (A, armadilo, beast, bimba, bob, bunny, C,
+  cheburashka, cow, dragon, fandisk, heart, homer, maxplanck, nefertiti, ogre, spot, teapot, V) × seeds 97 / 99 × "dF_c +
+  layer u + render loss (full)" (L) and "dF_c + layer u" (P, `--render_weight_scale 0`): 76 runs, about 2.4 card-hours
+  at B3's mean. (2) 300k bunny and dragon, seed 97, L and P (4 runs), each followed on the card by B1's GPU readings
+  (the end frame, the yardstick `t3end`, the display `e3end`, momentum `m_`).
+  References (the tag): 40k V / W × 97 / 99 / 101 (`d155/gate` for armadilo, bunny, dragon, homer, teapot; `d154/g40runs`
+  for the other 14; their D154 (3) / (3b) readings `d154/tables40/g40_table.json`); 300k B1's L / P × 97 / 99 / 101
+  (`d145t_b1`, with its t3end / e3end / m_ / pieces readings).
+  *Readings (`d164_read.py`, CPU, nice 10).* (R1) The null-window fraction by reason, before (the tag's references) and
+  after, per arm and N; inside the D164 runs the counterfactual (windows the tag's measure would have nulled:
+  `replay_rescued` plus the start verdicts of null windows), with the window index of each. (R2) Run length: judged and
+  committed windows, minutes, minutes per committed window. (R3) The standard readings: sil_iou, thin_uncovered,
+  chamfer (the run's metrics); at rest (the last committed window's v_mean); pieces of ≥ 10 particles at the delivered
+  end (D162's rule); the 40k yardstick and display by `d154_mesh_read.py` with `D154_REF=own` on the last kept frame
+  (outline-shape error, exact 1 − IoU at 1024 px, normals, the yardstick silhouette / shading against exact-mesh discs),
+  against g40_table's tag rows; at 300k t3end (silhouette / shading against D90's independent sample), e3end (display
+  front 1 − IoU), momentum, pieces. (R4) The render→control→outcome summary (g_share, λ, L against P on every reading,
+  as the tag's). (R5) Trajectory or bookkeeping: the readings against the tag's three-seed range; the rescued windows'
+  timing; wall time.
+  *Criteria (an adoption candidate if all hold; adoption is the coordinator's and the user's call).*
+  - C1 (the fix): commit_replay nulls at most 0.5 % of judged windows in each arm at 40k and at 300k (from 3.5 / 4.1 %);
+    every remaining one listed with its mismatch and measure.
+  - C2 (the purpose): V3's test (4) and the deterministic case (3) pass; V4 SAME twice.
+  - G (the generalise rule, per arm against the same arm of the tag, D162's rule): a mesh misses a reading (sil_iou,
+    thin_uncovered, chamfer, yardstick silhouette, yardstick shading, outline-shape error) if its two-seed mean is worse
+    than the tag's worse seed of 97 / 99 by more than the tag's |97 − 99|; rest misses if the larger end v_mean exceeds
+    1.25 × the tag's larger; pieces miss if it has more pieces of ≥ 10 particles than the tag's larger count. G holds if
+    at most a tenth of the reading cells miss, at most one mesh misses rest and none misses pieces; every miss is listed,
+    and each is read against the tag's own third seed (101: does the tag's run itself fall that far?).
+  - 300k: L and P within B1's 97 / 99 / 101 range on sil_iou, chamfer, thin, the yardstick, the display, at rest and
+    pieces, or no worse than its worst seed; the render arm's lead over its twin as the tag's.
+  *Predictions.* C1 holds (0–0.3 % left, the windows whose own replays read below the commit's tail). The trajectories
+  change only from the first rescued window on, mostly late (where the tag's nulls fell), so the runs are the tag's in
+  distribution: 0–5 % more committed windows, the same or a slightly later stop (a false null spends a window attempt,
+  anneals the step and counts towards patience), wall time within ±5 %, readings inside the tag's three-seed range on
+  at least 17 of 19 meshes per arm, G holds; at 300k inside B1's range. Mostly bookkeeping, a little trajectory late.
+  *Amendment 1 (22:02 CDT server clock, before P2 and any gate; the coordinator approved it at about 22:00).* Step 0 read
+  (21:43–21:52 on the gpu1 queue; the first queue job, 20:25, stopped in 52 s before any run because the probe imported
+  torch before physmorph; fixed): bunny 40 windows, dragon 60, each committed control evaluated three times (a, x, c).
+  - P0a: the tag's tolerance exceeded 0 / 40 and 1 / 60; the D164 measure 0 / 40 and 0 / 60.
+  - Stop rule 1, quiet: medians |c − a| 1.46e-6 / 3.0e-7, |c − x| 1.68e-6 / 3.9e-7, |x − a| 1.56e-6 / 4.8e-7; c − a is
+    centred (mean ≈ 0, positive in 23 / 40 and 27 / 60). The commit's mismatch is honest replay noise: no share the commit
+    and the line search do not have in common, and no visible selection by the line search.
+  - Stop rule 2, AMEND: |c − x| above 10 × the measure in 2 / 40 (5 %) and 2 / 60 (3.3 %).
+  - P0c: the geometry energy lv carries 96 % / 83 % of |c − a| (cleanup 2 / 8 %, render 1 / 8 %). The taped pairs (median
+    1.9e-7 / 1.4e-7) read the accepted candidate's transport potentials and proximity lists (D47 / D153) and see 3–10 ×
+    less than two fresh evaluations: the commit's fresh transport solve and proximity search at its own rollout amplify
+    the rollout's position noise about tenfold. 40 of 40 and 57 of 60 windows ended by the iteration budget, so no taped
+    pair was at the committed control itself.
+  - Why the tag nulls about 4 %: the check compared one noise draw with ten times another of the same size. For two equal
+    Gaussian draws P(X > 10 |Y|) = (1/π) atan(1/10) ≈ 3.2 %; with the windows whose start pair reads 0 this is the tag's
+    3.5 % (40k) and 4.1 % (300k).
+  - The amendment, in place of the pre-registered fallback (i): the commit reads what the accepted candidate read, its
+    transport potentials and its proximity lists (a repeat, as D47 / D153 do at the next gradient; D142's commit branch
+    with the lists added; `solve.WindowOptimizer.commit`, record `commit_reads_accepted`). c − a then carries the rollout's
+    atomics only, the kind the taped pairs measure, and the approved measure max(start pair, taped pairs, ulp) is that
+    noise's; the start pair (two fresh evaluations) is larger, a conservative part of it. Option (i) would measure the
+    amplified noise with one more fresh evaluation (one rollout and two transport solves more a window, about +4.5 % by
+    D50's figure) and would still compare one draw with ten times one or two others (about 0.3 % false nulls by the same
+    arithmetic); it treats the symptom. The amendment removes the amplification from the comparison and saves the
+    commit's two transport solves.
+  - What it changes, and why that is a correct reading of the same committed state: the commit's E, and with it the
+    selection merit's transport part (and the record's state energy, D53, which takes the commit's potentials), is now
+    evaluated with the potentials and lists found at the accepted candidate's rollout, not at the commit's. The two
+    rollouts are rollouts of the same control from the same start and differ by about 1e-7 pitches; both readings are of
+    the same committed state and differ by about 1e-6 relative, the fresh solve's own replay noise (the pilot's |c − x|).
+    The delivered frames are the commit's own rollout as before. Under deterministic atomics the two readings are equal
+    bit for bit (identical measures give identical potentials and lists), so V4 and the digest must stay SAME.
+    `--replay_noise start` keeps the tag's check and commit.
+  - A commit that is not the accepted candidate is still caught: with shared potentials the transport energy is still a
+    function of the commit's own measure, so a commit at another state (a state or cache the line search did not share)
+    moves E by its own size. Test (4) (a commit that forgets the controls) is nulled under both measures; test (5) checks
+    the commit's reads (repeat, the accepted candidate's potentials and lists, no solve) under "window" and the tag's
+    fresh solve under "start".
+  - P2, the gates' first step: the same pilot on D164's defaults (repo_d164s, no flag); the probe's extra evaluation x
+    follows the commit's protocol (the accepted candidate's potentials and lists, restored for the commit after it); the
+    same reader and stop rules (rule 2 now reads |c − x| of the commit's protocol). Prediction: |c − a| and |c − x| fall to
+    the taped pairs' size (1–2e-7), c − a above 10 × the measure in no window, both stop rules quiet.
+  - V as registered, with the coordinator's change: V2's three formerly flaky tests
+    (`test_null_windows_add_no_simulated_time_and_are_not_delivered`, `test_a_nonfinite_window_cost_cannot_commit`,
+    `test_volume_exact.py::test_the_commit_scores_the_accepted_candidate_on_its_own_discs`) 20 times each on repo_d164,
+    0 failures each (gates), repo_d164_start reported beside them. V3 adds test (5); V4 and the digest as registered.
+    Then R40 and R300 as registered, the readings and criteria unchanged; the predictions also unchanged, except that a
+    commit is now about two transport solves cheaper (wall time per window −1–3 %).
+  - Code wip/d164 11aab852; server repo_d164 / repo_d164s / repo_d164_start redeployed from it; queue job
+    `tmp/gpu1_queue/21_d164_p2_gates.sh` (`QUEUE=1 bash tmp/d164/d164_chain.sh "P2 V"`).
+  *Amendment 2 (22:34 CDT server clock, before V1b; V2–V4 still running on 11aab852).* P2 read (22:15–22:24): the
+  commit's mismatch fell about thirtyfold (median |c − a| bunny 4.9e-8, dragon 5.8e-8, against 1.5e-6 and 3.0e-7 in
+  step 0; now below one ulp of E, about 8e-8) and is no longer the geometry energy's (lv 30 % / 28 %, the cleanup and the
+  render the rest); c − a above 10 × the measure in 0 / 48 and 0 / 49 windows (largest ratio 0.17 and 1.8); both stop
+  rules quiet, as predicted. V1 on 11aab852 (22:24–22:30): 4 failed, 439 passed.
+  - Two failures are D164's: `test_scene_bodies.py::test_scene_runs_end_to_end` and
+    `::test_scene_windows_are_freed_without_the_garbage_collector` (an IndexError in the proximity: one body's lists read
+    for the other). In the multi-body scene each body's terms call the transport in turn, so the potentials and lists
+    left after an evaluation are the last body's alone; amendment 1 is single-body. The fix (fc730244): the scene's
+    commit keeps the tag's fresh solve and search (`SceneOptimizer.commit_reads_accepted = False`), and its check reads
+    D164's measure. No single-body line changes, so V2–V4 on 11aab852 stand for the single-body path.
+  - Two are the shared card's: `test_volume_exact.py::test_the_eval_trajectory_replays_bit_for_bit[off-cuda]` and
+    `[carried-cuda]` assert that two CUDA rollouts at rest are bit-identical. On a card shared with another user's job
+    the tag itself fails it (D146b: 3 of 8 on pristine code; D162b amendment 1: the tag 3 / 10 on gpu1 today). It
+    exercises `physmorph/mpm` alone, which D164 leaves byte for byte (`git diff 6c9b0e9 fc730244 -- physmorph/mpm
+    physmorph/gpu.py physmorph/losses` is empty).
+  - V1b (`tmp/gpu1_queue/21_d164_v1b.sh`, after this V): the full suite on repo_d164b (fc730244); that test's two CUDA
+    variants 10 times on repo_d164b and 10 times on repo_d162tag (the tag as tagged) in the same job on the same card.
+    V1 passes if every other test passes; that test's counts on the two trees are reported (the code it runs is the
+    tag's, so a difference between them is the card's).
+
+- **D162b, the render weight's excess read on the body's shape (a gated A/B experiment, adoption the user's call;
+  pre-registered 2026-10-22 ~15:20 CDT, before any D162b run; the coordinator's go after D162 read 1; code `wip/d162`
+  2200b08 (`--render_weight_ref shape`, default off); server repo_d162b / repo_d162bs, output/gpu/d162b/, chain
+  `d162b_chain.sh`, runs `d162b_runs.txt`, reader `d162b_after.sh`; local
+  `output/results_2026-10-22/d162_render_weight/`).**
+  *Why.* D162 read 1: the floor-referenced excess of the render term on the body's own particles reads the
+  arrangement.
+  - On the coin the full arm arranges its exterior so that its shape scores about 27 % below a sampled arrangement,
+    so L_r crosses L_floor with e_b 0.08–0.13 of shape excess left.
+  - The per-window weight then turns into an on/off switch (22–212 switches; 6 of 8 relief runs to the window cap).
+  - The coordinator's question 3: does a weight read on b, which the arrangement cannot lower and which swings less
+    from frame to frame (cv 0.08 against 0.17–0.22), remove the flipping? Question 4: once the shape excess is gone,
+    does the body come to rest before the stop rule ends the run?
+  *The definition (`--render_weight_ref shape`, `physmorph/pipeline/shape_read.py`).*
+  - λ_t = λ_0 · max(0, 1 − b_floor / b_t), where λ_0 is the rule's value at the first calibration (as F).
+  - b_t, read by the runner at each window's start state and kept while a window retries from that state: the mean
+    render term (`target.render_floor`, read as the body is read) of eight uniform resamples of the body's solid.
+    - The solid: the points deeper than c inside the zero set of the particles' Zhu–Bridson field (D157's field mesh
+      at 0.708 target spacings).
+    - c: measured once a run, the floor sample's zero set against the render target's own mesh (closed).
+    - The resample: a jittered lattice at the target sample's number density ((D132 fill volume / N)^(1/3)), fixed in
+      the world for the run. The sites cover the MPM domain and the jitter is drawn once per seed, seeds 95 + 100 k,
+      eight of them, as many as the pictures' own samples. Points are kept where they lie inside the solid.
+    - Paint (D160): each point's nearest particle's.
+  - b_floor: the pictures' own first sample read the same way, once a run.
+  - This differs from read 1's X reader, which used a marching-cubes solid and the stratified mesh fill, so b's level
+    here is its own. b and b_floor are read by one rule, and only their ratio enters.
+  - No new constant: 0.708, the field, the eight seeds and the floor sample are D157's / D156h's / D162's.
+  - Refresh: every window's start. Its cost is measured in the gates (V4, four windows on each scene: t_shape against
+    the window's t_attempt) and recorded as an amendment before the runs; the chain holds the runs until `gates/GO`.
+  *Gates (`d162b_chain.sh V`).*
+  - V1: the full suite on repo_d162b (exit).
+  - V2: the references and the options' tests, with the new D162b tests (a shape run on the contracts' cloud records
+    b, one b_floor and λ = λ_0 × excess; the reading repeats and ignores the particles' order).
+  - V3: SAME at the defaults against rt1's S1 (deterministic mode).
+  - V4: four-window runs with `--render_weight_ref shape` on the coin relief, the bunny relief, band and ears (exit
+    0, the b_floor log line).
+  *Runs (40k, seeds 97 / 99, repo_d162bs, kept frames, one card; 8 runs).*
+  - One arm, S = `--render_weight_ref shape`, on D162's four scenes.
+  - No new twin: S changes only the render weight, so its twins are F's (D161's on relief, D160's P on colour).
+  - References: D162's F, D161c / D160c (held), D160d, the twins.
+  - Then X (`d162_arrange.py`) on coin S 97 and band S 97.
+  *Readings.*
+  - Relief: `d161_read.py` / `d161_summary.py`. Colour: `d160_read.py`, `d162_colour.py` (with L, H, D160d, F, FC
+    beside) and `d162_c23.py` (C2 / C3).
+  - `d162b_read.py`: the windows, how the run ended, the on/off switches and the on share after the first zero
+    excess, e at arrival and at the end, the first window with zero excess with the speed there and at the delivered
+    end against 2 × the twin's, the seconds run after it, and t_shape / t_attempt.
+  - `d162_windows.py`: per window.
+  *Criteria.*
+  - P1 / C1, P3–P5 / C2–C4 and the pass rule as D162's.
+  - Question 3: the flipping is removed on a run if its switches are at most a tenth of F's on the same scene and
+    seed, or if, after the first zero excess, the weight stays off (on share ≤ 0.1).
+  - Question 4: a run whose excess reaches zero comes to rest if the delivered end's v_mean is ≤ 2 × the twin's.
+    Reported: whether the stop rule ended it before that, and how long it ran after the excess was gone.
+  *Predictions.*
+  - From read 1's b, the shape excess at arrival is 0.1–0.2 (coin), so λ ≈ 0.1–0.2 λ_0. It is held while the shape
+    excess lasts, with no off windows.
+  - Relief: more than F (coin 0.05–0.10, bunny 0.23–0.25 of the ceiling), less than D161c (0.47–0.58). Switches a
+    tenth or less of F's.
+  - Colour: band about F's (r ≈ 0.8), ears below 0.5.
+  - Rest at risk where the shape excess does not reach zero (read 1: band e_b 0.15–0.23 under F). There the weight
+    stays held as in D160c.
+  - The cost: one field mesh and eight inside tests and render terms a window, likely seconds at 40k against a
+    window of 1.5–6 s.
+  *Amendment 1 (16:54 CDT server clock, before any D162b run; the runs started on `gates/GO` at 16:54:38).*
+  - The card. No card was free: gpu0 was D163's, gpu3 and gpu1 also carried another user's job. D162's own chain on
+    gpu1 (list B) was cut after its current run, and the card was handed straight to D162b, so it stayed this agent's.
+    A2 and the rest of B run after D162b. Timings here are on that shared card.
+  - The gates, try 1 (56ed3c8): V2 43 passed, V3 SAME, V4 exit 0 on all four. V1 had one failure,
+    `test_volume_exact.py::test_the_eval_trajectory_replays_bit_for_bit[off-cuda]`.
+  - The gates, try 2 (56ed3c8 for V1–V2, cabddcf for V3–V4): V1 failed on the same test's `[carried-cuda]` variant,
+    V2 43 passed, V3 SAME, V4 exit 0.
+    - That test asserts that two CUDA rollouts at rest are bit-identical. Ten repeats on this card: the tag as tagged
+      3/10 failures, repo_d162b 5/10.
+    - So it is the atomics nondeterminism of a shared card, the assumption behind D162 amendment 3's commit_replay
+      finding, not D162b's code. D162b does not touch the MPM.
+    - On cabddcf: tests/test_d162.py + test_frozen_recipe 13 passed (exit 0).
+    - The runs go ahead on that record. The test is unchanged; the frozen code's at-rest replay assumption is the
+      user's call, with commit_replay.
+  - A definition fix found in V4, before any run (cabddcf). With the resample points kept only inside the solid, the
+    floor sample's resample held 35.5k of 40k points, and its b_floor read 3.7–4.7e-2 against the sample's own a of
+    1.8–2.5e-3: the silhouette error of a shrunken body. That would have swamped every shape excess.
+    - The stratified sampler that drew the target keeps its fill's interior AND surface voxels and jitters inside
+      each, so its sample reaches about half a voxel beyond the surface.
+    - The resample now keeps each lattice voxel that meets the solid (any of its eight corners inside), one jittered
+      point each: the sampler's own convention.
+    - b_floor is now 5.66e-3 (coin), 6.38e-3 (bunny relief), 4.01e-3 (band) and 4.37e-3 (ears), at 40.4–41.7k points
+      a resample. Read 1's X step (marching cubes + the stratified mesh fill) gave 4.67e-3 (coin) and 4.46e-3 (band).
+      Repeated reads are bit-identical.
+  - The cost, measured (V4, four windows a scene): one reading takes 3.4–4.1 s a window, against window attempts of
+    8.5–11.4 s that include it, about 40 %. The per-run setup (c, b_floor) takes 10–28 s.
+    - The refresh stays at every window's start, as pre-registered; no period is chosen. A 40k run takes about 1.7×
+      longer.
+  - First windows: e = 0.93–0.98, λ = 0.29–0.31 ≈ λ_0, as predicted for the transport phase.
+  *Read (18:30 CDT; reads in output/gpu/d162b/after/, local `reads_d162b/`).* The 8 S runs ran 16:54–18:04 on gpu1,
+  6–11 min each, 34–78 windows, 5.3–13.0 delivered seconds. None reached the cap.
+  - P1 (relief, share of the ceiling, seeds 97 / 99). FAILS.
+
+    | scene | S | F | FC | D161c | twins |
+    |---|---|---|---|---|---|
+    | coin | 0.26 / −0.01 (corr 0.32 / −0.02) | 0.05 / 0.10 | −0.01 / −0.06 | 0.47–0.53 | 0.01–0.04 |
+    | bunny | 0.12 / 0.42 (corr 0.07 / 0.22) | 0.23 / 0.25 | 0.47 / 0.34 | 0.54–0.58 | −0.06–0.03 |
+
+    - P4 (D161's reader): coin 97 fails narrowly (2.05× its twin); the rest pass.
+    - P3: coin S misses Chamfer and sil_iou at 97 and thin_uncovered at both seeds; bunny S misses held-out 1 − IoU at
+      both seeds and Chamfer at 99. P5 passes.
+  - C1 (colour, r at seeds 97 / 99): band S 0.85 / 0.74 PASS (held-out PSNR 21.0 / 20.2 vs 16.8 / 16.6), ears S
+    0.23 / 0.26 fail. For comparison: F 0.78 / 0.82 and 0.35 / 0.23; D160c 0.91 / 0.93 and 0.19 / 0.40; D160d
+    1.00 / 0.99 and 0.74 / 0.67.
+    - C2: band S misses 2/6 cells (chamfer at both seeds); ears S 2/6.
+    - C3: band S passes (1.2×, 1.3×); ears S fails (2.3× at 97, 2.0× at 99).
+  - Question 3, the flipping (switches S / F; the rule: a tenth of F's, or off after the first zero excess).
+    - coin: 0 / 189 and 1 / 34, the latter staying off after e = 0.
+    - bunny: 9 / 22 (not met: on share 0.71 after e = 0) and 0 / 185.
+    - band and ears: 0 / 0.
+    - So it is removed on 3 of the 4 relief runs, and every S run ends by the stop rule.
+  - Question 4, the rest after the excess.
+    - Two runs reach zero shape excess: coin 99 at 11.3 s and bunny 97 at 6.2 s. Both come to rest (end v_mean 0.6× and
+      0.7× the twin's), and the stop rule ends them 1.7 s and 2.5 s later.
+    - But they carve almost nothing (−1 % and 12 % of the ceiling). b reads the shape at its field's resolution
+      (kernel 3 pitches at 0.708 spacings), which smooths 1-pitch letters. So "the shape at its floor" arrives with the
+      letters uncut.
+    - Where the excess stays above zero (coin 97 e ≈ 0.17; colour 0.17–0.47) the weight stays held at 0.05–0.15. Rest
+      still mostly passes (1.2–1.8×); ears 97 (2.3×) and coin 97 (2.05×, D161's reader) fail.
+  - Question 5, the cost: 3.2–4.1 s a window (about 45 % of a window attempt of 7.4–11.4 s, on a shared card), 10–28 s
+    of setup a run. Refreshed at every window.
+  - X on the S runs: ARRANGEMENT ATE THE FLOOR again.
+    - coin S 97: at 1.5 s, e_a 0.019 vs e_b 0.289. After 2 s a sits at 0.60 of L_floor (F: 0.85), while X's b stays
+      near its floor.
+    - band S 97: at 8.0 s, e_a 0.044 vs e_b 0.150.
+  - Reading.
+    - S does not pass: P1 fails on relief; band's C1 passes but C2 misses two cells. D160d still leads on colour.
+    - What b bought: no on/off switching (3 of 4 relief runs), normal stops, and rest where the excess was spent.
+    - What it cost: b is blind at the letters' scale, so the weight fades before the letters are cut (coin 99,
+      bunny 97) or holds on a coarse-shape gap (coin 97).
+    - Under both references the render's own effect is the arrangement: a falls below the floor while b stays flat.
+      The limit is the path of the render's push, not the reference of its weight.
+  - Next, a measurement before any definition (the standing order: measure which part misbehaves first). Split the
+    render's per-window displacement of the exterior particles (the per-particle render gradient is already recorded
+    under work telemetry) two ways:
+    - (i) normal against tangential to the exterior;
+    - (ii) the band at and above the letters' stroke against the sub-pitch band.
+    - Mostly tangential → the next definition is a render push along the surface's normal only. Mostly sub-pitch
+      normal (smoothing the layer) → a render push limited to the band the pictures carry.
+  - The D162 gallery (lists B's rest and A2) restarted at 18:31 on a normal claim (d162_gal.sh); its G read follows.
+    Disk: the 8 S archives thinned after their reads (cleanup.log); /data/relcfd/chayo 429 GB.
+
+- **D162c, where the render's push goes: normal or tangential, the stroke band or the sub-pitch band (a measurement,
+  no new definition run; pre-registered 2026-10-22 ~19:10 CDT before any number is computed; the coordinator's go
+  after D162b's read; scripts `scripts/probes/paper/d162/d162c_*.py`, outputs `output/gpu/d162c/`).**
+  *Question.* When the render succeeds (it carved or placed), is its push normal to the surface and at or above the
+  stroke scale? When it fails, does it go tangential or sub-pitch, i.e. into arrangement?
+  *Runs.*
+  - Failing: D162's F (coin, bunny relief, band) and D162b's S (coin, bunny relief, band), seeds 97 / 99.
+  - Succeeding:
+    - D161c, the λ-held full arm: coin and bunny relief at 40k, 47–58 % of the ceiling.
+    - D163's 300k plaque H (λ held, seed 97): its read is D163's.
+    - D160d's band D97 / D99: colour r 0.99–1.00.
+  - Contrast twins: D161's twins, D160's P and D163's T.
+  - None of these records holds per-particle render gradients (no `--grad_dump`). So (A) is read from the kept
+    positions on the CPU, and (B) is regenerated at the kept states on one card under the protocol (no rollout).
+  *The outer particles at a state x.*
+  - Those whose signed distance to the zero set of x's Zhu–Bridson field is at least −(0.8 pitch + 0.5 spacing): the
+    outermost layer. The zero set is D157's field mesh at 0.708 target spacings (pipeline/shape_read.zero_set); 0.8
+    pitch is the field's offset.
+  - Each one's normal n_i: the field's gradient at it, normalised.
+  *The two quantities, per state.*
+  - (A) the realized motion v_i = x_i(t + 48 frames) − x_i(t): about one window, the thinned archives' step.
+  - (B) the render's push v_i = −∂L_r/∂x_i at x(t). L_r is the render term (silhouette + w_pbr shading; with the
+    particles' paint on band) on the run's own pictures, read as the window reads it: a field found at x, the
+    tracked discs, d_exterior. The run's TargetPack is rebuilt from its provenance.
+  *The decomposition.*
+  - The band part v_band,i: the mean of v over the outer particles within half a stroke width of x_i, itself included.
+    The stroke is D161's letters' 3.8 pitches, so the radius is 1.9 pitches. This keeps what a neighbourhood moves in
+    common.
+  - The sub-pitch part: v_sub = v − v_band, what a particle does against its neighbours.
+  - Each part is split into normal and tangential: (v·n) n and the rest.
+  - Four energies over the outer particles: band-normal, band-tangential, sub-normal, sub-tangential, as shares of
+    their sum.
+  - Phases: before arrival (the first window whose transport energy is below 2 × its final value) and after it.
+    Medians per phase and run.
+  *Reading.*
+  - Success shape: the after-arrival band-normal share of (B), and of (A) beyond the twin's, is higher on the
+    succeeding runs than on the failing ones, beyond the seeds' spread.
+  - Failure shape: the failing runs' extra share is tangential (band or sub) or sub-pitch normal.
+  - The definition the data names:
+    - mostly tangential → a render push along the surface normal only;
+    - mostly sub-pitch normal → a render push limited to the stroke band;
+    - neither, if succeeding and failing runs decompose alike → the path is not the discriminant (then the weight's
+      size, which separates them, is reported).
+  - No run of a new definition before this is reported.
+  *Read (19:45 CDT).*
+  - Data: (A) 760 states from the kept positions (CPU, 18:45–19:25). (B) the push regenerated at 408 kept states of
+    26 runs on gpu1, 17 min, beside the D162 gallery run under this agent's own lock, because another user filled all
+    four cards; then split on the CPU. Tables in output/gpu/d162c/d162c.md, local `reads_d162c/`.
+  - (B), the push the pictures ask for, decomposes alike in every group after arrival.
+    - Normal share 0.72–0.87, band 0.46–0.67; band-normal 0.40–0.58 for the failing and succeeding runs alike, and
+      0.55–0.62 for the twins.
+    - The outer layer carries 0.93–0.95 of the push energy in every group.
+    - So the direction of the push does not separate success from failure. About half of it is sub-pitch normal.
+  - (A), the realized motion after arrival (rms per 48 frames in pitches; shares).
+    - Relief, succeeding: D161c moves 0.044–0.156, 1.7–6.6× its twin; band 0.90–0.97, sub-pitch 0.04–0.10,
+      band-tangential 0.60–0.66, band-normal 0.27–0.36. D163 H (300k) moves 0.341, 30× its twin; band 0.99,
+      band-tangential 0.67.
+    - Relief, failing: F moves 0.019–0.037 (0.9–1.3× its twin), band 0.73–0.91. S moves 0.012–0.033 (0.6–1.4×), band
+      0.59–0.83. Beyond the twin, F's share moves to band-normal (+0.13–0.25), not to tangential or sub-pitch.
+    - The twins move 0.019–0.041 with band 0.58–0.61: physics-only motion after arrival is 0.39–0.43 sub-pitch.
+    - Colour band: D160d (r 0.99–1.00) moves 1.1–1.3× its twin with band 0.60–0.68 and band-tangential 0.47–0.57. F and
+      S band (r 0.74–0.94) move 1.3–2.2× with band 0.66–0.83, band-tangential 0.50–0.65. Alike: routing paint is
+      tangential band flow in every arm.
+  - Reading (the pre-registered third case).
+    - The failing runs do not push tangential or sub-pitch. They hardly move beyond their twins, and what they add is
+      band-normal.
+    - The succeeding relief runs move the outer layer 2–30× more, coherently (in-band 0.90–0.99) and mostly
+      tangentially: material flows along the surface to build the letters.
+    - The controls already realize the push in band: the push's sub-pitch half never becomes motion.
+    - So the path is not the discriminant. A normal-only push would remove the band-tangential flow that is 60–67 %
+      of a successful carve's motion. A band-limited push would change little, since the controls already
+      band-limit.
+    - What separates them is the realized magnitude after arrival, i.e. the weight's size: held λ_0 in D161c / D163 H
+      against F / S's 0.05–0.15, which faded early. Under F the arrangement crosses the floor; under S, b is blind to
+      the letters.
+  - The definition the data names: keep the floor-referenced weight (F's form, λ_0 · max(0, 1 − L_floor / L_r)), but
+    read both L_r and L_floor at the pitch scale.
+    - That is, on the pictures low-passed at one pitch, the field's own pitch: the stroke band (3.8 pitches and up) is
+      kept and the sub-pitch arrangement dropped.
+    - The arrangement can no longer cross the floor (it lives below the pitch), and the letters stay visible (unlike
+      b's 3-pitch field). The weight then stays at λ_0 × the stroke-band excess while the letters remain, and fades as
+      they are cut.
+    - Its risk is D161c's: rest while the excess lasts (D161c 3–11×, D163 H 30× its twin after arrival). D162b showed
+      that the body rests where the excess is spent.
+    - Named, not run (the coordinator's order: report first).
+  - Ops: the D162 gallery remainder was stopped after gal_homer40k_F_97 (F / FC are not candidates). The gpu1 lock
+    passes to the gpu1 queue runner (tmp/gpu1_queue/, README there: NN_agent_name.sh jobs, one at a time, logged,
+    renamed .done, 30 min idle then release). The V1 `test_volume_exact` flake on shared cards is the D164 atomics
+    issue, noted and not changed.
+
+- **D162d, F's floor-referenced weight read at the pitch scale (a gated A/B experiment, adoption the user's call;
+  pre-registered 2026-10-22 ~20:00 CDT, before any D162d run; the coordinator's go after D162c; code `wip/d162`
+  148706f, `--render_weight_ref floor_pitch`, default off; server repo_d162d / repo_d162ds, output/gpu/d162d/, run as
+  gpu1 queue job 02; arm name Lp).**
+  *Why.* D162c: the render's push decomposes alike in succeeding and failing runs. What separates them is the realized
+  motion after arrival, 2–30× the twin's when the weight stays near λ_0 against about 1× when it fades.
+  - F faded because the sub-pitch arrangement crossed the floor.
+  - S faded because b's 3-pitch field cannot see 1-pitch letters.
+  - A reference read on pictures low-passed at one pitch drops the arrangement (below the pitch) and keeps the strokes
+    (3.8 pitches and up).
+  *The definition.* λ_t = λ_0 · max(0, 1 − L_floor^lp / L_r^lp).
+  - L^lp is the render term (silhouette + w_pbr shading; with paint on colour scenes) of the particles, read as the
+    body is read (`target.render_term_lowpass`).
+  - Both the body's pictures and the target pictures are blurred by a Gaussian of σ = one exterior pitch (the field's
+    own size; the project's blur widths are σ in spacings) before d_exterior's measures compare them.
+    - Its transfer is about 0.25 at the strokes' 3.8 pitches and e^−10 at the particle spacing of 1.4 pitches.
+  - L_r^lp is read at each window's start state; L_floor^lp on the pictures' own first sample once a run.
+  - The render loss and its gradient are F's, unchanged. No new constant: σ is the field's pitch.
+  *Gates (job 02 on the gpu1 queue, before its runs).*
+  - V2: the references and options' tests, with the new D162d tests (the zero-width identity with render_floor; a run
+    records one floor and λ = λ_0 × excess).
+  - V3: SAME at the defaults against rt1's S1.
+  - V4: four-window runs on the coin relief and on band (exit 0, the L_floor line).
+  - V1, the full suite, is not rerun: the change adds code only under the new option, and V3 covers the default path
+    bit for bit. Its known flake on shared cards (D162b amendment 1, the D164 atomics issue) is noted.
+  *Runs (40k, seeds 97 / 99, 8 runs).* Lp on the coin and bunny relief, band and ears.
+  - Twins as F's (D161's on relief, D160's P on colour).
+  - References: F, S, D161c / D160c (held), D160d, the twins.
+  *Readings.*
+  - Relief and colour as D162 (`d161_read.py` / `d161_summary.py`, `d160_read.py`, `d162_colour.py`, `d162_c23.py`).
+  - `d162b_read.py` (switches, how the run ended, the rest after the excess, the cost).
+  - The per-window trace: λ / λ_0, e and v_mean per committed window, with the relief share or the colour's
+    mis-coloured share at the kept frames.
+  *Criteria.*
+  - P1 / C1, P3–P5 / C2–C4 and the pass rule as D162's.
+  - The rest question, explicit:
+    - (R1) does the excess vanish once the letters are carved? On relief: e ≤ 0.05 at the first kept frame whose relief
+      share is within 0.1 of the run's last, or earlier.
+    - (R2) does the body then come to rest before the stop rule ends the run? The delivered end's v_mean ≤ 2 × the
+      twin's, the stop reason, and the seconds run after e first fell to ≤ 0.05.
+  *Predictions.*
+  - At arrival, e^lp ≈ 0.3–0.6 on relief (the letters' excess, no longer hidden by the arrangement), so λ ≈ 0.3–0.6
+    λ_0, against F's and S's 0.05–0.2.
+  - e falls as the letters are cut, without on/off switching (the low-passed term swings little from window to
+    window).
+  - Relief 0.35–0.55 of the ceiling: above F / S (0.05–0.42), at or below D161c (0.47–0.58).
+  - Colour band r ≈ 0.8–0.9, ears 0.3–0.5.
+  - Rest: where e reaches ≤ 0.05 the body rests within about 2 s (D162b); where e plateaus above it, rest is at risk
+    as for the held arms.
+  - Cost: one field and one render a window (< 1 s at 40k).
+  *Amendment 1 (20:30 CDT, before any D162d run).* Gates try 1 (job 02, 20:14–20:25 on gpu1): V3 SAME; V4 exit 0 on both,
+  L_floor^lp 3.23e-4 on the coin, against the unblurred 2.53e-3. V2 failed one test, my own D162b test
+  `test_a_shape_run_records_b_and_holds_lambda_to_its_excess`.
+  - It asserted that the first committed window records t_shape. On a shared card the first window can be nulled by
+    commit_replay (D162 amendment 3), and the committed retry then reuses the reading from the same state (None by
+    design).
+  - The test now states the contract exactly: a window from a new state records the reading's seconds; one retried from
+    the same state after a null or rejected window records None (9496c83). No pipeline code changed.
+  - The job is queued again as 03 (after D164's 20, which had started), and reruns all its gates.
+  *Read (22:05 CDT; job 03 on the gpu1 queue, runs 20:38–21:43; reads output/gpu/d162d/after/).*
+  - Gates try 2: V2 46 passed; V3 SAME; V4 exit 0 (L_floor^lp 3.23e-4 coin, 3.04e-4 band). The low-passed reading costs
+    0.05–0.1 s a window.
+  - P1 (share of the ceiling, 97 / 99): coin 0.13 / 0.23 (corr 0.18 / 0.31), bunny 0.17 / 0.30 (corr 0.08 / 0.16).
+    FAILS (F 0.05–0.25, S −0.01–0.42, D161c 0.47–0.58).
+    - P4 passes everywhere (0.8–1.0× the twin).
+    - P3 misses sil_iou (coin 97) and thin_uncovered (coin, both seeds), and held-out 1 − IoU (bunny, both seeds).
+  - C1: band 0.93 / 0.91 PASS (held-out PSNR 21.4 / 21.4); ears 0.30 / 0.32 fail. C2 misses 3/6 cells on each. C3
+    fails on all four (band 3.5× / 2.3×, ears 9.0× / 2.2×).
+  - The trace (after/trace.png, trace.md).
+    - After arrival λ / λ_0 = 0.2–0.35 on the coin through about 16 s, then falling.
+    - The low-passed term still crosses its floor: switches 86 / 0 (coin), 31 / 217 (bunny; 99 ran to the cap).
+    - R1 fails everywhere. e first drops to ≤ 0.05 at 3.7–10.2 s while 59–77 % of the letters are still to carve, and
+      at the end 71–88 % of the relief is still to do.
+    - On colour, e stays at 0.45–0.90 to the end (held, as F), so rest fails.
+  - Reading.
+    - A one-pitch low-pass attenuates the 1-pitch letters as well (transfer about 0.25 at the stroke), so the
+      low-passed term's excess is dominated by coarse differences the physics already matches. It does not track
+      the letters (R1).
+    - No reference read so far (on the particles, on a resample, on low-passed pictures) both stays up while the
+      letters remain and falls when they are cut.
+    - The held weight is the only arm that carves (D161c 40k, D163 H 300k), with its rest cost.
+
+- **D162e, is it the render or u? (an ablation; pre-registered 2026-10-22 ~22:10 CDT, before its runs; the user's
+  question relayed by the coordinator; gpu1 queue job 22, output/gpu/d162e/).**
+  - Arm Hu: D161c's λ-held full arm (`--lambda_ema 0`) with the layer's u off (`--u_off`), on D161's coin and bunny
+    relief at 40k, seeds 97 / 99 (repo_d162ds, code = the tag on this path).
+  - References: D161c (the same arm, u on; 0.47–0.58 of the ceiling) and D161's twins (u on, λ = 0).
+  - Reading: D161's reader. Hu's carved share is what dF_c writes alone; D161c's minus Hu's is u's addition. The
+    channels do not add exactly (u moves the layer, dF_c the body under it), so the split is read as two arms, not as
+    a sum. P3–P5 as D161.
+  - Predictions: dF_c alone carves less than with u, since u moves the outer layer along its normals, the direction of
+    an emboss. Hu 0.2–0.4 of the ceiling, so u's addition is 0.1–0.3.
+- **D162f, the 300k deliverables (visible results; the coordinator's order after D162d's failure: λ held, the rest
+  cost stated; gpu1 queue jobs 23–24; output/gpu/d162f/).**
+  - (a) the plaque, SIGGRAPH / VANDERBILT: D163's 300k H 97 (λ held) and its twin T 97 already exist, with their
+    videos (output/gpu/d163/video/p300_H_T). Reused, no new run.
+  - (b) surface ripples from pictures (job 23).
+    - The scene: D161's smoothed bunny, whose render target carries concentric ridges on its flank (d161_mesh.py
+      rings [[0, 4], [8, 12], [16, 20], [24, 28]] pitches, 1.5 pitches high, edge 1 pitch; ridges 4 pitches wide,
+      period 8, at the D161 curve's resolvable scale; output/gpu/d162f/assets/d162fR300ripple_bunny.obj, pitch
+      0.0481 wu).
+    - rip300k_H_97 (λ held) and rip300k_T_97 (its twin, dF_c + layer u), seed 97.
+  - (c) colour from pictures (job 24): the bunny band scene at 300k with D160d's arm, the best colour arm at 40k (r
+    0.99–1.00, C2 0/6 and C3 passing on band). That is the colour term at its first weight and the geometry terms on
+    the rule (repo_d160s 963cd2b). band300k_D_97 and its twin band300k_T_97, seed 97.
+  - Readings: D161's reader (b), D160's reader (c), D163's renderer for the studio-look stacked videos, close-ups and
+    contact sheets (CPU), each against its twin.
+  - The rest cost is stated: the held arm's end speed against its twin's, from the run records.
+
+- **D162g, the held weight with the placement terms at the loss cell (H+C; an A/B, adoption the user's call;
+  pre-registered 2026-10-22 ~22:30 CDT, before its runs; the coordinator's order after D162d; gpu1 queue job 26,
+  output/gpu/d162g/).**
+  - Why: under the held weight the carve costs rest (D161c's end v_mean 3–11× its twin's). The render fights the
+    proximity and the near band at sub-cell scale, so the body is held in tension. With the placement terms reading
+    only at the loss cell (D162's (2), `--placement_at_cell`), that fight should shrink.
+  - Arm H+C: `--lambda_ema 0 --placement_at_cell` on D161's coin and bunny relief, 40k, seeds 97 / 99 (repo_d162ds).
+  - Twin: D162's TC (`--render_weight_scale 0 --placement_at_cell`, the same physics; output/gpu/d162/runs40, archives
+    thinned to one kept frame a window).
+  - References: D161c (H, the placement terms as frozen) and D161's twins.
+  - Readings: D161's reader and summary (H+C against TC); P4 and P3 also against D161's twins. The per-window weight
+    and g_share from the records.
+  - Prediction to test: relief stays near D161c's 0.47–0.58 of the ceiling, while P4 (rest) and P3 (shape) improve
+    toward the twin.
+  - If H+C holds rest (P4 at both seeds) with P1, the 300k ripples and plaque are rerun with H+C. It then becomes the
+    candidate definition: the render keeps its first-window weight; placement reads at the transport's resolution.
+
+- **D162h, the settle test, and D162i, the held weight with a settled end (pre-registered 2026-10-22 ~23:10 CDT,
+  before their runs; the user's order relayed by the coordinator: the rest cost under render authority must be solved,
+  measured first; code wip/d162 d9f07b1, `--settle_windows K`, default 0; gpu1 queue jobs 27 / 28; summaries in
+  output/gpu/d162/auto/27_settle/, 28_d162i/).**
+  - The option: after the run stops (any stop rule), K windows of released physics with zero controls (dF_c = 0, u =
+    0), the same material and plastic assimilation, delivered and recorded (`settle` rows: v_mean, v_absmax). The
+    default path is unchanged (V3 SAME is checked in job 27).
+  - D162h (job 27): the λ-held arm (`--lambda_ema 0`) with K = 30 (about 5 s) on coin and bunny relief and band, 40k,
+    seeds 97 / 99.
+    - It is a rerun, because the kept archives hold positions only: no F, so they cannot be continued.
+    - Twins: D161's (relief) and D160's P (band).
+    - The 300k plaque is not continued for the same reason.
+  - Reading (`d162_auto.py settle`). Per run, the stop (the last optimised window) against the settled end: v_mean
+    against the twin's end, and the relief share (D161's reader) or the recovered colour r (D160's reader) at both.
+    - (A) premature stop: every run settles to ≤ 2 × its twin's end speed and keeps ≥ 0.8 of its relief or colour.
+    - (B) tension: a relief run keeps < 0.8 (the letters spring back once the controls are zero).
+    - Otherwise mixed.
+  - D162i (job 28, queued automatically on (A)): the held weight with a settled end (K = 30) on ears (97 / 99) and a 40k
+    gallery spot check (dragon, armadilo, bimba, seed 97). Coin, bunny relief and band are job 27's own runs.
+  - On (B): D162g (job 26) as queued, and the next definition designed from the measurement (plastic baking of the
+    carve).
+
+- **Job 29, a stiffer material under the held weight (pre-registered 2026-10-22 ~23:20 CDT, before its runs; the user's
+  hypothesis: the elastic restoring force pulls the carved letters back, and the stiffness also sets how fast the body
+  comes to rest).** The λ-held arm (`--lambda_ema 0`) on coin and bunny relief, 40k, seed 97, with Young's modulus ×3
+  and ×7 (`--young 4.2e5 / 9.8e5`; default 1.4e5), each settled 30 zero-control windows after its stop
+  (`--settle_windows 30`). Against D161c (E ×1) and D161's twins.
+  - Read: relief share and corr at the stop and the settled end, end v_mean against the twin's, Chamfer
+    (output/gpu/d162/auto/29/summary.md).
+  - Prediction under the hypothesis: the relief kept at the settled end rises with E, and the end speed falls toward
+    the twin's.
+
+- **Job 29b, the render-centric minimal recipe (pre-registered 2026-10-22 ~23:30 CDT, before its runs; the user: the render
+  must be shown central, some engineering terms unnecessary).**
+  - The recipe: the render keeps its first weight (`--lambda_ema 0`; with a settled end, `--settle_windows 30`, if
+    D162h reads A); the cleanup off (`--cleanup_off`: w_dt = w_nn = 0, the spray W1 pull and the near band; new flag,
+    default off); the placement terms at the loss cell (`--placement_at_cell`).
+  - Runs: 40k, seed 97: coin lettering, colour band, and the gallery's bunny, dragon, armadilo, bob, homer, teapot.
+  - Against: the tag's render arm V and its twin W (D155's gate runs, D154's g40runs).
+  - Question: does the render, given authority, do the cleanup's job (no spray or scatter without the cleanup terms)
+    while it writes picture-only content and keeps the shape?
+  - Read (output/gpu/d162/auto/29b/summary.md): sil_iou, chamfer, thin_uncovered, particles off the body, pieces ≥ 10
+    and the end v_mean against V and W; the coin's lettering share and corr; the band's r. D157's exact-mesh metrics
+    are not in this pass.
+
+- **Job 82 (pre-registered 2026-10-22 ~23:40 CDT):** the plaque, the ripples (each full + twin) and the band (D160d + twin) at 500k, or at 300k when gpu1 has < 36 GB free (logged). The definition is taken from the auto summaries: D162h A → held + settle 30; D162g passing rest → held + placement at the cell; else held. Output output/gpu/d162k/; run outcomes in output/gpu/d162/auto/82/summary.md.
+
+- **D165, the stamp test: are D163's letters in the material? (pre-registered 2026-10-23 10:27 CDT server clock,
+  before any run; the user's top priority, relayed by the coordinator. A showcase measurement, not a gate.)**
+  The reviewer's question: why not simulate without the render and fit the look afterwards, with a massless display
+  layer such as D115 (`render_deliverable.py +fit=1`)?
+  - **Arms.** H is D163's full arm (dF_c + layer u + render loss, λ held). T is its twin (dF_c + layer u). Both are run
+    again at 300k with D163's flags. The only change is that the end state (x, F, Fp, J, vol0) is now kept:
+    `repo_d165s` = `repo_d163s` + `tmp/d165/repo_d165s.patch`, `--save_end_state`, off by default.
+  - **(1) The decal still.** D115's layer on T's last kept frames is fitted to the pictures of D163's relief mesh
+    (sampled at 1.5M in the run's frame). It is shown beside H's end and T's base display, at the front word, in the
+    studio look. Expected: the decal looks lettered too.
+  - **(2) The stamp.** `scripts/probes/d165/stamp.py` on `wip/d165`, the mpm/bodies.py contact of D147, forward only.
+    - Setup: each plaque's end state, front word face down, is pressed into a soft slab on the floor, held, then
+      lifted. The plaque keeps its F and Fp, is stiff (E×7) and is split into 8 children per particle. The slab is
+      soft (E/20) and its grid is twice the run's pitch. A hand sets the plaque's mean velocity; its deformation is
+      free. T's decal is display only and takes no part.
+    - Read (`d165_read.py`): the word's contrast in the slab's top after the lift (the mean depth inside the letters
+      minus the depth away from them) and its correlation with D163's letter raster; the plaque's own contrast as
+      loaded and after it settles without controls; D163's ceiling.
+    - Expected: (a) H prints the word, a contrast near its plaque's own and a positive correlation; (b) T prints a
+      flat face, contrast about 0.
+  - **(3) A variant.** The same stamp on the kept frames' end positions with F = Fp = I (the end shape taken as the
+    rest shape).
+  - **The drop test** (item 3 of the request) is not run: the decal is advected with the particles either way.
+  - Output: `output/gpu/d165/` (`summary.md`, `read/`, `video/`, `decal/`); local copy
+  **D165 read (runs 10:27–11:03 CDT on gpu3).** H's carved plaque prints SIGGRAPH into the slab; the twin, with or
+  without the decal, prints a flat face.
+  - **The print.** With the end state (x, F, Fp) and the controls off, the word's ring contrast in the slab is 0.13 a0
+    and its high-pass correlation with the letters 0.46. The twin's are −0.05 and −0.28. The high-passed depth map
+    reads the word; the twin's is noise.
+  - **The plaque.** H's word contrast is 0.30 a0 as loaded and 0.35 after it settles without controls, against the
+    ceiling's 0.96. The slab keeps 38 % of it; the end-shape-as-rest variant keeps 68 % (0.18, corr 0.63).
+  - **At 40k** the print correlates (0.54) but does not read: the letters there are shallower than a particle spacing.
+  - **The decal still.** On T it reads more clearly than H's own surface, so a picture alone cannot tell the two
+    apart; the print can.
+  - **Change against the pre-registration.** The stamps run without gravity. In the first kept-frame run the soft
+    slab flowed under its own weight, because the frozen F smoothing keeps only 4.5 % of each step as elastic strain.
+    The reader's ring contrast and high-pass were added before the 300k reading.
+  - Local: `output/results_2026-10-23/d165_stamp/`. Code: `wip/d165` e81cd89.
+  **D165 at 500k (the coordinator's order; it ran 11:11–11:32 CDT on gpu3 after D162 job 52).** The plaques are
+  `d162k/runs/plq500k_{HC,T}_97`, each taken with its end shape as the rest shape (job 52 keeps no F or Fp), pressed
+  without gravity.
+  - **The full arm (H+C).** Plaque word contrast 0.68 a0. Print contrast 0.27 a0, with high-pass correlation 0.65
+    with the letters.
+  - **The twin plus the decal.** Plaque 0.03 a0. Print contrast 0.00 a0, correlation −0.13.
+  - **The studio image.** At a raking light of 84 degrees the print reads SIGGRAPH; the twin's print is blank.
+  - Files: `output/gpu/d165/summary_500k.md` and `s500/`; local copy in `d165_stamp/500k/`.
+    `output/results_2026-10-23/d165_stamp/`.
 
 ## To run next, in order
 
