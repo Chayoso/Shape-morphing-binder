@@ -155,6 +155,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     J = None                                        # D131 (volume_exact carried): the tracked volume, 1 at the source
     Fp = torch.eye(3, device=gpu.DEVICE).repeat(N, 1, 1)
     dfc_prev = None
+    u_last = None                                   # D166 (settle_u last): the last kept commit's u
     Fp_pre = None                                   # the last commit's plastic state before its assimilation
     frames = FrameStore(src, F_stride or cfg.T, volume=cfg.volume_exact != "off")
     hist, guards = [], {k: 0 for k in GUARDS}
@@ -276,6 +277,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 frozen = True
             continue
         rec["frame_end"] = len(frames)
+        if "u" in stats:                               # D166: a kept commit's u (settle_u last)
+            u_last = stats["u"]
         converged = sel.accepted(rec, a, disp, improved)
         rec["actual_stop"] = int(converged)
         hist.append(rec)
@@ -301,6 +304,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         for k in range(settle):
             opt = WindowOptimizer(StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer, vol0,
                                   (coh_nbr, bond_rest, fragment_mask(x, prm).float()), 1.0, None, lambda *_: None)
+            if getattr(cfg, "settle_u", "zero") == "last" and u_last is not None:   # D166: the last committed u held
+                with torch.no_grad():
+                    opt.u.copy_(u_last)
+                opt.free_of_rigid()
+                with torch.no_grad():
+                    opt.u.clamp_(-opt.win.sp0, opt.win.sp0)
+            if not getattr(cfg, "settle_relax", True):        # D166: no layer relaxation in the settle windows
+                opt.win.tr.layer_frac = 0.0
+                # Scalar kernel arguments were captured before this release-only override.
+                opt.win.tr.capture()
             with torch.no_grad():
                 commit = commit_rollout(opt.win, opt.obj, opt.leaves[0], opt.u, 0.0)
             x, F, v, C, J, _ = promote(commit, lo, hi)

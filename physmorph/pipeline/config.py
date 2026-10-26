@@ -135,6 +135,9 @@ class PipelineConfig:
                                     #   "floor_pitch" (D162d) = F's weight with L_r and L_floor read on pictures low-passed at one
                                     #   exterior pitch (target.render_term_lowpass): the sub-pitch arrangement below, the strokes above
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
+    settle_u: str = "zero"          # D166 A/B: u in the settle windows: zero (D162h, the default) or last = the last
+                                    #   committed window's u, held (rigid-free and clamped in each settle window, as u is)
+    settle_relax: bool = True       # D166 A/B: the outer-layer relaxation in the settle windows (on = D162h, the default)
     settle_windows: int = 0         # D162h / D162i: after the run stops, this many windows of released physics with zero controls
                                     #   (the same material and assimilation), delivered and recorded (a rest test / a settled end)
     render_exterior: bool = False   # the render terms read on the exterior (surface discs on the particles' zero set,
@@ -215,6 +218,8 @@ class PipelineConfig:
             raise ValueError("gap_split must be \"off\", \"on\", \"interface\", \"soft\", \"fine\" or \"walls\"")
         if self.gap_split in ("interface", "walls") and not self.gap_vp > 0:
             raise ValueError("gap_split interface reads the node volume: gap_vp must be the volume per particle")
+        if self.settle_u not in ("zero", "last"):
+            raise ValueError("settle_u must be \"zero\" or \"last\"")
         if self.render_weight_ref not in ("residual", "floor", "shape", "floor_pitch"):
             raise ValueError("render_weight_ref must be \"residual\", \"floor\", \"shape\" or \"floor_pitch\"")
         if self.render_weight_ref in ("floor", "shape", "floor_pitch") and not self.render_exterior:

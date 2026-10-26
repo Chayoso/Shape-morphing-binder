@@ -61,6 +61,10 @@ def parse_args(argv=None):
                     help="29b (render-centric recipe): the cleanup off, w_dt = w_nn = 0 (the spray W1 pull and the near band)")
     ap.add_argument("--settle_windows", type=int, default=0,
                     help="D162h / D162i: windows of released physics with zero controls after the run stops (delivered)")
+    ap.add_argument("--settle_u", default="zero", choices=["zero", "last"],
+                    help="D166 A/B: u in the settle windows; zero (the default, D162h) or last = the last committed u held")
+    ap.add_argument("--settle_relax", action=argparse.BooleanOptionalAction, default=True,
+                    help="D166 A/B: the outer-layer relaxation in the settle windows (default on, D162h)")
     ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
                     help="D162 (2) A/B (off by default): the placement terms read the body at the loss cell (the "
                          "proximity covers within one loss cell, the near band's band is empty, the spray gate in loss cells)")
@@ -290,6 +294,7 @@ def run_config(args, cfg0, prep):
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth,
                               render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell, settle_windows=args.settle_windows,
+                              settle_u=args.settle_u, settle_relax=args.settle_relax,
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
@@ -346,14 +351,9 @@ def run_main(args, prep, src, tgt, prm, cfg):
     gates = eval_gates(res, met, prm, cfg.T)
     idx, F_samples = frames.archive_F()
     J_samples = frames.archive_J()                  # D129: the tracked volume at F's frames (empty when not tracked)
-    np.savez(f"{args.out}_{ARM}.npz", src=src, tgt=tgt, orient=np.str_(orient_name(args.tgt)),
-             frames=np.stack(frames.x), deliver_n=np.int64(dn), truncation=json.dumps(res["truncation"]),
-             F_samples=np.stack(F_samples), F_sample_idx=np.array(idx),
-             J_samples=np.stack(J_samples) if J_samples else np.zeros((0, 0), np.float32),
-             render_mask=np.ones(len(src), bool), s=np.zeros(0, np.float32),
-             w_src=np.zeros(0, np.float32), w_tgt=np.zeros(0, np.float32),     # the archive format: no rest-volume weights
-             tgt_base=np.zeros((0, 3), np.float32),
-             Fg_commit_idx=np.zeros(0, np.int64), Fg_commits=np.zeros((0, 0, 3, 3), np.float32),
+    keep = sorted(set(list(range(0, int(dn), 12)) + [int(dn) - 1]))   # D145: the kept frames only, no full archive
+    np.savez(f"{args.out}_frames12.npz", frames=np.stack([frames.x[k] for k in keep]), raws=np.asarray(keep),
+             tgt=tgt, deliver_n=np.int64(dn),
              **({} if app is None else dict(src_albedo=app.src, tgt_albedo=app.tgt,
                                             appearance=np.str_(json.dumps(app.params)))))
     out["arms"][ARM] = {"config": cfg_dump, "metrics": met,

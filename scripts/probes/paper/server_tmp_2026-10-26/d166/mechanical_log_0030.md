@@ -1,0 +1,8 @@
+
+## root_20261024_0030 — fixed-rate v3 source-path failure preserved
+
+Queue98 baseline (00:27:56–00:28:10) and99 rate-limited (00:28:06–00:28:18) both ended exit1 before any physical rollout. `tmp/fixed_rate_pilot_v3/run_arm.py:42` calls the original `tmp/dragon_dense_reference_v1/pack_snapshot.py:327`, which requires exact equality of an absolute-path-keyed five-module source registry. The snapshot records repo_fixed_rate_pilot_v1 paths; the byte-identical five modules now live under repo_fixed_rate_pilot_v3. Independent source-build audit already proves only rollout.py/rate_policy.py changed; neither is one of these five serialized classes' modules.
+
+Both failed output directories, run logs, resource and reservation-cleanup records are retained, with a local copy at fixed_rate_v3_failure_0030. The frozen v3 files/plan are not edited. A separate producer v4 adapter is being prepared to verify the exact allowed old/new module mapping and actual hashes before canonicalizing path metadata for the unchanged loader/fingerprint. Arrays, graph contents, physics, loss, target/reference and all scientific thresholds remain unchanged. The original code and snapshot remain immutable. Runtime compatibility is not established until the real loader check succeeds.
+
+The local Stage-Candidate.ps1 helper also now accepts the two existing manifest key schemas (absolute remote path or direct filename), normalizes to exact remote plan paths and retains all SHA/argv checks. This is staging only and runs no local Python. The previous short-history move_cv serialization failure remains preserved and its separately tested reader-v2 is running; scientific metrics and criteria are unchanged.

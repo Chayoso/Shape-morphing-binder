@@ -553,6 +553,8 @@ class WindowOptimizer:
             stats.update({k: self.tele.get(k) for k in ("lam_rule", "lam0", "render_L", "render_floor", "render_excess",
                                                         "render_b", "render_b_se", "render_b_floor",   # weight's reference,
                                                         "render_lp", "render_lp_floor")})   # on those paths only
+        if getattr(cfg, "settle_u", "zero") == "last":     # D166: the committed u, for the settle windows (runner)
+            stats["u"] = self.u.detach().clone()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
