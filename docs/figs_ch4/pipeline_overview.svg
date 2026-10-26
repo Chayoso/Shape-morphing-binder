@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Chapter 4 pipeline overview (2026-10-21 layout, after the user's sketch): the morph sequence on top, one window
+     below it in three stages (simulation, exterior surface, rendering), the adjoint underneath, and the control update
+     closing the loop on the left. The cleanup terms (spray pull, near band) are left out of the figure.
+     Hand-written SVG twin of pipeline_overview.tikz (keep the two in sync).
+     Scale: 1 cm of the TikZ picture = 80 px; x_svg = 80 x, y_svg = 80 (10 - y).
+     Tiles: overview_tiles/tile0-4.jpg = bunny 300k, tag freeze-2026-10-15, seed 97, full arm
+     (dF_c + layer u + render loss), studio look, at t = 0, 0.5, 1, 2 s and the last kept frame (15.7 s).
+     Every attribute is inline and every line of text is its own <text>, so any editor shows the same picture. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1520" height="800" viewBox="0 0 1520 800"
+     font-family="'Times New Roman', Times, serif" font-size="18" fill="#111111">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#111111"/>
+    </marker>
+    <clipPath id="c0"><rect x="432" y="50" width="150" height="150" rx="8"/></clipPath>
+    <clipPath id="c1"><rect x="604" y="50" width="150" height="150" rx="8"/></clipPath>
+    <clipPath id="c2"><rect x="776" y="50" width="150" height="150" rx="8"/></clipPath>
+    <clipPath id="c3"><rect x="948" y="50" width="150" height="150" rx="8"/></clipPath>
+    <clipPath id="c4"><rect x="1178" y="50" width="150" height="150" rx="8"/></clipPath>
+  </defs>
+  <rect x="0" y="0" width="1520" height="800" fill="#ffffff"/>
+
+  <!-- ================= the morph sequence ================= -->
+  <text x="880" y="22" text-anchor="middle" font-size="16" letter-spacing="2">ENTIRE MORPHING SEQUENCE</text>
+  <line x1="432" y1="34" x2="1326" y2="34" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+  <image x="432" y="50" width="150" height="150" href="overview_tiles/tile0.jpg" xlink:href="overview_tiles/tile0.jpg" clip-path="url(#c0)"/>
+  <image x="604" y="50" width="150" height="150" href="overview_tiles/tile1.jpg" xlink:href="overview_tiles/tile1.jpg" clip-path="url(#c1)"/>
+  <image x="776" y="50" width="150" height="150" href="overview_tiles/tile2.jpg" xlink:href="overview_tiles/tile2.jpg" clip-path="url(#c2)"/>
+  <image x="948" y="50" width="150" height="150" href="overview_tiles/tile3.jpg" xlink:href="overview_tiles/tile3.jpg" clip-path="url(#c3)"/>
+  <text x="1138" y="132" text-anchor="middle" font-size="30">&#8230;</text>
+  <image x="1178" y="50" width="150" height="150" href="overview_tiles/tile4.jpg" xlink:href="overview_tiles/tile4.jpg" clip-path="url(#c4)"/>
+  <text x="507" y="224" text-anchor="middle" font-size="16">Initial (t = 0)</text>
+  <text x="679" y="224" text-anchor="middle" font-size="16">0.5 s</text>
+  <text x="851" y="224" text-anchor="middle" font-size="16">1 s</text>
+  <text x="1023" y="224" text-anchor="middle" font-size="16">2 s</text>
+  <text x="1253" y="224" text-anchor="middle" font-size="16">Final (15.7 s)</text>
+
+  <!-- ================= one window ================= -->
+  <polygon points="420,236 1340,236 1220,318 540,318" fill="#e4e4e4"/>
+  <text x="880" y="268" text-anchor="middle" font-size="17" font-style="italic">one window k = 2T steps (1/6 s), optimised over its controls,</text>
+  <text x="880" y="294" text-anchor="middle" font-size="17" font-style="italic">then committed (plastic assimilation of <tspan font-weight="bold" font-style="normal">F</tspan><tspan font-size="12" dy="4">p</tspan><tspan dy="-4">; accept or reject; stop rule) </tspan>&#8594; window k + 1</text>
+
+  <!-- stage titles -->
+  <text x="270" y="342" font-size="19">(1) Differentiable MLS-MPM</text>
+  <text x="705" y="342" font-size="19">(2) Exterior Surface</text>
+  <text x="1100" y="342" font-size="19">(3) Differentiable Rendering</text>
+
+  <!-- (1) simulation -->
+  <rect x="270" y="352" width="390" height="232" fill="#ffffff" stroke="#111111" stroke-width="1.2"/>
+  <text x="284" y="380" font-style="italic">Forward simulation (2T steps)</text>
+  <text x="284" y="405">- driven half: &#948;<tspan font-weight="bold">F</tspan><tspan font-size="13" dy="4">c</tspan><tspan dy="-4"> and </tspan><tspan font-style="italic">u</tspan> act</text>
+  <text x="284" y="430">- released half: controls set to zero</text>
+  <text x="284" y="455">- P2G / grid / G2P</text>
+  <text x="284" y="480">- outer-layer relaxation</text>
+  <text x="284" y="515" font-style="italic">Physics loss on the released end state</text>
+  <text x="284" y="540">- Sinkhorn transport to the target</text>
+  <text x="284" y="565">- proximity, end drift, released motion</text>
+
+  <!-- (2) exterior surface -->
+  <rect x="705" y="352" width="350" height="232" fill="#ffffff" stroke="#111111" stroke-width="1.2"/>
+  <text x="719" y="380" font-style="italic">Surface from the particles</text>
+  <text x="719" y="405">- Zhu&#8211;Bridson field of the particles</text>
+  <text x="719" y="430">- exterior discs on its zero level</text>
+  <text x="719" y="455">- normals from the field</text>
+  <text x="719" y="490" font-style="italic">Differentiable</text>
+  <text x="719" y="515">- the discs move with the particles,</text>
+  <text x="732" y="540">so render gradients reach them</text>
+
+  <!-- (3) rendering -->
+  <rect x="1100" y="352" width="390" height="232" fill="#ffffff" stroke="#111111" stroke-width="1.2"/>
+  <text x="1114" y="380" font-style="italic">Render</text>
+  <text x="1114" y="405">- soft splats of the discs</text>
+  <text x="1114" y="430">- 18 orthographic views</text>
+  <text x="1114" y="455">- silhouette and Lambert shading</text>
+  <text x="1114" y="490" font-style="italic">Render loss</text>
+  <text x="1114" y="515">- <tspan font-style="italic">&#8466;</tspan><tspan font-size="13" dy="4">sil</tspan><tspan dy="-4"> + </tspan><tspan font-style="italic">&#8466;</tspan><tspan font-size="13" dy="4">shade</tspan><tspan dy="-4"> against the pictures</tspan></text>
+  <text x="1127" y="540">of the target (the same 18 views)</text>
+
+  <!-- input and the stage arrows -->
+  <text x="120" y="462" text-anchor="middle" font-size="19">Input</text>
+  <text x="120" y="490" text-anchor="middle" font-size="19">&#948;<tspan font-weight="bold">F</tspan><tspan font-size="13" dy="4">c</tspan><tspan dy="-4">, </tspan><tspan font-style="italic">u</tspan></text>
+  <text x="120" y="516" text-anchor="middle" font-size="16">(controls,</text>
+  <text x="120" y="537" text-anchor="middle" font-size="16">iteration i)</text>
+  <line x1="190" y1="486" x2="266" y2="486" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="660" y1="486" x2="701" y2="486" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+  <line x1="1055" y1="486" x2="1096" y2="486" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+
+  <!-- gradients -->
+  <line x1="465" y1="584" x2="465" y2="650" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="480" y="624">&#8711;<tspan font-style="italic">&#8466;</tspan><tspan font-size="13" dy="4">phys</tspan></text>
+  <line x1="1295" y1="584" x2="1295" y2="650" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="1310" y="624">&#8711;<tspan font-style="italic">&#8466;</tspan><tspan font-size="13" dy="4">render</tspan></text>
+
+  <!-- adjoint -->
+  <rect x="270" y="654" width="1220" height="110" fill="#ffffff" stroke="#111111" stroke-width="1.2"/>
+  <text x="880" y="684" text-anchor="middle" font-size="19">Adjoint through the 2T steps (reverse mode of the same MLS-MPM)</text>
+  <text x="880" y="717" text-anchor="middle" font-size="22"><tspan font-style="italic">&#8466;</tspan><tspan font-size="15" dy="5">total</tspan><tspan dy="-5"> = </tspan><tspan font-style="italic">&#8466;</tspan><tspan font-size="15" dy="5">phys</tspan><tspan dy="-5"> + </tspan><tspan font-style="italic">&#955; &#8466;</tspan><tspan font-size="15" dy="5">render</tspan></text>
+  <text x="880" y="748" text-anchor="middle" font-size="17">PCGrad drops the part of &#8711;<tspan font-style="italic">&#8466;</tspan><tspan font-size="12" dy="4">render</tspan><tspan dy="-4"> that opposes &#8711;</tspan><tspan font-style="italic">&#8466;</tspan><tspan font-size="12" dy="4">phys</tspan><tspan dy="-4">;   </tspan><tspan font-style="italic">&#955;</tspan> &#8214;&#8711;<tspan font-style="italic">&#8466;</tspan><tspan font-size="12" dy="4">render</tspan><tspan dy="-4">&#8214; = &#189; &#8214;&#8711;</tspan><tspan font-style="italic">&#8466;</tspan><tspan font-size="12" dy="4">phys</tspan><tspan dy="-4">&#8214;</tspan></text>
+
+  <!-- control update -->
+  <rect x="20" y="634" width="180" height="150" fill="#ffffff" stroke="#111111" stroke-width="1.2"/>
+  <text x="110" y="662" text-anchor="middle" font-size="19" font-style="italic">Control update</text>
+  <text x="110" y="686" text-anchor="middle" font-size="16">Adam step with</text>
+  <text x="110" y="706" text-anchor="middle" font-size="16">line search;</text>
+  <text x="110" y="726" text-anchor="middle" font-size="16">&#948;<tspan font-weight="bold">F</tspan><tspan font-size="11" dy="4">c</tspan><tspan dy="-4"> capped;</tspan></text>
+  <text x="110" y="746" text-anchor="middle" font-size="16"><tspan font-style="italic">u</tspan> free of</text>
+  <text x="110" y="766" text-anchor="middle" font-size="16">rigid modes</text>
+  <line x1="270" y1="709" x2="204" y2="709" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+  <text x="236" y="680" text-anchor="middle" font-size="15">inject</text>
+  <text x="236" y="700" text-anchor="middle" font-size="15">&#8711;<tspan font-style="italic">&#8466;</tspan><tspan font-size="11" dy="4">total</tspan></text>
+  <line x1="110" y1="634" x2="110" y2="548" stroke="#111111" stroke-width="1.2" marker-end="url(#arr)"/>
+</svg>

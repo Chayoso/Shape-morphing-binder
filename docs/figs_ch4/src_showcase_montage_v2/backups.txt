@@ -1,0 +1,2 @@
+witch300k_L97 /data/relcfd/chayo/physmorph_v2/tmp/figs_v2/assets/witch.obj 20 12 1.08 isosphere_witch 97
+twist300k_L97 /data/relcfd/chayo/physmorph_v2/tmp/figs_v2/assets/twist.obj 45 15 1.06 isosphere_twist 98

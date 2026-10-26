@@ -1,0 +1,105 @@
+% Chapter 4 pipeline overview (TikZ; 2026-10-21 layout, after the user's sketch): the morph sequence on top, one
+% window below it in three stages (simulation, exterior surface, rendering), the adjoint underneath, and the control
+% update closing the loop on the left. The cleanup terms (spray pull, near band) are left out of the figure.
+% Included by Chapter4.tex / Chapter4_ko.tex with
+%   \resizebox{\textwidth}{!}{\input{figs/ch4/pipeline_overview.tikz}}
+% Needs \usepackage{tikz,graphicx,amsmath} and \usetikzlibrary{arrows.meta}, loaded once outside any group.
+% Font sizes are fixed in pt (as the SVG's px: 18 px = 6.4 pt), so the class's size option does not change the layout.
+% The same diagram, hand-written, is pipeline_overview.svg in this folder: keep the two in sync.
+% Coordinates in cm: 1 cm = 80 px of the SVG, x = x_svg / 80, y = 10 - y_svg / 80.
+% Tiles: figs/ch4/overview_tiles/tile0-4.jpg (bunny 300k, tag freeze-2026-10-15, seed 97, full arm, studio look,
+% t = 0, 0.5, 1, 2 s and the last kept frame, 15.7 s). The previous, detailed diagram is kept in
+% src_pipeline_overview/previous_detailed/.
+\begin{tikzpicture}[
+  font=\fontsize{6.2}{8.9}\selectfont,
+  flow/.style={-{Latex[length=2mm]}, line width=0.6pt},
+  stage/.style={draw, line width=0.6pt},
+  body/.style={anchor=north west, align=left, inner sep=0pt, text width=#1,
+    execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+  title/.style={anchor=base west, inner sep=0pt, font=\fontsize{6.8}{8}\selectfont},
+  small/.style={font=\fontsize{5.6}{6.8}\selectfont},
+  slant/.style={font=\fontsize{6}{7}\selectfont\itshape},
+]
+% ---------------------------------------------------------------- the morph sequence
+\node[small] at (11.0,9.75) {E\,N\,T\,I\,R\,E\ \ M\,O\,R\,P\,H\,I\,N\,G\ \ S\,E\,Q\,U\,E\,N\,C\,E};
+\draw[flow] (5.4,9.575) -- (16.6,9.575);
+\foreach \i/\x in {0/5.4, 1/7.55, 2/9.7, 3/11.85, 4/14.725} {
+  \begin{scope}
+    \clip[rounded corners=0.1cm] (\x,7.5) rectangle ++(1.875,1.875);
+    \node[inner sep=0pt, anchor=south west] at (\x,7.5)
+      {\includegraphics[width=1.875cm]{figs/ch4/overview_tiles/tile\i.jpg}};
+  \end{scope}
+}
+\node at (14.225,8.44) {$\cdots$};
+\foreach \x/\t in {6.3375/{Initial ($t = 0$)}, 8.4875/{0.5\,s}, 10.6375/{1\,s}, 12.7875/{2\,s}, 15.6625/{Final (15.7\,s)}}
+  \node[small, anchor=base] at (\x,7.2) {\t};
+
+% ---------------------------------------------------------------- one window
+\fill[black!11] (5.25,7.05) -- (16.75,7.05) -- (15.25,6.025) -- (6.75,6.025) -- cycle;
+\node[slant, anchor=base] at (11.0,6.65)
+  {one window $k$ = $2T$ steps (1/6\,s), optimised over its controls,};
+\node[slant, anchor=base] at (11.0,6.325)
+  {then committed (plastic assimilation of $\mathbf{F}_p$; accept or reject; stop rule) $\rightarrow$ window $k+1$};
+
+% ---------------------------------------------------------------- the three stages
+\node[title] at (3.375,5.725) {(1) Differentiable MLS-MPM};
+\node[title] at (8.8125,5.725) {(2) Exterior Surface};
+\node[title] at (13.75,5.725) {(3) Differentiable Rendering};
+\draw[stage] (3.375,5.6) rectangle (8.25,2.7);
+\draw[stage] (8.8125,5.6) rectangle (13.1875,2.7);
+\draw[stage] (13.75,5.6) rectangle (18.625,2.7);
+\node[body=4.55cm] at (3.55,5.45) {%
+  \textit{Forward simulation ($2T$ steps)}\\
+  - driven half: $\delta\mathbf{F}_c$ and $u$ act\\
+  - released half: controls set to zero\\
+  - P2G\,/\,grid\,/\,G2P\\
+  - outer-layer relaxation\\[3pt]
+  \textit{Physics loss on the released end state}\\
+  - Sinkhorn transport to the target\\
+  - proximity, end drift, released motion};
+\node[body=4.0cm] at (8.9875,5.45) {%
+  \textit{Surface from the particles}\\
+  - Zhu--Bridson field of the particles\\
+  - exterior discs on its zero level\\
+  - normals from the field\\[3pt]
+  \textit{Differentiable}\\
+  - the discs move with the particles,\\
+  \hphantom{- }so render gradients reach them};
+\node[body=4.55cm] at (13.925,5.45) {%
+  \textit{Render}\\
+  - soft splats of the discs\\
+  - 18 orthographic views\\
+  - silhouette and Lambert shading\\[3pt]
+  \textit{Render loss}\\
+  - $\mathcal{L}_{\mathrm{sil}} + \mathcal{L}_{\mathrm{shade}}$ against the pictures\\
+  \hphantom{- }of the target (the same 18 views)};
+
+% ---------------------------------------------------------------- input and stage arrows
+\node[align=center, font=\fontsize{6.8}{8.4}\selectfont] at (1.5,3.95)
+  {Input\\[1pt] $\delta\mathbf{F}_c,\ u$\\[1pt]
+   {\fontsize{5.6}{6.8}\selectfont (controls,}\\ {\fontsize{5.6}{6.8}\selectfont iteration $i$)}};
+\draw[flow] (2.375,3.925) -- (3.375,3.925);
+\draw[flow] (8.25,3.925) -- (8.8125,3.925);
+\draw[flow] (13.1875,3.925) -- (13.75,3.925);
+
+% ---------------------------------------------------------------- gradients and the adjoint
+\draw[flow] (5.8125,2.7) -- (5.8125,1.825);
+\node[anchor=west] at (6.0,2.2) {$\nabla\mathcal{L}_{\mathrm{phys}}$};
+\draw[flow] (16.1875,2.7) -- (16.1875,1.825);
+\node[anchor=west] at (16.375,2.2) {$\nabla\mathcal{L}_{\mathrm{render}}$};
+\draw[stage] (3.375,1.825) rectangle (18.625,0.45);
+\node[align=center, font=\fontsize{6}{8}\selectfont] at (11.0,1.1375) {%
+  {\fontsize{6.8}{8}\selectfont Adjoint through the $2T$ steps (reverse mode of the same MLS-MPM)}\\[2pt]
+  {\fontsize{7.8}{9.4}\selectfont $\mathcal{L}_{\mathrm{total}} = \mathcal{L}_{\mathrm{phys}} + \lambda\,\mathcal{L}_{\mathrm{render}}$}\\[2pt]
+  PCGrad drops the part of $\nabla\mathcal{L}_{\mathrm{render}}$ that opposes $\nabla\mathcal{L}_{\mathrm{phys}}$;\quad
+  $\lambda\,\lVert\nabla\mathcal{L}_{\mathrm{render}}\rVert = \tfrac12\lVert\nabla\mathcal{L}_{\mathrm{phys}}\rVert$};
+
+% ---------------------------------------------------------------- control update
+\draw[stage] (0.25,2.075) rectangle (2.5,0.2);
+\node[align=center, font=\fontsize{5.7}{7.8}\selectfont] at (1.375,1.1375) {%
+  {\fontsize{6.8}{8}\selectfont\itshape Control update}\\[2pt]
+  Adam step with\\ line search;\\ $\delta\mathbf{F}_c$ capped;\\ $u$ free of\\ rigid modes};
+\draw[flow] (3.375,1.1375) -- (2.5,1.1375);
+\node[align=center, font=\fontsize{5.3}{6.4}\selectfont] at (2.9375,1.5) {inject\\ $\nabla\mathcal{L}_{\mathrm{total}}$};
+\draw[flow] (1.375,2.075) -- (1.375,3.15);
+\end{tikzpicture}

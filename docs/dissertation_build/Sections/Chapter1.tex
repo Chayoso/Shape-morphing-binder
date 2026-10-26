@@ -1,0 +1,74 @@
+% !TEX root = ../dissertationOG.tex
+% Chapter 1 revised to match Chapters 3--5 and the ECCV 2026 CulinaryCut study.
+% Citation keys and the chapter label are preserved; this file is a chapter fragment.
+
+\chapter{Introduction}
+\label{CH1_Introduction}
+
+\section{Motivation: Controllable Deformation for Animation and Engineering}
+    Deformable objects are central to computer animation, interactive graphics, and engineering applications involving contact and material response. Unlike rigid-body motion, deformation may change an object's shape, local stress, and even its connectivity. Examples range from transforming a character into a different shape to cutting a soft object with a robotic tool. Producing useful simulations of these processes requires more than plausible images: the evolving motion should also reflect the modeled material properties, imposed controls, and contact conditions.
+    
+    These requirements introduce several coupled challenges. Large deformations can lead to numerical instability or the loss of fine geometric features; changes in topology complicate surface representations; and material-dependent forces influence whether a commanded interaction produces its intended outcome. Moreover, a physically reasonable particle configuration does not necessarily yield a visually accurate rendering of a target shape. In robotics, a geometrically valid tool trajectory likewise does not guarantee successful material separation. Physical behavior, visual appearance, and task-level success must therefore be considered as related but distinct objectives.
+    
+    This dissertation investigates how physics-based particle simulation can support three complementary goals: \emph{directing} deformable motion toward a desired shape, \emph{using rendering feedback} to improve the visual outcome of that motion, and \emph{generating physically grounded data} for evaluating contact-rich robotic manipulation. Together, these problems motivate a common simulation foundation without assuming that every application uses an identical optimization or feedback architecture.
+
+\section{Challenges of Conventional Numerical Methods}
+    A variety of numerical representations have been developed for deformable simulation. Mass--spring systems are straightforward to implement and can be efficient for animation, but their spring parameters do not automatically correspond to continuum constitutive properties, and stiff systems may require careful time integration~\citep{10.1145/37402.37427,10.1145/280814.280821,10.1145/1198555.1198573}. The Finite Element Method (FEM) provides a well-established discretization of continuum mechanics and supports accurate stress and deformation analysis. However, severe element distortion and fracture may require specialized remeshing, cohesive interfaces, or other topology-management techniques~\citep{10.1145/566570.566579}. The Discrete Element Method (DEM) is well suited to interactions among separate grains or blocks, although it is not, by itself, a continuum deformation model~\citep{cundall1979discrete}.
+    
+    These methods are valuable in their respective settings; none should be regarded as universally unsuitable for large deformation or contact. For the applications considered here, however, it is advantageous to represent persistent material state with particles while evaluating interactions on a temporary computational grid. This motivates the Material Point Method (MPM), which combines Lagrangian material tracking with Eulerian grid computations.
+    
+\section{The Material Point Method and Its Extensions}
+    MPM was introduced for history-dependent materials~\citep{sulsky1994particle} and has since been extended to elastoplastic animation, fracture, and coupled material interactions~\citep{2013-mpm,2019-cdmpm,de2020material}. Its material points carry mass, velocity, deformation gradients, and constitutive history. At each time step, particle information is transferred to a background grid, grid momenta and forces are updated, and the resulting velocities are transferred back to the particles. Because the grid is rebuilt rather than permanently attached to the material, large changes in shape need not distort a persistent finite-element mesh.
+    
+    The particle representation also makes it possible to represent evolving connectivity and material separation, although realistic fracture still requires suitable constitutive damage and contact treatments. Two developments are especially relevant to this dissertation:
+    \begin{itemize}
+        \item \textbf{Affine Particle-in-Cell (APIC).} APIC augments particle velocity with a local affine velocity matrix $\mathbf{C}_p$. Its transfer operators reduce the numerical dissipation of conventional PIC while retaining linear- and angular-momentum-conserving properties under the assumptions of the transfer scheme~\citep{2015-APIC,jiang2017angular}.
+        \item \textbf{Moving Least Squares MPM (MLS-MPM).} MLS-MPM provides an efficient particle--grid discretization, including an MLS-based formulation of the transfer and stress-divergence terms. Its associated compatible particle-in-cell treatment can represent displacement discontinuities and tool--material coupling~\citep{2018-MLSMPM}.
+    \end{itemize}
+    
+    These developments make MPM a suitable starting point for the morphing and cutting problems studied here. Nevertheless, the numerical accuracy and stability of a complete simulation still depend on the time integrator, material model, contact handling, spatial resolution, and any stabilization used in a particular application.
+
+\section{From Forward Simulation to Differentiable Control and Physical Grounding}
+    Forward simulation predicts how material states evolve under specified initial conditions, constitutive laws, and interactions. Inverse problems instead ask which controls will drive the system toward a desired outcome. Differentiable simulation enables gradient-based approaches to such problems by computing derivatives through the time-stepping process~\citep{2018-ChainQueen,coros2021differentiable,10.1145/3527660}. For example, a target shape can define an objective whose gradient is propagated backward through MPM to optimize internal deformation controls.
+    
+    A further challenge arises when the desired outcome is defined in image space. If simulation states are converted into display meshes and rendered only as a separate post-processing operation, pixel-level errors do not automatically provide gradients to the underlying particle controls. A differentiable connection between physical states and rendered observations can instead make visual appearance part of the optimization objective.
+    
+    Not every physics-based application, however, requires a differentiable policy or simulator at inference time. In contact-rich robotics, a forward simulator can provide physically consistent demonstrations and evaluation signals even when an existing policy predicts actions only from images, language, and robot state. This distinction is central to the organization of this dissertation: Chapters~\ref{CH3_SHAPEMORPHING} and~\ref{CH4_PhysMorphGS} study simulation-based optimization, whereas Chapter~\ref{CH5_CUTTINGSIM} investigates physical grounding at the data-generation and evaluation stages of robotic cutting.
+
+\section{Research Contributions}
+    The dissertation makes three complementary contributions to the simulation and use of large-deformation processes.
+
+\subsection{Physics-Based Shape Morphing}
+\label{sec:contrib_morphing}
+    The first contribution develops a directable shape-morphing method based on differentiable MLS-MPM. Rather than prescribing a separate trajectory for every particle or designing external forces by hand, the method optimizes per-particle \emph{control deformation gradients}. The resulting internal stresses drive the material from a source configuration toward a target shape while maintaining a continuum-mechanics-based evolution.
+    
+    A correspondence-free, log-based nodal-mass objective provides shape supervision and reduces the mass-ejection artifacts observed with a naive grid-mass discrepancy. The method also incorporates iterative gradient-based optimization, multiple optimization passes, and chained simulation segments to manage long animation sequences. Experiments in Chapter~\ref{CH3_SHAPEMORPHING} demonstrate morphing between geometrically distinct objects, including examples with changing topology and fine features, as well as behavior under gravity, twisting, and changes in material stiffness. These results establish deformation-gradient control as a practical way to direct MPM-based animation.
+
+\subsection{Render-Guided Volumetric Morphing}
+\label{sec:contrib_bridge}
+    The second contribution addresses the gap between particle-based physical simulation and image-space supervision. Conventional visualization pipelines often reconstruct a surface from simulation particles using a separate meshing stage, for example with sparse volume representations or marching-cubes extraction~\citep{10.1145/2487228.2487235,lorensen1998marching}. When this stage is not differentiated through, rendering losses cannot directly guide the particle simulation. Such a limitation is specific to the chosen pipeline; it does not imply that all surface-extraction methods are intrinsically non-differentiable.
+    
+    Chapter~\ref{CH4_PhysMorphGS} makes the rendered picture part of the control. Silhouette and shading terms are evaluated on the body's \emph{exterior}, the surface of a field built from its own particles, and their gradients reach two controls: the stress increment of Chapter~\ref{CH3_SHAPEMORPHING}, which moves the bulk of the body through the grid, and a rigid-free offset of the outer particle layer, which shapes the surface below the grid. The physics objective becomes a Sinkhorn transport between the body and the target, and the morph is optimized in \emph{settled windows}, each scored only after the controls have been released, so that a state the controls hold only while they push cannot win. The controls still enter the material only as a stress and a surface offset, and the body keeps its mass exactly.
+
+    Each part of the method is measured against an otherwise identical run with the render weight set to zero. The render term redirects material while the body is arriving and afterwards mainly polishes its outline, leaving the end consistently but slightly closer to the target. Chapter~\ref{CH4_PhysMorphGS} presents the method, morphs toward a wide range of targets, comparisons with other methods, and the steps that remain, chief among them keeping the render term's authority after the body has arrived.
+
+\subsection{Physics-Grounded Robotic Cutting and VLA Benchmarking}
+\label{sec:contrib_cutting}
+    The third contribution examines robotic food cutting, a contact-rich task in which placing a knife at the intended location is not sufficient for success. A cutting policy must also induce the material-dependent interaction needed to deform and separate the food. This motivates two complementary evaluation questions: whether a policy correctly grounds spatial instructions in object geometry (the \emph{geometry gap}), and whether its actions produce successful material separation (the \emph{physics gap}).
+    
+    To study these questions, Chapter~\ref{CH5_CUTTINGSIM} introduces \emph{IntSim}, an integrated environment coupling an MLS-MPM food-material simulator with ManiSkill robot execution. The material simulation represents deformation, tool contact, damage-dependent weakening, and separation, while contact impulses provide force profiles associated with the executed trajectories. IntSim is used to generate \emph{CulinaryCut}, a benchmark containing 21,000 base cutting trajectories across 15 food categories. Visual-scene and language augmentation expand these trajectories to approximately 1.575 million observation--instruction instances.
+    
+    We evaluate three existing Vision--Language--Action (VLA) models---RDT, Octo, and OpenVLA---without modifying their underlying policy architectures. Importantly, the simulated contact forces and damage states are used for generating and assessing the data; they are \emph{not} provided as force-feedback inputs to the policies. This design distinguishes the contribution from a new force-conditioned controller.
+    
+    Experiments reveal weaknesses in ratio- and direction-based grounding, multi-object selection, held-out-object transfer, and sequential cutting. In the physical-severing evaluation, RDT trained on IntSim-grounded demonstrations improves orange-cutting success from 23\% to 59\% relative to training on geometry-based ManiSkill demonstrations. Preliminary real-robot trials show the same direction of improvement, from 1/10 to 3/10 successful cuts. A separate comparison of simulated and measured contact forces during banana cutting provides evidence of physical plausibility for a representative task, without establishing complete force fidelity across all food materials. These results support physics-grounded simulation as a source of training data and evaluation criteria for deformable robotic manipulation.
+
+\noindent\textbf{Dissertation Organization.}
+    These contributions share MPM-based deformation modeling, but address different objectives: physical shape control, render-guided control, and physically grounded robotic interaction. They should not be interpreted as one end-to-end differentiable system deployed unchanged across all three studies. The remaining chapters are organized as follows:
+    \begin{itemize}
+        \item \textbf{Chapter 2} reviews prior work on MPM and deformable shape morphing, differentiable simulation and rendering, and vision--language--action learning for manipulation.
+        \item \textbf{Chapter 3} develops physics-based shape morphing through differentiable MLS-MPM and deformation-gradient control, with experiments on geometric and physical variations.
+        \item \textbf{Chapter 4} develops render-guided volumetric morphing, in which silhouette and shading terms on the body's exterior steer the stress and surface controls of the differentiable MPM simulation.
+        \item \textbf{Chapter 5} presents CulinaryCut and IntSim, evaluates geometry and physics gaps in VLA food cutting, and examines simulated and real robotic interactions.
+        \item \textbf{Chapter 6} discusses the limitations of the methods and identifies directions for future work.
+    \end{itemize}
+    

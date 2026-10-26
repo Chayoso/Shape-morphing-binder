@@ -1,0 +1,71 @@
+% !TEX root = ../dissertationOG.tex
+% Chapter 6 revised to reflect the completed studies in Chapters 3--5.
+% Existing chapter and section labels are preserved for cross-references.
+
+\clearpage
+\chapter{Limitations and Future Directions}\label{CH6_LIMITATION}
+
+The preceding chapters demonstrate three complementary uses of physics-based particle simulation: controlling deformable motion through optimized internal stresses (Chapter~\ref{CH3_SHAPEMORPHING}), incorporating image-space feedback into that control (Chapter~\ref{CH4_PhysMorphGS}), and generating and evaluating physically grounded robotic cutting demonstrations (Chapter~\ref{CH5_CUTTINGSIM}). Although these studies share the Material Point Method (MPM) as a modeling foundation, they address different objectives and do not constitute a single end-to-end differentiable system. This chapter summarizes the limitations of each study and identifies directions in which their methods and evaluations can be strengthened.
+
+\section{Limitations of Physics-Based Shape Morphing}
+\label{subsec:lim-mpm}
+
+\subsection{Time integration and optimization cost}
+The differentiable MLS-MPM method in Chapter~\ref{CH3_SHAPEMORPHING} uses explicit time stepping and relatively small simulation time steps; the reported morphing examples typically use $\Delta t=1/120$\,s. This numerical time step should not be confused with a measured real-time execution rate. Gradient-based control requires repeated forward simulations and backward passes, so the wall-clock cost grows with the number of simulation steps, control intervals, and optimization iterations. Damping and numerical stabilization improve robustness but can also change the temporal character of the resulting motion. More efficient integration and control optimization would be needed for applications requiring rapid interactive updates.
+
+\subsection{Limited optimization horizons}
+Differentiating through many MPM time steps requires retaining or reconstructing intermediate simulation states. Long unrolled trajectories can therefore be costly in memory and susceptible to poorly conditioned or attenuated gradients. Chapter~\ref{CH3_SHAPEMORPHING} addresses this problem by optimizing shorter simulation networks and chaining their final states. This permits longer morphing sequences, but it does not optimize all control variables over an arbitrarily long sequence simultaneously. Consequently, local improvements need not yield a globally optimal long-horizon trajectory.
+
+\subsection{Dependence on the objective and smoothing parameters}
+The correspondence-free, log-based nodal-mass objective reduces the mass ejection observed with a direct nodal-mass discrepancy. Nevertheless, the need for a mass penalty and carefully selected optimizer settings shows that optimization behavior is sensitive to the objective's scale and shape. Matching grid-mass distributions also does not guarantee an equally accurate rendered boundary or recovery of every thin feature. In the reported examples, deformation-gradient smoothing factors are selected within approximately $\gamma=0.95$--$0.98$ to suppress oscillatory artifacts. Such smoothing is useful for visual stability but can reduce sensitivity to rapid local deformation, and its preferred strength may change with geometry, material stiffness, and discretization.
+
+\section{Limitations of the Differentiable Particle-to-Gaussian Bridge}
+\label{subsec:lim-bridge}
+
+\subsection{Boundary artifacts and thin-feature coverage}
+Chapter~\ref{CH4_PhysMorphGS} introduces a differentiable bridge from MPM particles to rendering-only Gaussian primitives. The bridge improves surface coverage and allows silhouette and edge losses to influence physical deformation controls. However, projected Gaussian covariances may still create faint halos around sharp boundaries, and stochastic sampling can introduce temporal shimmer. In sparsely sampled or geometrically thin regions, estimated surfaces and Gaussian orientations may be unreliable, producing temporary leakage or loss of detail. Covariance constraints, normal smoothing, and regularization mitigate these artifacts but do not establish uniform accuracy for all feature scales.
+
+\subsection{Approximate neighborhoods and rendering-gradient consistency}
+The upsampling procedure depends on local surface estimates and approximate nearest-neighbor searches. These approximations reduce computational cost, but neighborhood changes can perturb estimated normals, sampling weights, and covariance orientations. Similarly, the interleaved optimization uses rendering gradients cached from a preceding pass to avoid unstable, frame-local corrections. This improves robustness in the reported pipeline but introduces a delay between the current physical trajectory and the rendering signal used to update it. Further work is needed to characterize when these approximations help convergence and when they bias the resulting morph.
+
+\subsection{Rendering representation versus physical state}
+The additional Gaussian samples do not carry independent MPM mass or constitutive histories. Conservation accounting remains attached to the original physical particles, while rendering losses affect the simulation through the differentiable bridge and adjoint. Thus, the coupling is bidirectional with respect to optimization gradients, but the dense rendering representation is not a second physical discretization. Improved silhouette agreement alone cannot certify the accuracy of internal stress, contact response, or material parameters. Joint evaluation of rendering quality and physical behavior remains important.
+
+\section{Limitations of Physics-Grounded Robotic Cutting}
+\label{subsec:lim-cutting}
+
+\subsection{Geometric generalization and sequential actions}
+The CulinaryCut experiments in Chapter~\ref{CH5_CUTTINGSIM} expose a \emph{geometry gap}: successful cutting on familiar objects or instructions does not ensure accurate placement under changes in object scale, target identity, directional reference, or requested cut ratio. Multi-object scenes and held-out food categories reduce performance, and sequential split cuts remain particularly difficult because the next cutting location must be recomputed after the geometry changes. These observations indicate that short-horizon action prediction does not by itself provide reliable object-centric or long-horizon reasoning.
+
+\subsection{Approximate cutting mechanics and material calibration}
+IntSim combines MLS-MPM, signed-distance representations of the knife and board, contact and friction handling, and a localized damage mechanism. Its damage thresholds, blade-proximity bands, and resolution-dependent scalings are practical modeling choices rather than a general guarantee of resolution-independent fracture. Real food materials may exhibit heterogeneity, rate dependence, adhesion, and fracture behavior beyond the chosen constitutive and damage approximations. Material parameters are initialized from available information and adjusted where necessary for numerical robustness; the work does not establish independent constitutive calibration for all 15 food categories. More extensive measurements would be necessary before claiming material-independent predictive force fidelity.
+
+\subsection{Limits of physical validation and sim-to-real transfer}
+The reported force validation compares real and simulated banana cutting, including an aggregate comparison of 20 real and 30 simulated trials. These measurements provide useful evidence for a representative contact interaction, but cannot establish force accuracy across every food, knife motion, or material condition. The real-robot orange-cutting comparison is also preliminary: the two RDT training conditions yield 1/10 and 3/10 successful trials, respectively. This sample is insufficient to infer robust transfer across objects, embodiments, or deployment settings. Furthermore, CulinaryCut's approximately 1.575 million augmented observation--instruction instances are derived from 21,000 underlying physical trajectories; visual and language augmentation should not be counted as independent physics rollouts.
+
+The evaluated VLA architectures do not receive simulated or measured contact forces as policy inputs. Consequently, the observed improvement from physics-grounded training data supports \emph{data-level physical grounding}, not the acquisition of explicit online force feedback. Likewise, the execution-time velocity guardrail is an external safety mechanism rather than a learned force-conditioned controller. Incorporating force sensing and feedback into learned policies remains a separate research direction.
+
+\section{Shared Challenges in Efficiency and Reproducibility}
+\label{subsec:lim-scope}
+
+The three studies place different demands on computation. The shape-morphing experiments in Chapter~\ref{CH3_SHAPEMORPHING} report a CPU-parallel MPM implementation, Chapter~\ref{CH4_PhysMorphGS} adds neighborhood searches, Gaussian construction, rendering, and adjoint optimization, and the IntSim implementation in Chapter~\ref{CH5_CUTTINGSIM} uses GPU-based Taichi kernels for material and contact computations. A limitation of one implementation should therefore not be generalized to all three systems. Reproducible comparisons require separate reporting of simulation resolution, physical simulation duration, wall-clock runtime, optimization budget, and hardware.
+
+Results can also depend on material parameters, contact thresholds, particle and grid resolution, sampling seeds, and optimizer schedules. Future evaluations should disclose these settings, distinguish numerical robustness from physically measured agreement, and report variation across multiple trials. In particular, visual quality, geometric task success, material separation, and measured interaction forces should remain distinct evaluation criteria rather than being combined into an unsupported claim of universal physical fidelity.
+
+\section{Future Research Directions}
+\label{subsec:future}
+
+\subsection{More efficient and stable simulation-based optimization}
+A promising direction is to investigate implicit or mixed time integration, adaptive time stepping, and more effective control parameterizations for large-deformation morphing. Checkpointing, recomputation, and memory-aware adjoint methods could reduce the cost of long differentiable simulations. These improvements should be evaluated against both convergence quality and actual computational expense, rather than assuming that larger numerical time steps necessarily make inverse optimization faster.
+
+\subsection{More reliable geometry-to-rendering feedback}
+For PhysMorph-GS, future work should prioritize thin-feature coverage, spatially consistent Gaussian orientations, and reduced sampling variance. Adaptive resolution and stronger temporal consistency could help prevent flicker and gaps without over-smoothing the underlying geometry. Another important direction is to examine more current-trajectory rendering gradients while retaining the robustness of interleaved optimization, and to quantify how rendering improvements relate to physical trajectory quality.
+
+\subsection{Measured material properties and broader robotic validation}
+Future work should identify constitutive, contact, and damage parameters from controlled measurements across additional foods, tools, and cutting styles. Repeated real-robot trials should quantify force--time uncertainty and evaluate cluttered scenes, sequential cuts, and active object stabilization. Force-conditioned policies should be investigated as a separate extension.
+
+\subsection{Bridging simulation objectives and downstream task success}
+Across the three studies, an open question is how to connect numerical simulation quality to what ultimately matters for a particular application. In animation, this includes deformation control and rendered temporal coherence; in robotic manipulation, it includes correct geometry grounding, physical separation, and safe interaction. Benchmarks that report these outcomes alongside discretization error, material sensitivity, and computational cost would help determine when increased simulation fidelity produces meaningful improvements downstream.
+
+\section{Concluding Remarks}
+The dissertation demonstrates that MPM-based simulation can support physically directed shape transformations, differentiable rendering-guided control, and physics-grounded data generation for robotic cutting. Each application benefits from a common representation of deformable material motion, while requiring different optimization, rendering, or evaluation components. The remaining challenges concern both numerical fidelity and the connection between simulation outputs and real application outcomes. Addressing them will require more efficient optimization, more reliable surface and contact models, and broader validation against observed physical behavior.

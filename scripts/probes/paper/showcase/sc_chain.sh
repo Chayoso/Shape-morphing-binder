@@ -7,14 +7,18 @@
 # The queue is read again before every item (lines may be appended while it runs); an item is taken by mkdir of its
 # claim in output/gpu/showcase/claims/. Lines ('#' comments):
 #   run NAME SRC TGT AZ EL [pipeline_run args]   SRC -> TGT at 300k, seed 97, on repo_t1s (freeze-2026-10-15-rt1, kept
-#                                                frames only), the defaults plus the args; AZ = - : no render (a twin);
+#                                                frames only), the defaults plus the args; AZ = - : no render (a twin,
+#                                                its kept frames removed after the readings); AZ = keep: no render, frames kept;
 #                                                a line "NAME AZ EL [DIST]" in tmp/showcase/cams.txt overrides the camera
 #   render NAME AZ EL VIEW [DIST]                another camera for a run already done (DIST x 3.6 radii)
+#   job NAME DIR COMMAND...                      a command on the card in the deployed copy DIR (a gate); rc in rc_NAME
+#   (run: a first argument repo=DIR runs the pipeline from that deployed copy instead of repo_t1s)
 # Per run, on the card: the run; the end readings of read300.sh MODE end against the independent sample of the run's
 # own frame (ind/SRC_TGT_ind300k.npz): the yardstick (render_terms_probe, t3end_), the display (surface_layer_probe
 # measure, whole picture, e3end_), the arrangement (a_), momentum on every kept frame (m_), the end check (endgen145t.py
 # -> endgen.jsonl: silhouette IoU and chamfer against the independent and the own sample); the progress per kept frame
-# (sc_mid.py, CPU); the render (render_deliverable.py +fit=0 +field=zbs, the studio look at 3840 x 2160, 20 fps): the 4K
+# (sc_mid.py, CPU); the render (render_deliverable.py +fit=0 +field=zbs, the studio look at 3840 x 2160, 20 fps), encoded
+# mirrored back (hflip: the studio raster draws a mirror image; the coordinator, 2026-10-22 00:00; marker NAME_VIEW.hflip): the 4K
 # and 1080p videos, the stills (t = 0, 0.25, 0.5, 0.75, 1, 1.5, 2.5 s, the end and the progress-0.5 frame), the contact
 # sheet; the frames folder removed once both videos exist (cleanup.log). Then, detached and without a card (nice 10,
 # at most two CPU readers at a time across the chains): apart particles over the first 35 % (d120_apart.py), the
@@ -31,12 +35,22 @@ log() { echo "$(date '+%m-%d %H:%M:%S') [$ID] $*" >> $S; }
 mp() { if [ -e $B/repo_t1s/assets/$1.obj ]; then echo assets/$1.obj; else echo $T/assets_extra/$1.obj; fi; }
 CARD=""; NDONE=0
 declare -A since
+render_waiting() {   # a D159 / D160 / D161 chain alive with no lock of its agent: it waits for a card, so take none (read-only ps)
+  local a
+  for a in 159 160 161; do
+    ps -u chayo -o args | grep -Eq "[d]$a(_[a-z0-9]+)?_chain" || continue   # their chains run as d159_chain.sh, d160_chain.sh, d161_chain_b.sh
+    grep -q "^agent D$a" $L/gpu*.lock/info 2>/dev/null || return 0
+  done
+  return 1
+}
 claim_card() {
   while [ -z "$CARD" ]; do
     [ -e $D/STOP_$ID ] && return 1
     local now=$(date +%s)
     local held=$(grep -l "^agent SHOWCASE" $L/gpu*.lock/info 2>/dev/null | wc -l) maxc=2
     grep -q "^agent DEMO" $L/gpu*.lock/info 2>/dev/null && maxc=1   # the coordinator, 2026-10-21: one card while DEMO renders
+    [ -n "$MAXC" ] && maxc=$MAXC                                     # the coordinator, 23:00: one card from now on
+    if render_waiting; then [ -z "$CARD" ] && sleep 60; continue; fi   # D159 / D160 / D161 first (the user, 23:00)
     for g in 3 1 0 2; do
       local used=$(nvidia-smi -i $g --query-gpu=memory.used --format=csv,noheader,nounits)
       local uuid=$(nvidia-smi -i $g --query-gpu=uuid --format=csv,noheader)
@@ -63,32 +77,47 @@ wait_file() { until [ -e "$1" ]; do sleep 60; done; }
 cpu_slot() { while true; do for k in 1 2; do mkdir $T/cpu_slot_$k 2>/dev/null && { echo $k; return; }; done; sleep 60; done; }
 
 render_one() {   # NAME AZ EL VIEW [DIST]
+  # the video covers the first CAP_S seconds (default 12 s; the shape is set by then and the late tail moves by sub-pitch
+  # amounts), the end state rendered as its own frame for the stills and the sheet (2026-10-22: the long runs' full-length
+  # renders took 45-60 min a card)
   local name=$1 az=$2 el=$3 view=$4 dist=${5:-1} F=$D/${1}_frames12.npz
   local pair=$(cat $D/pair_$name) out=$R/${1}_$4
   local dense=$D/ind/${pair}_dense15.npz
+  local nk=$($PYB -c "import json; print(json.load(open('$D/mid/$name.json'))['frames'])" 2>/dev/null)
+  local mid=$($PYB -c "import json; print(json.load(open('$D/mid/$name.json'))['mid'])" 2>/dev/null)
+  [ -n "$nk" ] || nk=$($PYB -c "import numpy as np; print(len(np.load('$F')['raws']))")
+  local last=$((nk - 1)) cap=$((${CAP_S:-12} * 20)) range=""
+  [ -n "$mid" ] || mid=$((nk / 2))
+  [ $nk -gt $cap ] && range="+frames=0-$((cap - 1))"
   wait_file $dense
   ( export PHYSMORPH_RUN_REPO=$B/repo_t1s; source $B/repo_t1s/scripts/ops/hyde06_env.sh > /dev/null 2>&1
     source $B/tmp/d146/cache_env.sh; rm -rf $out; t0=$(date +%s)
     CUDA_VISIBLE_DEVICES=$CARD $PY scripts/render_deliverable.py $F $dense $out +stride=1 +video=1 +fit=0 +field=zbs \
-      +az=$az +el=$el +dist=$dist > $out.log 2>&1 < /dev/null
-    echo "$? $(( $(date +%s) - t0 ))" > $R/rc_${name}_$view )
-  log "render ${name}_$view az $az el $el dist $dist rc/wall $(cat $R/rc_${name}_$view)"
+      +az=$az +el=$el +dist=$dist $range > $out.log 2>&1 < /dev/null
+    rc=$?
+    if [ $rc = 0 ] && [ -n "$range" ]; then
+      CUDA_VISIBLE_DEVICES=$CARD $PY scripts/render_deliverable.py $F $dense $out +stride=1 +video=1 +fit=0 +field=zbs \
+        +az=$az +el=$el +dist=$dist +frames=$last-$last >> $out.log 2>&1 < /dev/null
+      rc=$?
+    fi
+    echo "$rc $(( $(date +%s) - t0 ))" > $R/rc_${name}_$view )
+  log "render ${name}_$view az $az el $el dist $dist ${range:-full} + end frame $last rc/wall $(cat $R/rc_${name}_$view)"
   [ "$(cut -d' ' -f1 $R/rc_${name}_$view)" = 0 ] || return
-  ffmpeg -loglevel error -y -framerate 20 -i $out/frames/%04d.jpg -c:v libx264 -crf 18 -pix_fmt yuv420p \
+  ffmpeg -loglevel error -y -framerate 20 -i $out/frames/%04d.jpg -vf hflip -c:v libx264 -crf 18 -pix_fmt yuv420p \
     $V/${name}_${view}_4k.mp4 < /dev/null
-  ffmpeg -loglevel error -y -framerate 20 -i $out/frames/%04d.jpg -vf scale=1920:1080:flags=lanczos -c:v libx264 \
+  ffmpeg -loglevel error -y -framerate 20 -i $out/frames/%04d.jpg -vf hflip,scale=1920:1080:flags=lanczos -c:v libx264 \
     -crf 18 -pix_fmt yuv420p $V/${name}_${view}_1080p.mp4 < /dev/null
-  local n=$(ls $out/frames | wc -l) last mid ks="" k
-  last=$((n - 1)); mid=$($PYB -c "import json; print(json.load(open('$D/mid/$name.json'))['mid'])" 2>/dev/null || echo $((n / 2)))
+  local ks="" k
   mkdir -p $D/stills/${name}_$view
   for k in 0 5 10 15 20 30 50 $last $mid; do
-    [ $k -le $last ] && cp $out/frames/$(printf %04d $k).jpg $D/stills/${name}_$view/
+    [ -e $out/frames/$(printf %04d $k).jpg ] && ffmpeg -loglevel error -y -i $out/frames/$(printf %04d $k).jpg -vf hflip -q:v 2 $D/stills/${name}_$view/$(printf %04d $k).jpg < /dev/null
   done
   for k in 0 5 10 15 20 30 50; do [ $k -lt $last ] && ks="$ks,$k"; done
   ks="${ks#,},$last"
   ( source $B/repo_t1s/scripts/ops/hyde06_env.sh > /dev/null 2>&1
     $PY $T/sc_sheet.py $D/sheets/${name}_${view}_sheet.jpg "$(cat $D/title_$name) (${view}, az $az, el $el)" \
-      $out/frames $ks 4 960 > /dev/null 2>&1 )
+      $D/stills/${name}_$view $ks 4 960 > /dev/null 2>&1 )
+  touch $V/${name}_${view}.hflip   # display only: the studio raster draws a mirror image (right = up x forward, then flip(0))
   if [ -s $V/${name}_${view}_4k.mp4 ] && [ -s $V/${name}_${view}_1080p.mp4 ]; then
     local sz=$(du -sm $out/frames | cut -f1); rm -rf $out/frames
     echo "$(date '+%Y-%m-%d %H:%M') SHOWCASE: removed $out/frames ($sz MB; render frames of ${name}_$view, both videos written, stills in showcase/stills/${name}_$view)" >> $G/cleanup.log
@@ -96,15 +125,17 @@ render_one() {   # NAME AZ EL VIEW [DIST]
 }
 
 run_one() {   # NAME SRC TGT AZ EL ARGS...
-  local name=$1 src=$2 tgt=$3 az=$4 el=$5; shift 5; local args="$*"
+  local name=$1 src=$2 tgt=$3 az=$4 el=$5 repo=repo_t1s; shift 5
+  case "$1" in repo=*) repo=${1#repo=}; shift;; esac       # a run on another deployed copy (an option's branch)
+  local args="$*"
   local pair=${src}_${tgt} F=$D/${name}_frames12.npz
   local ind=$D/ind/${pair}_ind300k.npz
   echo $pair > $D/pair_$name
   if [ "$src" = isosphere ]; then echo "sphere -> $tgt, 300k" > $D/title_$name; else echo "$src -> $tgt, 300k" > $D/title_$name; fi
   if [ ! -e $D/rc_$name ]; then
-    log "run $name: $src -> $tgt, args '$args', gpu$CARD"
-    ( export PHYSMORPH_RUN_REPO=$B/repo_t1s PHYSMORPH_OUT=$G
-      source $B/repo_t1s/scripts/ops/hyde06_env.sh > /dev/null 2>&1; source $B/tmp/d146/cache_env.sh; export OMP_NUM_THREADS=8
+    log "run $name: $src -> $tgt on $repo, args '$args', gpu$CARD"
+    ( export PHYSMORPH_RUN_REPO=$B/$repo PHYSMORPH_OUT=$G
+      source $B/$repo/scripts/ops/hyde06_env.sh > /dev/null 2>&1; source $B/tmp/d146/cache_env.sh; export OMP_NUM_THREADS=8
       ( while true; do echo "$(date +%s) $(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits -i $CARD)"; sleep 10; done ) > $D/$name.mem &
       local mem=$!
       local t0=$(date +%s)
@@ -133,8 +164,8 @@ run_one() {   # NAME SRC TGT AZ EL ARGS...
   fi
   local cam=$(grep "^$name " $T/cams.txt 2>/dev/null | tail -1)   # a camera chosen after the queue line was written
   local dist=1
-  [ "$az" != "-" ] && [ -n "$cam" ] && { set -- $cam; az=$2; el=$3; dist=${4:-1}; }
-  [ "$az" != "-" ] && [ ! -e $V/${name}_main_4k.mp4 ] && render_one $name $az $el main $dist
+  [ "$az" != "-" ] && [ "$az" != keep ] && [ -n "$cam" ] && { set -- $cam; az=$2; el=$3; dist=${4:-1}; }
+  [ "$az" != "-" ] && [ "$az" != keep ] && [ ! -e $V/${name}_main_4k.mp4 ] && render_one $name $az $el main $dist
   # the CPU part, detached, at most two at a time
   ( trap - EXIT INT TERM HUP; k=$(cpu_slot)
     source $B/repo_r77/scripts/ops/hyde06_env.sh > /dev/null 2>&1; source $B/tmp/d146/cache_env.sh
@@ -153,12 +184,20 @@ run_one() {   # NAME SRC TGT AZ EL ARGS...
     rmdir $T/cpu_slot_$k ) > /dev/null 2>&1 &
 }
 
+job_one() {   # job NAME DIR COMMAND...: a command on the card (a gate), run in DIR with its environment; rc in rc_NAME
+  local name=$2 dir=$3; shift 3
+  log "job $name in $dir on gpu$CARD: $*"
+  ( export PHYSMORPH_RUN_REPO=$B/$dir; source $B/$dir/scripts/ops/hyde06_env.sh > /dev/null 2>&1; source $B/tmp/d146/cache_env.sh
+    cd $B/$dir; CUDA_VISIBLE_DEVICES=$CARD eval "$*" > $D/$name.log 2>&1 < /dev/null; echo $? > $D/rc_$name )
+  log "job $name rc $(cat $D/rc_$name)"
+}
+
 next_line() {   # the first queue line not yet claimed (prints it and claims it)
   local line key
   while read -r line; do
     [ -z "$line" ] && continue; [ "${line:0:1}" = "#" ] && continue
     set -- $line
-    case $1 in run) key=$2;; render) key=${2}_$5;; *) continue;; esac
+    case $1 in run|job) key=$2;; render) key=${2}_$5;; *) continue;; esac
     [ "$1" = render ] && [ ! -e $D/rc_$2 ] && continue          # its run not done yet
     if mkdir $D/claims/$key.claim 2>/dev/null; then echo "$line"; return 0; fi
   done < $Q
@@ -174,12 +213,13 @@ while true; do
     [ -e $D/END ] && { log "queue empty and END: chain done"; break; }
     sleep 120; continue
   fi
-  set -- $line; case $1 in run) key=$2;; render) key=${2}_$5;; esac
+  set -- $line; case $1 in run|job) key=$2;; render) key=${2}_$5;; esac
   [ -z "$CARD" ] && { claim_card || { log "stopped while waiting for a card"; rmdir $D/claims/$key.claim; break; }; }
   set -- $line
   case $1 in
     run) shift; run_one "$@";;
     render) render_one $2 $3 $4 $5 ${6:-1};;
+    job) job_one "$@";;
   esac
   NDONE=$((NDONE + 1))
   [ $NDONE -ge $HOLD ] && release_card

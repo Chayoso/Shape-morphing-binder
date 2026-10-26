@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Chapter 4 pipeline overview, hand-written SVG twin of pipeline_overview.tikz (keep the two in sync).
+     Scale: 1 cm of the TikZ picture = 50 px; x_svg = (x + 0.3) * 50, y_svg = (5.6 - y) * 50.
+     Colours: blue = simulation, orange = physics and cleanup terms, green = render term, grey = gradient and step.
+     Every attribute is inline (no style sheet) and every line of text is its own <text>, so that any editor
+     (Inkscape, Illustrator, a browser) shows the same picture. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="825" height="550" viewBox="0 0 825 550"
+     font-family="Helvetica, Arial, sans-serif" font-size="11">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4d4d4d"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="825" height="550" fill="#ffffff"/>
+
+  <!-- ================= inputs ================= -->
+  <rect x="17.5" y="179.5" width="155" height="66" rx="3" fill="#ffffff" stroke="#737373" stroke-width="1"/>
+  <text x="95" y="196" text-anchor="middle" fill="#222222" font-weight="bold">Source</text>
+  <text x="95" y="210" text-anchor="middle" fill="#222222">sphere sampled with N</text>
+  <text x="95" y="224" text-anchor="middle" fill="#222222">particles, fill volume</text>
+  <text x="95" y="238" text-anchor="middle" fill="#222222">matched to the target's</text>
+
+  <rect x="607.5" y="9.5" width="195" height="66" rx="3" fill="#ffffff" stroke="#737373" stroke-width="1"/>
+  <text x="705" y="26" text-anchor="middle" fill="#222222" font-weight="bold">Target</text>
+  <text x="705" y="40" text-anchor="middle" fill="#222222">mesh → volume sample (N points)</text>
+  <text x="705" y="54" text-anchor="middle" fill="#222222">and eight further samples</text>
+  <text x="705" y="68" text-anchor="middle" fill="#222222">for the pictures</text>
+
+  <!-- ================= one window of the simulation ================= -->
+  <rect x="230" y="119.5" width="335" height="174" rx="5" fill="none" stroke="#999999" stroke-width="1" stroke-dasharray="5 3"/>
+  <text x="397.5" y="113" text-anchor="middle" fill="#555555" font-size="10">one window (2T steps, 1/6 s) of differentiable MLS-MPM</text>
+
+  <rect x="245" y="129.5" width="140" height="66" rx="3" fill="#edf0fb" stroke="#737373" stroke-width="1"/>
+  <text x="315" y="146" text-anchor="middle" fill="#222222" font-weight="bold">Driven half</text>
+  <text x="315" y="160" text-anchor="middle" fill="#222222">T = 20 steps</text>
+  <text x="315" y="174" text-anchor="middle" fill="#222222">controls δF<tspan font-size="8" dy="3">c</tspan><tspan dy="-3"> and u act;</tspan></text>
+  <text x="315" y="188" text-anchor="middle" fill="#222222">outer-layer relaxation</text>
+
+  <rect x="410" y="129.5" width="140" height="66" rx="3" fill="#edf0fb" stroke="#737373" stroke-width="1"/>
+  <text x="480" y="146" text-anchor="middle" fill="#222222" font-weight="bold">Released half</text>
+  <text x="480" y="160" text-anchor="middle" fill="#222222">T = 20 steps</text>
+  <text x="480" y="174" text-anchor="middle" fill="#222222">controls set to zero;</text>
+  <text x="480" y="188" text-anchor="middle" fill="#222222">the physics keeps running</text>
+
+  <path d="M385,162.5 L409,162.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+
+  <rect x="240" y="231.5" width="315" height="52" rx="3" fill="#ffffff" stroke="#737373" stroke-width="1"/>
+  <text x="397.5" y="248" text-anchor="middle" fill="#222222">every step: P2G with the stress τ(F + δF<tspan font-size="8" dy="3">c</tspan><tspan dy="-3">) → grid update</tspan></text>
+  <text x="397.5" y="262" text-anchor="middle" fill="#222222">→ G2P → position update (minimum spacing, outer-layer</text>
+  <text x="397.5" y="276" text-anchor="middle" fill="#222222">projection with u) → F and J carried</text>
+
+  <!-- ================= the objective on the released end state ================= -->
+  <rect x="597.5" y="101.5" width="215" height="202" rx="5" fill="none" stroke="#999999" stroke-width="1" stroke-dasharray="5 3"/>
+  <text x="705" y="317" text-anchor="middle" fill="#555555" font-size="10">objective on the released end state</text>
+
+  <rect x="607.5" y="111.5" width="195" height="52" rx="3" fill="#fdf1e6" stroke="#737373" stroke-width="1"/>
+  <text x="705" y="128" text-anchor="middle" fill="#222222"><tspan font-weight="bold">Physics core</tspan>: Sinkhorn transport S<tspan font-size="8" dy="3">ε</tspan><tspan dy="-3">,</tspan></text>
+  <text x="705" y="142" text-anchor="middle" fill="#222222">surface proximity, end drift;</text>
+  <text x="705" y="156" text-anchor="middle" fill="#222222">released motion</text>
+
+  <rect x="607.5" y="183.5" width="195" height="38" rx="3" fill="#fdf1e6" stroke="#737373" stroke-width="1"/>
+  <text x="705" y="200" text-anchor="middle" fill="#222222"><tspan font-weight="bold">Cleanup</tspan>: spray pull (W<tspan font-size="8" dy="3">1</tspan><tspan dy="-3">),</tspan></text>
+  <text x="705" y="214" text-anchor="middle" fill="#222222">near band</text>
+
+  <rect x="607.5" y="241.5" width="195" height="52" rx="3" fill="#e9f6e9" stroke="#737373" stroke-width="1"/>
+  <text x="705" y="258" text-anchor="middle" fill="#222222"><tspan font-weight="bold">Render</tspan>: exterior field → surface discs</text>
+  <text x="705" y="272" text-anchor="middle" fill="#222222">→ silhouette and shading,</text>
+  <text x="705" y="286" text-anchor="middle" fill="#222222">18 views</text>
+
+  <path d="M705,75.5 L705,100.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <path d="M550,162.5 L596.5,162.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="568" y="152" fill="#555555" font-size="10">x<tspan font-size="7" dy="3">2T</tspan><tspan dy="-3">, v</tspan></text>
+  <path d="M172.5,212.5 L229,212.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+
+  <!-- ================= gradient and step ================= -->
+  <rect x="607.5" y="383.5" width="195" height="38" rx="3" fill="#f0f0f0" stroke="#737373" stroke-width="1"/>
+  <text x="705" y="400" text-anchor="middle" fill="#222222">adjoint through the 2T steps:</text>
+  <text x="705" y="414" text-anchor="middle" fill="#222222">g<tspan font-size="8" dy="3">phys</tspan><tspan dy="-3">, g</tspan><tspan font-size="8" dy="3">render</tspan><tspan dy="-3">, g</tspan><tspan font-size="8" dy="3">clean</tspan></text>
+
+  <rect x="377.5" y="383.5" width="205" height="38" rx="3" fill="#f0f0f0" stroke="#737373" stroke-width="1"/>
+  <text x="480" y="400" text-anchor="middle" fill="#222222">PCGrad on g<tspan font-size="8" dy="3">render</tspan><tspan dy="-3">; weight λ with</tspan></text>
+  <text x="480" y="414" text-anchor="middle" fill="#222222">λ‖g<tspan font-size="8" dy="3">render</tspan><tspan dy="-3">‖ = ½‖g</tspan><tspan font-size="8" dy="3">phys</tspan><tspan dy="-3">‖</tspan></text>
+
+  <rect x="180" y="376.5" width="170" height="52" rx="3" fill="#f0f0f0" stroke="#737373" stroke-width="1"/>
+  <text x="265" y="393" text-anchor="middle" fill="#222222">Adam step with a backtracking</text>
+  <text x="265" y="407" text-anchor="middle" fill="#222222">line search; δF<tspan font-size="8" dy="3">c</tspan><tspan dy="-3"> capped,</tspan></text>
+  <text x="265" y="421" text-anchor="middle" fill="#222222">u free of rigid modes</text>
+
+  <path d="M705,323.5 L705,382.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <path d="M607.5,402.5 L583.5,402.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <path d="M377.5,402.5 L351,402.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <path d="M265,376.5 L265,294.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="271" y="340" fill="#555555" font-size="10">new controls</text>
+
+  <!-- ================= commit and output ================= -->
+  <rect x="145" y="481.5" width="240" height="52" rx="3" fill="#ffffff" stroke="#737373" stroke-width="1"/>
+  <text x="265" y="498" text-anchor="middle" fill="#222222"><tspan font-weight="bold">Commit</tspan> after the window's iterations:</text>
+  <text x="265" y="512" text-anchor="middle" fill="#222222">plastic assimilation of F<tspan font-size="8" dy="3">p</tspan><tspan dy="-3">; selection merit,</tspan></text>
+  <text x="265" y="526" text-anchor="middle" fill="#222222">accept or reject; stop rule</text>
+
+  <rect x="607.5" y="481.5" width="195" height="52" rx="3" fill="#ffffff" stroke="#737373" stroke-width="1"/>
+  <text x="705" y="498" text-anchor="middle" fill="#222222"><tspan font-weight="bold">Output</tspan>: the committed trajectory,</text>
+  <text x="705" y="512" text-anchor="middle" fill="#222222">displayed as surface discs</text>
+  <text x="705" y="526" text-anchor="middle" fill="#222222">of the corrected field</text>
+
+  <path d="M265,428.5 L265,480.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <path d="M385,507.5 L606.5,507.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <path d="M145,507.5 L115,507.5 L115,268.5 L229,268.5" fill="none" stroke="#4d4d4d" stroke-width="1.4" marker-end="url(#arr)"/>
+  <text x="172" y="262" text-anchor="middle" fill="#555555" font-size="10">next window</text>
+</svg>

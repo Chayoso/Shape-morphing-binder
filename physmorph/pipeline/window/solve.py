@@ -234,8 +234,10 @@ class WindowOptimizer:
         """lambda from the PROJECTED render gradient at the window's first gradient, every window (the balancer's
         moving average), and held for the window; the render-influence telemetry of this window. Held from the
         first window on, it was 60-170 times what the rule gives once the body has arrived: the physics gradient
-        decays 30-fold, the render gradient hardly, and the render term was nine tenths of the step and two
-        thirds of the merit (D73, D81). The selection rescales its references when the weight moves."""
+        decays 30-fold, the render gradient hardly, and its weighted control-gradient norm share was about
+        nine tenths, with two thirds of the merit (D73, D81). This norm share is measured before Adam,
+        clipping and rigid-mode removal; it does not decompose the accepted control or particle motion.
+        The selection rescales its references when the weight moves."""
         bal = self.balancer
         lam = bal.update(_norm(gp), _norm(gr))
         self.lam_r = lam * float(self.cfg.render_weight_scale)

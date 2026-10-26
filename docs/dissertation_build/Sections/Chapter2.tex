@@ -1,0 +1,85 @@
+% !TEX root = ../dissertationOG.tex
+
+\clearpage % clear the prior chapter's page
+
+\chapter{Related Work}\label{CH2_RelatedWork}
+%\vspace{-7mm}
+%\bigskip
+
+\section{Physics-Based Shape Morphing}
+% ============================================================================
+\subsection{Material Point Method (MPM)}
+% ============================================================================
+    The Material Point Method (MPM) was introduced by~\citet{sulsky1994particle} to solve solid mechanics problems involving large deformations, impact, and penetration. As a hybrid method that couples Lagrangian particles with an Eulerian grid, MPM effectively handles severe material deformation and topology-changing phenomena.
+    
+    Early MPM implementations that relied on standard PIC/FLIP transfers suffered from noticeable numerical dissipation and, in particular, poor conservation of angular momentum. To mitigate this, the \textbf{APIC} (Affine Particle-in-Cell) scheme~\citep{2015-APIC,jiang2017angular} was proposed; by transporting an affine velocity term ($\mathbf{C}$), APIC better preserves angular momentum and shear response, thereby reducing artificial damping. Building on this idea, \textbf{MLS-MPM}~\citep{2018-MLSMPM} uses Moving Least Squares shape functions to derive APIC-consistent transfers and a faster stress-divergence discretization, and its compatible particle-in-cell extension supports cutting and two-way rigid-body coupling.
+    
+    Recent work has substantially extended MPM in stability, accuracy, and scope. Implicit time-integration techniques~\citep{implicit_mpm_surface_tension, wang2020hierarchical} increase robustness for stiff materials and strong surface tension and allow larger time steps, while high-fidelity frictional contact algorithms~\citep{kakouris2024high} are now available for scenarios with repeated contact and separation, such as the cutting task considered in this thesis.
+    
+    The repertoire of material models has likewise broadened from simple elasticity to anisotropic media (e.g., meats and various fruits)~\citep{10.1145/3386569.3392428}, complex plasticity (e.g., snow)~\citep{2013-mpm}, and fracture coupled with topological change~\citep{2019-cdmpm,10.1145/3340259}. MPM has also been extended to challenging geometries, including thin-shell dynamics~\citep{guo2018material}.
+    
+    In parallel, performance-oriented research has accelerated MPM substantially: GPU acceleration with automatic differentiation (e.g., JAX-based pipelines)~\citep{du2025jax}, massively parallel MPM on multiple GPUs~\citep{wang2020massively}, and sparse, memory-efficient GPU-MPM frameworks for large-scale simulations~\citep{chen2025sparse} enable much larger problem sizes.
+    
+    \emph{Throughout this thesis, we build on these developments. In particular, Chapter~\ref{CH3_SHAPEMORPHING} will adopt APIC’s momentum-preserving transfers together with the stability of MLS-MPM to form a reliable computational core, which later chapters leverage for differentiable control.}
+
+% ============================================================================
+\subsection{Shape Morphing}
+% ============================================================================
+    Shape morphing algorithms have historically been explored under a variety of geometric representations. Implicit-surface approaches were demonstrated by~\citet{turk2005shape} and~\citet{breen2001level}; \citet{bansal2018lie} proposed interpolation via Lie body representations of triangle meshes; and~\citet{kilian2007geometric} re-cast shapes as points in a Riemannian shape space, enabling natural interpolation operations.
+    
+    Physically motivated approaches, which are closest in spirit to our goals, have also gained traction. For example,~\citet{bao2005physically} morphed point-sampled surfaces with a meshless physical simulation, obtaining more physically plausible results than linear interpolation, while~\citet{muller2004point} leveraged point samples for both surfaces and volumes to animate elastoplastic objects. Although Chapter~\ref{CH3_SHAPEMORPHING} shares this high-level objective, it \emph{critically differs} by employing an MPM-based physics simulation and by leveraging differentiable simulation and modern optimization capabilities that were not present in the work of~\citet{muller2004point}.
+    
+    The widely used As-Rigid-As-Possible (ARAP) energy~\citep{2000-ARAPShapeInterpolation} and its derivatives deform triangle/tetrahedral meshes via energy minimization for interpolation tasks. Subsequent methods have pursued physical plausibility~\citep{2004-ActualMorphing, 2020-HamiltonianShapeInterpolation}, and solving a Poisson equation on the domain mesh~\citep{2005-PoissonShapeInterpolation} reduces artifacts such as shrinkage. Further,~\citet{liu2011rigid} reduced reliance on consistent tetrahedral meshes by operating on triangle surface meshes, broadening practical applicability.
+    
+    More recently, data-driven methods have converged with geometry processing: \citet{2013-DataDrivenShapeMorphing} constructed local shape spaces from model databases and posed morphing as a global shortest-path optimization, while neural-field representations have enabled new routes to geometric editing~\citep{yang2021geometry}. Given the growing interplay between learning and simulation \citep[see, e.g.,][]{sharpdeep}, \emph{Chapter~\ref{CH3_SHAPEMORPHING} will present a physics-based methodology that is designed to integrate with learning components in future work.}
+
+% ============================================================================
+\subsection{Optimization and Control}
+% ============================================================================
+Shape morphing is closely related to spatiotemporal optimization~\citep{1988-SpacetimeConstraints}, which directly informs our approach. Within this domain, prior work has investigated inverse control of physical systems:
+\begin{itemize}
+  \item \textbf{Fluid control:} \citet{2004-FluidControlAdjointMethod} minimized a keyframe-based objective by computing gradients via the adjoint method, aligning simulated fluid motion with target states.
+  \item \textbf{Deformable-body control:} \citet{2012-DeformableObjectsAlive} optimized nonlinear, time-dependent objectives with SQP, using rest-shape adaptation to control deformable characters.
+  \item \textbf{Amorphous-material manipulation:} \citet{2020-ManipulateAmorphousMaterialsRL} learned controllers for amorphous materials via reinforcement learning with externally controlled rigid contacts.
+\end{itemize}
+\emph{Chapter~\ref{CH3_SHAPEMORPHING} builds on this trajectory by framing shape morphing as an inverse control problem. Using differentiable MPM, we directly optimize physically meaningful parameters (e.g., deformation gradients) to reach a prescribed target state, in line with established spatiotemporal optimization principles.}
+
+% ============================================================================
+\subsection{Differentiable Simulation}
+% ============================================================================
+    \emph{The approach in Chapter~\ref{CH3_SHAPEMORPHING} is built on a differentiable simulation framework.} Differentiable simulation~\citep[see, e.g.,][]{coros2021differentiable} has attracted significant interest in the learning and graphics communities due to its flexibility and efficiency. Its core is the ability to compute \textbf{gradients} across the entire simulation via \textbf{backpropagation}, which also allows it to be embedded in neural networks~\citep{2020-DiffPhysicsSim}.
+    
+    This paradigm has been applied to soft-robot control~\citep{2018-ChainQueen, 2019-DiffTaichi}, material parameter estimation~\citep{2019-DiffCloth, 2022-DiffSoftMultiBody}, and accelerated reinforcement learning~\citep{2021-PODS, 2022-DiffSimRL}. Among various discretizations, the \textbf{Material Point Method (MPM)}~\citep{sulsky1994particle, jiang2016material} has seen successful differentiable formulations and implementations \citep[e.g.,][]{2018-ChainQueen}, which we leverage as a core component.
+    
+    Recent work has also addressed \textbf{collision handling} in complex dynamical systems within differentiable frameworks~\citep{qiao2020scalable}. Our methodology likewise maintains physically consistent constraints such as external forces. For instance, our morphing results remain elastically plausible under gravitational disturbances, underscoring the necessity and advantage of an MPM-based approach (see Section~\ref{sec:examples}).
+    
+    \emph{Chapter~\ref{CH3_SHAPEMORPHING} will further extend the applicability of differentiable MPM (including MLS-MPM;~\citealp{2018-MLSMPM}) to shape morphing with complex, \textbf{topology-aware} configurations---without the intricate mesh setups required by~\citet{10.1145/3130800.3130820}. Ultimately, this combination of simulation and animation techniques enables both smooth deformations and dynamic topology changes, as demonstrated in our results.}
+
+\section{Render-Guided Morphing}
+% ============================================================================
+\subsection{Gaussian Splatting and Dynamic Scenes}
+% ============================================================================
+    3D Gaussian Splatting (3DGS)~\citep{kerbl20233d} represents a scene as a set of anisotropic 3D Gaussians and renders it with a differentiable, visibility-aware rasterizer, and it has become a standard tool for real-time novel view synthesis. Its success has led to many dynamic variants. 4DGS~\citep{wu20244dgaussiansplattingrealtime} and Deformable 3D Gaussians~\citep{yang2023deformable3dgaussianshighfidelity} learn deformation fields or per-Gaussian trajectories that reproduce observed non-rigid motion, and SplaTAM~\citep{keetha2024splatam} reconstructs static scenes online for SLAM. The motion of the dynamic methods is \emph{kinematic}: it fits what the cameras saw, without mass, forces or a material law behind it.
+
+    Physics-based variants place a simulator under the Gaussians. PhysGaussian~\citep{xie2024physgaussian} drives 3DGS with forward MPM, so the picture follows the physics, but nothing in the picture flows back to it. OmniPhysGS~\citep{lin2025omniphysgs} keeps MPM but \emph{learns} the constitutive model of each Gaussian from a video-diffusion prior, and PhysDreamer~\citep{zhang2024physdreamerphysicsbasedinteraction3d} fits a material field and initial velocities to video priors through differentiable MPM and Gaussian rendering. In these works the physics serves the picture of a given scene; none of them uses a rendering loss to steer a body into a new shape.
+
+% ============================================================================
+\subsection{Differentiable Physics Coupled with Rendering}
+% ============================================================================
+    Differentiable renderers for points~\citep{Yifan_2019}, meshes~\citep{laine2020modular} and neural fields~\citep{wu2025pbr} recover geometry and appearance from images, but the shapes they optimize are not physical bodies. In a morphing pipeline that first simulates and then renders, the step between the two is usually a surface reconstruction, such as a sparse volume or a marching-cubes mesh~\citep{10.1145/2487228.2487235,lorensen1998marching}, that is not differentiated, so a rendering loss cannot reach the controls of the simulation.
+
+    Chapter~\ref{CH4_PhysMorphGS} closes this loop for the morphing of Chapter~\ref{CH3_SHAPEMORPHING}. Its silhouette and shading terms are read on the body's own exterior, the surface of a field built from the particles~\citep{10.1145/1073204.1073298}, and their gradients reach the same stress control as before together with a rigid-free offset of the outer particle layer. The physics objective becomes a Sinkhorn transport between the body and the target~\citep{feydy2019sinkhorn}, and every optimization window is scored after the controls have been released, so the picture cannot be bought with a state that springs back. The chapter also measures what the render term changes, against an otherwise identical run without it.
+
+\section{Physics-Grounded Robotic Cutting}
+% ============================================================================
+\subsection{Vision--Language--Action Policies}
+% ============================================================================
+    Large language models gained visual input when pretrained image encoders were attached to them: GPT-4 accepts images alongside text~\citep{achiam2023gpt}, and open models such as LLaVA and MiniGPT-4 connect a CLIP-style encoder~\citep{radford2021clip} to a language model through a small learned projection~\citep{liu2023llava,zhu2023minigpt4}. Vision--language--action (VLA) policies carry the same idea to robots, mapping a camera image and an instruction to motor commands. RT-2 trains a vision--language model on web data and robot trajectories together and emits actions as discrete tokens~\citep{rt2}. OpenVLA is an open-source policy of this kind built on the Prismatic vision--language model~\citep{openvla,prismaticvlm}, Octo is an open generalist policy trained on many robot datasets~\citep{mees2024octo}, and RDT-1B is a diffusion foundation model for bimanual manipulation~\citep{liu2025rdt1bdiffusionfoundationmodel}.
+
+    Other work changes what such a policy sees or how its actions are encoded. LLARVA predicts two-dimensional visual traces of the end effector as an auxiliary target~\citep{llarva}, TraceVLA prompts the policy with the traces of past motion~\citep{tracevla}, and LAPA and Moto pretrain on videos with latent actions or motion tokens learned without action labels~\citep{lapa,moto}. ForceVLA adds force sensing to the policy input~\citep{yu2025forcevla}. These methods change the policy or its inputs; the demonstrations they learn from are not generated under the dynamics of a deformable material. Chapter~\ref{CH5_CUTTINGSIM} takes the opposite route. It fine-tunes three existing policies, RDT-1B, Octo and OpenVLA, without changing their architectures, measures where they fail to ground an instruction in the geometry of the food, and compares RDT trained on demonstrations generated and selected under MPM material dynamics with RDT trained on geometry-only demonstrations. The simulated forces are recorded with the data but are not given to the policies.
+
+% ============================================================================
+\subsection{Large-Scale Robot Learning Datasets}
+% ============================================================================
+    Community efforts have consolidated broad, open datasets for imitation and VLA-style policies, but almost none target deformable cutting. \emph{Open X-Embodiment (RT-X)} aggregates over one million real-robot trajectories spanning 22 embodiments by pooling 60 prior datasets from 34 labs into a standardized RLDS/\texttt{tfrecord} format, and additionally releases pre-trained RT-X checkpoints to study cross-embodiment transfer~\citep{o2024open}. Beyond X-Embodiment, \emph{RoboNet} pioneered sharing multi-robot experience (about 15M video frames across seven platforms) for vision-based manipulation~\citep{robonet2019}. \emph{BridgeData~V2} contributes 60{,}096 trajectories across 24 environments on a low-cost platform, enabling goal/language conditioning and cross-institution generalization~\citep{bridgedata2023}. \emph{DROID} scales in-the-wild teleoperation to 76k demonstrations ($\sim$350 hours) over 564 scenes and 86 tasks~\citep{khazatsky2025droidlargescaleinthewildrobot}. For evaluation, \emph{LIBERO} provides language-conditioned manipulation suites, but does not include deformable cutting~\citep{libero2023}. Cutting-specific resources are largely simulation-centric: \emph{DiSECt} offers a differentiable cutting simulator with small real datasets for calibration~\citep{disect2022}; \emph{SliceIt!} proposes a dual high-fidelity cutting+robot simulator with limited real slicing for real2sim2real transfer~\citep{sliceit2024}; and the recent \emph{TopoCut} introduces a benchmark for multi-step cutting with spectral rewards and diffusion policies~\citep{topocut2025}. The general datasets thus offer scale without a model of material separation, while the cutting simulators model separation without the language-conditioned, multi-view robot data that a VLA policy is trained on. Chapter~\ref{CH5_CUTTINGSIM} builds such data in simulation: its IntSim environment couples an MLS-MPM material solver to a ManiSkill robot~\citep{gu2023ManiSkill2}, and the resulting CulinaryCut benchmark pairs cutting trajectories over fifteen foods with language instructions, multi-view images and contact-force records, which are used to generate and evaluate the demonstrations.
+    

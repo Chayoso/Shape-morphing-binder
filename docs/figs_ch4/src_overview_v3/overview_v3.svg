@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="690" viewBox="0 0 1600 690" font-family="Times New Roman, Times, serif">
+  <!-- Chapter 4 overview, v3 (FIGS_V2, 2026-10-22): after the user's reference (matte blue morph strip on top, three visual
+       panels, coloured stage bars) in the manner of the 3D Gaussian Splatting overview (Kerbl et al., SIGGRAPH 2023).
+       Editable in Inkscape / PowerPoint. The strip images are linked: overview_strip/NNNN.png (RGBA, transparent). -->
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#222"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#1f5fa8"/></marker>
+    <marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#d9772b"/></marker>
+    <g id="cam"><path d="M-13,-9 L13,-9 L13,9 L-13,9 Z" fill="#1d2b3a"/><path d="M13,-5 L22,-10 L22,10 L13,5 Z" fill="#1d2b3a"/></g>
+    <g id="cell"><rect width="22" height="22" fill="none" stroke="#9aa3ad" stroke-width="1"/></g>
+    <pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M22,0 L0,0 0,22" fill="none" stroke="#9aa3ad" stroke-width="1"/></pattern>
+  </defs>
+  <rect width="1600" height="690" fill="#ffffff"/>
+
+  <!-- ===================== morph strip ===================== -->
+  <line x1="70" y1="34" x2="1210" y2="34" stroke="#222" stroke-width="2.2" marker-end="url(#ah)"/>
+  <image href="overview_strip/0000.png" x="60" y="48" width="220" height="185" preserveAspectRatio="xMidYMid meet"/>
+  <image href="overview_strip/0010.png" x="290" y="48" width="220" height="185" preserveAspectRatio="xMidYMid meet"/>
+  <image href="overview_strip/0020.png" x="520" y="48" width="220" height="185" preserveAspectRatio="xMidYMid meet"/>
+  <image href="overview_strip/0040.png" x="750" y="48" width="220" height="185" preserveAspectRatio="xMidYMid meet"/>
+  <image href="overview_strip/0314.png" x="1010" y="48" width="220" height="185" preserveAspectRatio="xMidYMid meet"/>
+  <g font-size="19" fill="#333" text-anchor="middle">
+    <text x="170" y="252">t = 0</text><text x="400" y="252">0.5 s</text><text x="630" y="252">1 s</text>
+    <text x="860" y="252">2 s</text><text x="1120" y="252">end</text>
+  </g>
+  <g fill="#555"><circle cx="980" cy="140" r="3.5"/><circle cx="992" cy="140" r="3.5"/><circle cx="1004" cy="140" r="3.5"/></g>
+  <text x="1260" y="95" font-size="21" fill="#222">one window:</text>
+  <text x="1260" y="122" font-size="21" fill="#222">optimize, then commit</text>
+  <path d="M1250,160 C1330,160 1330,215 1250,215" fill="none" stroke="#222" stroke-width="1.8" marker-end="url(#ah)"/>
+  <text x="1340" y="195" font-size="18" fill="#555">× every 1/6 s</text>
+
+  <!-- ===================== (1) physics rollout ===================== -->
+  <g transform="translate(55,300)">
+    <g transform="translate(0,0)">
+      <rect width="110" height="110" fill="url(#grid)" stroke="#9aa3ad"/>
+      <path d="M22,66 C30,30 70,18 94,40 C104,60 92,98 60,100 C38,100 18,90 22,66 Z" fill="#cfe0f3"/>
+      <g fill="#1d2b3a"><circle cx="40" cy="62" r="3"/><circle cx="56" cy="48" r="3"/><circle cx="72" cy="62" r="3"/><circle cx="52" cy="80" r="3"/><circle cx="80" cy="44" r="3"/><circle cx="66" cy="86" r="3"/></g>
+      <text x="55" y="132" font-size="18" text-anchor="middle" fill="#333">P2G</text>
+    </g>
+    <path d="M120,55 L148,55" stroke="#222" stroke-width="1.8" marker-end="url(#ah)"/>
+    <g transform="translate(158,0)">
+      <rect width="110" height="110" fill="url(#grid)" stroke="#9aa3ad"/>
+      <g fill="#c0392b"><circle cx="22" cy="44" r="3"/><circle cx="44" cy="22" r="3"/><circle cx="66" cy="22" r="3"/><circle cx="88" cy="44" r="3"/><circle cx="44" cy="66" r="3"/><circle cx="66" cy="66" r="3"/><circle cx="44" cy="88" r="3"/><circle cx="66" cy="88" r="3"/><circle cx="88" cy="66" r="3"/><circle cx="22" cy="66" r="3"/></g>
+      <g stroke="#555" stroke-width="2" marker-end="url(#ah)"><line x1="44" y1="66" x2="44" y2="50"/><line x1="66" y1="66" x2="72" y2="52"/><line x1="66" y1="88" x2="76" y2="80"/><line x1="44" y1="88" x2="36" y2="78"/></g>
+      <text x="55" y="132" font-size="18" text-anchor="middle" fill="#333">grid</text>
+    </g>
+    <path d="M278,55 L306,55" stroke="#222" stroke-width="1.8" marker-end="url(#ah)"/>
+    <g transform="translate(316,0)">
+      <rect width="110" height="110" fill="url(#grid)" stroke="#9aa3ad"/>
+      <path d="M18,60 C26,22 72,10 96,34 C108,58 94,96 60,98 C36,98 14,86 18,60 Z" fill="#cfe0f3"/>
+      <g fill="#1d2b3a"><circle cx="38" cy="56" r="3"/><circle cx="56" cy="40" r="3"/><circle cx="74" cy="56" r="3"/><circle cx="52" cy="76" r="3"/><circle cx="82" cy="38" r="3"/><circle cx="68" cy="82" r="3"/></g>
+      <text x="55" y="132" font-size="18" text-anchor="middle" fill="#333">G2P</text>
+    </g>
+    <!-- the two controls -->
+    <g transform="translate(20,165)">
+      <rect x="0" y="0" width="44" height="44" fill="#eef3f8" stroke="#9aa3ad"/>
+      <path d="M22,36 L22,10" stroke="#3b4652" stroke-width="3.5" marker-end="url(#ah)"/>
+      <text x="56" y="20" font-size="20" fill="#222"><tspan font-style="italic">δ</tspan><tspan font-weight="bold">F</tspan><tspan font-size="14" dy="5" font-style="italic">c</tspan></text>
+      <text x="56" y="40" font-size="16" fill="#555">through the grid</text>
+      <path d="M205,40 C230,8 290,4 318,30" fill="none" stroke="#7a8796" stroke-width="2"/>
+      <g fill="#1d2b3a"><circle cx="216" cy="30" r="3"/><circle cx="240" cy="17" r="3"/><circle cx="266" cy="13" r="3"/><circle cx="292" cy="17" r="3"/><circle cx="312" cy="27" r="3"/></g>
+      <g stroke="#1f5fa8" stroke-width="2.2" marker-end="url(#ab)"><line x1="240" y1="17" x2="236" y2="1"/><line x1="266" y1="13" x2="266" y2="-5"/><line x1="292" y1="17" x2="296" y2="5"/></g>
+      <text x="330" y="20" font-size="20" fill="#222" font-style="italic">u</text>
+      <text x="330" y="40" font-size="16" fill="#555">outer-layer offset</text>
+    </g>
+  </g>
+
+  <!-- ===================== (2) multi-view render ===================== -->
+  <g transform="translate(720,440)">
+    <path d="M-62,10 C-60,-40 -10,-64 38,-48 C74,-34 76,18 50,46 C22,72 -40,70 -60,40 Z" fill="#2c5f99"/>
+    <path d="M-62,10 C-60,-40 -10,-64 38,-48 C74,-34 76,18 50,46 C22,72 -40,70 -60,40 Z" fill="none" stroke="#7fb2ea" stroke-width="7" stroke-opacity="0.55"/>
+    <g stroke="#8a95a3" stroke-width="1.3" stroke-dasharray="2 4">
+      <line x1="-180" y1="-60" x2="-55" y2="-15"/><line x1="-130" y1="-112" x2="-30" y2="-50"/><line x1="0" y1="-128" x2="0" y2="-58"/>
+      <line x1="135" y1="-108" x2="40" y2="-45"/><line x1="185" y1="-45" x2="70" y2="-5"/><line x1="170" y1="70" x2="60" y2="35"/><line x1="-175" y1="75" x2="-58" y2="35"/>
+    </g>
+    <use href="#cam" transform="translate(-190,-64) rotate(20)"/><use href="#cam" transform="translate(-140,-118) rotate(40)"/>
+    <use href="#cam" transform="translate(0,-140) rotate(90)"/><use href="#cam" transform="translate(144,-114) rotate(138)"/>
+    <use href="#cam" transform="translate(196,-48) rotate(160)"/><use href="#cam" transform="translate(180,74) rotate(200)"/>
+    <use href="#cam" transform="translate(-186,80) rotate(-20)"/>
+    <text x="0" y="112" font-size="18" text-anchor="middle" fill="#333">exterior surface discs, 18 views</text>
+    <text x="0" y="136" font-size="18" text-anchor="middle" fill="#333">silhouette + shading</text>
+  </g>
+
+  <!-- ===================== (3) adjoint and update ===================== -->
+  <g transform="translate(1060,300)">
+    <text x="0" y="22" font-size="21" fill="#222">∇<tspan font-style="italic">L</tspan><tspan font-size="14" dy="5">phys</tspan><tspan dy="-5"> + </tspan><tspan font-style="italic">λ</tspan>∇<tspan font-style="italic">L</tspan><tspan font-size="14" dy="5">render</tspan></text>
+    <g transform="translate(40,70)">
+      <line x1="0" y1="60" x2="70" y2="10" stroke="#3b4652" stroke-width="3" marker-end="url(#ah)"/>
+      <line x1="0" y1="60" x2="85" y2="62" stroke="#d9772b" stroke-width="3" marker-end="url(#ao)"/>
+      <line x1="85" y1="62" x2="85" y2="40" stroke="#d9772b" stroke-width="1.2" stroke-dasharray="3 3"/>
+      <text x="100" y="45" font-size="18" fill="#333">PCGrad</text>
+    </g>
+    <path d="M200,135 L250,135" stroke="#222" stroke-width="1.8" marker-end="url(#ah)"/>
+    <rect x="262" y="105" width="190" height="60" rx="8" fill="#eef6ec" stroke="#7fb77e"/>
+    <text x="357" y="132" font-size="18" text-anchor="middle" fill="#222">update <tspan font-style="italic">δ</tspan><tspan font-weight="bold">F</tspan><tspan font-size="13" dy="4" font-style="italic">c</tspan><tspan dy="-4">, </tspan><tspan font-style="italic">u</tspan></text>
+    <text x="357" y="154" font-size="16" text-anchor="middle" fill="#555">Adam + line search</text>
+    <rect x="262" y="195" width="190" height="60" rx="8" fill="#eef6ec" stroke="#7fb77e"/>
+    <text x="357" y="222" font-size="18" text-anchor="middle" fill="#222">commit</text>
+    <text x="357" y="244" font-size="16" text-anchor="middle" fill="#555">plastic assimilation</text>
+    <path d="M357,166 L357,192" stroke="#222" stroke-width="1.8" marker-end="url(#ah)"/>
+  </g>
+
+  <!-- ===================== stage bars ===================== -->
+  <rect x="45" y="612" width="530" height="56" rx="10" fill="#dbe8f7" stroke="#8fb6e6" stroke-width="2"/>
+  <text x="310" y="648" font-size="25" text-anchor="middle" fill="#1d2b3a">(1) PHYSICS ROLLOUT</text>
+  <rect x="595" y="612" width="430" height="56" rx="10" fill="#fbe3d3" stroke="#f0b48c" stroke-width="2"/>
+  <text x="810" y="648" font-size="25" text-anchor="middle" fill="#1d2b3a">(2) MULTI-VIEW RENDER</text>
+  <rect x="1045" y="612" width="510" height="56" rx="10" fill="#e1f3dc" stroke="#9fd394" stroke-width="2"/>
+  <text x="1300" y="648" font-size="25" text-anchor="middle" fill="#1d2b3a">(3) ADJOINT &amp; UPDATE</text>
+</svg>

@@ -1,0 +1,20 @@
+---
+name: min-spacing-d70-d72
+description: 2026-10-04 — D70 minimum spacing in k_update fixes the under-surface density unevenness (smooth surface at 300k); D71 surface condition refuted and removed; D72 40k gallery pending; what the render arm does under the rule
+metadata:
+  node_type: memory
+  type: project
+  originSessionId: 44480b81-6b65-4b99-b02f-fc3c683b348d
+  modified: 2026-10-04T20:49:17.189Z
+---
+
+State on 2026-10-04 15:00 CDT (branch settled-base, commit 4ba2cf7; server code `repo_r66`).
+
+- **D70 (`--min_spacing 0.9`, off by default)**: a particle is moved away from each of its 16 nearest (frozen per window) nearer than r = 0.9·mean(vol0)^(1/3), half the overlap, over one window (`kernels.k_update`). At 300k bunny/dragon: density spread under the surface 0.29/0.43 → 0.17–0.24 (sample 0.21); offset band below 4 pitches under a sample's; 4–11 excess cut 70–88 %; field roughness 11–22° → 3–7°; picture difference a third to two thirds of the way to D65's floor; thin uncovered 13–18 % → 5–8 %; transport energy lower. Physics-only + rule is now the best dragon picture (crop IoU 0.9784–0.9793 = the floor's).
+- **D71 (layer keeps only the tangential part of the push) — refuted, code removed.** I inferred "the body swells" from the display's mean offset (+0.04–0.15 pitch) plus a flux measurement, and changed the kernel; the particles' own signed distance to the mesh (`scripts/probes/settled/particle_depth_probe.py`) showed they stand further IN with the rule. The display's zero set reads an even arrangement further out.
+  **Why it matters:** a measured mechanism is not a measured outcome. **How to apply:** before changing a definition, measure the outcome variable itself on the particles (not through the display field); the display's mean offset is not a measure of the body's size.
+- **Yardstick caveat:** the target picture and D65's floor are drawn from a random sample (roughness 9.8°/13.6°); runs with the rule are smoother (3–7°), so the floor is no longer above the runs. An even reference (or the mesh) is needed before reading small picture differences.
+- **Render under the rule (always report, see [[always-report-render-influence]])**: bunny, render on the exterior at 192 px is ahead in IoU (+0.002–0.005) but not in picture difference; dragon, the render arm is behind its physics-only twin (horn crop −0.006/−0.012), behind from window 20 on during the 64-px stage (a 64-px pixel = 3.8 pitches at 300k), and the fine stage lasts only 11–22 windows before the outer merit rejects three candidates with positive physics gain (the merit alternation of [[parked-defects-2026-09-30]]). Not changed; the user decides whether to un-park.
+- **D73, why physics-only beats render at 300k (measured from the kept records, 15:50 CDT):** λ is set once at window 1 while |g_phys| decays 30× and λ|g_rend| only 1.4×, so from window 10 the step is 91–96 % render (g_share 0.94 is NOT a sign of healthy influence: it is the physics objective being starved — physics gain 2–100× smaller, transport energy 2–8× the twin's; same without the rule). At 300k the 64-px pixel is 3.2–3.8 pitches: the render arm fits its own 64-px term 3× lower but the 96-px yardstick is higher than the twin's on the dragon. At 40k (pixel 1.9 pitches, physics-only leaves thin parts uncovered) the same share helps (sil IoU +0.009–0.013). Open definitions, user's decision: λ's calibration (bounded share), the c2f trigger (fine picture when the coarse term stops falling), the exterior shading term (does not fall at all).
+- **D72** (registered 14:32 CDT): the rule on the 40k gallery, 19 meshes × 5 arms (B1, B2, S, BP, SP) under `output/gpu/d72`, table by `tmp/d72_table.py`; adoption of the rule as default waits for it ([[generalise-beyond-bunny]], [[gallery-single-run-spread]]).
+- Relief (detail): the slope of the offset on the mesh's own relief below 4 pitches is −0.4 on the bunny with or without the rule (sample −0.22), dragon −0.2 (sample −0.16): the runs are within 2× of a sample's own loss, so at this N detail is bounded mostly by the sample ([[algorithm-before-n]]).

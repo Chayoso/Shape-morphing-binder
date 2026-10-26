@@ -1,0 +1,162 @@
+% Chapter 4: how the render reaches the controls (label ch4:fig_gradpath). 2026-10-23 redraw in the user's own PPT
+% vocabulary: panel (a) is the user's "Outer Layer" drawing (gradpath_outer_layer.png, cropped from
+% src_layer_offset/user_ppt_original.png, its sans legend removed and re-lettered here in Times); the grid insets and the
+% two small insets use the same marks (dark-outlined blue surface circles, grey interior dots, blue pins with ball heads,
+% thin blue grid lines over an orange heat fill, white cards with a soft drop shadow). Panel (b)'s flow, the lambda card,
+% PCGrad, the red callouts and the formula are unchanged. Compiled standalone into fig_gradpath.pdf (the chapter uses the
+% PDF); compiling this file needs gradpath_outer_layer.png beside it. Core TikZ + arrows.meta.
+% Include with  \resizebox{\textwidth}{!}{\input{figs/ch4/gradpath.tikz}}  (or the compiled fig_gradpath.pdf).
+\begin{tikzpicture}[
+  font=\fontsize{8}{9.6}\selectfont,
+  shadowed/.style={preaction={fill=black, opacity=.07, transform canvas={xshift=1.0pt, yshift=-1.0pt}},
+                   preaction={fill=black, opacity=.06, transform canvas={xshift=2.0pt, yshift=-2.0pt}},
+                   preaction={fill=black, opacity=.05, transform canvas={xshift=3.0pt, yshift=-3.0pt}},
+                   preaction={fill=black, opacity=.04, transform canvas={xshift=4.2pt, yshift=-4.2pt}},
+                   preaction={fill=black, opacity=.03, transform canvas={xshift=5.4pt, yshift=-5.4pt}}},
+  card/.style={shadowed, fill=white, rounded corners=4pt, draw=black!12, line width=0.3pt},
+  box/.style={card, align=center, inner sep=4pt, minimum height=1.0cm},
+  arr/.style={-{Stealth[length=2.8mm,width=2.2mm]}, draw=black, line width=1.5pt},
+  alab/.style={font=\fontsize{7}{8}\selectfont\itshape, fill=white, inner sep=1pt},
+  target/.style={draw=black, line width=0.8pt, dash pattern=on 3.2pt off 2.2pt},
+  band/.style={draw=blue!55!black!70, line width=7pt, opacity=0.28, line cap=round},
+  uarr/.style={-{Stealth[length=1.6mm,width=1.3mm]}, draw=navy, line width=0.9pt},
+  ray/.style={draw=black!55, line width=0.45pt, dash pattern=on 0.6pt off 1.6pt},
+  ttl/.style={font=\fontsize{9.6}{11}\selectfont\bfseries},
+  small/.style={font=\fontsize{7.2}{8.4}\selectfont, align=center},
+  callout/.style={font=\fontsize{8.2}{9.6}\selectfont\bfseries\itshape, text=cred, align=left},
+  leader/.style={draw=navy, line width=0.6pt},
+  camera/.pic={
+    \fill[black, rounded corners=1.2pt] (-0.34,-0.22) rectangle (0.34,0.24);
+    \fill[black] (0.08,0.22) rectangle (0.26,0.33);
+    \fill[white] (0,0.01) circle (0.11);
+    \draw[black, fill=white, line width=0.5pt] (-0.14,-0.22) -- (0.14,-0.22) -- (0.2,-0.36) -- (-0.2,-0.36) -- cycle;
+  },
+]
+\definecolor{pblue}{RGB}{61,127,214}
+\definecolor{navy}{RGB}{31,45,77}
+\definecolor{cred}{RGB}{192,22,27}
+\definecolor{heat}{RGB}{245,166,35}
+\definecolor{heatl}{RGB}{253,233,181}
+\definecolor{gridb}{RGB}{58,120,181}
+\definecolor{ublue}{RGB}{26,115,200}
+\definecolor{uline}{RGB}{44,107,170}
+\definecolor{pill}{RGB}{200,214,232}
+\tikzset{
+  sc/.style={fill=ublue, draw=navy, line width=0.45pt},
+  gdot/.style={fill=black!45},
+  pin/.style={draw=ublue, line width=0.75pt},
+  thin/.style={-{Stealth[length=1.1mm,width=0.9mm]}, draw=black!80, line width=0.45pt},
+}
+% ================================================================================== (a) the render loss on the exterior
+\draw[card] (-0.15,0.8) rectangle (6.15,7.25);
+\node[ttl, anchor=west] at (0.05,7.62) {(a) The render loss reads the exterior};
+\draw[target] (0.2,6.8) -- (0.85,6.8);                       \node[small, anchor=west] at (0.95,6.8) {target surface};
+\fill[pill, draw=pill!80!black, line width=0.3pt, rounded corners=2.2pt] (0.2,6.2) rectangle (0.85,6.42);
+                                                              \node[small, anchor=west] at (0.95,6.31) {surface discs};
+\draw[-{Stealth[length=1.8mm,width=1.4mm]}, draw=uline, line width=0.9pt] (0.2,5.82) -- (0.85,5.82);
+                                                              \node[small, anchor=west] at (0.95,5.82) {$\mathbf{u}_p$: outer-layer offset along the normal};
+\node[anchor=south west, inner sep=0pt] at (-0.07,0.95) {\includegraphics[width=6.14cm]{gradpath_outer_layer.png}};
+\node[small] at (3.0,4.6) {the body's exterior, seen from 18 views (three shown)};
+\node[small, font=\fontsize{8}{9}\selectfont] at (3.0,0.42) {$\mathcal{L}_{\mathrm{render}}=\mathcal{L}_{\mathrm{sil}}+\mathcal{L}_{\mathrm{shade}}$};
+% ================================================================================== (b) the gradient path
+\node[ttl, anchor=west] at (6.65,7.62) {(b) The gradient path to the two controls};
+\node[box, text width=2.5cm] (R) at (8.2,6.6)
+  {\textbf{$\mathcal{L}_{\mathrm{render}}$}\\[-1pt]{\fontsize{7.2}{8.4}\selectfont silhouette + shading vs.\ target pictures}};
+\node[box, text width=2.05cm] (D) at (11.15,6.6) {\textbf{surface discs}\\[-1pt]{\fontsize{7.2}{8.4}\selectfont positions, normals}};
+\node[box, text width=2.4cm] (P) at (14.4,6.6) {\textbf{particles} $\mathbf{x}_p$\\[-1pt]{\fontsize{7.2}{8.4}\selectfont through the exterior field}};
+\draw[arr] (R) -- (D);
+\draw[arr] (D) -- (P);
+\draw[arr, line width=1.1pt] (5.85,4.6) to[out=25, in=200] (R.west);
+\node[box, text width=2.5cm] (Ph) at (8.2,4.45)
+  {\textbf{$\mathcal{L}_{\mathrm{phys}}$}\\[-1pt]{\fontsize{7.2}{8.4}\selectfont transport to the target volume}};
+\node[card, circle, minimum size=1.3cm, inner sep=0pt, draw=black!40] (C) at (12.0,4.45) {\textbf{PCGrad}};
+\draw[arr] (Ph) -- node[alab, above=2pt] {physics} (C);
+\draw[arr] (P.south) |- node[alab, pos=0.75, above=2pt] {render $\times\,\lambda$} (C.east);
+% the lambda dial, a highlighted card
+\draw[card, fill=heatl, draw=heat!80!black] (13.55,4.95) rectangle (16.35,5.85);
+\begin{scope}[shift={(14.0,5.4)}]
+  \fill[white] (0,0) circle (0.27); \draw[black!80, line width=0.7pt] (0,0) circle (0.27);
+  \foreach \k in {-120,-60,0,60,120} \draw[black!60, line width=0.4pt] ({90+\k}:0.31) -- ({90+\k}:0.37);
+  \draw[heat!80!black, line width=1.4pt] (0,0) -- (55:0.25);
+\end{scope}
+\node[small, anchor=west, align=left] at (14.4,5.4) {$\lambda$: the render's\\authority};
+% the two controls
+\node[box, text width=3.5cm] (F) at (8.9,2.55)
+  {\textbf{$\delta\mathbf{F}_c$}: through the grid\\[-1pt]{\fontsize{7.2}{8.4}\selectfont adjoint over the $T$ driven steps}};
+\node[box, text width=3.2cm, draw=gridb!60] (U) at (14.55,2.55)
+  {\textbf{$u_p$}: outer-layer offset\\[-1pt]{\fontsize{7.2}{8.4}\selectfont along the normal, below the grid}};
+\draw[arr] (C.south) to[out=-90, in=0] (F.east);
+\draw[arr] (C.east) ++(0.04,-0.2) to[out=-25, in=90] (U.north);
+% the adjoint of the driven steps under dF_c: P2G, grid, G2P in the user's grid vocabulary
+\foreach \g/\lab in {0/P2G, 1.3/grid, 2.6/G2P} {
+  \begin{scope}[shift={(7.0+\g,0.45)}]
+    \draw[card, rounded corners=1pt, draw=none] (0,0) rectangle (1.1,1.1);
+    \shade[inner color=heat, outer color=heatl] (0.14,0.14) rectangle (0.96,0.96);
+    \draw[gridb, line width=0.35pt, step=0.275] (0,0) grid (1.1,1.1);
+    \node[small, font=\fontsize{7}{8}\selectfont] at (0.55,-0.2) {\lab};
+  \end{scope}
+}
+% P2G: particles to nodes
+\begin{scope}[shift={(7.0,0.45)}]
+  \foreach \x/\y in {0.2/0.95, 0.95/0.2} \fill[gdot] (\x,\y) circle (0.03);
+  \foreach \px/\py/\nx/\ny in {0.38/0.70/0.275/0.825, 0.66/0.42/0.825/0.275, 0.79/0.80/0.825/0.825} {
+    \draw[thin] (\px,\py) -- (\nx,\ny);
+    \fill[black] (\nx,\ny) circle (0.025);
+    \filldraw[sc] (\px,\py) circle (0.07);
+  }
+\end{scope}
+% grid: the nodes' update
+\begin{scope}[shift={(8.3,0.45)}]
+  \foreach \nx/\ny in {0.275/0.825, 0.825/0.275, 0.825/0.825, 0.55/0.55} {
+    \fill[black] (\nx,\ny) circle (0.03);
+    \draw[thin] (\nx,\ny) -- ++(0.1,0.13);
+  }
+\end{scope}
+% G2P: nodes to particles (moved)
+\begin{scope}[shift={(9.6,0.45)}]
+  \foreach \px/\py/\nx/\ny in {0.44/0.78/0.275/0.825, 0.72/0.50/0.825/0.275, 0.86/0.92/0.825/0.825} {
+    \fill[black] (\nx,\ny) circle (0.025);
+    \draw[thin] (\nx,\ny) -- (\px,\py);
+    \filldraw[sc] (\px,\py) circle (0.07);
+  }
+\end{scope}
+\draw[-{Stealth[length=1.4mm]}, black, line width=0.6pt] (8.14,1.0) -- (8.26,1.0);
+\draw[-{Stealth[length=1.4mm]}, black, line width=0.6pt] (9.44,1.0) -- (9.56,1.0);
+% callouts with leaders to inset cards
+\draw[leader] (F.south) ++(1.45,0) -- (11.4,1.62); \fill[navy] (11.4,1.62) circle (0.045);
+\draw[card] (10.85,0.3) rectangle (12.6,1.55);
+\begin{scope}[shift={(10.85,0.3)}]
+  \begin{scope}
+    \clip (0.05,0.05) rectangle (1.7,1.2);
+    \draw[gridb!45, line width=0.3pt, step=0.35] (0,0) grid (1.75,1.25);
+  \end{scope}
+  \fill[black!8, draw=black!70, line width=0.5pt] (0.18,0.12) .. controls (0.2,0.62) and (0.55,0.82) .. (0.9,0.72)
+     .. controls (1.2,0.62) and (1.3,0.32) .. (1.3,0.12) -- cycle;
+  \foreach \x/\y in {0.24/0.42, 0.42/0.66, 0.68/0.75, 0.95/0.71, 1.17/0.55, 1.29/0.3} \filldraw[sc] (\x,\y) circle (0.055);
+  \foreach \x/\y in {0.55/0.3, 0.85/0.3, 1.05/0.3, 0.7/0.5, 0.45/0.25, 1.15/0.2} \fill[gdot] (\x,\y) circle (0.022);
+  \draw[black!75, line width=0.55pt, dash pattern=on 1.6pt off 1.1pt] (0.18,0.12) .. controls (0.25,0.9) and (0.75,1.12) .. (1.08,1.0)
+     .. controls (1.42,0.88) and (1.58,0.45) .. (1.6,0.12);
+  \draw[-{Stealth[length=2mm,width=1.6mm]}, black, line width=1.1pt] (0.92,0.78) -- (1.18,1.02);
+\end{scope}
+\node[callout, anchor=north west] at (10.85,0.22) {reshapes the body\\at cell scale};
+\draw[leader] (U.south) -- (14.55,1.62); \fill[navy] (14.55,1.62) circle (0.045);
+\draw[card] (13.75,0.3) rectangle (15.45,1.55);
+\begin{scope}[shift={(13.82,0.38)}]
+  \fill[black!6] (0,0) -- plot[domain=0:1.56, samples=40] (\x,{0.42+0.12*sin(115*\x)}) -- (1.56,0) -- cycle;
+  \draw[black!80, line width=0.5pt] plot[domain=0:1.56, samples=40] (\x,{0.42+0.12*sin(115*\x)});
+  \draw[black, line width=0.6pt, dash pattern=on 1.6pt off 1.1pt] plot[domain=0:1.56, samples=120]
+     (\x,{0.42+0.12*sin(115*\x)+0.2+0.13*sin(820*\x)});
+  \foreach \x in {0.1,0.33,0.56,0.79,1.02,1.25,1.48} {
+    \pgfmathsetmacro\ys{0.42+0.12*sin(115*\x)}
+    \pgfmathsetmacro\yt{\ys+0.2+0.13*sin(820*\x)}
+    \draw[pin] (\x,\ys) -- (\x,\yt);
+    \fill[ublue] (\x,\yt) circle (0.04);
+    \filldraw[sc] (\x,\ys) circle (0.055);
+  }
+  \foreach \x/\y in {0.25/0.12, 0.6/0.15, 0.95/0.1, 1.3/0.14} \fill[gdot] (\x,\y) circle (0.022);
+\end{scope}
+\node[callout, anchor=north west] at (13.75,0.22) {carves the surface\\{\fontsize{7}{8}\selectfont\mdseries\itshape relief, letters (coin: ${\approx}\,2/3$ through $u$)}};
+% the formula under the panel
+\node[small, font=\fontsize{8}{9}\selectfont] at (11.5,-0.98)
+  {$\mathbf{g}=\mathrm{PCGrad}\big(\nabla\mathcal{L}_{\mathrm{phys}},\ \lambda\,\nabla\mathcal{L}_{\mathrm{render}}\big)\ \rightarrow\ (\delta\mathbf{F}_c,\ u)$};
+\end{tikzpicture}
