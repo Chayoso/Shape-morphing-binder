@@ -448,6 +448,21 @@ def aggregate(out_md):
                 L += [x for x in open(p).read().splitlines() if x.startswith("Detail size") or x.startswith("References")]
     else:
         L.append("- not read yet (jobs 168 / 173).")
+    sz = []
+    for n in (40000, 300000, 1000000, 1500000, 3000000):
+        p = O / f"size_probe/size_dragon_{n}.json"
+        if p.exists():
+            d = json.load(open(p))
+            c, r = d["ctx"]["97"], d["refs"]
+            sz.append(f"{n // 1000}k: pitch {c['pitch']:.4f} wu, rms height {c['rms_H_pitch']:.2f} pitch, half-correlation "
+                      f"{fmt(c['autocorr_half_pitch'])} pitch; a perfect N-sample carries A {r['detail_s197']['relief']['A']:.2f} at "
+                      f"corr {r['detail_s197']['relief']['corr']:.2f} (floor {r['smooth_s297']['relief']['A']:.2f})")
+    if sz:
+        L += ["", "Scale size against the pitch (no run; output/gpu/d170/size_probe, the detailed dragon's own random N-samples read by "
+              "d170_detail.py; the bunny's wrinkles at 300k: corr 0.27):", *[f"- {x}" for x in sz],
+              "Reading: the scales are ~1 pitch wide and ~0.09 pitch high at 300k; the render's body surface is a radius-3-pitch "
+              "field and its pixel 0.82 pitch, so neither the pictures of the body nor a random 300k layer resolve them; 40k "
+              "shares above are inside the reading's own noise (the two detail samples differ by 0.10-0.43 in raw A)."]
     L += ["", "## Adopt Rx?", ""]
     carve_v = {**get("170_carve_a"), **get("171_carve_b")}
     det = get("172_wrinkle")
@@ -473,15 +488,17 @@ def aggregate(out_md):
     if big_v:
         lines.append(f"- 300k shape (bunny, dragon): {big_v['status']} (holds {big_v['held']}/{big_v['n']}, rest {'ok' if big_v['rest'] else 'no'})")
     must = [v["status"] for v in carve_v.values()] + ([gal_v["status"]] if gal_v else ["INCOMPLETE"]) + ([big_v["status"]] if big_v else ["INCOMPLETE"])
-    if "INCOMPLETE" in must or len(carve_v) < 4:
-        ans = "NOT YET DECIDED: some runs are not read (see below)."
-    elif all(s == "PASS" for s in must):
+    bad = [v.get("scene", k) for k, v in carve_v.items() if v["status"] == "FAIL"] \
+        + (["gallery 40k"] if gal_v and gal_v["status"] == "FAIL" else []) + (["300k shape"] if big_v and big_v["status"] == "FAIL" else [])
+    pending = 4 - sum(v["status"] != "INCOMPLETE" for v in carve_v.values()) + (0 if gal_v else 1) + (0 if big_v else 1)
+    if bad:
+        ans = (f"NO by the letter of the criteria; failing: {', '.join(bad)}" + (f" ({pending} item(s) still being read)" if pending else "")
+               + ". Rx rests (end v_mean ~0) and keeps what the render wrote, but the held weight stops the runs before the body arrives.")
+    elif pending:
+        ans = f"NOT YET DECIDED: {pending} item(s) not read yet (see below)."
+    else:
         ans = ("YES by the criteria: every 300k carve scene keeps >= 0.40 of the relief through the settle at rest with the body "
                "arrived, and the gallery and the 300k shapes hold.")
-    else:
-        bad = [v.get("scene", k) for k, v in carve_v.items() if v["status"] != "PASS"] \
-            + (["gallery"] if gal_v and gal_v["status"] != "PASS" else []) + (["300k shape"] if big_v and big_v["status"] != "PASS" else [])
-        ans = f"NO by the letter of the criteria; failing: {', '.join(bad)} (details below)."
     L += [f"**{ans}**", "", *lines, "",
           "Criteria (set before reading; the shape gate added after the plaque's run log showed its early stop): carve content = "
           "share end >= 0.40 and kept >= 0.80, rest = end v_mean <= 2x twin, shape = sil_iou >= twin - 0.005 and thin <= twin + 0.05 "

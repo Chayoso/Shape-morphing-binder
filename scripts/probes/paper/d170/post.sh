@@ -157,6 +157,10 @@ if [ "$MODE" = carve_a ]; then
     log "plaque ${st:-unread}: the 500k stamp redux not armed"
   fi
 fi
+if [ "$MODE" = band300 ] && [ "$(awk '$1 == "band" {print $2}' $D/post_list.txt)" = PASS ]; then
+  cp $W/182_d170_band_video.sh $Q/182_d170_band_video.sh.tmp && mv $Q/182_d170_band_video.sh.tmp $Q/182_d170_band_video.sh
+  log "band PASS: the colour video queued (job 182)"
+fi
 if [ "$MODE" = gal ]; then
   setsid nohup bash $W/d157_gal.sh > $O/auto/d157_gal.out 2>&1 < /dev/null &
   log "D157 gallery reader started (pid $!)"
