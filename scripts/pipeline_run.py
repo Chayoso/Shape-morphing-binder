@@ -65,6 +65,9 @@ def parse_args(argv=None):
                     help="D166 A/B: u in the settle windows; zero (the default, D162h) or last = the last committed u held")
     ap.add_argument("--settle_relax", action=argparse.BooleanOptionalAction, default=True,
                     help="D166 A/B: the outer-layer relaxation in the settle windows (default on, D162h)")
+    ap.add_argument("--layer_relax", action=argparse.BooleanOptionalAction, default=True,
+                    help="D170 A/B: the outer-layer relaxation in every window (default on, the frozen path); "
+                         "--no-layer_relax = its fraction 0 throughout (u and everything else unchanged)")
     ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
                     help="D162 (2) A/B (off by default): the placement terms read the body at the loss cell (the "
                          "proximity covers within one loss cell, the near band's band is empty, the spray gate in loss cells)")
@@ -294,7 +297,7 @@ def run_config(args, cfg0, prep):
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth,
                               render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell, settle_windows=args.settle_windows,
-                              settle_u=args.settle_u, settle_relax=args.settle_relax,
+                              settle_u=args.settle_u, settle_relax=args.settle_relax, layer_relax=args.layer_relax,
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,

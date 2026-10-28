@@ -56,7 +56,8 @@ class Window:
         # the relaxation's reference: its own operator on the layer's feet on the target's surface (target.relief)
         with timed("layer_relief"):
             ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw)
-        relax = 0.0 if cfg.baseline.startswith("xu") else 1.0 / float(cfg.T)   # the baseline has no relaxation
+        # the baseline has no relaxation; D170 (layer_relax off): none in any window either
+        relax = 0.0 if cfg.baseline.startswith("xu") or not cfg.layer_relax else 1.0 / float(cfg.T)
         # D146 (relax_driven): the relaxation's steps are the driven ones, as u's; off, all 2T steps (the frozen path)
         layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, ref,          # the u gate is set by the objective
                  cfg.T if cfg.relax_driven else None)
