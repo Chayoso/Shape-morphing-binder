@@ -119,6 +119,9 @@ def carve(job, D):
         r, t = run_rec(str(sc["full"])), run_rec(str(sc["twin"]))
         out = D / f"read_{k}.json"
         if r is not None and t is not None and not out.exists():
+            wp = os.environ.get("D170_WAIT_PID")        # the big relief reads (~95 GB each) one at a time on hyde06
+            while wp and sc["relief"].stat().st_size > 5e8 and Path(f"/proc/{wp}").exists():
+                time.sleep(30)
             spec = D / f"scene_{k}.json"
             if sc["reader"] == "d161":
                 json.dump(dict(scene=f"{k}300k_d170", N=300000, smooth=str(sc["smooth"]), relief=str(sc["relief"]),
@@ -138,16 +141,16 @@ def carve(job, D):
         refs = [x["relief"]["A"] for kk, x in rd["refs"].items() if kk.startswith("relief_s") and kk.endswith("97")]
         cA = float(np.mean(refs))
         dref = rd["refs"].get("relief_s197", {}).get("display", {}).get("A")
-        ser = rd["runs"][fl]["series"]
+        ser = [q for q in rd["runs"][fl]["series"] if q["relief"].get("A") is not None]   # a frame with < 50 points in the region reads None
         raws = [q["raw"] for q in ser]
         vals = [q["relief"]["A"] / cA for q in ser]
         s_stop, _ = sample_at(raws, vals, r["stop_fe"] - 1)
         s_end = vals[-1] if raws[-1] == r["deliver_n"] - 1 else None
         kept = s_end / s_stop if s_stop and s_end is not None and s_stop > 0.05 else None
-        tw_end = rd["runs"][tw]["series"][-1]["relief"]["A"] / cA
+        tw_end = [q for q in rd["runs"][tw]["series"] if q["relief"].get("A") is not None][-1]["relief"]["A"] / cA
         en = rd["runs"][fl]["end"]
         corr = en["relief"]["corr"]
-        dsh = en["display"]["A"] / dref if dref else None
+        dsh = en["display"]["A"] / dref if dref and en["display"].get("A") is not None else None
         p10 = en["pieces"]["pieces_ge10"]
         ratio = vx(r, t)
         content = bool(s_end is not None and s_end >= SHARE and kept is not None and kept >= KEEP)
@@ -208,8 +211,8 @@ def detail(job, D):
             fA = float(rd["refs"][f"smooth_s2{s}"]["relief"]["A"])
 
             def series(lab):
-                ser = rd["runs"][lab]["series"]
-                return [q["raw"] for q in ser], [((q["relief"]["A"] or 0.0) - fA) / (cA - fA) for q in ser], ser
+                ser = [q for q in rd["runs"][lab]["series"] if q["relief"].get("A") is not None]
+                return [q["raw"] for q in ser], [(q["relief"]["A"] - fA) / (cA - fA) for q in ser], ser
 
             t = recs[f"T_{s}"]
             tw_end = series(f"T_{s}")[1][-1]

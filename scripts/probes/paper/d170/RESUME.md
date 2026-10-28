@@ -27,6 +27,18 @@ the reject-stop diagnostic, R0 / H0, the combined carve + colour note, then ever
   relaxation's target relief (bunny share 1.33, dragon 2.99 of a random sample); Rx adds nothing on the bunny (1.30) and +0.40
   on the dragon at a shape cost (thin 0.131 vs 0.036).
 
+## Read 17:45-18:00
+- Reject-stop diagnostic (job 179, Rx + --reject_stop 0): gallery 40k seed 97 still FAIL 1/6 (dragon sil -0.013, armadillo
+  -0.019, thin +0.05..+0.11): the early stop is part of the shape loss, not all of it; the 300k plaque then stops by patience at
+  window 24 (thin 0.224 vs the twin's 0.032), share 0.59 kept 0.99. The held weight itself keeps the body from arriving.
+- Plaque 300k Rx (interim, from read_plq.json): share 0.70 at the stop -> 0.66 at rest (kept 0.94), twin -0.04, corr 0.35,
+  display 0.72; shape FAIL (stop at window 21, 3.5 s; thin 0.365).
+- Band 300k (job 176): PASS, colour r 0.92 at the stop and the end (kept 1.00), 0.01x twin rest, shape = twin's. Its video is job
+  182 (tmp/d170/d170_studio.py: D160's renderer with each StudioRaster tile flipped back; twin | full | paint).
+- carve_b's first summary crashed after the coin read (a frame with < 50 region points reads None); fixed in d170_read.py and
+  re-run by tmp/d170/rerun_carve.sh (also re-reads carve_a from its cached reads if its old-code reader ends without a VERDICT).
+- dsm300k_H0mr15_97 died of CUDA OOM beside H0m (job 181); requeued alone as job 183; the dragon300 reader waits for 180/181/183.
+
 ## Running / queued (tmp/gpu1_queue; card_runner_n.sh on cards 0 / 1 / 3, PIDs tmp/d170/runner_card*.pid; never gpu2)
 - 178 R0 / H0 (repo_d170) on coin / bunny / band 40k + R0 gallery 97 -> auto/178_r0h0. 179 reject-stop diagnostic -> auto/179a,
   179b. 180 / 181 dragon 300k -> auto/177_dragon300.
