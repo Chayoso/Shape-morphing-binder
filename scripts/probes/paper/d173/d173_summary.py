@@ -152,7 +152,7 @@ def main(out_md):
           "neither (1) nor (3) are the render's alone. (4) at seed 97: Hu with u off (--u_off), the render reaching dF_c alone at the "
           "rule's weight: how much of the relief the stress increment writes on its own. Every table gives the render's share of "
           "each block's step (u, and dF_c after PCGrad with the weight as applied) at the start, the arrival and the stop.", ""]
-    L += part(("attr97", "attr97_uoff", "attr99"))
+    L += part(("attr97", "attr97_uoff", "attr97eq", "attr99"))
     # 5. option C: the dragon's own scales, magnified
     L += ["## 5. Option C: the dragon's OWN scales, magnified K times (Hu, 300k, three arms)", "",
           "Construction (tmp/d173/d173_magscale.py, CPU): (1) the real relief H = the detailed Stanford dragon's signed offset from "
@@ -209,7 +209,7 @@ def main(out_md):
           "(0.02-0.03 on the outer layer; a 2 x 2 checker read -0.02 / 0.05-0.10), so the stripes the full arm shows are the "
           "render's.", ""]
     L += part(("strp40", "strp300"))
-    done = {"tex40", "tex300", "cmb300", "attr97", "attr99", "magC97", "magC99", "tex40n", "tex300n", "tex40t", "tex300t",
+    done = {"tex40", "tex300", "cmb300", "attr97", "attr97eq", "attr99", "magC97", "magC99", "tex40n", "tex300n", "tex40t", "tex300t",
             "strp40", "strp300", "band300s99"}
     for p in sorted(glob.glob(str(O / "auto/*/summary.md"))):
         if Path(p).parent.name not in done:

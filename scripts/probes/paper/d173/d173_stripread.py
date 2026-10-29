@@ -95,7 +95,7 @@ def main():
             if c is not None and tw is not None and arm != "T":
                 rr = (tw["end"]["mis"] - c["end"]["mis"]) / max(tw["end"]["mis"] - c["floor"], 1e-12)
             e = edge.get(name(arm), {})
-            ew = lambda k: R7.fmt((e.get(k) or {}).get("logistic"), ".2f")     # noqa: E731
+            ew = lambda k: (lambda w: "no edge" if w is not None and w > 50 else R7.fmt(w, ".2f"))((e.get(k) or {}).get("logistic"))  # noqa: E731
             sh = SH.block_shares(str(RUNS / name(arm)) + ".json", twin=(arm == "T"))
             ratio = R7.vx(r, t)
             V[f"{arm}_{s}"] = dict(m, colour_r=rr, mis=None if c is None else c["end"]["mis"], kappa=kap, vx=ratio,
@@ -123,7 +123,7 @@ def main():
             shape_ok = v["sil"][0] >= v["sil"][1] - sg[0] and v["thin"][0] <= v["thin"][1] + sg[1]
             parts.append(f"{arm} s{s}: r {R7.fmt(v['colour_r'], '.2f')}, kappa {v['kappa']:.2f} (twin {t['kappa']:.2f}), PSNR "
                          f"{v['kernel']['psnr'] - t['kernel']['psnr']:+.2f} dB over the twin ({ceil[s]['kernel']['psnr'] - v['kernel']['psnr']:.2f} "
-                         f"below the ceiling), particle edge {R7.fmt(v['edge']['particles'], '.2f')} pitches, rest "
+                         f"below the ceiling), particle edge {('none' if (v['edge']['particles'] or 0) > 50 else R7.fmt(v['edge']['particles'], '.2f'))} pitches, rest "
                          f"{R7.fmt(v['vx'], '.2f')}x, shape {'held' if shape_ok else 'NOT held'}")
     verdict = "; ".join(parts)
     L = [f"# D173: the stripes scene at {N // 1000}k (three vertical stripes in the front view, the middle red; the source's "
@@ -132,7 +132,7 @@ def main():
          "scene's twins before any run), so whatever stripes the full arm shows the render laid. Colour r = (twin mis - mis) "
          "/ (twin mis - floor), D160's layout reading (1 = the floor of an independent sample, 0 = the twin). PSNR over the "
          "covered pixels, SSIM over the RGB image, mean of the 46 held-out views at the run's resolution. Edge widths: the "
-         "logistic 10-90 % rise across each stripe edge, the mean of the two, pitches. " + SH.NOTE, "", "VERDICT: " + verdict]
+         "logistic 10-90 % rise across each stripe edge, the mean of the two, pitches (no edge: the fit finds no rise within 50 pitches, the twin's layout). " + SH.NOTE, "", "VERDICT: " + verdict]
     (D / "summary.md").write_text("\n".join(L) + "\n")
     json.dump(dict(arms=V, ceiling=ceil, verdict=verdict), open(D / "verdict.json", "w"), indent=1, default=float)
     print("VERDICT: " + verdict, flush=True)

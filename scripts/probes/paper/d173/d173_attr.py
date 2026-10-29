@@ -41,7 +41,8 @@ for lab in [k for k in (f"T_{s}", f"Hs_{s}", f"Hm_{s}", f"Hu0_{s}") if k in runs
     en, ce = vals[-1], cors[-1]
     kept = en / st if st and st > 0.05 else None
     sh = SH.block_shares(runs[lab] + ".json", twin=lab.startswith("T_"))
-    nz = [h.get("u_render_nonzero") for h in SH.opt_windows(runs[lab] + ".json") if h.get("u_render_nonzero") is not None]
+    nz = [] if lab.startswith("T_") else [h.get("u_render_nonzero") for h in SH.opt_windows(runs[lab] + ".json")
+                                          if h.get("u_render_nonzero") is not None]   # the twin: lambda = 0, none acts
     ratio = R7.vx(r, t)
     V[lab] = dict(share_stop=st, share_end=en, kept=kept, corr_stop=cs, corr_end=ce, shares=sh,
                   u_nonzero=float(np.mean(nz)) if nz else None, vx=ratio, sil=(r["sil"], t["sil"]), thin=(r["thin"], t["thin"]),
