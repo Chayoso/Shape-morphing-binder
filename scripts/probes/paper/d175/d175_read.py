@@ -42,8 +42,8 @@ def held_views():
 class Ctx:
     """A seed's final pack, its pictures and the keyframe's."""
 
-    def __init__(self, seed, tgt_path, kf_path):
-        args = parse_args(["--tgt", tgt_path, "--n", "40000", "--seed", str(seed), *HU])
+    def __init__(self, seed, tgt_path, kf_path, src_path="assets/isosphere.obj", n=40000):
+        args = parse_args(["--src", src_path, "--tgt", tgt_path, "--n", str(n), "--seed", str(seed), *HU])
         cfg0, prep = prepared(args, seed)
         self.cfg = cfg = run_config(args, cfg0, prep)
         self.final = f = build_target(prep.tgt, prep.prm, cfg, draws=prep.tgt_draws, render_x=prep.render_x)
@@ -131,7 +131,7 @@ def read_run(ctx, prefix):
     r = dict(kf_run=iou(ctx.alpha(x_k, ctx.final.views), ctx.P_run), kf_held=iou(ctx.alpha(x_k, ctx.held), ctx.P_held),
              kf_3d=iou3(ctx.occ(x_k), ctx.occ(ctx.kf_eval)))
     r["curve"] = [[int(raws[i]), round(iou(ctx.alpha(fr[i], ctx.final.views), ctx.P_run), 4)]
-                  for i in range(len(raws)) if 160 <= raws[i] <= 320]
+                  for i in range(len(raws)) if T_K - 80 <= raws[i] <= T_K + 80]
     end = fr[-1]
     r.update(fsil_ind=iou(ctx.alpha(end, ctx.final.views), ctx.F_ind), fsil_run=iou(ctx.alpha(end, ctx.final.views), ctx.F_run),
              chamfer=m["chamfer"], thin=m["thin_uncovered"], sil_iou_json=m["sil_iou"])
@@ -164,15 +164,24 @@ def main():
     ap.add_argument("rundir")
     ap.add_argument("assets")
     ap.add_argument("--tgt", default="assets/bunny.obj")
+    ap.add_argument("--src", default="assets/isosphere.obj")
+    ap.add_argument("--n", type=int, default=40000)
+    ap.add_argument("--runs", default="", help="e.g. S97,T97 (default: the pre-registered six)")
+    ap.add_argument("--kf", default="kf_s{seed}.npz")
+    ap.add_argument("--prefix", default="", help="run name prefix in RUNDIR, e.g. show_")
+    ap.add_argument("--t_k", type=int, default=240, help="the keyframe's frame")
     ap.add_argument("--title", default="D175: picture keyframe E (sphere stretched 1.3x in y at t = 1 s), sphere -> bunny 40k")
     ap.add_argument("--summary", default="")
     a = ap.parse_args()
+    global T_K
+    T_K = a.t_k
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    ctx = {s: Ctx(s, a.tgt, f"{a.assets}/kf_s{s}.npz") for s in (97, 99)}
+    runs = [(r[0], int(r[1:])) for r in a.runs.split(",")] if a.runs else RUNS
+    ctx = {s: Ctx(s, a.tgt, f"{a.assets}/{a.kf.format(seed=s)}", a.src, a.n) for s in sorted({s for _, s in runs})}
     R = {}
-    for arm, s in RUNS:
-        p = f"{a.rundir}/{arm}_{s}"
+    for arm, s in runs:
+        p = f"{a.rundir}/{a.prefix}{arm}_{s}"
         try:
             R[f"{arm}{s}"] = read_run(ctx[s], p)
         except (OSError, KeyError, StopIteration, IndexError, ValueError) as e:
