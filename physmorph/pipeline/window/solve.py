@@ -274,7 +274,9 @@ class WindowOptimizer:
         """The render gradient's weight on each leaf ([dFc or the force, u]). D172 (render_split): the run's weight (held
         under --lambda_ema 0) on one block, the rule's per-window value on the other; off, the run's weight on both."""
         split = getattr(self.cfg, "render_split", "")
-        if not split:
+        if not split or getattr(self.tgt, "keyframe", None) is not None:
+            # D175: in a keyframe's segment the held weight on both blocks (the rule's value there reads the soundness
+            # terms alone and is near zero; the pose change needs the render's authority on dFc)
             return [self.lam_r] * len(self.leaves)
         if split == "u_rule":                         # Hu_r: the run is on the rule (its merit too); u takes its first value
             return [self.lam_r, self.lam_held]
@@ -469,8 +471,8 @@ class WindowOptimizer:
         same_point = bool(cfg.replay_calibrate)
         for it in range(cfg.iters):
             self._it = it
-            if self.tgt.grid_ot is not None:
-                self.tgt.grid_ot.repeat = same_point
+            if self.tgt.grid_ot is not None:     # (D175: a keyframe's segment solves no transport to repeat)
+                self.tgt.grid_ot.repeat = same_point and getattr(self.tgt, "geometry", True)
             if self.force is not None and self.tgt.force_ratio is None and it == 0:
                 self._zd = torch.zeros_like(self.dFc, requires_grad=True)     # B13: the run's first gradient
             with timed("grad_fwd"):

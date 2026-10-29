@@ -88,6 +88,9 @@ class TargetPack:
     render_b_floor: float | None = None  #   the floor sample read the same way, once a run
     render_lp: float | None = None      # D162d: the pitch-low-passed render term at the current window's start
     render_lp_floor: float | None = None  #   the floor sample read the same way, once a run
+    geometry: bool = True               # D175: the final target's geometry (transport, proximity) and cleanup are read;
+                                        #   False in a keyframe's segment (only the released motion and the end drift)
+    keyframe: int | None = None         # D175: the keyframe whose segment the window serves (None: the final target)
 
 
 def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
@@ -130,6 +133,29 @@ def shell_pictures(mesh, lattice, h, pitch, radius, refs, views, extent, cfg, si
           f"closed, watertight {info['watertight']}; {info['discs']} discs; its pictures against the samples' (mean "
           f"square): silhouette {msq(sils, sils0):.3e}, shading {msq(shade, shade0):.3e}", flush=True)
     return sils, shade
+
+
+def sample_pictures(s, cfg, pitch, radius, offset, lattice, h, views, extent, alb=None, b_ref=None):
+    """One sample's exterior pictures (build_target's operators): the field at the pitch, its discs on the lattice, and
+    the silhouettes and shading drawn from them (albedo: the discs' colours, D160). Returns (discs, their colours or
+    None, (silhouettes, shading))."""
+    with torch.no_grad():
+        fld = make_field(cfg.exterior_field, s, pitch, radius=radius, offset=offset,
+                         device_field=cfg.exterior_field == "zbs")
+        p_t, g_t, _, _ = lattice.discs(fld, h, refine=False)
+        c_t = None if alb is None else found_disc_albedo(fld, p_t, alb, b_ref, pitch)
+    return p_t, c_t, exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
+                                      extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t)
+
+
+def keyframe_pictures(final: TargetPack, samples, cfg: PipelineConfig, views=None):
+    """D175: a keyframe's pictures, the mean over its samples of what the final pictures' exterior operators draw (the
+    final pack's pitch, kernel, lattice and camera box; views default to the run's). Returns (silhouettes, shading)."""
+    e = final.ext
+    per = [sample_pictures(gpu.tensor(np.asarray(s, np.float32)), cfg, e.pitch, e.radius, e.offset, e.lattice, e.h,
+                           final.views if views is None else views, final.extent)[2] for s in samples]
+    return ([torch.stack(v).mean(0) for v in zip(*[p[0] for p in per])],
+            [torch.stack(v).mean(0) for v in zip(*[p[1] for p in per])])
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh=None, appearance=None,
@@ -219,15 +245,11 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
             if len(t_alb) != len(samples) or b_alb.shape != (N, t_alb[0].shape[1]):
                 raise ValueError("appearance: one albedo per body particle and per point of every target sample")
         for i, s in enumerate(samples):
-            with torch.no_grad():
-                fld = make_field(cfg.exterior_field, s, pitch, radius=radius, offset=offset,
-                                 device_field=cfg.exterior_field == "zbs")
-                p_t, g_t, _, _ = lattice.discs(fld, h, refine=False)
-                c_t = None if appearance is None else found_disc_albedo(fld, p_t, t_alb[i], b_ref, pitch)
+            p_t, c_t, pics = sample_pictures(s, cfg, pitch, radius, offset, lattice, h, views, extent,
+                                             None if appearance is None else t_alb[i], b_ref)
             if cfg.render_target == "mesh_shell":
                 refs.append(p_t)
-            per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
-                                        extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t))
+            per.append(pics)
         e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
         ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset, cfg.exterior_field,
                        albedo=b_alb, albedo_ref=b_ref)

@@ -184,7 +184,10 @@ class Objective:
             return d_vol_xu(xT, t.m * cfg.xu_mass, *t.xu, **cfg.xu_kw()), lk, zero, zero, zero.detach(), zero
         lstab = self.stability(V)
         with timed("geom"):
-            lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
+            if getattr(t, "geometry", True):
+                lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
+            else:                                     # D175: a keyframe's segment, the end drift alone (target-free)
+                lv = t.ot_scale * end_drift(vT, self.horizon)
         with timed("render"):
             lsil, lpbr = self.render_terms(xT)
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
@@ -252,6 +255,8 @@ class Objective:
         the window's start. Until R13 this form summed the distance over EVERY particle, a dense body-to-target
         distance that made up two fifths of the merit (R12f); it is a different quantity from the spray cleanup."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
+        if not getattr(t, "geometry", True):          # D175: a keyframe's segment, no pull to the final target
+            return xT.sum() * 0.0
         if self.xu:                                   # the baseline: no cleanup, or the spray cleanup alone
             if not self.spray_only:
                 return xT.sum() * 0.0
