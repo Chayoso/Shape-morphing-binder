@@ -397,10 +397,20 @@ def disc_albedo(w, a, ref):
     return ref + (w[..., None] * (a - ref)).sum(1) / w.sum(1).clamp_min(1e-12)[:, None]
 
 
-def found_disc_albedo(field, pts, albedo, ref, skin):
+def nearest_weights(u, valid, tau):
+    """D173 (colour "nearest"): a disc's colour weights over its particle list, a softmax of -|q - x_j|^2 / tau^2: the
+    nearest particle's colour as tau -> 0 (the display's identity colour), differentiable in the positions of the
+    particles that compete to be nearest (the gradient reaches exactly those, not the 3-pitch neighbourhood)."""
+    d2 = u.square().sum(-1)
+    logits = (-d2 / (tau * tau)).masked_fill(~valid, float("-inf"))
+    w = torch.softmax(logits, dim=1)
+    return torch.nan_to_num(w, nan=0.0) * valid
+
+
+def found_disc_albedo(field, pts, albedo, ref, skin, colour="kernel", tau=None):
     """D160: the albedo of discs found on a Zhu–Bridson field (zb or zbs) at the points `pts`, from the field's
     particles' albedos (N, C): each disc's particles within the radius plus `skin` (Tracked's lists), weighted by the
-    kernel at the disc. No gradient (the target's discs)."""
+    kernel at the disc. No gradient (the target's discs). D173 (colour "nearest"): weighted by nearest_weights (tau)."""
     if isinstance(field, Anisotropic):
         raise NotImplementedError("D160's disc albedo reads the Zhu-Bridson kernel (zb, zbs)")
     with torch.no_grad():
@@ -408,7 +418,10 @@ def found_disc_albedo(field, pts, albedo, ref, skin):
         valid = idx >= 0
         p = field.x.index_select(0, idx.clamp_min(0).reshape(-1)).view(*idx.shape, 3)
         R = field.radius
-        w = (1. - (pts[:, None, :] - p).square().sum(-1) / (R * R)).clamp_min(0.) ** 3 * valid
+        if colour == "nearest":
+            w = nearest_weights(pts[:, None, :] - p, valid, tau)
+        else:
+            w = (1. - (pts[:, None, :] - p).square().sum(-1) / (R * R)).clamp_min(0.) ** 3 * valid
         a = albedo.index_select(0, idx.clamp_min(0).reshape(-1)).view(*idx.shape, albedo.shape[1])
         return disc_albedo(w, a, ref)
 
@@ -421,11 +434,12 @@ class Tracked:
     D160: given the particles' albedos, read also returns each disc's albedo (disc_albedo, the weights of its centre),
     a function of the particles' positions too."""
 
-    def __init__(self, field, lattice, h, skin):
+    def __init__(self, field, lattice, h, skin, colour="kernel", tau=None):
         pts, g, _, _ = lattice.discs(field, h, refine=False)
         self.p0, self.n0, self.slope = pts, nnf.normalize(g, dim=1), g.norm(dim=1).clamp_min(1e-6)
         self.idx = field.neighbours(pts, skin)
         self.radius, self.offset, self.h = field.radius, field.offset, h
+        self.colour, self.tau = colour, tau            # D173: the discs' colour weights ("kernel" = D160's, "nearest")
 
     def read(self, x, albedo=None, ref=None):
         """(points, unit normals, displacement along n0) of the discs at the particles x; with the particles'
@@ -447,9 +461,11 @@ class Tracked:
         move = -(dist - self.offset) / self.slope
         if albedo is None:
             return p0 + move[:, None] * self.n0, normal, move
-        return p0 + move[:, None] * self.n0, normal, move, self._albedo(w, albedo, ref)
+        return p0 + move[:, None] * self.n0, normal, move, self._albedo(w, albedo, ref, u, valid)
 
-    def _albedo(self, w, albedo, ref):
+    def _albedo(self, w, albedo, ref, u=None, valid=None):
+        if self.colour == "nearest":                   # D173: the nearest particle's colour, made differentiable
+            w = nearest_weights(u, valid, self.tau)
         a = albedo.index_select(0, self.idx.clamp_min(0).reshape(-1)).view(*self.idx.shape, albedo.shape[1])
         return disc_albedo(w, a, ref)
 
@@ -460,8 +476,8 @@ class TrackedAniso(Tracked):
     are) and the field and its gradient at the disc, so a loss on the discs reaches the particles through the centres
     and the covariances alike."""
 
-    def __init__(self, field, lattice, h, skin):
-        super().__init__(field, lattice, h, skin)
+    def __init__(self, field, lattice, h, skin, colour="kernel", tau=None):
+        super().__init__(field, lattice, h, skin, colour, tau)
         self.rows, self.loc = torch.unique(self.idx.clamp_min(0), return_inverse=True)
         self.links = field.links.index_select(0, self.rows)
         self.pitch, self.level, self.scale = field.pitch, field.level, field.scale
@@ -487,8 +503,8 @@ class TrackedSolenthaler(Tracked):
     its gradient term from the state it was found at (EVmax is a third derivative of the weights; within a window the
     disc moves with the centre and its distance, as Zhu and Bridson's do, and a new search takes the new f)."""
 
-    def __init__(self, field, lattice, h, skin):
-        super().__init__(field, lattice, h, skin)
+    def __init__(self, field, lattice, h, skin, colour="kernel", tau=None):
+        super().__init__(field, lattice, h, skin, colour, tau)
         ev, gev = field.ev_grad(self.p0)
         f, df = sol_factor(ev, field.t_low, field.t_high)
         self.f0 = f.to(self.p0.dtype)
@@ -514,16 +530,16 @@ class TrackedSolenthaler(Tracked):
         move = -(dist - self.offset * self.f0) / self.slope
         if albedo is None:
             return p0 + move[:, None] * self.n0, normal, move
-        return p0 + move[:, None] * self.n0, normal, move, self._albedo(w, albedo, ref)
+        return p0 + move[:, None] * self.n0, normal, move, self._albedo(w, albedo, ref, u, valid)
 
 
-def tracked(field, lattice, h, skin):
+def tracked(field, lattice, h, skin, colour="kernel", tau=None):
     """Tracked discs of any of the fields."""
     if isinstance(field, Anisotropic):
-        return TrackedAniso(field, lattice, h, skin)
+        return TrackedAniso(field, lattice, h, skin, colour, tau)
     if isinstance(field, ZhuBridsonSolenthaler):
-        return TrackedSolenthaler(field, lattice, h, skin)
-    return Tracked(field, lattice, h, skin)
+        return TrackedSolenthaler(field, lattice, h, skin, colour, tau)
+    return Tracked(field, lattice, h, skin, colour, tau)
 
 
 class Lattice:
