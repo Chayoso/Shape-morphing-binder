@@ -11,14 +11,12 @@ stop=$($PY -c "import json; a=next(iter(json.load(open('$F.json'))['arms'].value
 log "start: sheet + video (stop raw $stop, t_k frame $FK)"
 nice -n 10 $PY $W/d175_video.py sheet $DL/keyframe_sheet.png $A/kf_P300.npz ${T}_frames12.npz ${F}_frames12.npz $FK > $DL/sheet.log 2>&1
 log "sheet exit $?"
-nice -n 10 $PY $W/d175_video.py sbs $DL/frames $A/kf_P300.npz ${T}_frames12.npz ${F}_frames12.npz $FK $stop 3840 2160 0.0 0.18 160 24 > $DL/sbs.log 2>&1
+nice -n 10 $PY $W/d175_video.py sbs $DL/frames $A/kf_P300.npz ${T}_frames12.npz ${F}_frames12.npz $FK $stop 1920 1080 0.0 0.18 160 24 > $DL/sbs.log 2>&1
 log "frames exit $?"
-ffmpeg -loglevel error -y -framerate 20 -i $DL/frames/f%05d.jpg -c:v libx264 -crf 18 -pix_fmt yuv420p $DL/show300k_twin_full_4k.mp4 < /dev/null
-ffmpeg -loglevel error -y -framerate 20 -i $DL/frames/f%05d.jpg -vf scale=1920:1080:flags=lanczos -c:v libx264 -crf 18 \
-  -pix_fmt yuv420p $DL/show300k_twin_full_1080p.mp4 < /dev/null
-if [ -s $DL/show300k_twin_full_4k.mp4 ] && [ -s $DL/show300k_twin_full_1080p.mp4 ]; then
+ffmpeg -loglevel error -y -framerate 20 -i $DL/frames/f%05d.jpg -c:v libx264 -crf 18 -pix_fmt yuv420p $DL/show300k_twin_full_1080p.mp4 < /dev/null
+if [ -s $DL/show300k_twin_full_1080p.mp4 ]; then
   mkdir -p $DL/stills; for f in $(ls $DL/frames | awk 'NR % 40 == 1'); do cp $DL/frames/$f $DL/stills/; done
   sz=$(du -sm $DL/frames | cut -f1); rm -rf $DL/frames
-  echo "$(date '+%Y-%m-%d %H:%M') D175: removed $DL/frames ($sz MB; the showcase video's frames, both videos and stills written)" >> $G/cleanup.log
+  echo "$(date '+%Y-%m-%d %H:%M') D175: removed $DL/frames ($sz MB; the showcase video's frames, the video and stills written)" >> $G/cleanup.log
 fi
 log "video done"

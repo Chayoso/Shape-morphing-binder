@@ -5,7 +5,7 @@
 # render loss (full) and dF_c + layer u (twin), both reading the same storyboard. Then the reader (KF-IoU at t_k, the final
 # shape, rest) and the deliverables in output/gpu/d175/deliver/show300: the sheet (the keyframe | twin | full at t_k)
 # and the twin | full video (4k + 1080p).
-J=209_show300; TITLE="D175 showcase: bunny -> tall bunny (pose keyframe) -> dragon, 300k"
+J=201_show300; TITLE="D175 showcase: bunny -> tall bunny (pose keyframe) -> dragon, 300k"
 source /data/relcfd/chayo/physmorph_v2/tmp/d175/job_common.sh
 TK=${TK:-1.0}; FK=$(awk "BEGIN{print int($TK * 240 + 0.5)}")
 SC="--src assets/bunny.obj --tgt assets/dragon.obj --n 300000 --seed 97"
