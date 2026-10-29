@@ -46,3 +46,12 @@ Read ONE file first: output/gpu/D174_SUMMARY.md (profile table, each speed-up wi
 - Never pkill / pgrep -f; never gpu2.
 - Process note: once in this session a local python3 was used to substitute text in this summary's draft (no project code
   was run locally); not repeated.
+
+## Stop A/B (2026-10-29 12:20-14:10 CDT, user decision: a <= 10 min 300k dragon through the existing stop rule)
+- Arms = repo_d174 copies with only PipelineConfig.tol changed: repo_d174t10 / t07 / t06 / t05 (Ht10 / Ht07 / Ht06 / Ht05).
+  Runs output/gpu/d174/runs/{dragon,bunny,scl,plq}300k_HtNN_97, {coin,bunny,band}_HtNN_{97,99}, gal_*_HtNN_97.
+- Readings: tmp/d174/d174_read2.py (fast readers) via d174_after4.sh (finished) -> output/gpu/d174/auto/st_*,
+  output/gpu/d174/STOP_SUMMARY.md; the trade table and the definition-change proposal in D174_SUMMARY.md section 5.
+- tmp/d174/d174_stop.py replays the stop rule for other tolerances on recorded runs (no anneal feedback).
+- Withdrawn before they ran (redundant once Ht07 stopped like Ht10): tmp/d174/*07.sh.withdrawn, the t10 gate.
+- Nothing committed as a default; the stop-tolerance definition change awaits the user.

@@ -149,3 +149,39 @@ target: ~2.2-2.5 h on one card. No run above 500k was launched.
 - output/gpu/d174/runs: P_* (profile runs), T_* (timing), M_* (memory probes), the A/B runs (D172's names, arms Hu2 / Hu4)
 - output/gpu/d174/auto: cut_*.md, mem_*.json/log, ab_*; output/gpu/d174/gates: e1, e2, ab, m1 (+ d300_cmp.txt)
 - tmp/d174: the tools and RESUME.md
+
+## 5. The 10-minute dragon through the existing stop rule (user decision 2026-10-29: +1.8 pt thin and a small shape loss accepted, no render-content loss)
+
+The only existing stop parameters are PipelineConfig.tol (a window improves when its merit is below best - tol |best|,
+run/selection.py:65 and :115) and patience (5 stale windows, :118 / :121; the plateau :41). Arms on repo_d174 copies
+with only tol changed (repo_d174t10 / t07 / t06 / t05; flag-free), Hu's flags, seed 97; read with the fast readers
+(tmp/d174/d174_read2.py; output/gpu/d174/STOP_SUMMARY.md, auto/st_*).
+
+| tol | dragon 300k solo: wall, attempts | dragon sil_iou / chamfer / thin | bunny 300k: wall, thin | scales share (>= 0.40; Hu 0.94) | plaque share / kept | relief min (coin, bunny) | gallery 40k s97 |
+|---|---|---|---|---|---|---|---|
+| 0.003 (Hu) | 16.1 min, 108 | 0.9870 / 0.0547 / 4.7 % | 6.2 min, 3.3 % | 0.94 | 0.63 / 1.00 | 0.45 | 6/6 |
+| 0.05 | 11.2 min, 68 | 0.9869 / 0.0552 / 5.7 % (+1.0 pt) | 5.0 min, 4.2 % | 0.75 | 0.63 / 1.03 | 0.50 | 6/6 |
+| 0.06 | 8.7 min, 46 | 0.9850 / 0.0560 / 7.0 % (+2.3 pt) | - | - | - | - | - |
+| 0.07 | 7.7 min, 39 | 0.9854 / 0.0563 / 7.1 % (+2.4 pt) | - | 0.68 | 0.64 / 1.01 | - | - |
+| 0.10 | 7.5 min, 37 | 0.9848 / 0.0563 / 6.9 % (+2.2 pt) | 4.6 min, 4.6 % | 0.60 | 0.64 / 1.03 | 0.50 | 5/6 (dragon chamfer +0.0025) |
+
+Every arm is at rest (G3, end v_mean as Hu's); the band's colour stays at Hu's 0.07 (Hu does not carry colour).
+
+Why no value lands at ~window 55: tol is not a stop parameter alone. The same `improved` flag sets the step anneal
+(selection.py:119: x1.15 after an improving window, x anneal_stale = 0.7 after any other) and the latch (:80-82). With
+tol >= 0.06 the dragon alternates improving and non-improving windows from window 18-23, the step scale falls to its
+floor 0.05 by window 34-42 and the run crawls to the stop (37-46 windows) with a worse shape than Hu had at the same
+window (thin 6.9-7.1 % against 6.3 % at window 41 of Hu's run). With tol 0.05 the floor comes at window 50 (68 windows).
+The windows jump 68 -> 46 -> 39 between tol 0.05, 0.06 and 0.07: a cliff, not a dial.
+
+Result: within the existing parameters, <= 10 min costs more shape than accepted (thin +2.2-2.4 pt, sil_iou -0.0016 to
+-0.0022, chamfer +0.0013-0.0016; gallery 5/6 at 0.10) and lowers the scales' content to 0.60-0.68 (above the 0.40 bar,
+far from 0.94); the plaque and the relief scenes keep theirs. The cheapest existing setting that keeps every bar and
+the accepted shape cost is tol 0.05: 11.2 min (scales 0.75). Nothing committed as a default.
+
+The smallest definition change that would make it a pure stop: count the stop's stale windows (selection.py:115-118,
+the plateau's `last` :116 / :41, the stop :121) against a tolerance of their own, while the anneal (:119) and the latch
+(:65 / :80-82) keep tol = 0.003; one new value (default = tol: bit-SAME), behind an option. Replayed on the recorded
+runs without the anneal's feedback (tmp/d174/d174_stop.py), a stop tolerance of 0.10-0.12 stops the dragon at 60-64
+attempts in all three recorded runs (~10-10.5 min with the exact speed-ups), the bunny at 33-36, the scales at 55-57,
+the plaque at 31-40 and the 40k gallery at 21-35 windows. Not implemented (the user's call).
