@@ -44,6 +44,7 @@ class Prepared:
                                         #   of the samples the render's pictures are drawn from (tgt_draws are then its
                                         #   further draws); None = the pictures from tgt and its draws, the frozen path
     floor_x: np.ndarray | None = None   # D162 (1) (floor_sample): an independent sample of the render target (seed + 2)
+    frame: dict | None = None           # D173 (texture): the target's frame (offset, scale) the samples are in
 
 
 def sampling_berth(target: np.ndarray) -> float:
@@ -184,4 +185,4 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
                     tgt_surface=tgt_surface, tgt_draws=tgt_draws, density=density, cell_shape=cell_shape,
-                    tgt_mesh=tgt_mesh, render_x=render_x, floor_x=floor_x)
+                    tgt_mesh=tgt_mesh, render_x=render_x, floor_x=floor_x, frame=frame)
