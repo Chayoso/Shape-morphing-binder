@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import weakref
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import torch
 import warp as wp
@@ -36,6 +36,10 @@ class Body:
     mass: float
     cfg: object = None                  # the body's own run config (its prepare's loss grid, berth); None: the scene's
     fixed: tuple | None = None          # V0 only: (c, R) of a frame fixed at launch (the world's), velocities as they are
+    raster: object = None               # scene/raster.BodyRaster (fix 1): the loss raster grows to cover the body; None:
+                                        #   the target's raster as built
+    base: object = None                 # the window's target before the raster's growth (set by scene/raster.cover)
+    packs: dict = field(default_factory=dict)       # the base target on grown rasters, by step count
 
     @property
     def rows(self):
@@ -134,6 +138,8 @@ class SceneWindow:
             self.tr = Bodies(trajs, [bd.vp for bd in bodies], self.mu)
             self.tr.capture()
         self._adj = None
+        self.zero_rolled = False                 # the persistent buffers hold the zero-control rollout (raster.cover)
+        self.raster_k = self.raster_extent = None
         b0 = bodies[0].tgt                       # the step control's units: the bodies' targets are alike
         self.wu = 1.0 / b0.unit_ratio
         self.eps_eff = cfg.eps / b0.unit_grad_ratio

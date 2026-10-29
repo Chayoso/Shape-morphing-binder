@@ -1,17 +1,22 @@
 """The morph's progress in the scene (D147; the user's redesign, 2026-10-14: the bodies meet mid-morph, not as finished
-bunnies). Each body's target at time t is the displacement interpolation of its transport from the source to the target
-(McCann 1997), Z_s = X + s D(X), with D the pipeline's own transport map at the source (the u gate's operator:
-losses/grid_ot.grid_transport_displacement, the debiased barycentric map on the MPM cell's grid, blur one cell) and s a
-smoothstep ramp from 0 to 1 over the morph time. The objective is the frozen one on that target: no new term, no
-weight; the body is shaped toward where the transport would have carried it by then. From s = 1 on, the run's own
-target (its relief, its draws). The packs on the way carry the final target's units (unit_ratio, its transport scale),
-so the terms keep their weights through the ramp; their relaxation has no relief (a mesh's, which Z_s has not)."""
+bunnies). Each body's target at time t is the displacement interpolation of its transport between the source and the
+target (McCann 1997), read from the target's side: Z_s = Y + (1 - s) D_Y(Y), with Y the run's own target sample and
+D_Y the pipeline's own transport map from the target to the source (the u gate's operator,
+losses/grid_ot.grid_transport_displacement: the debiased barycentric map on the MPM cell's grid, blur one cell), s a
+smoothstep ramp from 0 to 1 over the morph time. At s = 1 the target is the run's own sample point for point, so the
+morph ends without a switch (read from the source's side, X + s D(X), it ended on the transport's one-cell blur of
+the target, which lacks the ears' and the face's detail, and the switch to the true target at s = 1 made the last
+15-20 % of the visible morph happen in half a second: the late snap the user saw); the blur sits at the start, on the
+sphere, where it is harmless. The objective is the frozen one on that target: no new term, no weight. The packs on the
+way carry the final target's units (unit_ratio, its transport scale), so the terms keep their weights through the
+ramp; their relaxation has no relief and their pictures no further draws (the mesh's and the extra samples', which
+the run's own target adds from s = 1)."""
 from __future__ import annotations
 
 import torch
 
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
-from ...losses.volumetric import d_vol_density
+from ...losses.volumetric import d_vol_density, target_mass_grid
 from ..target import build_target
 
 
@@ -44,18 +49,21 @@ class MorphSchedule:
     def __init__(self, bodies: list, prms: list, morph_time: float):
         self.t_m, self.prms = float(morph_time), prms
         self.final = [bd.tgt for bd in bodies]
-        self.D = []
+        self.D = []                                     # D_Y at each body's target sample
         for bd, pack in zip(bodies, self.final):
             cfg = bd.cfg
             if pack.ot_scale is None:
                 pack.ot_scale = transport_scale(pack, cfg, bd.Xq)
-            g_grid, g_dx, g_dims = pack.gate if pack.gate is not None else (pack.grid, pack.ldx, pack.ldims)
+            _, g_dx, g_dims = pack.gate if pack.gate is not None else (pack.grid, pack.ldx, pack.ldims)
+            Y = pack.pts
             with torch.no_grad():
-                self.D.append(grid_transport_displacement(bd.Xq, pack.m, g_grid, pack.lgmin, g_dx, g_dims,
-                                                          eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol))
+                src = target_mass_grid(bd.Xq, torch.ones(len(bd.Xq), device=Y.device), pack.lgmin, g_dx, g_dims)
+                self.D.append(grid_transport_displacement(Y, torch.ones(len(Y), device=Y.device), src, pack.lgmin,
+                                                          g_dx, g_dims, eps=float(g_dx) ** 2, iters=cfg.ot_iters,
+                                                          tol=cfg.ot_tol))
             dn = self.D[-1].norm(dim=1)
-            print(f"[morph] body {len(self.D) - 1}: transport at the source |D| mean {float(dn.mean()):.4f}, max "
-                  f"{float(dn.max()):.4f} wu; the ramp over {self.t_m:g} s", flush=True)
+            print(f"[morph] body {len(self.D) - 1}: transport from the target to the source |D_Y| mean "
+                  f"{float(dn.mean()):.4f}, max {float(dn.max()):.4f} wu; the ramp over {self.t_m:g} s", flush=True)
 
     def apply(self, bodies: list, t: float) -> float:
         """Each body's target for the window ending at time t (the objective reads its released end); returns s."""
@@ -65,7 +73,7 @@ class MorphSchedule:
                 bd.tgt = self.final[b]
                 continue
             f = self.final[b]
-            pack = build_target((bd.Xq + s * self.D[b]).detach().contiguous(), self.prms[b], bd.cfg)
+            pack = build_target((f.pts + (1.0 - s) * self.D[b]).detach().contiguous(), self.prms[b], bd.cfg)
             pack.unit_ratio, pack.unit_grad_ratio, pack.ot_scale = f.unit_ratio, f.unit_grad_ratio, f.ot_scale
             bd.tgt = pack
         return s

@@ -38,6 +38,7 @@ class SceneSpec:
     assim_free: bool = True      # the assimilation reads the controls' deformation without the loads (window.free_end_F)
     morph_time: float = 0.0      # s: each body's target on its way from the source over this time (scene/schedule.py,
                                  # the bodies meet mid-morph); 0: the target from the start
+    margin: float = 0.0          # wu added to the horizontal reach (the drop: no throw speed, room to tip over)
 
 
 def yaw_matrix(deg: float) -> np.ndarray:
@@ -77,7 +78,7 @@ def layout(spec: SceneSpec, sources: list, vps: list, young: float, poisson: flo
     # vertically from the floor (the centres held half a pitch above it) to the apex; beyond that, the stencil's two
     # cells, the runner's two-cell margin and one cell
     Rb = max(R, float(radius or 0.0))
-    reach = vh * (spec.seconds - tc) + Rb + 5.0 * dx
+    reach = vh * (spec.seconds - tc) + Rb + 5.0 * dx + spec.margin
     xs = [c0[0] for c0 in start + at_contact]
     bottom = floor_y if spec.floor else min(c0[1] for c0 in start) - reach
     lo = np.array([min(xs) - reach, bottom - 5.0 * dx, -reach])
