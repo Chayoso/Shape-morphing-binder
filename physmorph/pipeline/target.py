@@ -177,6 +177,22 @@ def content_masks(ext: Exterior, content, cfg: PipelineConfig, views, extent: fl
     are m = 1[|T - T0| > floor] per pixel and term (with colour, per channel against the grey T0). Sets ext.mask_sil /
     ext.mask_shade (None where no pixel is set: the rule is then Hu's there) and ext.mask_info (a record)."""
     own, indep = content
+    if ext.counts is not None:                # D178 (render_compare column): the content mask of the count pictures
+        from .render_loss import count_pictures
+
+        def cnt(samples):
+            return torch.stack([count_pictures(gpu.tensor(np.asarray(s, np.float32)), views, cfg.render_res, extent)
+                                for s in samples]).mean(0)
+        with torch.no_grad():
+            C0, C1, C = cnt(own), cnt(indep), torch.stack(list(ext.counts), 0)
+            f_c = float((C0 - C1).abs().max())
+            m_c = (C - C0).abs() > f_c
+            body = float(((C0 > 0) | (C > 0)).sum())
+        ext.mask_sil = m_c.float() if bool(m_c.any()) else None     # the count term's mask (render_terms' counts path)
+        ext.mask_info = dict(floor_count=f_c, cover_count=float(m_c.sum()) / max(body, 1.0), own=len(own), indep=len(indep))
+        print(f"[target] content mask (D178, counts): floor {f_c:.4f} (max |C0 - C0'|); the count pictures differ from "
+              f"the 3D target's beyond it on {100 * ext.mask_info['cover_count']:.2f} % of the body's pixels", flush=True)
+        return
 
     def grey(samples):
         per = [sample_pictures(gpu.tensor(np.asarray(s, np.float32)), cfg, ext.pitch, ext.radius, ext.offset,
@@ -324,6 +340,12 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
         if cfg.render_target == "mesh_shell":
             ext.sils, ext.shade = shell_pictures(mesh, lattice, h, pitch, radius * pitch, refs, views, extent, cfg, e_sils,
                                                  e_shade)
+        if getattr(cfg, "render_compare", "exterior") == "column":   # D178 (the J5 attempt): the count pictures
+            from .render_loss import count_pictures
+            with torch.no_grad():
+                ext.counts = list(torch.stack([count_pictures(s, views, cfg.render_res, extent) for s in samples]).mean(0))
+            print(f"[target] render comparison (D178): the projected count pictures of {len(samples)} render samples",
+                  flush=True)
         if content is not None:               # D178 (render_split "masked"): where the pictures say more than the 3D target
             content_masks(ext, content, cfg, views, extent)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range), on the target's own box

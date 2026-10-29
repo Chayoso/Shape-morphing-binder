@@ -93,6 +93,9 @@ def parse_args(argv=None):
     ap.add_argument("--keyframe_soundness", default="every", choices=["every", "final"],
                     help="D175c: every (D175) = the released motion and the end drift in every window; final = only with the "
                          "final target: a keyframe segment's merit is its comparison alone")
+    ap.add_argument("--render_compare", default="exterior", choices=["exterior", "column"],
+                    help="D178 (the J5 attempt): the final target's comparison; exterior (the default) = the exterior "
+                         "silhouette + shading; column = the projected count picture against the render samples' (d_count)")
     ap.add_argument("--keyframe_compare", default="silhouette", choices=["silhouette", "column"],
                     help="D175b: the keyframe comparison; silhouette (D175) = the exterior silhouette + shading; column = "
                          "the particles' projected count picture against the keyframe samples' (the final target's render "
@@ -347,6 +350,7 @@ def run_config(args, cfg0, prep):
                               keyframe_time=tuple(getattr(args, "keyframe_time", ()) or ()),
                               keyframe_geometry=getattr(args, "keyframe_geometry", "own"),
                               keyframe_compare=getattr(args, "keyframe_compare", "silhouette"),
+                              render_compare=getattr(args, "render_compare", "exterior"),
                               keyframe_soundness=getattr(args, "keyframe_soundness", "every"),
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,

@@ -218,6 +218,15 @@ class Objective:
                           cfg.sil_k, cfg.pbr_ambient, t.pblur))
         e = t.ext
         if getattr(e, "counts", None) is not None:    # D175b: a keyframe compared on projected counts (the particles)
+            if (e.mask_sil is not None and getattr(t, "keyframe", None) is None
+                    and getattr(cfg, "render_split", "") == "masked"):
+                # D178 (render_compare column + the masked rule): the count term and its part inside the content mask
+                from ..render_loss import count_pictures
+                c_k = torch.stack(list(e.counts), 0)
+                r = (count_pictures(xT, t.views, cfg.render_res, t.extent) - c_k).pow(2)
+                den = c_k.pow(2).mean()
+                self.lr_m = (r * e.mask_sil).mean() / den
+                return r.mean() / den, xT.sum() * 0.0
             return d_count(xT, e.counts, t.views, cfg.render_res, t.extent), xT.sum() * 0.0
         if e.albedo is not None:                      # D160: the discs' colours from the particles' fixed albedos
             return self._render_terms_albedo(xT, e)
