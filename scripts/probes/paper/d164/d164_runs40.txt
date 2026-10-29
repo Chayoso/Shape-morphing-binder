@@ -1,0 +1,77 @@
+# D164 (1): the 40k gallery, 19 meshes x seeds 97 / 99 x L ('dF_c + layer u + render loss (full)') and P ('dF_c + layer u', --render_weight_scale 0), repo_d164s
+A40k_L97 --tgt assets/A.obj --n 40000 --seed 97
+A40k_P97 --tgt assets/A.obj --n 40000 --seed 97 --render_weight_scale 0
+armadilo40k_L97 --tgt assets/armadilo.obj --n 40000 --seed 97
+armadilo40k_P97 --tgt assets/armadilo.obj --n 40000 --seed 97 --render_weight_scale 0
+beast40k_L97 --tgt assets/beast.obj --n 40000 --seed 97
+beast40k_P97 --tgt assets/beast.obj --n 40000 --seed 97 --render_weight_scale 0
+bimba40k_L97 --tgt assets/bimba.obj --n 40000 --seed 97
+bimba40k_P97 --tgt assets/bimba.obj --n 40000 --seed 97 --render_weight_scale 0
+bob40k_L97 --tgt assets/bob.obj --n 40000 --seed 97
+bob40k_P97 --tgt assets/bob.obj --n 40000 --seed 97 --render_weight_scale 0
+bunny40k_L97 --tgt assets/bunny.obj --n 40000 --seed 97
+bunny40k_P97 --tgt assets/bunny.obj --n 40000 --seed 97 --render_weight_scale 0
+C40k_L97 --tgt assets/C.obj --n 40000 --seed 97
+C40k_P97 --tgt assets/C.obj --n 40000 --seed 97 --render_weight_scale 0
+cheburashka40k_L97 --tgt assets/cheburashka.obj --n 40000 --seed 97
+cheburashka40k_P97 --tgt assets/cheburashka.obj --n 40000 --seed 97 --render_weight_scale 0
+cow40k_L97 --tgt assets/cow.obj --n 40000 --seed 97
+cow40k_P97 --tgt assets/cow.obj --n 40000 --seed 97 --render_weight_scale 0
+dragon40k_L97 --tgt assets/dragon.obj --n 40000 --seed 97
+dragon40k_P97 --tgt assets/dragon.obj --n 40000 --seed 97 --render_weight_scale 0
+fandisk40k_L97 --tgt assets/fandisk.obj --n 40000 --seed 97
+fandisk40k_P97 --tgt assets/fandisk.obj --n 40000 --seed 97 --render_weight_scale 0
+heart40k_L97 --tgt assets/heart.obj --n 40000 --seed 97
+heart40k_P97 --tgt assets/heart.obj --n 40000 --seed 97 --render_weight_scale 0
+homer40k_L97 --tgt assets/homer.obj --n 40000 --seed 97
+homer40k_P97 --tgt assets/homer.obj --n 40000 --seed 97 --render_weight_scale 0
+maxplanck40k_L97 --tgt assets/maxplanck.obj --n 40000 --seed 97
+maxplanck40k_P97 --tgt assets/maxplanck.obj --n 40000 --seed 97 --render_weight_scale 0
+nefertiti40k_L97 --tgt assets/nefertiti.obj --n 40000 --seed 97
+nefertiti40k_P97 --tgt assets/nefertiti.obj --n 40000 --seed 97 --render_weight_scale 0
+ogre40k_L97 --tgt assets/ogre.obj --n 40000 --seed 97
+ogre40k_P97 --tgt assets/ogre.obj --n 40000 --seed 97 --render_weight_scale 0
+spot40k_L97 --tgt assets/spot.obj --n 40000 --seed 97
+spot40k_P97 --tgt assets/spot.obj --n 40000 --seed 97 --render_weight_scale 0
+teapot40k_L97 --tgt assets/teapot.obj --n 40000 --seed 97
+teapot40k_P97 --tgt assets/teapot.obj --n 40000 --seed 97 --render_weight_scale 0
+V40k_L97 --tgt assets/V.obj --n 40000 --seed 97
+V40k_P97 --tgt assets/V.obj --n 40000 --seed 97 --render_weight_scale 0
+A40k_L99 --tgt assets/A.obj --n 40000 --seed 99
+A40k_P99 --tgt assets/A.obj --n 40000 --seed 99 --render_weight_scale 0
+armadilo40k_L99 --tgt assets/armadilo.obj --n 40000 --seed 99
+armadilo40k_P99 --tgt assets/armadilo.obj --n 40000 --seed 99 --render_weight_scale 0
+beast40k_L99 --tgt assets/beast.obj --n 40000 --seed 99
+beast40k_P99 --tgt assets/beast.obj --n 40000 --seed 99 --render_weight_scale 0
+bimba40k_L99 --tgt assets/bimba.obj --n 40000 --seed 99
+bimba40k_P99 --tgt assets/bimba.obj --n 40000 --seed 99 --render_weight_scale 0
+bob40k_L99 --tgt assets/bob.obj --n 40000 --seed 99
+bob40k_P99 --tgt assets/bob.obj --n 40000 --seed 99 --render_weight_scale 0
+bunny40k_L99 --tgt assets/bunny.obj --n 40000 --seed 99
+bunny40k_P99 --tgt assets/bunny.obj --n 40000 --seed 99 --render_weight_scale 0
+C40k_L99 --tgt assets/C.obj --n 40000 --seed 99
+C40k_P99 --tgt assets/C.obj --n 40000 --seed 99 --render_weight_scale 0
+cheburashka40k_L99 --tgt assets/cheburashka.obj --n 40000 --seed 99
+cheburashka40k_P99 --tgt assets/cheburashka.obj --n 40000 --seed 99 --render_weight_scale 0
+cow40k_L99 --tgt assets/cow.obj --n 40000 --seed 99
+cow40k_P99 --tgt assets/cow.obj --n 40000 --seed 99 --render_weight_scale 0
+dragon40k_L99 --tgt assets/dragon.obj --n 40000 --seed 99
+dragon40k_P99 --tgt assets/dragon.obj --n 40000 --seed 99 --render_weight_scale 0
+fandisk40k_L99 --tgt assets/fandisk.obj --n 40000 --seed 99
+fandisk40k_P99 --tgt assets/fandisk.obj --n 40000 --seed 99 --render_weight_scale 0
+heart40k_L99 --tgt assets/heart.obj --n 40000 --seed 99
+heart40k_P99 --tgt assets/heart.obj --n 40000 --seed 99 --render_weight_scale 0
+homer40k_L99 --tgt assets/homer.obj --n 40000 --seed 99
+homer40k_P99 --tgt assets/homer.obj --n 40000 --seed 99 --render_weight_scale 0
+maxplanck40k_L99 --tgt assets/maxplanck.obj --n 40000 --seed 99
+maxplanck40k_P99 --tgt assets/maxplanck.obj --n 40000 --seed 99 --render_weight_scale 0
+nefertiti40k_L99 --tgt assets/nefertiti.obj --n 40000 --seed 99
+nefertiti40k_P99 --tgt assets/nefertiti.obj --n 40000 --seed 99 --render_weight_scale 0
+ogre40k_L99 --tgt assets/ogre.obj --n 40000 --seed 99
+ogre40k_P99 --tgt assets/ogre.obj --n 40000 --seed 99 --render_weight_scale 0
+spot40k_L99 --tgt assets/spot.obj --n 40000 --seed 99
+spot40k_P99 --tgt assets/spot.obj --n 40000 --seed 99 --render_weight_scale 0
+teapot40k_L99 --tgt assets/teapot.obj --n 40000 --seed 99
+teapot40k_P99 --tgt assets/teapot.obj --n 40000 --seed 99 --render_weight_scale 0
+V40k_L99 --tgt assets/V.obj --n 40000 --seed 99
+V40k_P99 --tgt assets/V.obj --n 40000 --seed 99 --render_weight_scale 0

@@ -159,8 +159,12 @@ class WindowOptimizer:
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
         self._gr_last = None                # D174 (render_every): the render gradient of the last k-th iteration
-        self.replays = []                   # D175 (D164's pairs): the window's taped replay pairs (a keyframe segment's check)
+        self.replays = []                   # D164 (D175 in keyframe segments): the window's replay pairs (window_replay_noise)
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
+        self.acc_sup = None                 # D164 amendment 1: and its proximity lists
+        # D164 (and its amendment 1): the commit check reads the window's own replay pairs, and the commit reads the
+        # accepted candidate's transport potentials and proximity lists; "start" is the tag's check and commit
+        self.commit_reads_accepted = getattr(cfg, "replay_noise", "window") == "window"
         self._zd = None                     # B13: a zero dFc with a gradient, for the run's one ratio measurement
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
         # momentum balance: the body's centre-of-mass motion per window was u's net translation (ratio 1.0-1.1,
@@ -231,6 +235,31 @@ class WindowOptimizer:
         if np.isfinite(EA) and np.isfinite(EB):
             return abs(EA - EB) / max(abs(EA), self.win.loss_floor_eff)
         return 0.0
+
+    def window_replay_noise(self, replay_rel: float, E) -> tuple[float, float | None]:
+        """(the replay noise the commit check reads, the float32 resolution of E there), relative to max(|E|, floor).
+
+        D164 (the user's decision of 2026-10-22): the noise of a replay is measured where the window's rollouts are,
+        not only at its start control. At the first window the body rests there and the start pair agrees bit for bit
+        (0) or to one ulp, while the accepted candidate's own rollouts carry a few ulps of the transfers' atomics:
+        honest replays were nulled (4.1 % of the tag's windows, `commit_replay`). The window already makes its own replay
+        pairs: the start pair, and each accepted candidate against the next iteration's taped rollout of the same
+        control (the point of the next gradient). The noise is the largest of them, and never below the resolution of
+        the comparison: E is a float32 sum, so a pair that reads 0 says the noise is below one ulp of E, not that it is
+        zero. The check keeps its rule (E3: ten times the measured noise, at least ls_noise_rel); a commit whose
+        rollout differs from the accepted candidate's by more than ten times what two rollouts of one control differ
+        by in this window (a state or a cache that one of the two evaluations does not share, D130) is still nulled.
+        Amendment 1 (the pilot: the commit's fresh transport solve and proximity search at its own rollout amplified the
+        atomics about tenfold, which the taped pairs, reading the accepted candidate's potentials, do not see): the
+        commit reads the accepted candidate's potentials and lists (commit()), so its mismatch is of the taped pairs'
+        kind. cfg.replay_noise "start" is the tag's measure and commit (the start pair alone, a fresh solve), kept for
+        comparison; inside a D175 keyframe segment "start" still reads this measure (D175's check there: no transport,
+        the start pair of a body at rest reads 0, below the comparison's resolution)."""
+        if E is None or (getattr(self.cfg, "replay_noise", "window") == "start"
+                         and getattr(self.tgt, "keyframe", None) is None):
+            return replay_rel, None
+        res = float(np.spacing(np.float32(abs(E)))) / max(abs(E), self.win.loss_floor_eff)
+        return max([replay_rel, res] + self.replays), res
 
     # ---- one iteration ----
     def gradient(self, e: Eval, it: int):
@@ -447,8 +476,9 @@ class WindowOptimizer:
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
                 self.scored_discs = self.obj.discs
-                if cfg.ot_warm_trials and ot is not None:
-                    self.acc_solved = ot._solved          # D142: the commit reads these potentials
+                if ot is not None and (cfg.ot_warm_trials or self.commit_reads_accepted):
+                    self.acc_solved = ot._solved          # D142 / D164: the commit reads these potentials
+                    self.acc_sup = ot._sup_idx            # D164: and these proximity lists
                 self.adam_t = t_
                 if self.u_age is not None:
                     self.u_age += (g[1] != 0).float()
@@ -499,6 +529,7 @@ class WindowOptimizer:
                 start = self.warm_start(dfc_init)
         with timed("replay"):
             replay_rel = self.replay_noise(start) if cfg.replay_calibrate else 0.0
+        self.replays = []
         clock.lap("t_start")
         leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False
@@ -576,22 +607,30 @@ class WindowOptimizer:
         if self.scored_discs is not None:   # replay the accepted candidate on the discs it was scored with
             self.obj.discs = self.scored_discs
         ot = self.tgt.grid_ot
-        if cfg.ot_warm_trials and ot is not None and self.accepted > 0 and self.acc_solved is not None:
+        reads_accepted = False
+        if ((cfg.ot_warm_trials or self.commit_reads_accepted) and ot is not None and self.accepted > 0
+                and self.acc_solved is not None):
             ot._solved, ot.repeat = self.acc_solved, True       # D142: the accepted candidate's potentials, no sweep
+            if self.commit_reads_accepted:
+                # D164 amendment 1: the commit reads what the accepted candidate read, its transport potentials and its
+                # proximity lists (D47 / D153's form at the next gradient), so that the commit and the accepted value
+                # differ by the rollout's atomics only. A fresh solve and search at the commit's own rollout amplified
+                # that noise about tenfold (83-96 % of the mismatch in the geometry energy, the D164 pilot)
+                ot._sup_idx = self.acc_sup
+                reads_accepted = True
         commit = commit_rollout(win, self.obj, self.leaves[0], self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
-        noise = replay_rel
-        if getattr(self.tgt, "keyframe", None) is not None and E_accept is not None:
-            # D175: inside a keyframe segment the objective carries no transport, so the check's floor (ls_noise_rel) is
-            # ~1 ulp of E, and the start pair (the body at rest at the first window) reads 0: below the comparison's
-            # resolution, not zero, while the moving candidate's render replays differ by a few ulps (D175 (b): 1.1-3.7
-            # ulps at the nulled first windows). The noise there is D164's measure: the largest of the start pair, the
-            # window's taped pairs and one float32 ulp of E. Outside segments the check is the tag's, bit for bit
-            noise = max([replay_rel, float(np.spacing(np.float32(abs(E_accept)))) / max(abs(E_accept), win.loss_floor_eff)]
-                        + self.replays)
-        replay_tol = (max(cfg.ls_noise_rel, 10.0 * noise)
-                      * max(abs(E_accept or 0.0), win.loss_floor_eff))
+        scale = max(abs(E_accept or 0.0), win.loss_floor_eff)
+        noise, res = self.window_replay_noise(replay_rel, E_accept)
+        replay_tol = max(cfg.ls_noise_rel, 10.0 * noise) * scale
         replay_bad = E_accept is not None and commit.E_final > E_accept + replay_tol
+        # the tag's verdict on the same window (the start pair alone), a record: what D164 changed
+        start_bad = E_accept is not None and commit.E_final > E_accept + max(cfg.ls_noise_rel, 10.0 * replay_rel) * scale
+        replay = {"replay_noise": noise, "replay_res": res, "replay_pairs": len(self.replays),
+                  "replay_taped_max": max(self.replays) if self.replays else None,
+                  "commit_mismatch": None if E_accept is None else (float(commit.E_final) - E_accept) / scale,
+                  "commit_tol": replay_tol / scale, "commit_replay_start": int(start_bad),
+                  "commit_reads_accepted": int(reads_accepted)}
         self.tele["commit_reason"] = commit.reason
         if commit.terms is not None and hist:         # D175 (keyframe runs, a record): the replay's difference by term
             h, c = hist[-1], commit.terms
@@ -649,7 +688,7 @@ class WindowOptimizer:
         if getattr(cfg, "settle_u", "zero") == "last":     # D166: the committed u, for the settle windows (runner)
             stats["u"] = self.u.detach().clone()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
-                     commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
+                     commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final), **replay)
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
             stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds)
         if self.accepted > 0:

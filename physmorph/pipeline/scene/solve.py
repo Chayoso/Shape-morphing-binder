@@ -63,6 +63,10 @@ class SceneOptimizer(WindowOptimizer):
 
     def __init__(self, *args, **kw):
         super().__init__(*args, **kw)
+        # D164 amendment 1 is single-body: here each body's terms call the transport in turn, so the potentials and lists
+        # left after an evaluation are the last body's alone (the first body would read the second's). The scene's commit
+        # solves and searches at its own rollout, as the tag's; its check reads D164's measure
+        self.commit_reads_accepted = False
         # u's displacement keeps no part along any body's six rigid modes (D94, per body: no body is moved or turned)
         with torch.no_grad():
             win = self.win

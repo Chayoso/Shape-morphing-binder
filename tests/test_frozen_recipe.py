@@ -26,6 +26,7 @@ def test_the_defaults_are_the_frozen_recipe(monkeypatch):
     assert a.relax_driven and a.u_adam_carry                                                # D146, D146b: the re-freeze
     assert a.gap_split == "off"                                                              # D148 not adopted
     assert a.spacing_symmetric                                                              # D149: the re-freeze
+    assert a.replay_noise == "window"                                                       # D164 (wip/d164)
 
 
 def test_every_switch_reaches_the_old_path(monkeypatch):
@@ -36,6 +37,7 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
             a.min_spacing, a.relax_driven, a.u_adam_carry, a.spacing_symmetric) == (
         False, 0.3, "off", False, False, False, 0.0, False, False, False)
     assert _args(monkeypatch, "--cell_follows_n").cell_follows_n                            # D137 as an option
+    assert _args(monkeypatch, "--replay_noise", "start").replay_noise == "start"            # the tag's commit check
 
 
 # every argument of D135's configuration as D139's bunny re-run recorded it (output/gpu/d139/bunny300k_SB.json,
@@ -48,7 +50,8 @@ def test_every_switch_reaches_the_old_path(monkeypatch):
 # relax_driven, u_adam_carry, spacing_symmetric), off: the path D135 ran; and B13's force_scale, read only by the force
 # baselines (--baseline force, force_mf); D159's render_target ("samples": the frozen path); D160's appearance, "" (off):
 # the path D135 ran; D156's render target (render_tgt), off (None): the pictures from --tgt; D161b's proximity_berth, off;
-# and D162's render_weight_ref ("residual": the rule) and placement_at_cell (off)
+# D162's render_weight_ref ("residual": the rule) and placement_at_cell (off); and D164's replay_noise at "start", the
+# measure D135 (and the tag) ran with
 D135_RUN_ARGS = {
     "animations": 300, "appearance": "", "assim": None, "assim_volume": True, "baseline": "", "cell_diag": 26.0,
     "cell_follows_n": False,
@@ -60,10 +63,13 @@ D135_RUN_ARGS = {
     "render_target": "samples", "render_target_draws": 8, "render_weight_scale": 1.0, "save_F_stride": 0,
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
     "young": None, "render_tgt": None, "proximity_berth": False, "render_weight_ref": "residual",
-    "placement_at_cell": False,
+    "placement_at_cell": False, "replay_noise": "start",
 }
 # the re-freeze: D135's configuration with D146's, D146b's and D149's switches on, nothing else changed
 REFREEZE_RUN_ARGS = {**D135_RUN_ARGS, "relax_driven": True, "u_adam_carry": True, "spacing_symmetric": True}
+# wip/d164: the tag's configuration with the commit check reading the window's own replay pairs (D164, the user's decision of
+# 2026-10-22); --replay_noise start is the tag's measure
+D164_RUN_ARGS = {**REFREEZE_RUN_ARGS, "replay_noise": "window"}
 
 
 def _plain(a) -> dict:
@@ -73,12 +79,19 @@ def _plain(a) -> dict:
     return a
 
 
-def test_the_defaults_are_the_refreeze_configuration(monkeypatch):
-    assert _plain(_args(monkeypatch)) == REFREEZE_RUN_ARGS
+def test_the_defaults_are_the_refreeze_configuration_with_d164(monkeypatch):
+    assert _plain(_args(monkeypatch)) == D164_RUN_ARGS
+
+
+def test_the_tag_configuration_is_one_switch_back(monkeypatch):
+    """The tag's defaults (the re-freeze) stay reachable: D164's commit-check measure back to the start pair, nothing
+    else changed."""
+    assert _plain(_args(monkeypatch, "--replay_noise", "start")) == REFREEZE_RUN_ARGS
 
 
 def test_the_09b_configuration_is_three_switches_off(monkeypatch):
     """freeze-2026-10-09b's defaults (D135's configuration) stay reachable: the re-freeze's three switches off and
-    nothing else changed."""
-    a = _plain(_args(monkeypatch, "--no-relax_driven", "--no-u_adam_carry", "--no-spacing_symmetric"))
+    the tag's commit-check measure, nothing else changed."""
+    a = _plain(_args(monkeypatch, "--no-relax_driven", "--no-u_adam_carry", "--no-spacing_symmetric",
+                     "--replay_noise", "start"))
     assert a == D135_RUN_ARGS

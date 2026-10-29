@@ -51,6 +51,23 @@ _FLOOR_FIELDS = ("lam_rule", "lam0", "render_L", "render_floor", "render_excess"
 _NULL_FIELDS = ("null_reason", "prof", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason",
                 "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason")
+# D164: the commit check's measure of the replay noise and its verdicts (WindowOptimizer.window_replay_noise); on a null
+# window, and on a committed window only where the tag's measure (the start pair alone) would have nulled it
+_REPLAY_FIELDS = ("replay_noise", "replay_res", "replay_pairs", "replay_taped_max", "commit_mismatch", "commit_tol",
+                  "commit_replay_start", "commit_reads_accepted")
+_NULL_FIELDS = _NULL_FIELDS + _REPLAY_FIELDS
+
+
+def _replay_line(a, stats) -> str:
+    """One log line a judged window (D164): the accepted and committed E, the mismatch, the measured noise and the
+    tolerance (relative to max(|E|, floor)), the pairs, and both verdicts."""
+    f = lambda v: "-" if v is None else f"{v:.3g}"  # noqa: E731
+    return (f"[replay] anim {a + 1}: acc {stats.get('accepted')} E_acc {f(stats.get('E_accept'))} "
+            f"E_commit {f(stats.get('commit_E_final'))} mismatch {f(stats.get('commit_mismatch'))} "
+            f"start {f(stats.get('replay_rel'))} taped_max {f(stats.get('replay_taped_max'))} "
+            f"pairs {stats.get('replay_pairs')} res {f(stats.get('replay_res'))} noise {f(stats.get('replay_noise'))} "
+            f"tol {f(stats.get('commit_tol'))} start_verdict {stats.get('commit_replay_start')} "
+            f"null {stats.get('null_reason')}")
 
 
 def _host(t):
@@ -274,6 +291,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         stats = res.stats
         if shape is not None or lowpass:
             stats["t_shape"] = t_shape                # the shape reading's seconds at this window (None: reused)
+        log(_replay_line(a, stats))
         dfc_prev = stats["dfc"]
         if res.commit is None:
             if stats.get("invalid_selection"):
@@ -323,6 +341,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             tgt.grid_ot.repeat = getattr(tgt, "geometry", True) and not (counts["clamped"] or counts["nan_x"])
         with timed("record"):
             rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
+            if stats.get("commit_replay_start"):        # D164: a window the tag's start-pair measure would have nulled
+                rec.update(replay_rescued=1, **{k: stats.get(k) for k in _REPLAY_FIELDS})
             if cfg.assim_volume:                      # D135: the rest volume the assimilation has taken (a record)
                 with torch.no_grad():
                     jp = torch.linalg.det(Fp)

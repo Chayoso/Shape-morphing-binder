@@ -192,6 +192,10 @@ def parse_args(argv=None):
                          "ahead of the bulk early (D139); off (the default, or N <= 40k) = the shape's cell")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the render resolution, used from the first window (default: the config's fine one, following N)")
+    ap.add_argument("--replay_noise", default="window", choices=["window", "start"],
+                    help="D164: the commit check's replay noise from the window's own replay pairs, floored at the "
+                         "objective's float32 resolution, and the commit reading the accepted candidate's transport "
+                         "potentials and proximity lists (default); 'start': the tag's check and commit (comparison only)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
     ap.add_argument("--ot_warm_trials", action=argparse.BooleanOptionalAction, default=False,
                     help="A/B (D142): line-search trials warm-start their transport solves from the window's latest "
@@ -326,6 +330,7 @@ def run_config(args, cfg0, prep):
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,
+                              replay_noise=args.replay_noise,
                               cleanup_in_phys=args.cleanup_in_phys,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth,
