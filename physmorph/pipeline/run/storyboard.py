@@ -56,6 +56,7 @@ class Storyboard:
             raise ValueError("one keyframe (its samples) per keyframe_time")
         self.final_ext, self.final_relief = final.ext, final.relief
         self.own = cfg.keyframe_geometry == "own"
+        self.soundness = getattr(cfg, "keyframe_soundness", "every") == "every"   # D175c
         self.frames = [frame_of(t, cfg.T, prm.dt) for t in cfg.keyframe_time]
         if self.frames[0] < 2 * cfg.T or any(b <= a for a, b in zip(self.frames, self.frames[1:])):
             raise ValueError(f"keyframe frames {self.frames}: each at least one window after the last")
@@ -84,10 +85,12 @@ class Storyboard:
             return k, False
         if k is None:
             tgt.ext, tgt.relief, tgt.geometry, tgt.keyframe = self.final_ext, self.final_relief, True, None
+            tgt.soundness = True
         else:
             tgt.ext, tgt.keyframe = self.exts[k], k
             tgt.relief = None if self.own else self.final_relief
             tgt.geometry = not self.own
+            tgt.soundness = self.soundness              # D175c: "final" = the keyframe's comparison alone in its segment
         self.cur = k
         return k, True
 

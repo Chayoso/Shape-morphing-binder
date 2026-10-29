@@ -42,6 +42,7 @@ def test_the_preconditions():
 def _board(own=True):
     sb = Storyboard.__new__(Storyboard)
     sb.final_ext, sb.final_relief, sb.exts, sb.frames, sb.own, sb.cur = "E", "R", ["K"], [240], own, "unset"
+    sb.soundness = True
     return sb
 
 
@@ -61,3 +62,15 @@ def test_the_naive_arm_keeps_the_final_geometry():
     tgt = SimpleNamespace(ext="E", relief="R", geometry=True, keyframe=None)
     sb.apply(tgt, 40)
     assert (tgt.ext, tgt.relief, tgt.geometry, tgt.keyframe) == ("K", "R", True, 0)
+
+
+def test_a_segment_owned_by_its_keyframe_alone_returns_soundness_with_the_final_target():
+    sb = _board()
+    sb.soundness = False                              # keyframe_soundness "final" (D175c)
+    tgt = SimpleNamespace(ext="E", relief="R", geometry=True, keyframe=None, soundness=True)
+    sb.apply(tgt, 40)
+    assert tgt.soundness is False and tgt.geometry is False
+    sb.apply(tgt, 280)
+    assert tgt.soundness is True and tgt.geometry is True
+    with pytest.raises(ValueError):
+        PipelineConfig(keyframe_soundness="never")

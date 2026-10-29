@@ -188,6 +188,8 @@ class Objective:
                 lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
             else:                                     # D175: a keyframe's segment, the end drift alone (target-free)
                 lv = t.ot_scale * end_drift(vT, self.horizon)
+        if not getattr(t, "soundness", True):         # D175c: the segment's merit is the keyframe's alone (on the graph)
+            lv, lstab = 0.0 * lv, 0.0 * lstab
         with timed("render"):
             lsil, lpbr = self.render_terms(xT)
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab

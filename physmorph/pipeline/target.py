@@ -93,6 +93,8 @@ class TargetPack:
     geometry: bool = True               # D175: the final target's geometry (transport, proximity) and cleanup are read;
                                         #   False in a keyframe's segment (only the released motion and the end drift)
     keyframe: int | None = None         # D175: the keyframe whose segment the window serves (None: the final target)
+    soundness: bool = True              # D175c: the released motion and the end drift are read (False: a segment owned by
+                                        #   its keyframe alone, keyframe_soundness "final")
 
 
 def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):

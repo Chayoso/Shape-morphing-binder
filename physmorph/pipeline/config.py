@@ -153,6 +153,8 @@ class PipelineConfig:
     keyframe_compare: str = "silhouette"  # D175b: the keyframe comparison; "silhouette" = the exterior silhouette + shading
                                     #   (D175); "column" = the particles' projected count picture against the keyframe's
                                     #   (render_loss.d_count); the final target's render term is the exterior either way
+    keyframe_soundness: str = "every"  # D175c: "every" = the released motion and end drift in every window (D175); "final" =
+                                    #   only with the final target: a keyframe segment's merit is its comparison alone
     keyframe_geometry: str = "own"  # D175 ablation (arm N): "final" keeps the final target's geometry and cleanup in a segment
                                     #   (only the pictures are swapped); "own" = the storyboard's ownership (the method)
     layer_relax: bool = True        # D170 A/B: the outer-layer relaxation in every window (on = the frozen path); off = its
@@ -261,6 +263,8 @@ class PipelineConfig:
         self.keyframe_time = tuple(float(t) for t in (self.keyframe_time or ()))
         if self.keyframe_geometry not in ("own", "final"):
             raise ValueError("keyframe_geometry must be \"own\" or \"final\"")
+        if self.keyframe_soundness not in ("every", "final"):
+            raise ValueError("keyframe_soundness must be \"every\" or \"final\"")
         if self.keyframe_compare not in ("silhouette", "column"):
             raise ValueError("keyframe_compare must be \"silhouette\" or \"column\"")
         if self.keyframe_time:                        # D175: the storyboard's preconditions (the design, section 5)
