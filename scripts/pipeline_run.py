@@ -68,6 +68,9 @@ def parse_args(argv=None):
     ap.add_argument("--layer_relax", action=argparse.BooleanOptionalAction, default=True,
                     help="D170 A/B: the outer-layer relaxation in every window (default on, the frozen path); "
                          "--no-layer_relax = its fraction 0 throughout (u and everything else unchanged)")
+    ap.add_argument("--stop_tol", type=float, default=None,
+                    help="D174 A/B: the stop's own relative-improvement tolerance (the plateau and the patience stop); the "
+                         "step anneal and the latch keep the config's tol (0.003); unset = tol, the frozen path")
     ap.add_argument("--render_every", type=int, default=1,
                     help="D174 A/B (runtime): the render gradient's adjoint sweep at every k-th iteration of a window, the "
                          "window's last one reused between (1 = every iteration, the frozen path)")
@@ -338,7 +341,7 @@ def run_config(args, cfg0, prep):
                               render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell, settle_windows=args.settle_windows,
                               settle_u=args.settle_u, settle_relax=args.settle_relax, layer_relax=args.layer_relax,
                               render_split=args.render_split, colour_kernel=args.colour_kernel,
-                              render_every=args.render_every, max_ls_iters=args.ls_max,
+                              render_every=args.render_every, max_ls_iters=args.ls_max, stop_tol=args.stop_tol,
                               keyframe_time=tuple(getattr(args, "keyframe_time", ()) or ()),
                               keyframe_geometry=getattr(args, "keyframe_geometry", "own"),
                               keyframe_compare=getattr(args, "keyframe_compare", "silhouette"),

@@ -23,6 +23,12 @@ class Selection:
         self.lam = None                  # the render weight the references are scored with
         self._render = 0.0               # the judged window's render term
         self.stale = 0
+        # D174 (stop_tol): the stop's own counters (its best, last improving window and stale count) read the stop
+        # tolerance; the step anneal and the latch keep tol's. stop_tol None = tol: the two sets are the same numbers
+        st = getattr(cfg, "stop_tol", None)
+        self.stop_tol = cfg.tol if st is None else float(st)
+        self.stop_own = st is not None
+        self.stop_stale = 0
         self.anneal = 1.0                # the next window's step scale
         self.reject_streak = 0
         self.last_reject_score = None
@@ -33,12 +39,13 @@ class Selection:
         if count:
             self.epoch += 1
         self.best, self.last = float("inf"), None
+        self.stop_best, self.stop_last, self.stop_best_render = float("inf"), None, 0.0
         self.scales = self.prev = self.prev_phys = self.prev_disp = None
         self.best_render = self.prev_render = 0.0
         self.latched = False
 
     def plateau(self, a: int) -> bool:
-        return self.last is not None and a - self.last > self.cfg.patience
+        return self.stop_last is not None and a - self.stop_last > self.cfg.patience
 
     def check_lambda(self, rec: dict, lam: float, render: float = 0.0):
         """The merit is linear in the render weight: when the weight moves, the references (the last accepted
@@ -50,6 +57,8 @@ class Selection:
                     self.prev += (lam - self.lam) * self.prev_render
                 if np.isfinite(self.best):
                     self.best += (lam - self.lam) * self.best_render
+                if np.isfinite(self.stop_best):
+                    self.stop_best += (lam - self.lam) * self.stop_best_render
             self.lam, self._render = lam, render
         rec["selection_epoch"] = self.epoch
 
@@ -104,8 +113,11 @@ class Selection:
         rec.update({"reject_streak": self.reject_streak, "replay": int(replay)})
         if not brake_reject or replay:
             self.stale += 1
+            self.stop_stale += 1
         self.anneal = max(0.05, self.anneal * cfg.anneal_stale)
-        return self.stale >= cfg.patience or (cfg.reject_stop > 0 and self.reject_streak >= cfg.reject_stop)
+        if self.stop_own:
+            rec["stop_stale"] = self.stop_stale
+        return self.stop_stale >= cfg.patience or (cfg.reject_stop > 0 and self.reject_streak >= cfg.reject_stop)
 
     def accepted(self, rec: dict, a: int, disp, improved: bool) -> bool:
         """Book an accepted window; True when the run has converged (patience spent)."""
@@ -114,18 +126,26 @@ class Selection:
         self.prev_render = self._render
         if self.last is None or q < self.best - cfg.tol * abs(self.best):
             self.best, self.last, self.best_render = q, a, self._render
+        # D174 (stop_tol): the stop's own improvement, best and stale count (the plateau reads stop_last)
+        stop_improved = self.stop_last is None or q < self.stop_best - self.stop_tol * abs(self.stop_best)
+        if stop_improved:
+            self.stop_best, self.stop_last, self.stop_best_render = q, a, self._render
         self.reject_streak, self.last_reject_score = 0, None
         self.stale = 0 if improved else self.stale + 1
+        self.stop_stale = 0 if stop_improved else self.stop_stale + 1
         self.anneal = min(1.0, self.anneal * 1.15) if improved else max(0.05, self.anneal * cfg.anneal_stale)
         rec.update({"improved": int(improved), "stale": self.stale, "anneal": self.anneal, "pace_bound": 0})
-        return self.stale >= cfg.patience
+        if self.stop_own:
+            rec.update(stop_improved=int(stop_improved), stop_stale=self.stop_stale)
+        return self.stop_stale >= cfg.patience
 
     def null(self) -> bool:
         """A window with no accepted step (no simulated time); True when patience is spent."""
         self.stale += 1
+        self.stop_stale += 1
         self.reject_streak, self.last_reject_score = 0, None
         self.anneal = max(0.05, self.anneal * self.cfg.anneal_stale)
-        return self.stale >= self.cfg.patience
+        return self.stop_stale >= self.cfg.patience
 
 
 def best_window(hist: list, n_frames: int, tol: float, w_pbr: float = 1.0):
