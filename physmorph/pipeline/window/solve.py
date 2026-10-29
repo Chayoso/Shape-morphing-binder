@@ -159,6 +159,7 @@ class WindowOptimizer:
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
         self._gr_last = None                # D174 (render_every): the render gradient of the last k-th iteration
+        self.replays = []                   # D175 (D164's pairs): the window's taped replay pairs (a keyframe segment's check)
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
         self._zd = None                     # B13: a zero dFc with a gradient, for the run's one ratio measurement
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
@@ -283,7 +284,9 @@ class WindowOptimizer:
         """The render gradient's weight on each leaf ([dFc or the force, u]). D172 (render_split): the run's weight (held
         under --lambda_ema 0) on one block, the rule's per-window value on the other; off, the run's weight on both."""
         split = getattr(self.cfg, "render_split", "")
-        if not split:
+        if not split or getattr(self.tgt, "keyframe", None) is not None:
+            # D175: in a keyframe's segment the held weight on both blocks (the rule's value there reads the soundness
+            # terms alone and is near zero; the pose change needs the render's authority on dFc)
             return [self.lam_r] * len(self.leaves)
         if split == "u_rule":                         # Hu_r: the run is on the rule (its merit too); u takes its first value
             return [self.lam_r, self.lam_held]
@@ -371,6 +374,13 @@ class WindowOptimizer:
                          g_raw_cos=float(_dot(gp, gr_raw)) / max(np_raw * nr_raw, 1e-30),
                          g_share=self.lam_r * nr_ / max(np_ + self.lam_r * nr_, 1e-30),
                          g_phys_norm=np_, g_rend_norm=nr_)
+        if getattr(self.cfg, "keyframe_time", ()):     # D175d (keyframe runs, a record): the render's share per block
+            sh = []
+            for p_, r_, l_ in zip(gp, gr, self._block_lams()):
+                a_, b_ = float(p_.norm()), l_ * float(r_.norm())
+                sh.append(b_ / max(a_ + b_, 1e-30))
+            self.tele["g_share_blocks"] = dict(dFc=sh[0], u=sh[1], lam_dFc=self._block_lams()[0],
+                                               lam_u=self._block_lams()[1])
         if self.cfg.grad_dump:
             self.dump.update(lam_r=float(self.lam_r), g_share=float(self.tele["g_share"]))
 
@@ -426,6 +436,14 @@ class WindowOptimizer:
                 noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0 / self.tgt.unit_ratio)
                 required = max(cfg.armijo_c1 * pred, noise_floor) if pred > 0.0 else noise_floor
             merit_ok, st_ok = bool(np.isfinite(new) and new <= cur - required), state_ok(e_n)
+            if getattr(cfg, "keyframe_time", ()):        # D175 (keyframe runs, a record): the trial's merit change by term
+                with torch.no_grad():
+                    vs = lambda v: float(v.norm(dim=1).mean())  # noqa: E731
+                    self.tele.setdefault("ls_split", []).append(dict(
+                        it=self._it, a=float(a_try), ok=int(merit_ok and st_ok), merit_ok=int(merit_ok), d=new - cur,
+                        req=required, pred=pred, d_lv=float(e_n.lv - e.lv), d_stab=float(e_n.lstab - e.lstab),
+                        d_lr_w=self.lam_r * float(e_n.lr - e.lr), v_end0=vs(e.vT), v_end=vs(e_n.vT),
+                        v_rel0=float(e.V[cfg.T:].norm(dim=2).mean()), v_rel=float(e_n.V[cfg.T:].norm(dim=2).mean())))
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
                 self.scored_discs = self.obj.discs
@@ -492,8 +510,8 @@ class WindowOptimizer:
         same_point = bool(cfg.replay_calibrate)
         for it in range(cfg.iters):
             self._it = it
-            if self.tgt.grid_ot is not None:
-                self.tgt.grid_ot.repeat = same_point
+            if self.tgt.grid_ot is not None:     # (D175: a keyframe's segment solves no transport to repeat)
+                self.tgt.grid_ot.repeat = same_point and getattr(self.tgt, "geometry", True)
             if self.force is not None and self.tgt.force_ratio is None and it == 0:
                 self._zd = torch.zeros_like(self.dFc, requires_grad=True)     # B13: the run's first gradient
             with timed("grad_fwd"):
@@ -507,6 +525,11 @@ class WindowOptimizer:
                 log(f"[win] iter {it}: non-finite loss, aborting window")
                 self.tele["null_reason"] = "nonfinite_loss"
                 break
+            if hist and hist[-1]["iter"] == it - 1:
+                # D175 (D164's pairs): this gradient's point is the candidate the last search accepted, so its taped
+                # rollout is a second rollout of that control, a replay pair at the window's own state (no extra cost)
+                a_ = hist[-1]["loss"]
+                self.replays.append(abs(cur - a_) / max(abs(a_), self.win.loss_floor_eff))
             L_start = cur if L_start is None else L_start
             gn = _norm(g)
             g0_norm = max(gn, 1e-12) if g0_norm is None else g0_norm
@@ -557,10 +580,29 @@ class WindowOptimizer:
             ot._solved, ot.repeat = self.acc_solved, True       # D142: the accepted candidate's potentials, no sweep
         commit = commit_rollout(win, self.obj, self.leaves[0], self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
-        replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
+        noise = replay_rel
+        if getattr(self.tgt, "keyframe", None) is not None and E_accept is not None:
+            # D175: inside a keyframe segment the objective carries no transport, so the check's floor (ls_noise_rel) is
+            # ~1 ulp of E, and the start pair (the body at rest at the first window) reads 0: below the comparison's
+            # resolution, not zero, while the moving candidate's render replays differ by a few ulps (D175 (b): 1.1-3.7
+            # ulps at the nulled first windows). The noise there is D164's measure: the largest of the start pair, the
+            # window's taped pairs and one float32 ulp of E. Outside segments the check is the tag's, bit for bit
+            noise = max([replay_rel, float(np.spacing(np.float32(abs(E_accept)))) / max(abs(E_accept), win.loss_floor_eff)]
+                        + self.replays)
+        replay_tol = (max(cfg.ls_noise_rel, 10.0 * noise)
                       * max(abs(E_accept or 0.0), win.loss_floor_eff))
         replay_bad = E_accept is not None and commit.E_final > E_accept + replay_tol
         self.tele["commit_reason"] = commit.reason
+        if commit.terms is not None and hist:         # D175 (keyframe runs, a record): the replay's difference by term
+            h, c = hist[-1], commit.terms
+            lr_acc = h["d_render"] + self.cfg.w_pbr * h["d_pbr"]
+            self.tele["replay_split"] = dict(
+                E_accept=E_accept, E_final=float(commit.E_final), tol=float(replay_tol), replay_rel=float(replay_rel),
+                d_lv=c["lv"] - h["d_vol"], d_stab=c["lstab"] - h["stab"], d_render_w=self.lam_r * (c["lr"] - lr_acc),
+                d_rest=float(commit.E_final) - E_accept - (c["lv"] - h["d_vol"]) - (c["lstab"] - h["stab"])
+                - self.lam_r * (c["lr"] - lr_acc), lam=self.lam_r, keyframe=getattr(self.tgt, "keyframe", None),
+                start_dlv=self.tele.get("replay_dlv"), start_dlr=self.tele.get("replay_dlr"),
+                ext_rebuilt=int(self.scored_discs is not self.obj.discs))
         if not commit.valid:
             replay_bad, grad_converged = True, False
             self.tele["null_reason"] = "commit_invalid"
@@ -598,6 +640,12 @@ class WindowOptimizer:
                                                         "render_b", "render_b_se", "render_b_floor",   # weight's reference,
                                                         "render_lp", "render_lp_floor")})   # on those paths only
         stats.update({k: self.tele.get(k) for k in _SPLIT_KEYS})   # D173: the per-block render shares (every run, a record)
+        if "replay_split" in self.tele:                     # D175 (keyframe runs): a record
+            stats["replay_split"] = dict(self.tele["replay_split"], noise=noise, pairs=len(self.replays))
+        if "ls_split" in self.tele:                         # D175 (keyframe runs): the trials' merit change by term
+            stats["ls_split"] = self.tele["ls_split"]
+        if "g_share_blocks" in self.tele:                   # D175d (keyframe runs): the render's share per block
+            stats["g_share_blocks"] = self.tele["g_share_blocks"]
         if getattr(cfg, "settle_u", "zero") == "last":     # D166: the committed u, for the settle windows (runner)
             stats["u"] = self.u.detach().clone()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,

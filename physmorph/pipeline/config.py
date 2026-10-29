@@ -148,6 +148,21 @@ class PipelineConfig:
                                     #   window (0, k, 2k, ...); between, the window's last one, projected against the fresh
                                     #   physics gradient and weighted as always; the render term's value is read at every
                                     #   evaluation as before; 1 = every iteration (the frozen path)
+    keyframe_time: tuple = ()       # D175 (docs/design/keyframe_render_control.md; () = off, the frozen path): the times (s) of
+                                    #   the picture keyframes, increasing. A window whose end frame lies in (frame(t_k-1),
+                                    #   frame(t_k)], frame(t) = round(t / (2T dt)) 2T, reads keyframe k's pictures and none of
+                                    #   the final target's geometry or cleanup (only the released motion and the end drift); the
+                                    #   render weight there is the held weight on both blocks; a segment window with no accepted
+                                    #   step commits its zero-control rollout (the settle window's); the stops read the final
+                                    #   target's epoch only. Needs render_exterior and lambda_ema 0 (lambda held from a pre-pass
+                                    #   at the source on the final target)
+    keyframe_compare: str = "silhouette"  # D175b: the keyframe comparison; "silhouette" = the exterior silhouette + shading
+                                    #   (D175); "column" = the particles' projected count picture against the keyframe's
+                                    #   (render_loss.d_count); the final target's render term is the exterior either way
+    keyframe_soundness: str = "every"  # D175c: "every" = the released motion and end drift in every window (D175); "final" =
+                                    #   only with the final target: a keyframe segment's merit is its comparison alone
+    keyframe_geometry: str = "own"  # D175 ablation (arm N): "final" keeps the final target's geometry and cleanup in a segment
+                                    #   (only the pictures are swapped); "own" = the storyboard's ownership (the method)
     layer_relax: bool = True        # D170 A/B: the outer-layer relaxation in every window (on = the frozen path); off = its
                                     #   fraction 0 throughout, as the xu baseline has it (window/setup.py), u and all else as they are
     settle_windows: int = 0         # D162h / D162i: after the run stops, this many windows of released physics with zero controls
@@ -253,3 +268,21 @@ class PipelineConfig:
             raise ValueError("T, iters and animations must be positive")
         if int(self.render_every) < 1 or int(self.max_ls_iters) < 1:
             raise ValueError("render_every and max_ls_iters must be at least 1")
+        self.keyframe_time = tuple(float(t) for t in (self.keyframe_time or ()))
+        if self.keyframe_geometry not in ("own", "final"):
+            raise ValueError("keyframe_geometry must be \"own\" or \"final\"")
+        if self.keyframe_soundness not in ("every", "final"):
+            raise ValueError("keyframe_soundness must be \"every\" or \"final\"")
+        if self.keyframe_compare not in ("silhouette", "column"):
+            raise ValueError("keyframe_compare must be \"silhouette\" or \"column\"")
+        if self.keyframe_time:                        # D175: the storyboard's preconditions (the design, section 5)
+            if not self.render_exterior or self.lambda_ema != 0.0:
+                raise ValueError("keyframes read their pictures on the exterior with the held weight: they need "
+                                 "render_exterior and lambda_ema 0")
+            if (self.render_split not in ("", "u") or self.render_weight_ref != "residual" or self.baseline
+                    or self.render_target != "samples"):
+                raise ValueError("keyframes run on the held weight's paths only: render_split \"\" or \"u\", "
+                                 "render_weight_ref residual, no baseline, render_target samples")
+            if any(not (t > 0 and math.isfinite(t)) for t in self.keyframe_time) or list(self.keyframe_time) != sorted(
+                    set(self.keyframe_time)):
+                raise ValueError("keyframe_time: positive, finite and strictly increasing")

@@ -23,7 +23,7 @@ from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement, gri
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
 from ...render.exterior import make_field, tracked
-from ..render_loss import d_exterior, d_pbr, d_render
+from ..render_loss import d_count, d_exterior, d_pbr, d_render
 from .setup import Window
 
 
@@ -192,7 +192,12 @@ class Objective:
             return d_vol_xu(xT, t.m * cfg.xu_mass, *t.xu, **cfg.xu_kw()), lk, zero, zero, zero.detach(), zero
         lstab = self.stability(V)
         with timed("geom"):
-            lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
+            if getattr(t, "geometry", True):
+                lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
+            else:                                     # D175: a keyframe's segment, the end drift alone (target-free)
+                lv = t.ot_scale * end_drift(vT, self.horizon)
+        if not getattr(t, "soundness", True):         # D175c: the segment's merit is the keyframe's alone (on the graph)
+            lv, lstab = 0.0 * lv, 0.0 * lstab
         with timed("render"):
             lsil, lpbr = self.render_terms(xT)
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
@@ -211,6 +216,8 @@ class Objective:
                     d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
                           cfg.sil_k, cfg.pbr_ambient, t.pblur))
         e = t.ext
+        if getattr(e, "counts", None) is not None:    # D175b: a keyframe compared on projected counts (the particles)
+            return d_count(xT, e.counts, t.views, cfg.render_res, t.extent), xT.sum() * 0.0
         if e.albedo is not None:                      # D160: the discs' colours from the particles' fixed albedos
             return self._render_terms_albedo(xT, e)
         if self.discs is not None:
@@ -260,6 +267,8 @@ class Objective:
         the window's start. Until R13 this form summed the distance over EVERY particle, a dense body-to-target
         distance that made up two fifths of the merit (R12f); it is a different quantity from the spray cleanup."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
+        if not getattr(t, "geometry", True):          # D175: a keyframe's segment, no pull to the final target
+            return xT.sum() * 0.0
         if self.xu:                                   # the baseline: no cleanup, or the spray cleanup alone
             if not self.spray_only:
                 return xT.sum() * 0.0

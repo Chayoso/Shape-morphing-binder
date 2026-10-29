@@ -148,6 +148,7 @@ class Commit:
     reason: str | None = None         # state_reason of the rollout (None when valid)
     J: list | None = None             # D129 (volume_exact): 2T+1 (N,) views of the tracked volume
     end_J: torch.Tensor | None = None
+    terms: dict | None = None         # D175 (keyframe runs only, a record): the commit rollout's lv, lstab and lr
 
 
 def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit:
@@ -210,4 +211,6 @@ def _committed(win: Window, E_final: float, e: Eval) -> Commit:
                       n_inv_steps=int(inv_any.sum()), jmin_traj=jmin, E_final=E_final,
                       jt_final=e.jt, valid=state_ok(e), owner=win, reason=state_reason(e),
                       J=[wp.to_torch(tr.J[t]) for t in range(T + 1)] if vx else None,
-                      end_J=wp.to_torch(tr.J[T]).clone() if vx else None)
+                      end_J=wp.to_torch(tr.J[T]).clone() if vx else None,
+                      terms=(dict(lv=float(e.lv), lstab=float(e.lstab), lr=float(e.lr))
+                             if getattr(win.cfg, "keyframe_time", ()) and e.lv is not None else None))

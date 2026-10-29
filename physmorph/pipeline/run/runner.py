@@ -78,7 +78,7 @@ class _AttemptClock:
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
                  on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None,
-                 mesh=None, appearance=None, render_x=None, floor_x=None, target_fill=None):
+                 mesh=None, appearance=None, render_x=None, floor_x=None, target_fill=None, keyframes=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
@@ -95,7 +95,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     "floor"; None = the pictures' own first sample, render_x or else target_x): the sample whose render term is the
     render's floor (target.render_floor): what a body that reaches that sample scores, the floor the physics can reach.
     target_fill (D162b, cfg.render_weight_ref "shape"): the volume the target sample represents (D132's fill volume, wu^3),
-    for the shape reading's number density; mesh is then the render target's own mesh (pipeline/shape_read.py)."""
+    for the shape reading's number density; mesh is then the render target's own mesh (pipeline/shape_read.py).
+    keyframes (D175, cfg.keyframe_time; None = the frozen path): per keyframe time, the keyframe's samples in the target's
+    frame, read through their pictures only (run/storyboard.py)."""
     gpu.require_cuda()
     cfg = dataclasses.replace(cfg)
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
@@ -146,6 +148,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         tgt.render_lp_floor = render_term_lowpass(tgt, cfg, fx, alb)
         log(f"[v2] render weight referenced to the floor at the pitch scale (D162d): pictures low-passed at one pitch "
             f"({tgt.ext.pitch:.4f} wu), L_floor = {tgt.render_lp_floor:.4e} (the pictures' own first sample)")
+    story = None
+    if cfg.keyframe_time:                           # D175: the storyboard (the keyframes' pictures, then the final target)
+        from .storyboard import Storyboard
+        story = Storyboard(tgt, keyframes, src, prm, cfg, log)
     shape_at = None                                 # the state b was last read at (a retried window starts there again)
     x = src.clone()
     vol0 = compute_rest_volumes(src, 1.0, prm, cfg.device)
@@ -164,10 +170,77 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim}")
     PROF_STATE["on"] = bool(cfg.profile)
+
+    def hold(x, F, v, C, J, Fp, u_hold=None, release=False):
+        """A window of released physics with zero controls (the same material and assimilation): the settle window
+        (D162h), and (D175) a keyframe segment's window without an accepted step. Returns the promoted state, Fp, the
+        trajectory's min det F and the guard counts.
+        D174 (exact; release, the settle windows after the stop only): with u at zero the window is its rollout alone
+        (window.rollout.release_rollout): the window objective and its construction were never read there (a segment hold
+        keeps the commit rollout: its objective evaluation is followed by optimised windows). D166's hold without the
+        relaxation builds the window with the relaxation's fraction at zero, the value it was set to and captured again with
+        before."""
+        from ..window.rollout import commit_rollout, release_rollout
+        from ..window.setup import Window
+        from ..window.solve import WindowOptimizer
+        relax = getattr(cfg, "settle_relax", True)
+        start_k = StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J)
+        bonds_k = (coh_nbr, bond_rest, fragment_mask(x, prm).float())
+        if release and u_hold is None and cfg.gap_split == "off" and not cfg.baseline.startswith("force"):
+            opt = Window(start_k, prm, cfg if relax else dataclasses.replace(cfg, layer_relax=False), tgt, vol0, bonds_k)
+            commit = release_rollout(opt)
+        else:
+            opt = WindowOptimizer(start_k, prm, cfg, tgt, balancer, vol0, bonds_k, 1.0, None, lambda *_: None)
+            if u_hold is not None:                            # D166: the last committed u held
+                with torch.no_grad():
+                    opt.u.copy_(u_hold)
+                opt.free_of_rigid()
+                with torch.no_grad():
+                    opt.u.clamp_(-opt.win.sp0, opt.win.sp0)
+            if not relax:                                     # D166: no layer relaxation in the settle windows
+                opt.win.tr.layer_frac = 0.0
+                # Scalar kernel arguments were captured before this release-only override.
+                opt.win.tr.capture()
+            with torch.no_grad():
+                commit = commit_rollout(opt.win, opt.obj, opt.leaves[0], opt.u, 0.0)
+        x, F, v, C, J, counts = promote(commit, lo, hi)
+        if cfg.assim > 0:
+            Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                    isochoric=not cfg.assim_volume)
+        frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F, Js=commit.J[1:-1] if J is not None else None, J_end=J)
+        jmin = float(commit.jmin_traj)
+        del opt, commit
+        return x, F, v, C, J, Fp, jmin, counts
+
+    def hold_window(a, seg, reason):
+        """D175: the storyboard owns the clock: the segment window's zero-control rollout is committed."""
+        nonlocal x, F, v, C, J, Fp
+        x, F, v, C, J, Fp, jmin, counts = hold(x, F, v, C, J, Fp)
+        for k in GUARDS:
+            guards[k] += counts[k]
+        hist.append({"animation": a, "hold": 1, "hold_reason": reason, "keyframe": seg, "frame_end": len(frames),
+                     "lambda": 0.0, "Jmin_traj": jmin, "v_mean": float(v.norm(dim=1).mean()),
+                     "v_absmax": float(v.abs().max()), **{k: counts[k] for k in GUARDS}})
+        log(f"[v2] anim {a + 1}: keyframe {seg}'s segment, {reason}: the zero-control rollout committed (frames "
+            f"-> {len(frames)})")
+
+    if story is not None:                           # D175: lambda's pre-pass at the source on the final target
+        Storyboard.calibrate(StartState(x=src.clone(), Fp=Fp), prm, cfg, tgt, balancer, vol0,
+                             (coh_nbr, (src[coh_nbr] - src[:, None, :]).norm(dim=2),
+                              fragment_mask(src, prm).float()), log)
     clock = _AttemptClock(hist)
     for a in range(cfg.animations):
         clock.lap()                    # the last attempt's wall seconds (and, with --profile, the runner's sections)
-        if not frozen and sel.plateau(a):
+        seg = None
+        if story is not None:
+            # D175: the entry of the window ending at frame len(frames) - 1 + 2T; a new entry opens a selection epoch
+            # (costs compare within one objective), and no transport potentials carry across entries
+            seg, changed = story.apply(tgt, len(frames) - 1 + 2 * cfg.T)
+            if changed and a > 0:
+                sel.new_epoch()
+            if tgt.grid_ot is not None:
+                tgt.grid_ot.repeat = False
+        if not frozen and seg is None and sel.plateau(a):
             log(f"[v2] delivery merit plateau at anim {a + 1}")
             frozen = True
         if frozen:
@@ -205,6 +278,15 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if res.commit is None:
             if stats.get("invalid_selection"):
                 dfc_prev = rollback["dfc"]
+            if seg is not None:                     # D175: no stop inside a segment; its clock goes on
+                if not stats.get("grad_converged"):
+                    hist.append({"animation": a, "null_commit": 1, "no_simulated_time": 1, "keyframe": seg,
+                                 "replay_split": stats.get("replay_split"), "ls_split": stats.get("ls_split"),
+                                 "g_share_blocks": stats.get("g_share_blocks"),
+                                 **{k: stats.get(k) for k in _NULL_FIELDS}})
+                    sel.null()
+                hold_window(a, seg, "grad_converged" if stats.get("grad_converged") else "null")
+                continue
             if stats.get("grad_converged"):
                 frozen = True               # zero gradient at the window start: the optimum
                 hist.append({"animation": a, "grad_converged": 1})
@@ -212,6 +294,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 continue
             log(f"[v2] anim {a + 1}: no accepted step - null commit (stale {sel.stale + 1})")
             rec = {"animation": a, "null_commit": 1, "no_simulated_time": 1, **{k: stats.get(k) for k in _NULL_FIELDS}}
+            if story is not None:                   # D175: a record (keyframe runs only)
+                rec.update(keyframe=None, replay_split=stats.get("replay_split"), ls_split=stats.get("ls_split"),
+                           g_share_blocks=stats.get("g_share_blocks"))
             hist.append(rec)
             if sel.null():
                 frozen = True
@@ -234,8 +319,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if tgt.grid_ot is not None:
             # D53 (tag settled-2026-10-03-d53, ported by the user's approval of 2026-10-09, D138): the promoted positions
             # are the commit rollout's own end state unless a guard repaired them; the record's transport energy takes
-            # the potentials the commit solved there
-            tgt.grid_ot.repeat = not (counts["clamped"] or counts["nan_x"])
+            # the potentials the commit solved there (D175: in a keyframe's segment the commit solved none)
+            tgt.grid_ot.repeat = getattr(tgt, "geometry", True) and not (counts["clamped"] or counts["nan_x"])
         with timed("record"):
             rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin, J)
             if cfg.assim_volume:                      # D135: the rest volume the assimilation has taken (a record)
@@ -244,6 +329,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     q = torch.quantile(jp, torch.tensor([.01, .5, .99], device=jp.device, dtype=jp.dtype))
                 rec.update(Jp_min=float(jp.min()), Jp_p01=float(q[0]), Jp_p50=float(q[1]), Jp_p99=float(q[2]),
                            Jp_max=float(jp.max()))
+            if story is not None:
+                rec.update(keyframe=seg, replay_split=stats.get("replay_split"),   # D175: the entry (None: the target); records
+                           ls_split=stats.get("ls_split"), g_share_blocks=stats.get("g_share_blocks"))
         if cfg.term_dump and stats.get("term_grads") is not None:
             write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one
@@ -270,6 +358,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             _notify(on_commit, a, x, F, v, rec)
             log(f"[v2] anim {a + 1}: outer merit rejected candidate (gain={_fmt(rec['outer_gain'])}, "
                 f"physics gain={_fmt(rec['phys_gain'])}, reversal={rec['reversal_cos']})")
+            if seg is not None:                     # D175: no stop inside a segment; its clock goes on
+                rec["actual_stop"] = 0
+                hold_window(a, seg, "outer_reject")
+                continue
             if stop:
                 if sel.reject_streak >= cfg.reject_stop > 0:
                     log(f"[v2] anim {a + 1}: {sel.reject_streak} consecutive rejected candidates -> "
@@ -279,7 +371,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         rec["frame_end"] = len(frames)
         if "u" in stats:                               # D166: a kept commit's u (settle_u last)
             u_last = stats["u"]
-        converged = sel.accepted(rec, a, disp, improved)
+        converged = sel.accepted(rec, a, disp, improved) and seg is None   # D175: the stops read the final epoch
         rec["actual_stop"] = int(converged)
         hist.append(rec)
         _notify(on_commit, a, x, F, v, rec)
@@ -298,46 +390,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 + (f"  GUARD {counts}" if any_guard else ""))
     settle = int(getattr(cfg, "settle_windows", 0) or 0)
     if settle > 0:   # D162h / D162i: released physics with zero controls after the stop, the same material and assimilation
-        from ..window.rollout import commit_rollout, release_rollout
-        from ..window.setup import Window
-        from ..window.solve import WindowOptimizer
         n_run, a_last = len(frames), (hist[-1].get("animation", 0) if hist else 0)
-        hold_u = getattr(cfg, "settle_u", "zero") == "last" and u_last is not None
-        relax = getattr(cfg, "settle_relax", True)
-        # D174 (exact): with u at zero a settle window is its rollout alone (window.rollout.release_rollout): the window
-        # objective and its construction were never read there. D166's settle without the relaxation builds the window
-        # with the relaxation's fraction at zero, the value it was set to and captured again with before
-        bare = not hold_u and cfg.gap_split == "off" and not cfg.baseline.startswith("force")
-        cfg_s = cfg if relax else dataclasses.replace(cfg, layer_relax=False)
+        u_hold = u_last if getattr(cfg, "settle_u", "zero") == "last" else None
         for k in range(settle):
-            start_k = StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J)
-            bonds_k = (coh_nbr, bond_rest, fragment_mask(x, prm).float())
-            if bare:
-                opt = Window(start_k, prm, cfg_s, tgt, vol0, bonds_k)
-                commit = release_rollout(opt)
-            else:
-                opt = WindowOptimizer(start_k, prm, cfg, tgt, balancer, vol0, bonds_k, 1.0, None, lambda *_: None)
-                if hold_u:                                        # D166: the last committed u held
-                    with torch.no_grad():
-                        opt.u.copy_(u_last)
-                    opt.free_of_rigid()
-                    with torch.no_grad():
-                        opt.u.clamp_(-opt.win.sp0, opt.win.sp0)
-                if not relax:                                     # D166: no layer relaxation in the settle windows
-                    opt.win.tr.layer_frac = 0.0
-                    # Scalar kernel arguments were captured before this release-only override.
-                    opt.win.tr.capture()
-                with torch.no_grad():
-                    commit = commit_rollout(opt.win, opt.obj, opt.leaves[0], opt.u, 0.0)
-            x, F, v, C, J, _ = promote(commit, lo, hi)
-            if cfg.assim > 0:
-                Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                        isochoric=not cfg.assim_volume)
-            frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F, Js=commit.J[1:-1] if J is not None else None, J_end=J)
+            x, F, v, C, J, Fp, jmin, _ = hold(x, F, v, C, J, Fp, u_hold, release=True)
             hist.append({"animation": a_last + 1 + k, "settle": 1, "frame_end": len(frames), "lambda": 0.0,
-                         "Jmin_traj": float(commit.jmin_traj),
+                         "Jmin_traj": jmin,
                          "v_mean": float(v.norm(dim=1).mean()), "v_absmax": float(v.abs().max())})
-            del opt, commit
         log(f"[v2] settled {settle} windows with zero controls after the stop (frames {n_run} -> {len(frames)}, delivered)")
     clock.lap()
     deliver_n, trunc = (best_window(hist, len(frames), cfg.tol, cfg.w_pbr) if cfg.best_truncate

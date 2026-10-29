@@ -78,6 +78,23 @@ def parse_args(argv=None):
                          "path); u = the run's weight (held under --lambda_ema 0) on u and the rule's per-window value on dFc; "
                          "dFc = the reverse; the merit keeps the run's weight; u_rule = the run on the rule (its merit and "
                          "stops too) with u at the first calibration's value (what --lambda_ema 0 holds)")
+    ap.add_argument("--keyframe", nargs="+", default=[],
+                    help="D175 (off by default): picture keyframes, one .npz per --keyframe_time, each with 'samples' "
+                         "(K, N_k, 3): the keyframe's sample and its draws in the target's frame, read through their "
+                         "pictures only (physmorph/pipeline/run/storyboard.py); an optional 'A' (3, 3) is the linear map "
+                         "that made it from the source, checked to carry no rotation")
+    ap.add_argument("--keyframe_time", nargs="+", type=float, default=[],
+                    help="D175: the keyframes' times in s (strictly increasing; needs --lambda_ema 0)")
+    ap.add_argument("--keyframe_soundness", default="every", choices=["every", "final"],
+                    help="D175c: every (D175) = the released motion and the end drift in every window; final = only with the "
+                         "final target: a keyframe segment's merit is its comparison alone")
+    ap.add_argument("--keyframe_compare", default="silhouette", choices=["silhouette", "column"],
+                    help="D175b: the keyframe comparison; silhouette (D175) = the exterior silhouette + shading; column = "
+                         "the particles' projected count picture against the keyframe samples' (the final target's render "
+                         "term is unchanged)")
+    ap.add_argument("--keyframe_geometry", default="own", choices=["own", "final"],
+                    help="D175 ablation: own (the method) = a segment reads only the keyframe's pictures and the "
+                         "soundness terms; final = the pictures swapped, the final target's geometry and cleanup kept")
     ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
                     help="D162 (2) A/B (off by default): the placement terms read the body at the loss cell (the "
                          "proximity covers within one loss cell, the near band's band is empty, the spray gate in loss cells)")
@@ -316,6 +333,10 @@ def run_config(args, cfg0, prep):
                               settle_u=args.settle_u, settle_relax=args.settle_relax, layer_relax=args.layer_relax,
                               render_split=args.render_split, colour_kernel=args.colour_kernel,
                               render_every=args.render_every, max_ls_iters=args.ls_max,
+                              keyframe_time=tuple(getattr(args, "keyframe_time", ()) or ()),
+                              keyframe_geometry=getattr(args, "keyframe_geometry", "own"),
+                              keyframe_compare=getattr(args, "keyframe_compare", "silhouette"),
+                              keyframe_soundness=getattr(args, "keyframe_soundness", "every"),
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
@@ -325,6 +346,27 @@ def run_config(args, cfg0, prep):
     if args.baseline.startswith("xu"):     # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     return cfg
+
+
+def load_keyframes(paths, times):
+    """D175: per keyframe time, the keyframe's samples ((N_k, 3) float32 arrays) from its .npz ('samples'). A keyframe
+    made from the source by a linear map (its 'A') must not ask for a rotation: the map's polar rotation within 0.5 deg."""
+    if len(paths) != len(times):
+        raise ValueError(f"--keyframe needs one file per --keyframe_time ({len(paths)} vs {len(times)})")
+    out = []
+    for p in paths:
+        z = np.load(p)
+        s = np.asarray(z["samples"], np.float32)
+        if s.ndim != 3 or s.shape[2] != 3 or not np.isfinite(s).all():
+            raise ValueError(f"{p}: 'samples' must be finite (K, N, 3)")
+        if "A" in z.files:
+            u, _, vt = np.linalg.svd(np.asarray(z["A"], np.float64))
+            ang = float(np.degrees(np.arccos(np.clip((np.trace(u @ vt) - 1.0) / 2.0, -1.0, 1.0))))
+            if np.linalg.det(u @ vt) < 0 or ang > 0.5:
+                raise ValueError(f"{p}: the keyframe's map rotates the body by {ang:.3g} deg; a keyframe asks for no "
+                                 "net rotation")
+        out.append(list(s))
+    return out
 
 
 def run_main(args, prep, src, tgt, prm, cfg):
@@ -355,10 +397,11 @@ def run_main(args, prep, src, tgt, prm, cfg):
             tex = TextureMap(obj, img, prep.frame, args.tgt)
         app = make_appearance(args.appearance, src, tgt, prep.tgt_draws, texture=tex)
         out["provenance"]["appearance"] = app.params
+    keyframes = load_keyframes(args.keyframe, cfg.keyframe_time) if cfg.keyframe_time else None
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
                        on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
                        mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x,
-                       target_fill=prep.density["target_fill"] if prep.density else None)
+                       target_fill=prep.density["target_fill"] if prep.density else None, keyframes=keyframes)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")
