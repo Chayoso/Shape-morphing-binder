@@ -156,12 +156,41 @@ def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit
     with torch.no_grad():
         e = eval_terms(win, obj, leaf, u)
         E_final = obj.scalar(e, lam_r)
-        tr, T, N = win.tr, win.T, win.N
+        tr = win.tr
         if tr.gap:                                    # D148: the commit rollout's split record
             from ...mpm.gap_step import record
             sm, ss, sn, sp = record(tr)
             print(f"[gap] commit: split node-steps {sn:.0f}, separating {sp:.0f}; the separating share of the split "
                   f"nodes' mass {ss / max(sm, 1e-30):.4f}", flush=True)
+        return _committed(win, E_final, e)
+
+
+def release_rollout(win: Window) -> Commit:
+    """D174 (exact): the commit rollout of a settle window (zero controls, run.runner) without the objective. The settle
+    windows read the trajectory, its end state and its minimum det only; the window objective commit_rollout evaluates
+    there (the transport solves, the exterior and its pictures, the proximity, the cleanup) was never read, nor was the
+    objective's construction (the u gate's transport, the spray gate, the near band) with u at zero. The rollout is
+    commit_rollout's: the window's eval trajectory with its control buffers as built (zero: dc_buf and the layer's u
+    start at zero, which is what loading the zero leaves writes), the same state checks; E_final is not evaluated."""
+    if getattr(win, "scene", False) or getattr(win, "force", None) or win.tr.gap:
+        raise ValueError("release_rollout: the single-body window of dFc, without gap_split")
+    with torch.no_grad():
+        tr, T, N = win.tr, win.T, win.N
+        with timed("mpm_eval"):
+            tr.run()
+        xT = wp.to_torch(tr.x[T])
+        FT = wp.to_torch(tr.F[T]).reshape(N, 9)
+        vT = wp.to_torch(tr.v[T])
+        e = Eval(xT, FT, vT, *([None] * 7), None, None)
+        e.jt = _trajectory_min_det(win, win.dc_buf)
+        e.in_domain = win.positions_in_domain()
+        return _committed(win, float("nan"), e)
+
+
+def _committed(win: Window, E_final: float, e: Eval) -> Commit:
+    """The Commit of the rollout the eval trajectory holds, e its end state with the state checks' fields."""
+    with torch.no_grad():
+        tr, T, N = win.tr, win.T, win.N
         inv_any, jmin = None, float("inf")
         for t in range(1, T + 1):
             det_t = torch.linalg.det(wp.to_torch(tr.F[t]).reshape(-1, 3, 3).float())

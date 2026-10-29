@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from physmorph import gpu, metrics  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
 from physmorph.surface import surface_roughness  # noqa: E402
-from physmorph.thin import thin_metrics, thin_set  # noqa: E402
+from physmorph.thin import thin_metrics, thin_set_cached  # noqa: E402
 from physmorph.prepare import prepare  # noqa: E402
 from physmorph.sampling.orientation import orient_name  # noqa: E402
 
@@ -327,7 +327,7 @@ def run_main(args, prep, src, tgt, prm, cfg):
     print(f"\n[v2run] ===== ARM {ARM} =====", flush=True)
     t_thin = time.time()
     # the thin part of the target (measurement), in the shape's cell (D137: also when the MPM cell follows N)
-    ts = thin_set(tgt, prep.cell_shape or prm.dx, cfg.mass_ref_n)
+    ts = thin_set_cached(tgt, prep.cell_shape or prm.dx, cfg.mass_ref_n)   # D174: cached (exact)
     print(f"[v2run] thin set: {len(ts.points)} of {ts.n_outer} outer target points below two MPM cells "
           f"({time.time() - t_thin:.1f} s)", flush=True)
     on_commit, on_iter = live_hooks(args, src, tgt, prm, cfg)

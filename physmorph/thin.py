@@ -77,6 +77,40 @@ def thin_set(target, cell: float, ref_n: int) -> ThinSet:
     return ThinSet(points=tgt[sel], thickness=h[sel], spacing=sp, world=world, n_outer=int(outer.sum()))
 
 
+def thin_set_cached(target, cell: float, ref_n: int) -> ThinSet:
+    """thin_set, cached on disk beside the samples (D174, exact: the set is a deterministic function of the target
+    sample, the cell and ref_n, which key it; 20 s of every 300k run's start, a measurement the run never reads before
+    its end). PHYSMORPH_SAMPLE_CACHE=0 disables it, as the sample cache."""
+    import hashlib
+    import os
+
+    import numpy as np
+    arr = np.ascontiguousarray(np.asarray(target, dtype=np.float32))
+    cache_on = os.environ.get("PHYSMORPH_SAMPLE_CACHE", "1") != "0"
+    key = hashlib.sha1(arr.tobytes() + f"|{arr.shape}|{float(cell)!r}|{int(ref_n)}|thin-v1".encode()).hexdigest()[:20]
+    cdir = os.environ.get("PHYSMORPH_CACHE", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                                          "output", "cache"))
+    cpath = os.path.join(cdir, f"thin_{len(arr)}_{key}.npz")
+    if cache_on and os.path.exists(cpath):
+        try:
+            z = np.load(cpath)
+            return ThinSet(points=gpu.tensor(z["points"]), thickness=torch.as_tensor(z["thickness"], device=gpu.DEVICE),
+                           spacing=float(z["spacing"]), world=float(z["world"]), n_outer=int(z["n_outer"]))
+        except Exception:
+            pass
+    ts = thin_set(arr, cell, ref_n)
+    if cache_on:
+        try:
+            os.makedirs(cdir, exist_ok=True)
+            tmp = f"{cpath}.{os.getpid()}.tmp.npz"
+            np.savez(tmp, points=ts.points.detach().cpu().numpy(), thickness=ts.thickness.detach().cpu().numpy(),
+                     spacing=np.float64(ts.spacing), world=np.float64(ts.world), n_outer=np.int64(ts.n_outer))
+            os.replace(tmp, cpath)
+        except Exception:
+            pass
+    return ts
+
+
 def thin_metrics(x, ts: ThinSet) -> dict:
     """Coverage of the thin set by body positions x: uncovered shares (own and world threshold, also per
     thickness bin < 1 and 1-2 cells) and the gap of the uncovered points in target spacings."""

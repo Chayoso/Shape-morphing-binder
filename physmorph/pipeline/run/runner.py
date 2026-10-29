@@ -298,24 +298,37 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 + (f"  GUARD {counts}" if any_guard else ""))
     settle = int(getattr(cfg, "settle_windows", 0) or 0)
     if settle > 0:   # D162h / D162i: released physics with zero controls after the stop, the same material and assimilation
-        from ..window.rollout import commit_rollout
+        from ..window.rollout import commit_rollout, release_rollout
+        from ..window.setup import Window
         from ..window.solve import WindowOptimizer
         n_run, a_last = len(frames), (hist[-1].get("animation", 0) if hist else 0)
+        hold_u = getattr(cfg, "settle_u", "zero") == "last" and u_last is not None
+        relax = getattr(cfg, "settle_relax", True)
+        # D174 (exact): with u at zero a settle window is its rollout alone (window.rollout.release_rollout): the window
+        # objective and its construction were never read there. D166's settle without the relaxation builds the window
+        # with the relaxation's fraction at zero, the value it was set to and captured again with before
+        bare = not hold_u and cfg.gap_split == "off" and not cfg.baseline.startswith("force")
+        cfg_s = cfg if relax else dataclasses.replace(cfg, layer_relax=False)
         for k in range(settle):
-            opt = WindowOptimizer(StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer, vol0,
-                                  (coh_nbr, bond_rest, fragment_mask(x, prm).float()), 1.0, None, lambda *_: None)
-            if getattr(cfg, "settle_u", "zero") == "last" and u_last is not None:   # D166: the last committed u held
+            start_k = StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J)
+            bonds_k = (coh_nbr, bond_rest, fragment_mask(x, prm).float())
+            if bare:
+                opt = Window(start_k, prm, cfg_s, tgt, vol0, bonds_k)
+                commit = release_rollout(opt)
+            else:
+                opt = WindowOptimizer(start_k, prm, cfg, tgt, balancer, vol0, bonds_k, 1.0, None, lambda *_: None)
+                if hold_u:                                        # D166: the last committed u held
+                    with torch.no_grad():
+                        opt.u.copy_(u_last)
+                    opt.free_of_rigid()
+                    with torch.no_grad():
+                        opt.u.clamp_(-opt.win.sp0, opt.win.sp0)
+                if not relax:                                     # D166: no layer relaxation in the settle windows
+                    opt.win.tr.layer_frac = 0.0
+                    # Scalar kernel arguments were captured before this release-only override.
+                    opt.win.tr.capture()
                 with torch.no_grad():
-                    opt.u.copy_(u_last)
-                opt.free_of_rigid()
-                with torch.no_grad():
-                    opt.u.clamp_(-opt.win.sp0, opt.win.sp0)
-            if not getattr(cfg, "settle_relax", True):        # D166: no layer relaxation in the settle windows
-                opt.win.tr.layer_frac = 0.0
-                # Scalar kernel arguments were captured before this release-only override.
-                opt.win.tr.capture()
-            with torch.no_grad():
-                commit = commit_rollout(opt.win, opt.obj, opt.leaves[0], opt.u, 0.0)
+                    commit = commit_rollout(opt.win, opt.obj, opt.leaves[0], opt.u, 0.0)
             x, F, v, C, J, _ = promote(commit, lo, hi)
             if cfg.assim > 0:
                 Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,

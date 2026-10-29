@@ -340,7 +340,42 @@ def draws_in_frame(path: str, frame: dict, n: int, seeds) -> list:
     """Independent stratified draws of the mesh's volume (one per seed), each in the frame load_normalized put the
     mesh's cloud in (`frame`, as it filled it): further samples of the same target, for an expectation over them."""
     return [((x.astype(np.float64) - frame["offset"]) * frame["scale"]).astype(np.float32)
-            for x in stratified_draws(_oriented(path), n, seeds)]
+            for x in _cached_draws(path, n, seeds)]
+
+
+def _cached_draws(path: str, n: int, seeds) -> list:
+    """stratified_draws of the (oriented) mesh at `path`, in mesh units, cached beside the samples (D174, exact: the
+    draws are deterministic in the same key fields as _cached_sample's, the seeds in place of the seed; at 300k the
+    fill's bisection took 8-16 s of every run's prepare stage)."""
+    import hashlib
+    import os
+    from .orientation import orient_name
+    seeds = [int(s) for s in seeds]
+    cache_on = os.environ.get("PHYSMORPH_SAMPLE_CACHE", "1") != "0"
+    key = hashlib.sha1((f"{os.path.abspath(path)}|{os.path.getmtime(path)}|{os.path.getsize(path)}|{n}|"
+                        f"{','.join(map(str, seeds))}|{FILL_MODE}|{orient_name(path)}|draws-v1").encode()).hexdigest()[:16]
+    cdir = os.environ.get("PHYSMORPH_CACHE",
+                          os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                       "output", "cache"))
+    cpath = os.path.join(cdir, f"draws_{os.path.splitext(os.path.basename(path))[0]}_{n}_{key}.npz")
+    if cache_on and os.path.exists(cpath):
+        try:
+            z = np.load(cpath)
+            out = [np.asarray(z[f"x{i}"], np.float32) for i in range(len(seeds))]
+            if all(x.shape == (n, 3) for x in out):
+                return out
+        except Exception:
+            pass
+    out = stratified_draws(_oriented(path), n, seeds)
+    if cache_on:
+        try:
+            os.makedirs(cdir, exist_ok=True)
+            tmp = f"{cpath}.{os.getpid()}.tmp.npz"
+            np.savez(tmp, **{f"x{i}": x for i, x in enumerate(out)})
+            os.replace(tmp, cpath)
+        except Exception:
+            pass
+    return out
 
 
 def surface_in_frame(path: str, frame: dict, n: int, seed: int = 0):
