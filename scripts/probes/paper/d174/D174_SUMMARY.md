@@ -185,3 +185,33 @@ the plateau's `last` :116 / :41, the stop :121) against a tolerance of their own
 runs without the anneal's feedback (tmp/d174/d174_stop.py), a stop tolerance of 0.10-0.12 stops the dragon at 60-64
 attempts in all three recorded runs (~10-10.5 min with the exact speed-ups), the bunny at 33-36, the scales at 55-57,
 the plaque at 31-40 and the 40k gallery at 21-35 windows. Not implemented (the user's call).
+
+## 6. --stop_tol: the stop's own tolerance (user GO 2026-10-29; wip/d174 228ee3a7)
+
+Code: run/selection.Selection keeps a second set of counters for the stop (its best, last improving window and stale
+count: the plateau and the patience stop of accepted, rejected and null windows) read against `--stop_tol`; the step
+anneal and the latch keep `tol` = 0.003. Unset, the two sets are the same numbers: V3 gate s PASS (G1-G4 bit-SAME).
+Server repo_d174s = repo_d174 = wip/d174 HEAD.
+
+Picking the value (300k dragon Hu, seed 97, solo, real runs): --stop_tol 0.10: 10.7 min, 62 windows (sil_iou 0.9870,
+chamfer 0.0551, thin 5.7 %; scales share 1.13 at 61 windows); 0.12: 8.0 min, 40 windows. Chosen: 0.12 (0.10 misses 10 min). The
+step anneal stays at 1.0 through the 0.12 dragon run (0.5-1.0 at the 0.10 stop), unlike the tol arms of section 5.
+
+A/B at --stop_tol 0.12 (Hs12) against Hu (tol 0.003 throughout), fast readers (output/gpu/d174/STOPTOL_SUMMARY.md,
+auto/ss_*):
+
+| check | Hu | Hs12 | change |
+|---|---|---|---|
+| dragon 300k: wall, windows | 16.1 min, 108 | **8.0 min**, 40 | -50 % |
+| dragon sil_iou / chamfer / thin, rest | 0.9870 / 0.0547 / 4.7 %, ok | 0.9866 / 0.0558 / 6.4 %, ok | -0.0004 / +0.0011 / +1.7 pt |
+| bunny 300k: wall, windows | 6.2 min, 55 | 4.9 min, 36 | |
+| bunny sil_iou / chamfer / thin, rest | 0.9891 / 0.0551 / 3.3 %, ok | 0.9889 / 0.0552 / 4.1 %, ok | -0.0002 / +0.0001 / +0.8 pt |
+| 300k stylized scales: share, kept | 0.94, 1.00 (86 windows) | **0.89**, 0.99 (56 windows) | **-0.05** (bar 0.40; PASS) |
+| 300k plaque: share, kept | 0.63, 1.00 (shape no) | 0.63, 1.02 (shape ok) | 0 |
+| relief share min (coin, bunny; 40k x 97 / 99) | 0.45 | 0.47 | +0.02 (kept min 0.97) |
+| band colour (Hu does not carry it) | 0.07 | 0.06 | Hu's verdict |
+| gallery 40k s97 within 0.003 / 0.002 / 0.02 of the tag's rule | 6/6 | 6/6 | largest deltas: dragon sil -0.0014, chamfer +0.0018, thin +0.016; bunny thin +0.017 |
+
+Every verdict is Hu's (scenes: the same colour-bar FAIL as Hu; gallery PASS; scales PASS; plaque content ok and now
+shape ok). The render cost is the scales' share, 0.94 -> 0.89 (5 points); the shape cost on the dragon is the accepted
+one (+1.7 pt thin). Seed 97 only: the window count of a run is its own draw (Hu's dragon took 100-138 windows).
