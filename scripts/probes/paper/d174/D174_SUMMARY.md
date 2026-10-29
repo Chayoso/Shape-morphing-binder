@@ -194,7 +194,7 @@ anneal and the latch keep `tol` = 0.003. Unset, the two sets are the same number
 Server repo_d174s = repo_d174 = wip/d174 HEAD.
 
 Picking the value (300k dragon Hu, seed 97, solo, real runs): --stop_tol 0.10: 10.7 min, 62 windows (sil_iou 0.9870,
-chamfer 0.0551, thin 5.7 %; scales share 1.13 at 61 windows); 0.12: 8.0 min, 40 windows. Chosen: 0.12 (0.10 misses 10 min). The
+chamfer 0.0551, thin 5.7 %; scales share 1.13 at 61 windows, plaque 0.61 / kept 0.99); 0.12: 8.0 min, 40 windows. Chosen: 0.12 (0.10 misses 10 min). The
 step anneal stays at 1.0 through the 0.12 dragon run (0.5-1.0 at the 0.10 stop), unlike the tol arms of section 5.
 
 A/B at --stop_tol 0.12 (Hs12) against Hu (tol 0.003 throughout), fast readers (output/gpu/d174/STOPTOL_SUMMARY.md,
