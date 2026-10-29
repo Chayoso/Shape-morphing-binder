@@ -16,7 +16,10 @@ import torch
 import warp as wp
 
 from ..prof import count, timed
+from .lse_cuda import lse_axis, toeplitz as lse_toeplitz
 from .volumetric import rasterize_mass
+
+SHARED_LSE = True        # D174: the transform's axis log-sum-exp from lse_cuda (bit for bit); False = the Warp kernel (tests)
 
 def _grid_measure(grid, grid_min, dx, dims):
     ids = torch.nonzero(grid > 0, as_tuple=False).flatten()
@@ -106,6 +109,8 @@ class GridSinkhornLoss:
                        - torch.arange(n, device=target.device, dtype=target.dtype)[None, :]) * dx).square()
                       for n in dims]
         self.diameter2 = dx ** 2 * sum((n - 1) ** 2 for n in dims)
+        # D174: the axes whose cost is Toeplitz bit for bit take the shared-memory kernel (losses/lse_cuda.py; CUDA only)
+        self._toeplitz = [bool(SHARED_LSE and c.is_cuda and lse_toeplitz(c)) for c in self.costs]
         self.cuda_blocks = False
         self._solve_graphs = {}
         self.target_potential, _ = self.solve(self.b, self.b)
@@ -126,13 +131,16 @@ class GridSinkhornLoss:
             field = (dual / temp + log_weights).reshape(self.dims).reshape(-1)
             stream = wp.stream_from_torch(dual.device)
             stride = field.numel()
-            for width, cost in zip(self.dims, self.costs):
+            for width, cost, toe in zip(self.dims, self.costs, self._toeplitz):
                 stride //= width
                 result = torch.empty_like(field)
                 cost_t = cost / temp
-                wp.launch(_grid_logsumexp_axis, dim=field.numel(),
-                          inputs=[wp.from_torch(field), wp.from_torch(cost_t), width, stride],
-                          outputs=[wp.from_torch(result)], device=stream.device, stream=stream)
+                if toe:                 # D174 (exact): the same outputs bit for bit from the shared-memory kernel
+                    lse_axis(field, cost_t, width, stride, result)
+                else:
+                    wp.launch(_grid_logsumexp_axis, dim=field.numel(),
+                              inputs=[wp.from_torch(field), wp.from_torch(cost_t), width, stride],
+                              outputs=[wp.from_torch(result)], device=stream.device, stream=stream)
                 field = result
             return -temp * field
         field = (dual / temperature + log_weights).reshape(self.dims)
@@ -322,20 +330,23 @@ class GridSinkhornLoss:
 
 @torch.no_grad()
 def grid_transport_displacement(x, mass, target_grid, grid_min, dx, dims,
-                                *, eps, iters=400, tol=1e-2):
-    """Label-independent transport map on the same spatial mass quadrature."""
+                                *, eps, iters=400, tol=1e-2, rows=None):
+    """Label-independent transport map on the same spatial mass quadrature. rows (D174; None = every particle): the
+    particles whose displacement is returned (the plan is the whole body's either way; each particle's image is its own
+    row of the plan, computed by the same chunked operations)."""
     current = rasterize_mass(x, mass, grid_min, dx, dims)
     xa, a = _grid_measure(current, grid_min, dx, dims)
     yb, b = _grid_measure(target_grid, grid_min, dx, dims)
+    xq = x if rows is None else x.index_select(0, rows)
 
     def mapped(y, weights):
         _, g = _grid_potentials(xa, a, y, weights, eps, iters, tol)
         lb = weights.log()
-        result = torch.empty_like(x)
+        result = torch.empty_like(xq)
         chunk = max(256, (1 << 26) // len(y))
         yy = (y * y).sum(1)[None, :]
-        for start in range(0, len(x), chunk):
-            q = x[start:start + chunk]
+        for start in range(0, len(xq), chunk):
+            q = xq[start:start + chunk]
             cost = (q * q).sum(1)[:, None] - 2. * q @ y.T + yy
             result[start:start + chunk] = torch.softmax((g[None, :] - cost) / eps + lb[None, :], 1) @ y
         return result

@@ -81,13 +81,21 @@ class Objective:
         # surface. Recomputed at every window start.
         t0 = time.perf_counter()
         g_grid, g_dx, g_dims = tgt.gate if tgt.gate is not None else (tgt.grid, tgt.ldx, tgt.ldims)
+        # D174 (exact): the gate is read on the layer only (zero elsewhere), so only the layer's rows of the transport map
+        # are computed; D148's gap sides read every particle's image
+        rows = None if cfg.gap_split != "off" else torch.nonzero(win.lmask > 0.5).squeeze(1)
         with timed("gate_ot"):
             disp = grid_transport_displacement(x0, tgt.m, g_grid, tgt.lgmin, g_dx, g_dims,
-                                               eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
+                                               eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol, rows=rows)
         dn = disp.norm(dim=1)
-        print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
+        print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu"
+              + ("" if rows is None else " (the layer's particles)"), flush=True)
         cell = float(cfg.cell_shape) if cfg.cell_shape > 0 else float(prm.dx)    # D137: the shape's cell
-        gate = (dn <= float(cfg.layer_gate_ot_cells) * cell).float() * (win.lmask > 0.5).float()
+        if rows is None:
+            gate = (dn <= float(cfg.layer_gate_ot_cells) * cell).float() * (win.lmask > 0.5).float()
+        else:
+            gate = torch.zeros_like(win.lmask)
+            gate[rows] = (dn <= float(cfg.layer_gate_ot_cells) * cell).float()
         if cfg.u_off:                                 # D124 ablation: u never acts (its gate zero on every particle)
             gate = torch.zeros_like(gate)
         win.set_u_gate(gate)
