@@ -212,7 +212,10 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
         if appearance is not None:            # D160: the body's albedos, their mean, and each target sample's
             b_alb = gpu.tensor(np.asarray(appearance.src, np.float32))
             b_ref = b_alb.mean(0)
-            t_alb = [gpu.tensor(np.asarray(a, np.float32)) for a in appearance.target_albedos()]
+            alb = list(appearance.target_albedos())
+            if render_x is not None:          # D172: the pictures' first sample is render_x (above): its paint, not target_x's
+                alb[0] = appearance.albedo_at(np.asarray(render_x))
+            t_alb = [gpu.tensor(np.asarray(a, np.float32)) for a in alb]
             if len(t_alb) != len(samples) or b_alb.shape != (N, t_alb[0].shape[1]):
                 raise ValueError("appearance: one albedo per body particle and per point of every target sample")
         for i, s in enumerate(samples):
