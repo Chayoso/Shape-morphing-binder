@@ -327,8 +327,10 @@ class WindowOptimizer:
         """D178 (render_split "masked", the user's rule of 2026-10-29): the dFc block's render pull is
         lambda_rule g_r(dFc) + (lambda_h - lambda_rule) grad_dFc sum m (I - T)^2: the held authority only where the
         pictures say more than the 3D target (target.content_masks), the rule's elsewhere; u keeps the held weight
-        (Hu). The extra pull is projected against the physics on dFc as the render gradient is (PCGrad), and its
-        weight is never negative (lambda_rule above the held weight leaves dFc on the rule). Returns the extra term."""
+        (Hu). The extra pull is projected against the physics on dFc as the render gradient is (PCGrad); its weight is
+        max(lambda_h - lambda_rule, 0), so the content residual is weighted by max(lambda_h, lambda_rule) in all: it
+        never gets less than the rule gives it (part of the definition, the coordinator's confirmation of 2026-10-29).
+        Returns the extra term."""
         w = max(float(self.lam_r) - float(self.lam_rule), 0.0)
         gm = pcgrad([gp[0]], [gm_raw])[0]
         extra = w * gm

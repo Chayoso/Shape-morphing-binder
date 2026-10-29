@@ -149,7 +149,7 @@ class PipelineConfig:
                                     #   frozen path); "u" = the run's weight on u, the rule's per-window value on dFc;
                                     #   "dFc" = the run's weight on dFc, the rule's on u (the merit keeps the run's weight)
                                     #   "u_rule" = the run on the rule (merit, stops) with u at the first calibration's value
-                                    #   "masked" (D178) = "u", and dFc takes lambda_rule g_r + (lambda_h - lambda_rule) x the
+                                    #   "masked" (D178) = "u", and dFc takes lambda_rule g_r + max(lambda_h - lambda_rule, 0) x the
                                     #   gradient of the render residual inside the content mask (target.content_masks)
     render_every: int = 1           # D174 A/B (runtime): the render gradient (its adjoint sweep) at every k-th iteration of a
                                     #   window (0, k, 2k, ...); between, the window's last one, projected against the fresh
