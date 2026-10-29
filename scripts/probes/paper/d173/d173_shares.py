@@ -61,4 +61,13 @@ NOTE = ("Render shares: lam_b |g_r,b| / (|g_p,b| + lam_b |g_r,b|) at each optimi
         "outer layer) or dF_c (the stress increment, reached through the MPM adjoint), g_r after PCGrad, lam_b the weight the "
         "block's step takes (Rx: the held weight on both; Hu: held on u, the rule's per-window value on dF_c); start = the "
         "first optimisation window, arrival = the first whose transport energy has made 90 % of its fall, stop = the last "
-        "(tmp/d173/d173_shares.py). The twin's are 0 by construction (lambda = 0).")
+        "(tmp/d173/d173_shares.py). The twin's are 0 by construction (lambda = 0). The rule sets lambda |g_r| = alpha |g_p| over "
+        "both blocks together (alpha = 0.5), so while u carries no gradient (its gate closed, before the body nears the target) "
+        "dF_c's share under the rule is alpha / (1 + alpha) = 1/3 by construction; it departs from 1/3 only as the two "
+        "gradients split between the blocks.")
+
+
+if __name__ == "__main__":                 # `stop_min RUN_JSON ...`: the earliest last-optimisation frame_end of the runs
+    import sys
+    if sys.argv[1] == "stop_min":
+        print(min(opt_windows(p)[-1]["frame_end"] for p in sys.argv[2:]))

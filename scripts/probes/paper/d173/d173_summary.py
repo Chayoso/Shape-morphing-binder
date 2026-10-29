@@ -78,6 +78,21 @@ def main(out_md):
                 mt, fl, m = col[tw]["end"]["mis"], col[nm]["floor"], col[nm]["end"]["mis"]
                 L.append(f"| {nm} | {(mt - m) / (mt - fl):.2f} | {m:.3f} | {ref_r[nm]} |")
         L.append("")
+    bt = O / "auto/band300time/edge.jsonl"
+    if bt.exists():
+        L += ["", "The band at 300k, seed 97, the particle edge over time (d173_edge2.py, logistic, pitches; the last kept frame at "
+              "or before the raw frame named): Rxn stopped on the delivery-merit plateau at window 42 (raw 1681), Rx ran to the "
+              "physics convergence at window 82 (raw 3281). At the same time the nearest colour's edge is a third narrower; Rx "
+              "narrows with its longer run and still ends at 2.7 pitches, so neither reaches 1.5 at 300k.", "",
+              "| state | raw frame | particles | discs, kernel | discs, nearest |", "|---|---|---|---|---|"]
+        for x in open(bt):
+            r = json.loads(x)
+            L.append(f"| {r['name']} | {r.get('frame_raw')} | {f(r['particles']['logistic'], 2)} | {f(r['discs_k3']['logistic'], 2)} | "
+                     f"{f(r['discs_nn']['logistic'], 2)} |")
+        L.append("")
+    p99 = O / "auto/band300s99/summary.md"
+    if p99.exists():
+        L += ["---", f"<!-- {p99} -->", p99.read_text().strip(), ""]
     rr, cc = O / "auto/cmb300/read_relief.json", O / "auto/cmb300/read_colour.jsonl"
     if rr.exists() and cc.exists():
         rd = json.load(open(rr))
@@ -124,7 +139,8 @@ def main(out_md):
             p = O / f"auto/{j}/summary.md"
             if p.exists():
                 out += ["---", f"<!-- {p} -->", p.read_text().strip(), ""]
-            for s in sorted(glob.glob(str(O / f"deliver/{j}/**/*.jpg"), recursive=True) + glob.glob(str(O / f"deliver/{j}/*.mp4"))):
+            for s in sorted(glob.glob(str(O / f"deliver/{j}/**/*.jpg"), recursive=True) + glob.glob(str(O / f"deliver/{j}/*.mp4"))
+                            + glob.glob(str(O / f"deliver/{j}/*.png")) + glob.glob(str(O / f"deliver/{j}/paint_*/end.png"))):
                 out.append(f"- deliverable: {Path(s).relative_to(O)}")
         return out + [""]
     # 4. the attribution proof on the stylized scales E
@@ -194,7 +210,7 @@ def main(out_md):
           "render's.", ""]
     L += part(("strp40", "strp300"))
     done = {"tex40", "tex300", "cmb300", "attr97", "attr99", "magC97", "magC99", "tex40n", "tex300n", "tex40t", "tex300t",
-            "strp40", "strp300"}
+            "strp40", "strp300", "band300s99"}
     for p in sorted(glob.glob(str(O / "auto/*/summary.md"))):
         if Path(p).parent.name not in done:
             L += ["---", f"<!-- {p} -->", open(p).read().strip(), ""]

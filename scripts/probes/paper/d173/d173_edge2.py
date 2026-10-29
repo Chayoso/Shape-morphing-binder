@@ -2,7 +2,8 @@
 band (the plane y = tgt_y) and stripes (the planes s = tgt_s[0] and s = tgt_s[1], s = x . axis, red between them). Each
 plane is read on the points nearer to it than to the other plane, its signed distance oriented so that red rises with it;
 the row carries each plane's widths and their mean. The readings per plane are d173_edge.py's own (layer, logistic_width,
-width, the discs and their kernel / nearest colours); JOBS lines as d173_edge.py's (`NAME FRAMES12`, `NAME@tgt`)."""
+width, the discs and their kernel / nearest colours); JOBS lines as d173_edge.py's (`NAME FRAMES12`, `NAME@tgt`), optionally
+`raw=R`: the last kept frame at or before raw frame R instead of the end."""
 import json
 import sys
 from pathlib import Path
@@ -76,11 +77,15 @@ def main():
         z = np.load(path, allow_pickle=True)
         app = json.loads(str(z["appearance"]))
         tgt = np.asarray(z["tgt"], np.float64)
+        raw = None
         if name.endswith("@tgt"):
             X, red = tgt, E.is_red(z["tgt_albedo"])
         else:
-            X, red = np.asarray(z["frames"][-1], np.float64), E.is_red(z["src_albedo"])
+            rr = next((int(t[4:]) for t in job[2:] if t.startswith("raw=")), None)
+            j = -1 if rr is None else int(np.searchsorted(np.asarray(z["raws"]), rr, side="right")) - 1
+            X, red, raw = np.asarray(z["frames"][j], np.float64), E.is_red(z["src_albedo"]), int(np.asarray(z["raws"])[j])
         row = read(name, X, red, tgt, app)
+        row["frame_raw"] = raw
         print(json.dumps({k: v for k, v in row.items() if k != "planes"}), flush=True)
         out.write(json.dumps(row) + "\n")
         out.flush()

@@ -1,50 +1,52 @@
-# D173 resume (agent D173, started 2026-10-29 09:40 CDT)
+# D173 resume (agent D173, started 2026-10-29 09:40 CDT; this file 11:55 CDT)
 
-Read ONE file: output/gpu/D173_SUMMARY.md (tmp/d173/d173_summary.py rewrites it; run it by hand after any new read).
+Read ONE file: output/gpu/D173_SUMMARY.md (tmp/d173/d173_summary.py rewrites it; every reader calls it at its end).
 
-## The three tasks
-1. The dragon's REAL scales: representability first (no runs). tmp/d173/d173_probe.py on the pipeline's own operators: a
-   perfect sample of the detailed dragon (layer), its exterior field (zb, radius r, the lattice of target.py), the loss's
-   shading pictures against the true surfaces' (D159 mesh shells): corr per lever (N, surface density F, radius r, px).
-   Gate: picture corr >= 0.25. probe_a (300k: r 3 / 2 / 1.5 x 188 / 256 / 384 px, F 2 / 4) and probe_b (500k, 1M, 1.5M)
-   -> output/gpu/d173/probe/*.jsonl. Runs only if a setting within 500k passes (none of the 300k ones does).
-   The r = 1.5 OOM: the field's zero set breaks into interior pockets (43 % of the discs deeper than 3 pitches, 1.9M discs
-   at 188 px vs 175k at r = 3) -- the field, not a memory bug; its field corr is 0.
-   Surface density: no sampler option in the current code (D122's --surface_density lives only on old branches, refuted
-   2026-10-07); the probe emulates it (the outer band F times denser).
-2. Colour edge: tmp/d173/d173_edge.py -> output/gpu/d173/edge/edge.jsonl. The kernel (render/exterior.py:400-413
-   found_disc_albedo, R = 3 pitches) widens the target's sharp paint to 2.1-2.3 pitches; the arm's own particle layout is
-   2.2-2.8 pitches wide. Display fix (both target and arms): tmp/d173/d173_studio.py +colour=nn (each disc its nearest
-   particle's colour). The loss is unchanged (a narrower colour kernel in the loss = the next definition, not made).
-   Deliverables: output/gpu/d173/deliver/band300 (kernel / nn painted ends, grey ends, nn video), cmb300 (job 201 + reads).
-3. Texture: Keenan Crane's Bob (output/gpu/d173/assets/d173bob_tex.obj = assets/bob.obj's vertices + bob_tri's UVs,
-   d173bob_diffuse.png). Code: repo_d173 = wip/d173 98303b79 (appearance.TextureMap, --appearance texture --texture
-   OBJ,PNG; prepare returns the frame). Ceiling: tmp/d173/d173_texprobe.py -> output/gpu/d173/texprobe/texprobe.jsonl
-   (40k 26.6 dB / 0.972, 300k 28.0 dB / 0.970 held-out; flat colour 16.2 / 15.0 dB). Runs: job 200 (gate + 40k twin / Rx x
-   97 / 99), job 202 (300k twin / Rx); reads tmp/d173/d173_texread.py -> output/gpu/d173/auto/tex40, tex300.
+## Code (repo_d173 = wip/d173 c1855865, pushed; files copied to the server, repo_d173 is not a git checkout)
+- 98303b79 texture appearance; 0ac73e72 --colour_kernel nearest; 3c447081 split-run telemetry;
+- c1855865: each block's render share recorded on EVERY run (window/solve.py _calibrate_lambda: g_share_u, g_share_dfc after
+  PCGrad, lam_block_u / lam_block_dfc as applied; run/runner.py records); --appearance stripes (appearance.py).
+  Gate: queue job 209_d173_gate_t.sh -> output/gpu/d173/gates/V3t.ok / V3t.fail (defaults vs the tag, band vs repo_d172,
+  Hu vs repo_d172 X2b, the stripes smoke, the records present). EVERY later D173 job waits for V3t (job_common.sh gate_t).
+  The pre-c1855865 solve.py is kept at tmp/d173/stage/solve_3c447081.py.
 
-## State at 11:05 CDT
-- Real scales: no setting within ~600k passes (300k + surface x2.83 band, 550k total: 0.167; surface x8, 1.24M: the field
-  breaks into interior pockets, 64-72 % of discs, pictures OOM). Cheapest measured pass: 1.5M + band x2 (1.94M total) 0.281,
-  3M uniform 0.278 (2M uniform 0.230). Surface densification NOT implemented (the stop rule: nothing <= ~600k passes); the
-  three-arm attribution test waits for the user's go above 600k. D122's sampler (826c4c89, 610 lines over 21 files,
-  removed by D141 63b5a883) would be the port.
-- Colour loss option: --colour_kernel nearest (wip/d173 0ac73e72, gate c PASS). Band 40k Rxn: particle edge (logistic)
-  1.02 / 0.99 pitches vs Rx 1.70 / 1.95, colour r 0.91 / 0.92 vs 0.93 / 0.92, rest 0.003x, shape ~ Rx. Pending: band300k_Rxn_97
-  and tex40k_Rxn_97 (job 209, the OOM retries), read by tmp/d173/after_colour2.sh (PID tmp/d173/after_colour.pid).
-- Texture (Rx vs twin): 40k +2.5 / +2.3 dB held-out PSNR (SSIM 0.82 -> 0.87), 300k +2.3 dB (0.84 -> 0.88); ceilings 26.6 / 28.0.
-- Combined relief + paint 300k (Rx): relief 0.92, colour r 0.86 (twin 0 / 0); rest 0.02x; sil -0.005, thin +0.033.
-- Edge widths now read by a logistic fit (d173_edge.py; the running-max profile was moved by stray particles).
+## Sections of D173_SUMMARY.md and what feeds them
+1. Real scales representability (done: nothing <= ~600k passes; 1.94M / 3M pass; densification HELD for the user).
+2. Colour edge (done) + --colour_kernel nearest: band 40k PASS (edge 1.02 / 0.99, r 0.91 / 0.92); band 300k s97 FAILS by the
+   letter (edge 2.93 vs Rx 2.68, r 0.83 vs 0.92) but stopped at window 42 (7.0 s) where Rx ran 82 (13.7 s): equal-time edges
+   read by output/gpu/d173/auto/band300time (run.sh PID run.pid, d173_edge2.py raw=1681 / 2441 / 3281).
+3. Bob (texture): Rx +2.3-2.5 dB over the twin, 9-12 dB below the ceiling. Rxn 40k (auto/tex40n): kernel PSNR = Rx's,
+   nearest-colour PSNR +0.35 / +0.54 dB over Rx; s99 thin +0.053 over the twin (shape gate 0.05).
+   Pending: job 218 (tex300k_Rxn_97) -> after_tex300n.sh; job 219 (40k Rx / Rxn reruns with the block records) ->
+   after_tex40t.sh (auto/tex40t, rerun_cmp.txt); job 222 (300k Rx rerun) -> after_tex300t.sh (auto/tex300t).
+4. Attribution, stylized scales E, 300k: job 213 (Hs_97, Hm_97; twin d172 scl300k_T_97) -> after_attr.sh 97; job 214
+   (T_99, Hs_99, Hm_99) -> after_attr.sh 99; job 215 u-off arm (atr300k_Hu0_97: Hu --u_off) -> after_uoff.sh (re-reads attr97
+   with 4 arms; deliver/attr97_uoff sheet). Criterion (pre-set): share end >= 0.40 in Hs, < 0.10 in twin and Hm.
+5. Option C (the dragon's own scales magnified K x, d173_magscale.py): probes output/gpu/d173/assets/magC/probe_table{2,3,4}.txt.
+   K 2 / 2.5 / 3 (the user's range) read corr 0.088 / 0.118 / 0.143 at 300k, 0.109 / 0.149 / 0.161 at 550k; K 4 / 5 0.164 /
+   0.221; K 6 / 7 / 8 0.265 / 0.326 / 0.377 -> variant.txt "6 6.0 24" (K 6, s_bg 24 pitches). The first K 2.5 mesh had a dot
+   in its name (orientation.asset_name cut it: read unrotated) -> renamed M25, records in assets/magC/turned25/.
+   Jobs 216 / 217 (mag300k_Hk_97 / 99: Hu with the K 6 pictures) -> after_magC2.sh 97 / 99 (auto/magC97, magC99: detail read
+   s_bg 24, d173_attr.py, the close-up sheet, twin | full video 4K + 1080p in deliver/magC97, magC99).
+6. Bob with nearest colour: see 3.
+7. Stripes (the coordinator's new colour scene): pre-run check tmp/d173/d173_layout_check.py -> output/gpu/d173/layout/check.json
+   (twin layout vs stripes kappa 0.00-0.01, 0.02-0.03 on the outer layer; band 0.68 / 0.78; checker -0.02 / 0.05-0.10).
+   Jobs 220 (40k T / Rxn x 97 / 99) -> after_strp.sh 40; 221 (300k T / Rxn s97) -> after_strp.sh 300 (colour r, edges
+   d173_edge2.py, PSNR / kappa / shares d173_stripread.py, deliverables deliver/strp40, strp300 via deliver_colour2.sh).
 
-## Queue (tmp/gpu1_queue; our runner on card 3, PID tmp/d173/runner_card3.pid; cards 0 / 1 held by agent D174;
-## tmp/d173/card_waiter.sh starts our runners there when they free; never gpu2)
-- 195 probe_a, 197 probe_b, 200 gate + texture 40k, 201 combined relief + paint 300k, 202 texture 300k.
-- Detached on card 3 (beside the queue's job): tmp/d173/after_gpu.sh tex40 / cmb300 / tex300 (reads + deliverables,
-  PIDs tmp/d173/after_*.pid), tmp/d173/deliver_colour.sh band300 (done for the ends; its nn video).
+## Readers waiting (PIDs in tmp/d173/*.pid; stop only by these PIDs)
+after_attr97 / 99, after_uoff, after_magC97 / 99 (after_magC2.sh), after_tex300n, after_tex40t, after_tex300t,
+after_strp40, after_strp300.
+
+## Queue order (tmp/gpu1_queue, shared with D174 / D175 / D176; never gpu2)
+209_d173_gate_t, 213 attr97, 214 attr99, 215 u-off, 216 / 217 option C, 218 Bob 300k Rxn, 219 Bob 40k reruns, 220 / 221
+stripes, 222 Bob 300k Rx rerun.
 
 ## Disk
-- 447 GB at the start (tmp/d173/disk_base.txt); runs stop at 495.
+447 GB at the start (tmp/d173/disk_base.txt); runs stop at 495 (job_common.sh disk_ok).
 
 ## Resume
 - A failed run: delete its .rc and rerun its job script. The summary: `$PY tmp/d173/d173_summary.py output/gpu/D173_SUMMARY.md`.
-- Stop: kill the runner / waiter / after PIDs (their own processes only). Never pkill / pgrep -f.
+- If V3t fails: read output/gpu/d173/auto/209_gate_t/summary.md and gates/cmpt*.txt / keys_t.txt; fix; requeue the gate
+  and the jobs (they exited on V3t.fail).
+- Never pkill / pgrep -f.
