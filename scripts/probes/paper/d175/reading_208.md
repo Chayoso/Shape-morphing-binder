@@ -54,3 +54,41 @@ Files:
 - output/gpu/d175/auto/208_kf40/{summary.md, verdict.json, rows.json, silhouettes.png, forensic_pull.md};
 - the gate: output/gpu/d175/auto/208_gate/summary.md;
 - the runs: output/gpu/d175/runs/{D,S,T,N}_*.
+
+## Next measurements (a) (b) (c), 2026-10-29 12:20 CDT (criteria stated first in tmp/d175/MEAS_a.md; files auto/208_next/)
+
+**(a) VERDICT: no blurred comparison reaches the bulk, so no arm** (pull.md).
+- Position pull on S97's segment states: for every comparison (current, blur 2 / 4 / 8 px, pyramid, sdf), ≤ 1.5 % lies
+  deeper than 3 pitches. The exterior discs' kernel bounds it, whatever the picture comparison.
+- Through the dynamics (Adam's first step at the source, one rollout):
+
+  | comparison | share of |Δx|² below 3 pitches | cos with the stretch below 3 | aspect gain per step |
+  |---|---|---|---|
+  | current | 0.22 | 0.49 | +0.033 |
+  | blur 2 | 0.18 | 0.47 | +0.034 |
+  | blur 8 | 0.14 | 0.34 | +0.019 |
+  | pyramid | 0.23 | 0.39 | +0.028 |
+  | sdf | 0.12 | 0.24 | +0.006 |
+  | 3D target (reference) | 0.20 | 0.62 | +0.055 |
+
+- Blurring does not deepen or align the push.
+- The current comparison already moves the bulk at the first step, at 60 % of the 3D target's gain.
+- REACH (≥ max(0.25, 2 × current)) fails for every comparison, the 3D reference included.
+
+**(b) The replay nulls are float32-level noise in the render replay against a tolerance at the noise floor** (next.md).
+- 2 of 18 segment commits were nulled, both at window 1 (the source).
+- E_final − E_accept was 1.68e-9 / 2.38e-9 against tolerances of 1.55e-9 / 2.15e-9.
+- 98 % of each difference is λ × Δrender; the soundness terms contribute ~0, and no disc set was found anew.
+- In a segment |E| carries no transport, so the tolerance is the 1e-7 relative floor; the render's replay sits right
+  there.
+- The final-target windows: 2 nulls in 127 commits.
+
+**(c) 1 s is physically enough** (next.md). dF_c alone (λ 0, u off) driven toward the stretched sphere as a 3D target
+reaches aspect 1.41 at frame 144 (0.6 s) and 1.46 at t = 1 s (keyframe 1.48). The render run reached 1.06.
+
+**Reading.** Neither time, stiffness nor the comparison's first step is the limit.
+- Over the segment the render's bulk push fades: by window 1's end 18 % of the position pull sits on the hull points
+  (the pole spikes), and the bulk aspect stalls at 1.06.
+- **Next measurement:** the same dynamics reading (Adam-step Δx depth and alignment) at the start of each segment window
+  2-6. This needs a rerun that saves the full window-start states (x, F, v, C, Fp, J). It would show when and why the
+  bulk alignment collapses, e.g. a hole term already satisfied by the thin pole spikes (the soft alpha saturating).

@@ -26,7 +26,9 @@ Then tmp/d175/PREREG.md (arms, metrics, bars; written 11:15 CDT before any run).
     output/gpu/D175_SUMMARY.md.
 - Status log: output/gpu/d175/status.txt.
 
-## State 2026-10-29 12:00 CDT: DONE, verdict FAIL (nothing queued, nothing running)
+## State 2026-10-29 12:20 CDT: 208 FAIL; next measurements (a) (b) (c) DONE (output/gpu/d175/auto/208_next/: pull.md, next.md, gate.md; reading appended to D175_SUMMARY.md). (a) no blurred comparison reaches the bulk: no arm. (b) the segment replay nulls = float32-level render replay noise at the 1e-7 tolerance floor. (c) 1 s is enough (dF_c alone to a 3D stretched target: aspect 1.46 at t = 1 s). Next: the dynamics reading at segment windows 2-6 (needs saved window-start states). Nothing queued or running.
+
+## State 2026-10-29 12:00 CDT: 208 read, verdict FAIL
 - Gate PASS:
   - G1-G4 bit-SAME, so the defaults, Hu, Hu on the coin, and the settle through the shared hold() are all unchanged;
   - 5 unit tests pass;

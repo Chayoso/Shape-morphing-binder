@@ -6,7 +6,7 @@
 # Readers: output/gpu/d175/auto/208_next/{pull.md, next.md}.
 J=208_next; TITLE="D175 next measurements (a) (b) (c)"
 source /data/relcfd/chayo/physmorph_v2/tmp/d175/job_common.sh
-D=$O/gates; OUT=$O/auto/$J; mkdir -p $OUT
+D=$O/gates; RO=$O/auto/$J; mkdir -p $RO
 log "start (card $CUDA_VISIBLE_DEVICES)"
 DR="$B/tmp/rt/det_run.py scripts/pipeline_run.py --n 40000 --seed 97 --animations 4"
 CMP=$B/tmp/d145/det_cmp12.py
@@ -20,14 +20,14 @@ F_coin="--tgt $G/d161/assets/d161coin.obj --render_tgt $G/d161/assets/d161L40coi
   $PY $DR --tgt assets/bunny.obj --settle_windows 3 --out $D/H4 > $D/H4.log 2>&1 < /dev/null; $PY $CMP $G/d174/gates/ref_R0 $D/H4 > $D/cmpH4.txt 2>&1 )
 ok=1; for k in 1 2 3 4; do tail -1 $D/cmpH$k.txt | grep -q ": SAME$" || ok=0; done; [ "$(cat $D/pytest_b.rc)" = 0 ] || ok=0
 { echo "# D175 gate b (repo_d175 + the keyframe-only replay record)"; for k in 1 2 3 4; do echo "- G$k: $(tail -1 $D/cmpH$k.txt)"; done
-  echo "- unit tests: $(tail -1 $D/pytest_b.txt)"; echo; echo "VERDICT: $([ $ok = 1 ] && echo PASS || echo FAIL)"; } > $OUT/gate.md
+  echo "- unit tests: $(tail -1 $D/pytest_b.txt)"; echo; echo "VERDICT: $([ $ok = 1 ] && echo PASS || echo FAIL)"; } > $RO/gate.md
 for k in 1 2 3 4; do rm -f $D/H${k}_frames12.npz; done
-[ $ok = 1 ] || { log "gate b FAIL: stop ($OUT/gate.md)"; exit 1; }
+[ $ok = 1 ] || { log "gate b FAIL: stop ($RO/gate.md)"; exit 1; }
 log "gate b PASS"
 awk '/^v /{printf "v %.7f %.7f %.7f\n", $2 / sqrt(1.3), $3 * 1.3, $4 / sqrt(1.3); next} /^(mtllib|usemtl)/{next} {print}' \
   $B/$REPO/assets/isosphere.obj > $A/isosphere_y13.obj
-meas() { ( envr $REPO; $PY $W/pull_meas.py $OUT/pull.md $O/forensic/S97_dump $A/kf_s97.npz > $OUT/pull.log 2>&1 < /dev/null )
-         log "(a) pull_meas exit $? -> $(grep '^VERDICT' $OUT/pull.md 2>/dev/null)"; }
+meas() { ( envr $REPO; $PY $W/pull_meas.py $RO/pull.md $O/forensic/S97_dump $A/kf_s97.npz > $RO/pull.log 2>&1 < /dev/null )
+         log "(a) pull_meas exit $? -> $(grep '^VERDICT' $RO/pull.md 2>/dev/null)"; }
 PAR=4
 meas & sleep 2
 KF="--keyframe_time 1.0"
@@ -36,5 +36,5 @@ runp R_S99_2 --tgt assets/bunny.obj --n 40000 --seed 99 $HU --keyframe $A/kf_s99
 runp R_S97_1 --tgt assets/bunny.obj --n 40000 --seed 97 $HU --keyframe $A/kf_s97.npz $KF
 runp P_dFc_y13 --src assets/isosphere.obj --tgt $A/isosphere_y13.obj --n 40000 --seed 97 $HU $TW --u_off
 wait
-( envr $REPO; export CUDA_VISIBLE_DEVICES=; $PY $W/next_read.py $OUT/next.md $O/runs > $OUT/next.log 2>&1 < /dev/null )
-log "(b) (c) read exit $? -> $(grep '^VERDICT' $OUT/next.md 2>/dev/null)"
+( envr $REPO; export CUDA_VISIBLE_DEVICES=; $PY $W/next_read.py $RO/next.md $O/runs > $RO/next.log 2>&1 < /dev/null )
+log "(b) (c) read exit $? -> $(grep '^VERDICT' $RO/next.md 2>/dev/null)"
