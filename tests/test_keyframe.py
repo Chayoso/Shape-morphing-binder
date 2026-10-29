@@ -34,6 +34,9 @@ def test_the_preconditions():
         PipelineConfig(keyframe_time=(1.0, 0.5), render_exterior=True, lambda_ema=0.0)
     with pytest.raises(ValueError):
         PipelineConfig(keyframe_geometry="none")
+    with pytest.raises(ValueError):
+        PipelineConfig(keyframe_compare="none")
+    assert PipelineConfig().keyframe_compare == "silhouette"
 
 
 def _board(own=True):

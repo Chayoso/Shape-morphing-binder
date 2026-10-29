@@ -132,7 +132,8 @@ def read_run(ctx, prefix):
     k = int(np.flatnonzero(raws == T_K)[0])
     x_k = fr[k]
     r = dict(kf_run=iou(ctx.alpha(x_k, ctx.final.views), ctx.P_run), kf_held=iou(ctx.alpha(x_k, ctx.held), ctx.P_held),
-             kf_3d=iou3(ctx.occ(x_k), ctx.occ(ctx.kf_eval)))
+             kf_3d=iou3(ctx.occ(x_k), ctx.occ(ctx.kf_eval)), aspect_k=aspect(x_k),
+             aspect_curve=[[int(raws[i]), round(aspect(fr[i]), 4)] for i in range(len(raws)) if raws[i] % 48 == 0 and raws[i] <= T_K])
     r["curve"] = [[int(raws[i]), round(iou(ctx.alpha(fr[i], ctx.final.views), ctx.P_run), 4)]
                   for i in range(len(raws)) if T_K - 80 <= raws[i] <= T_K + 80]
     end = fr[-1]
@@ -155,6 +156,13 @@ def read_run(ctx, prefix):
     r["serious"], r["piece_span"], r["piece_max"] = pieces_run(fr, raws, ctx.pitch)
     r["_x_k"] = x_k
     return r
+
+
+def aspect(x):
+    """The second-moment aspect sqrt(var_y / mean(var_x, var_z))."""
+    x = np.asarray(x, np.float64)
+    v = ((x - x.mean(0)) ** 2).mean(0)
+    return float(np.sqrt(v[1] / (0.5 * (v[0] + v[2]))))
 
 
 def fmt(v, f=".4f"):
@@ -214,14 +222,14 @@ def main():
          "(design option C); lambda from the pre-pass at the source, held; inside the segment the held lambda on dF_c and u, "
          "after t_k Hu (held on u, the rule on dF_c).", "",
          "| run | KF-IoU run views | KF-IoU held-out | 3D IoU | final sil IoU (indep.) | chamfer | thin | v_end x1e3 | "
-         "Jmin | serious pieces (span, max) | windows (holds) | stop frame | min | lambda | g_share seg / final |",
-         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+         "Jmin | serious pieces (span, max) | windows (holds) | stop frame | min | lambda | g_share seg / final | aspect at frame 240 |",
+         "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for k, r in R.items():
         L.append(f"| {k} {NAMES[k[0]]} | {fmt(r['kf_run'])} | {fmt(r['kf_held'])} | {fmt(r['kf_3d'])} | "
                  f"{fmt(r['fsil_ind'])} | {fmt(r['chamfer'])} | {fmt(r['thin'], '.3f')} | {r['v_end'] * 1e3:.2f} | "
                  f"{r['jmin']:.3f} | {'YES' if r['serious'] else 'no'} ({r['piece_span']}, {r['piece_max']}) | "
                  f"{r['windows']} ({r['holds']}) | {r['stop_fe']} | {r['minutes']:.1f} | {fmt(r['lam'], '.4g')} | "
-                 f"{fmt(r['g_share_seg'], '.3f')} / {fmt(r['g_share_fin'], '.3f')} |")
+                 f"{fmt(r['g_share_seg'], '.3f')} / {fmt(r['g_share_fin'], '.3f')} | {r['aspect_k']:.3f} |")
     L += ["", "## Verdict against the pre-registered bars", "",
           "| seed | G run (>= 0.6) | G held-out (>= 0.5) | 3D >= twin + 0.10 | KF >= D + 0.05 | final sil | chamfer | thin | "
           "v_end | Jmin > 0 | no serious piece | PASS |", "|---|---|---|---|---|---|---|---|---|---|---|---|"]

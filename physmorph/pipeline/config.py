@@ -150,6 +150,9 @@ class PipelineConfig:
                                     #   step commits its zero-control rollout (the settle window's); the stops read the final
                                     #   target's epoch only. Needs render_exterior and lambda_ema 0 (lambda held from a pre-pass
                                     #   at the source on the final target)
+    keyframe_compare: str = "silhouette"  # D175b: the keyframe comparison; "silhouette" = the exterior silhouette + shading
+                                    #   (D175); "column" = the particles' projected count picture against the keyframe's
+                                    #   (render_loss.d_count); the final target's render term is the exterior either way
     keyframe_geometry: str = "own"  # D175 ablation (arm N): "final" keeps the final target's geometry and cleanup in a segment
                                     #   (only the pictures are swapped); "own" = the storyboard's ownership (the method)
     layer_relax: bool = True        # D170 A/B: the outer-layer relaxation in every window (on = the frozen path); off = its
@@ -258,6 +261,8 @@ class PipelineConfig:
         self.keyframe_time = tuple(float(t) for t in (self.keyframe_time or ()))
         if self.keyframe_geometry not in ("own", "final"):
             raise ValueError("keyframe_geometry must be \"own\" or \"final\"")
+        if self.keyframe_compare not in ("silhouette", "column"):
+            raise ValueError("keyframe_compare must be \"silhouette\" or \"column\"")
         if self.keyframe_time:                        # D175: the storyboard's preconditions (the design, section 5)
             if not self.render_exterior or self.lambda_ema != 0.0:
                 raise ValueError("keyframes read their pictures on the exterior with the held weight: they need "

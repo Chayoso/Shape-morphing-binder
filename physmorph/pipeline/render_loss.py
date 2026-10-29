@@ -319,6 +319,30 @@ def d_exterior(p: torch.Tensor, n: torch.Tensor, sils, shade, views, res: int, e
     return sil, sum((s[c] - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)
 
 
+def count_pictures(x: torch.Tensor, views, res: int, extent: float) -> torch.Tensor:
+    """D175b: the projected count picture (an X-ray), (V,res,res): the CIC count of the points per pixel, the coverage
+    soft_silhouette_multi takes before its 1 - exp(-k .), in the same views, resolution and camera box."""
+    from ..losses.silhouette import _view_basis
+    right, up = _view_basis(x, views)
+    V = right.shape[0]
+    rel = (torch.stack([x @ right.T, x @ up.T], -1) + extent) / (2 * extent) * res
+    voff = (torch.arange(V, device=x.device) * (res * res)).view(1, V)
+    img = x.new_zeros(V * res * res)
+    for ii, jj, w in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (voff + ii * res + jj).clamp(0, V * res * res - 1)
+        img = img.index_add(0, idx.reshape(-1), torch.where(valid, w, torch.zeros_like(w)).reshape(-1))
+    return img.reshape(V, res, res)
+
+
+def d_count(x: torch.Tensor, counts, views, res: int, extent: float) -> torch.Tensor:
+    """D175b: the keyframe comparison on projected counts, mean (c(x) - c_k)^2 / mean c_k^2 (a relative L2): every
+    particle splats into its pixel, so the pull reaches the bulk, and a thin column cannot stand in for the mass the
+    keyframe has behind a pixel (the exterior's soft alpha saturates on it, D175 seg_read)."""
+    c_k = torch.stack(list(counts), 0)
+    return (count_pictures(x, views, res, extent) - c_k).pow(2).mean() / c_k.pow(2).mean()
+
+
 def floor_referenced_weight(lam0: float, L: float, floor: float) -> float:
     """D162 (1): the render weight referenced to the render's own excess over its floor, lam0 max(0, 1 - floor / L):
     lam0 while the render term L is far above the floor, zero at or below it, never negative, never above lam0."""

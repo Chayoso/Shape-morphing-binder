@@ -80,6 +80,10 @@ def parse_args(argv=None):
                          "that made it from the source, checked to carry no rotation")
     ap.add_argument("--keyframe_time", nargs="+", type=float, default=[],
                     help="D175: the keyframes' times in s (strictly increasing; needs --lambda_ema 0)")
+    ap.add_argument("--keyframe_compare", default="silhouette", choices=["silhouette", "column"],
+                    help="D175b: the keyframe comparison; silhouette (D175) = the exterior silhouette + shading; column = "
+                         "the particles' projected count picture against the keyframe samples' (the final target's render "
+                         "term is unchanged)")
     ap.add_argument("--keyframe_geometry", default="own", choices=["own", "final"],
                     help="D175 ablation: own (the method) = a segment reads only the keyframe's pictures and the "
                          "soundness terms; final = the pictures swapped, the final target's geometry and cleanup kept")
@@ -316,6 +320,7 @@ def run_config(args, cfg0, prep):
                               render_split=args.render_split,
                               keyframe_time=tuple(getattr(args, "keyframe_time", ()) or ()),
                               keyframe_geometry=getattr(args, "keyframe_geometry", "own"),
+                              keyframe_compare=getattr(args, "keyframe_compare", "silhouette"),
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,

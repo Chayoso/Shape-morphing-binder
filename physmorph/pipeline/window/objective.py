@@ -23,7 +23,7 @@ from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement, gri
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
 from ...render.exterior import make_field, tracked
-from ..render_loss import d_exterior, d_pbr, d_render
+from ..render_loss import d_count, d_exterior, d_pbr, d_render
 from .setup import Window
 
 
@@ -206,6 +206,8 @@ class Objective:
                     d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
                           cfg.sil_k, cfg.pbr_ambient, t.pblur))
         e = t.ext
+        if getattr(e, "counts", None) is not None:    # D175b: a keyframe compared on projected counts (the particles)
+            return d_count(xT, e.counts, t.views, cfg.render_res, t.extent), xT.sum() * 0.0
         if e.albedo is not None:                      # D160: the discs' colours from the particles' fixed albedos
             return self._render_terms_albedo(xT, e)
         if self.discs is not None:

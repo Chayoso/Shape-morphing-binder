@@ -39,6 +39,8 @@ class Exterior:
     field: str = "zb"                   # D140: "zb" Zhu and Bridson's field, "aniso" the anisotropic one
     albedo: torch.Tensor | None = None  # D160 (appearance): the body particles' fixed albedos (N, C), carried by index
     albedo_ref: torch.Tensor | None = None  #   and their mean (C,), about which the discs' albedos are written
+    counts: list | None = None          # D175b (keyframe_compare column, a keyframe's exterior only): its projected count
+                                        #   pictures; the render term is then render_loss.d_count on the particles
 
 
 @dataclass
@@ -156,6 +158,16 @@ def keyframe_pictures(final: TargetPack, samples, cfg: PipelineConfig, views=Non
                            final.views if views is None else views, final.extent)[2] for s in samples]
     return ([torch.stack(v).mean(0) for v in zip(*[p[0] for p in per])],
             [torch.stack(v).mean(0) for v in zip(*[p[1] for p in per])])
+
+
+def keyframe_counts(final: TargetPack, samples, cfg: PipelineConfig, views=None) -> list:
+    """D175b: a keyframe's projected count pictures (render_loss.count_pictures), the mean over its samples, in the final
+    pack's views and camera box."""
+    from .render_loss import count_pictures
+    with torch.no_grad():
+        c = torch.stack([count_pictures(gpu.tensor(np.asarray(s, np.float32)), final.views if views is None else views,
+                                        cfg.render_res, final.extent) for s in samples]).mean(0)
+    return list(c)
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh=None, appearance=None,

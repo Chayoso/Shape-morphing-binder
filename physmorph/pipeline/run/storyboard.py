@@ -28,7 +28,7 @@ import dataclasses
 import numpy as np
 import torch
 
-from ..target import keyframe_pictures
+from ..target import keyframe_counts, keyframe_pictures
 
 
 def frame_of(t: float, T: int, dt: float) -> int:
@@ -69,7 +69,8 @@ class Storyboard:
                 raise ValueError(f"keyframe {k}: its centre is {off:.4g} wu from the source's (> a quarter loss cell); "
                                  "a keyframe must keep the centre of mass")
             sils, shade = keyframe_pictures(final, smp, cfg)
-            self.exts.append(dataclasses.replace(final.ext, sils=sils, shade=shade))
+            counts = keyframe_counts(final, smp, cfg) if cfg.keyframe_compare == "column" else None   # D175b
+            self.exts.append(dataclasses.replace(final.ext, sils=sils, shade=shade, counts=counts))
             cov = float(torch.stack([(a > 0.5).float().mean() for a in sils]).mean())
             log(f"[keyframe] D175: keyframe {k} at t = {t:g} s = frame {f}, {len(smp)} sample(s) of {len(smp[0])} "
                 f"points, centre {off:.2e} wu from the source's, mean silhouette coverage {cov:.4f}"
