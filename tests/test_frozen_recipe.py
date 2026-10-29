@@ -71,7 +71,7 @@ D135_RUN_ARGS = {
     "settle_windows": 0, "settle_u": "zero", "settle_relax": True, "layer_relax": True, "render_split": "",
     "colour_kernel": "kernel", "texture": "", "render_every": 1, "ls_max": 10, "keyframe": [], "keyframe_time": [],
     "keyframe_compare": "silhouette", "keyframe_geometry": "own", "keyframe_soundness": "every", "cleanup_off": False,
-    "stop_tol": None, "render_compare": "exterior",
+    "stop_tol": None, "render_compare": "exterior", "appearance_placebo": False,
 }
 # the re-freeze: D135's configuration with D146's, D146b's and D149's switches on, nothing else changed
 REFREEZE_RUN_ARGS = {**D135_RUN_ARGS, "relax_driven": True, "u_adam_carry": True, "spacing_symmetric": True}

@@ -160,6 +160,9 @@ def parse_args(argv=None):
                          "render's shading term compares colour pictures of the target's paint (physmorph/pipeline/"
                          "appearance.py: the scenes); the physics never reads it; \"\" (the default) = the frozen path; "
                          "white = one channel of ones against a white target, the frozen path bit for bit")
+    ap.add_argument("--appearance_placebo", action="store_true",
+                    help="D178 (the placebo arm, off by default): the body keeps the scene's paint, the target samples are "
+                         "painted white everywhere (content-free colour pictures: the 3D target's own grey pictures)")
     ap.add_argument("--colour_kernel", default="kernel", choices=["kernel", "nearest"],
                     help="D173 A/B: the render loss's disc colours (target and body alike): kernel = D160's 3-pitch weights (the "
                          "frozen path); nearest = the nearest particle's colour, a softmax of -d^2 / (pitch / 2)^2 (differentiable)")
@@ -431,6 +434,11 @@ def run_main(args, prep, src, tgt, prm, cfg):
             obj, img = args.texture.split(",")
             tex = TextureMap(obj, img, prep.frame, args.tgt)
         app = make_appearance(args.appearance, src, tgt, prep.tgt_draws, texture=tex)
+        if args.appearance_placebo:                         # D178: content-free pictures (the target white), the body painted
+            white = lambda a: np.ones_like(np.asarray(a, np.float32))  # noqa: E731
+            app.tgt, app.draws = white(app.tgt), [white(d) for d in app.draws]
+            app.note = app.note + "; placebo (D178): the target white, no paint layout"
+            app.albedo_at = lambda x, c=app.tgt.shape[1]: np.ones((len(x), c), np.float32)  # noqa: E731  (render_x too)
         out["provenance"]["appearance"] = app.params
     keyframes = load_keyframes(args.keyframe, cfg.keyframe_time) if cfg.keyframe_time else None
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
