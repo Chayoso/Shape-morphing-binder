@@ -533,11 +533,16 @@ class Lattice:
     def __init__(self, center, reach):
         self.center, self.reach, self.origin = center, reach, center - 1.07 * reach
 
-    def near_nodes(self, x, pitch, ring):
-        """The integer coordinates of the nodes of that pitch around the cells that hold particles."""
+    def near_nodes(self, x, pitch, ring, chunk=1 << 16):
+        """The integer coordinates of the nodes of that pitch around the cells that hold particles. D174 (exact, memory):
+        the ring's node keys a chunk of cells at a time, each chunk's unique set merged by one more unique (the same
+        sorted set of integer keys); all cells at once held cells x (2 ring + 2)^3 x 3 int64 and their sort, the largest
+        transient of a line search (5.6 GiB at 500k)."""
         held = ((x - self.center).abs() < self.reach).all(1)
         cells = unkey(torch.unique(key(((x[held] - self.origin) / pitch).long())))
-        return unkey(torch.unique(key(cells[:, None, :] + cube(-ring, ring + 2, x.device)[None])))
+        off = cube(-ring, ring + 2, x.device)
+        parts = [torch.unique(key(c[:, None, :] + off[None])) for c in cells.split(chunk)] or [cells.new_zeros(0)]
+        return unkey(torch.unique(torch.cat(parts)))
 
     def at(self, nodes, pitch):
         return self.origin + pitch * nodes.float()
