@@ -153,6 +153,10 @@ def read_run(ctx, prefix):
     r["g_share_fin"] = float(np.mean([q["g_share"] for q in fin])) if fin else None
     gc = [q["g_raw_cos"] for q in h if q.get("keyframe") == 0 and q.get("g_raw_cos") is not None]
     r["g_raw_cos_seg"] = [round(g, 3) for g in gc]
+    gbs = [q["g_share_blocks"] for q in h if q.get("keyframe") == 0 and q.get("g_share_blocks")]
+    gbf = [q["g_share_blocks"] for q in h if q.get("keyframe", None) is None and q.get("g_share_blocks") and not q.get("settle")]
+    mb = lambda xs, k: float(np.mean([x[k] for x in xs])) if xs else None  # noqa: E731
+    r["gs_blocks"] = dict(seg_dFc=mb(gbs, "dFc"), seg_u=mb(gbs, "u"), fin_dFc=mb(gbf, "dFc"), fin_u=mb(gbf, "u"))
     r["serious"], r["piece_span"], r["piece_max"] = pieces_run(fr, raws, ctx.pitch)
     r["_x_k"] = x_k
     return r
@@ -260,6 +264,12 @@ def main():
                  f"segment g_raw_cos {N['g_raw_cos_seg']} ({neg} < 0; prediction >= 4 of 6).")
     if "S97" in R:
         L.append(f"- S97 segment g_raw_cos (soundness vs render) {R['S97']['g_raw_cos_seg']}.")
+    for k in ("S97", "S99"):
+        b = R.get(k, {}).get("gs_blocks") or {}
+        if b.get("seg_dFc") is not None:
+            L.append(f"- {k} render share per block (lambda_b |PCGrad(g_p, g_r)_b| / (|g_p,b| + lambda_b |...|)): segment dF_c "
+                     f"{fmt(b['seg_dFc'], '.3f')} / u {fmt(b['seg_u'], '.3f')}; after t_k dF_c {fmt(b['fin_dFc'], '.3f')} / u "
+                     f"{fmt(b['fin_u'], '.3f')}.")
     L += ["", "KF-IoU curve (run views) over frames 160-320: "
           + "; ".join(f"{k}: " + ", ".join(f"{f}:{v:.3f}" for f, v in r["curve"]) for k, r in R.items()), ""]
     try:

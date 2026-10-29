@@ -270,6 +270,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if not stats.get("grad_converged"):
                     hist.append({"animation": a, "null_commit": 1, "no_simulated_time": 1, "keyframe": seg,
                                  "replay_split": stats.get("replay_split"), "ls_split": stats.get("ls_split"),
+                                 "g_share_blocks": stats.get("g_share_blocks"),
                                  **{k: stats.get(k) for k in _NULL_FIELDS}})
                     sel.null()
                 hold_window(a, seg, "grad_converged" if stats.get("grad_converged") else "null")
@@ -282,7 +283,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             log(f"[v2] anim {a + 1}: no accepted step - null commit (stale {sel.stale + 1})")
             rec = {"animation": a, "null_commit": 1, "no_simulated_time": 1, **{k: stats.get(k) for k in _NULL_FIELDS}}
             if story is not None:                   # D175: a record (keyframe runs only)
-                rec.update(keyframe=None, replay_split=stats.get("replay_split"), ls_split=stats.get("ls_split"))
+                rec.update(keyframe=None, replay_split=stats.get("replay_split"), ls_split=stats.get("ls_split"),
+                           g_share_blocks=stats.get("g_share_blocks"))
             hist.append(rec)
             if sel.null():
                 frozen = True
@@ -317,7 +319,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                            Jp_max=float(jp.max()))
             if story is not None:
                 rec.update(keyframe=seg, replay_split=stats.get("replay_split"),   # D175: the entry (None: the target); records
-                           ls_split=stats.get("ls_split"))
+                           ls_split=stats.get("ls_split"), g_share_blocks=stats.get("g_share_blocks"))
         if cfg.term_dump and stats.get("term_grads") is not None:
             write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one

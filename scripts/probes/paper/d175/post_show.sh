@@ -9,9 +9,9 @@ DL=$O/deliver/show300; mkdir -p $DL; F=$O/runs/show_S_97; T=$O/runs/show_T_97
 envr repo_d166; export CUDA_VISIBLE_DEVICES= OMP_NUM_THREADS=2
 stop=$($PY -c "import json; a=next(iter(json.load(open('$F.json'))['arms'].values())); print(max(h['frame_end'] for h in a['history'] if h.get('frame_end') and not h.get('settle')) - 1)")
 log "start: sheet + video (stop raw $stop, t_k frame $FK)"
-nice -n 10 $PY $W/d175_video.py sheet $DL/keyframe_sheet.png $A/kf_S300.npz ${T}_frames12.npz ${F}_frames12.npz $FK > $DL/sheet.log 2>&1
+nice -n 10 $PY $W/d175_video.py sheet $DL/keyframe_sheet.png $A/kf_P300.npz ${T}_frames12.npz ${F}_frames12.npz $FK > $DL/sheet.log 2>&1
 log "sheet exit $?"
-nice -n 10 $PY $W/d175_video.py sbs $DL/frames $A/kf_S300.npz ${T}_frames12.npz ${F}_frames12.npz $FK $stop 3840 2160 0.0 0.18 160 24 > $DL/sbs.log 2>&1
+nice -n 10 $PY $W/d175_video.py sbs $DL/frames $A/kf_P300.npz ${T}_frames12.npz ${F}_frames12.npz $FK $stop 3840 2160 0.0 0.18 160 24 > $DL/sbs.log 2>&1
 log "frames exit $?"
 ffmpeg -loglevel error -y -framerate 20 -i $DL/frames/f%05d.jpg -c:v libx264 -crf 18 -pix_fmt yuv420p $DL/show300k_twin_full_4k.mp4 < /dev/null
 ffmpeg -loglevel error -y -framerate 20 -i $DL/frames/f%05d.jpg -vf scale=1920:1080:flags=lanczos -c:v libx264 -crf 18 \

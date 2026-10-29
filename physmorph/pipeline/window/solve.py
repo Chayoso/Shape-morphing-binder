@@ -351,6 +351,13 @@ class WindowOptimizer:
                          g_raw_cos=float(_dot(gp, gr_raw)) / max(np_raw * nr_raw, 1e-30),
                          g_share=self.lam_r * nr_ / max(np_ + self.lam_r * nr_, 1e-30),
                          g_phys_norm=np_, g_rend_norm=nr_)
+        if getattr(self.cfg, "keyframe_time", ()):     # D175d (keyframe runs, a record): the render's share per block
+            sh = []
+            for p_, r_, l_ in zip(gp, gr, self._block_lams()):
+                a_, b_ = float(p_.norm()), l_ * float(r_.norm())
+                sh.append(b_ / max(a_ + b_, 1e-30))
+            self.tele["g_share_blocks"] = dict(dFc=sh[0], u=sh[1], lam_dFc=self._block_lams()[0],
+                                               lam_u=self._block_lams()[1])
         if self.cfg.grad_dump:
             self.dump.update(lam_r=float(self.lam_r), g_share=float(self.tele["g_share"]))
 
@@ -613,6 +620,8 @@ class WindowOptimizer:
             stats["replay_split"] = dict(self.tele["replay_split"], noise=noise, pairs=len(self.replays))
         if "ls_split" in self.tele:                         # D175 (keyframe runs): the trials' merit change by term
             stats["ls_split"] = self.tele["ls_split"]
+        if "g_share_blocks" in self.tele:                   # D175d (keyframe runs): the render's share per block
+            stats["g_share_blocks"] = self.tele["g_share_blocks"]
         if getattr(cfg, "settle_u", "zero") == "last":     # D166: the committed u, for the settle windows (runner)
             stats["u"] = self.u.detach().clone()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
