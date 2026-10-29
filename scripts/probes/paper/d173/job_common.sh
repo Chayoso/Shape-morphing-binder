@@ -23,3 +23,6 @@ HU="$RX --render_split u"                                    # D172: held on u, 
 HF="$RX --render_split dFc"                                  # D172: held on dFc, the rule on u
 gate_wait() { for k in $(seq 1 360); do [ -e $O/gates/V3.ok ] && return 0; [ -e $O/gates/V3.fail ] && { log "V3 failed: stop"; exit 1; }
   sleep 20; done; log "no V3 gate after 2 h: stop"; exit 1; }
+gate_t() { for k in $(seq 1 720); do [ -e $O/gates/V3t.ok ] && return 0; [ -e $O/gates/V3t.fail ] && { log "V3t failed: stop"; exit 1; }
+  sleep 20; done; log "no V3t gate after 4 h: stop"; exit 1; }   # D173: the gate of the block shares on every run + stripes (job 209_d173_gate_t)
+SM300="--tgt $G/d170/assets/d170smooth_dragon.obj --n 300000"      # the attribution's 3D target (the smoothed dragon)

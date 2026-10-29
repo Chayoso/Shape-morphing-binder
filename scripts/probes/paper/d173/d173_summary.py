@@ -1,5 +1,7 @@
 """d173_summary.py OUT_MD -- D173's master summary (CPU): (1) the real scales' representability table (d173_probe.py), (2) the
-colour edge widths (d173_edge.py) and the deliverables, (3) the textured duck (d173_texprobe.py's ceiling, d173_texread.py's runs)."""
+colour edge widths (d173_edge.py) and the deliverables, (3) the textured duck (d173_texprobe.py's ceiling, d173_texread.py's runs),
+(4) the three-arm attribution on the stylized scales E, (5) option C (the dragon's own scales magnified), (6) Bob with the
+nearest-particle colour in the loss."""
 import glob
 import json
 import os
@@ -90,6 +92,8 @@ def main(out_md):
             L.append(f"| {arm} | {ser[-1]['relief']['A'] / cA:.2f} | {(mt - m) / (mt - fl):.2f} | {m:.3f} |")
         L.append("")
     for d in sorted(glob.glob(str(O / "deliver/*"))):
+        if Path(d).name.startswith(("attr", "magC")):
+            continue
         files = [Path(x).relative_to(O) for x in glob.glob(d + "/**/*", recursive=True) if x.endswith((".png", ".mp4", ".jpg"))]
         if files:
             L.append(f"- deliverables {Path(d).name}: " + ", ".join(str(x) for x in sorted(files)[:8]))
@@ -113,10 +117,89 @@ def main(out_md):
         p = O / f"auto/{j}/summary.md"
         if p.exists():
             L += ["---", f"<!-- {p} -->", p.read_text().strip(), ""]
+
+    def part(names):
+        out = []
+        for j in names:
+            p = O / f"auto/{j}/summary.md"
+            if p.exists():
+                out += ["---", f"<!-- {p} -->", p.read_text().strip(), ""]
+            for s in sorted(glob.glob(str(O / f"deliver/{j}/**/*.jpg"), recursive=True) + glob.glob(str(O / f"deliver/{j}/*.mp4"))):
+                out.append(f"- deliverable: {Path(s).relative_to(O)}")
+        return out + [""]
+    # 4. the attribution proof on the stylized scales E
+    L += ["", "## 4. Attribution: do the scales come from the render? (stylized scales E, 300k, three arms)", "",
+          "Three arms share the 3D target (the smoothed dragon: the physics objective, the proximity term and the relaxation never "
+          "see a scale) and differ only in the pictures: (1) the twin (lambda = 0, no pictures act), (2) Hu (D172: lambda held on u, "
+          "the rule on dF_c) with pictures of the dragon carrying the stylized scales E, (3) the same Hu with pictures of the "
+          "smoothed dragon itself (the render acts at the same weights but carries no scale). Scales that appear in (2) and in "
+          "neither (1) nor (3) are the render's alone. (4) at seed 97: Hu with u off (--u_off), the render reaching dF_c alone at the "
+          "rule's weight: how much of the relief the stress increment writes on its own. Every table gives the render's share of "
+          "each block's step (u, and dF_c after PCGrad with the weight as applied) at the start, the arrival and the stop.", ""]
+    L += part(("attr97", "attr97_uoff", "attr99"))
+    # 5. option C: the dragon's own scales, magnified
+    L += ["## 5. Option C: the dragon's OWN scales, magnified K times (Hu, 300k, three arms)", "",
+          "Construction (tmp/d173/d173_magscale.py, CPU): (1) the real relief H = the detailed Stanford dragon's signed offset from "
+          "the Taubin-smoothed dragon along the smoothed surface's normal, at 1M points of the smoothed surface (ray cast both "
+          "ways, the nearer hit, |H| <= 3 pitches); (2) a flat chart: D161's flank map (orthographic along the body's narrower "
+          "horizontal axis onto its + side, the faces that see that side, front-most), H rastered on it at 0.2-pitch texels (the "
+          "mean of the facing points per texel, the gaps filled linearly); (3) magnified K times about the chart's origin, "
+          "H_K(u, v) = K H(u / K, v / K): the scales K times wider and K times taller, their shape and aspect kept (the central "
+          "1/K^2 of the flank's pattern spread over the whole flank); (4) the picture mesh: the smoothed dragon, its flank-facing "
+          "faces subdivided to edges below a third of a pitch, each vertex moved along its normal by m (H_K - mean), m the chart's "
+          "support weight (facing ramp x front-most): mean height zero (volume kept), nothing moves off the flank, no step at its "
+          "edge. Only the pictures are rendered from it (--render_tgt); the 3D target of all three arms is the smoothed dragon. "
+          "Arms (1) and (3) are section 4's runs (the same seed, target and flags). Gate (as E's): the picture mesh's own perfect "
+          "300k sample, read by D172's detail reader (the fast port, high-pass sigma 4K pitches), corr >= 0.25 (E: 0.28); the "
+          "smallest K at 300k that passes is run.", ""]
+    tbs = [(O / "assets/magC/probe_table2.txt", "4K"), (O / "assets/magC/probe_table4.txt", "4K"), (O / "assets/magC/probe_table3.txt", "4")]
+    if tbs[0][0].exists():
+        L += ["| K | N | high-pass s_bg (pitches) | perfect sample: share A / corr (draw 1) | corr (draw 2) | smoothed dragon's sample corr (floor) | canvas rms H (pitches) | region share |",
+              "|---|---|---|---|---|---|---|---|"]
+        for tb, sb in tbs:
+            for x in (open(tb) if tb.exists() else []):
+                w = x.split()
+                if len(w) < 15:
+                    L.append(f"| {w[1]} | {w[2]}k | {sb} | missing | | | | |")
+                    continue
+                L.append(f"| {w[1]} | {w[2]}k | {sb} | {w[4]} / {w[6]} | {w[8]} | {w[10]} | {w[12]} | {w[14]} |")
+        vt = O / "assets/magC/variant.txt"
+        pick = vt.read_text().split() if vt.exists() else []
+        L += ["", "s_bg = 4K: the high-pass widened with the scales (they grow K times); the reader's region (the canvas within 2 "
+              "s_bg of the pattern) then covers 84-100 % of the body. s_bg = 4 (the reader's default, section 1's gate) reads a "
+              "smaller region (0.67) but cuts the magnified scales (their autocorrelation half-length 1.9-4.1 pitches) and reads "
+              "lower, so the pick uses s_bg = 4K. What limits corr: the perfect sample's own scatter about the canvas (rms 0.35-0.40 "
+              "pitch, the same for the smoothed dragon's sample) against the magnified relief's rms 0.05-0.10 pitch over the region "
+              "(0.09-0.20 pitch on the flank): corr ~ A x rms H / rms h. The real relief is shallow (rms 0.07 pitch on the flank at "
+              "300k) and shallower still at the chart's centre, so K = 2-3 (the user's range) reads 0.09-0.14 at 300k and 0.11-0.16 "
+              "at 550k; K up to 8 was read to find where it crosses 0.25.",
+              "", f"**Picked: K = {pick[1]} at 300k (s_bg {pick[2] if len(pick) > 2 else '4K'}).**" if pick else "**No K passes at 300k.**",
+              "", "The first build's K = 2.5 mesh was named d173M2.5_300_dragon.obj; physmorph/sampling/orientation.py asset_name cuts a "
+              "name at its first dot, so it was read without the dragon's rotation (canvas rms H 1.56 pitches, region 0.15: its corr "
+              "0.56 measured the turn, not the scales). Renamed M25 and read again; no other D170-D173 mesh name carries a dot.", ""]
+    L += part(("magC97", "magC99"))
+    # 6. Bob with the nearest-particle colour in the loss
+    L += ["## 6. Bob with --colour_kernel nearest (Rxn) against Rx and the twin", ""]
+    L += part(("tex40n", "tex300n", "tex40t", "tex300t"))
+    L += ["Rxt / Rxnt: Rx and Rxn rerun on the code that records each block's render share (the first runs predate it; the "
+          "same flags; rerun_cmp.txt says whether the reruns are the first runs bit for bit).", ""]
+    # 7. the stripes: a layout the twin cannot reach by accident
+    L += ["## 7. Stripes: a colour layout the twin cannot reach by accident (the bunny, Rx + nearest colour vs the twin)", "",
+          "Why: on the band scene the twin already looks nearly banded from the front, because the transport carries the "
+          "source's top to the target's top (Cohen's kappa of the twin's own layout against the band paint 0.68, 0.78 on the "
+          "outer layer). Stripes (appearance.py, --appearance stripes): three vertical stripes across the front view, the middle "
+          "red (a third), the source's top third red (the same budget). Checked before any run (tmp/d173/d173_layout_check.py, "
+          "on the band scene's twins at 40k s97 / s99 and 300k s97): the twin's layout meets the stripes at kappa 0.00-0.01 "
+          "(0.02-0.03 on the outer layer; a 2 x 2 checker read -0.02 / 0.05-0.10), so the stripes the full arm shows are the "
+          "render's.", ""]
+    L += part(("strp40", "strp300"))
+    done = {"tex40", "tex300", "cmb300", "attr97", "attr99", "magC97", "magC99", "tex40n", "tex300n", "tex40t", "tex300t",
+            "strp40", "strp300"}
     for p in sorted(glob.glob(str(O / "auto/*/summary.md"))):
-        if Path(p).parent.name not in ("tex40", "tex300", "cmb300"):
+        if Path(p).parent.name not in done:
             L += ["---", f"<!-- {p} -->", open(p).read().strip(), ""]
-    L.append(f"\nWritten {time.strftime('%Y-%m-%d %H:%M %Z')}. Code: repo_d173 = wip/d173 98303b79 (the texture appearance; D172's "
+    L.append(f"\nWritten {time.strftime('%Y-%m-%d %H:%M %Z')}. Code: repo_d173 = wip/d173 (the texture appearance, "
+             "--colour_kernel nearest, the stripes scene, each block's render share recorded on every run; D172's "
              "--render_split, the render_x paint fix).")
     tmp = Path(out_md + f".{os.getpid()}.tmp")
     tmp.write_text("\n".join(L) + "\n")
