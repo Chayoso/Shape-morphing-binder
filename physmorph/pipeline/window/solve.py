@@ -20,7 +20,7 @@ import warp as wp
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer, floor_referenced_weight
 from ..target import TargetPack
-from ...prof import STATE as PROF_STATE, take as prof_take, timed
+from ...prof import STATE as PROF_STATE, count, take as prof_take, timed
 from .objective import Objective, end_drift
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
 from .setup import StartState, Window
@@ -156,6 +156,7 @@ class WindowOptimizer:
         # moved the discs (D130 (1): D129's source-window commit_replay nulls were the render term read on discs found
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
+        self._gr_last = None                # D174 (render_every): the render gradient of the last k-th iteration
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
         self._zd = None                     # B13: a zero dFc with a gradient, for the run's one ratio measurement
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
@@ -262,8 +263,14 @@ class WindowOptimizer:
             gdt = torch.autograd.grad(Ldt, leaves, retain_graph=True)
         if cfg.grad_dump and it == 0:
             self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
-        with timed("adj_render"):
-            gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
+        every = int(getattr(cfg, "render_every", 1) or 1)
+        if every > 1 and it % every != 0 and self._gr_last is not None:
+            gr_raw = self._gr_last                      # D174 A/B: the window's last render gradient (a k-th iteration's)
+            count("render_reused")
+        else:
+            with timed("adj_render"):
+                gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
+            self._gr_last = gr_raw if every > 1 else None
         gr = pcgrad(gp, gr_raw)
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw, e.lr)

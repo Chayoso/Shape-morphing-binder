@@ -142,6 +142,10 @@ class PipelineConfig:
                                     #   frozen path); "u" = the run's weight on u, the rule's per-window value on dFc;
                                     #   "dFc" = the run's weight on dFc, the rule's on u (the merit keeps the run's weight)
                                     #   "u_rule" = the run on the rule (merit, stops) with u at the first calibration's value
+    render_every: int = 1           # D174 A/B (runtime): the render gradient (its adjoint sweep) at every k-th iteration of a
+                                    #   window (0, k, 2k, ...); between, the window's last one, projected against the fresh
+                                    #   physics gradient and weighted as always; the render term's value is read at every
+                                    #   evaluation as before; 1 = every iteration (the frozen path)
     layer_relax: bool = True        # D170 A/B: the outer-layer relaxation in every window (on = the frozen path); off = its
                                     #   fraction 0 throughout, as the xu baseline has it (window/setup.py), u and all else as they are
     settle_windows: int = 0         # D162h / D162i: after the run stops, this many windows of released physics with zero controls
@@ -245,3 +249,5 @@ class PipelineConfig:
                              "(use render_weight_scale 0 for the render-off twin)")
         if self.T < 1 or self.iters < 1 or self.animations < 1:
             raise ValueError("T, iters and animations must be positive")
+        if int(self.render_every) < 1 or int(self.max_ls_iters) < 1:
+            raise ValueError("render_every and max_ls_iters must be at least 1")

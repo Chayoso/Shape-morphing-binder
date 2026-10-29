@@ -68,6 +68,11 @@ def parse_args(argv=None):
     ap.add_argument("--layer_relax", action=argparse.BooleanOptionalAction, default=True,
                     help="D170 A/B: the outer-layer relaxation in every window (default on, the frozen path); "
                          "--no-layer_relax = its fraction 0 throughout (u and everything else unchanged)")
+    ap.add_argument("--render_every", type=int, default=1,
+                    help="D174 A/B (runtime): the render gradient's adjoint sweep at every k-th iteration of a window, the "
+                         "window's last one reused between (1 = every iteration, the frozen path)")
+    ap.add_argument("--ls_max", type=int, default=10,
+                    help="D174 A/B (runtime): the line search's trials per iteration (10 = the frozen path)")
     ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule"],
                     help="D172 A/B: the render gradient's weight by control block; \"\" = one weight on both (the frozen "
                          "path); u = the run's weight (held under --lambda_ema 0) on u and the rule's per-window value on dFc; "
@@ -304,6 +309,7 @@ def run_config(args, cfg0, prep):
                               render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell, settle_windows=args.settle_windows,
                               settle_u=args.settle_u, settle_relax=args.settle_relax, layer_relax=args.layer_relax,
                               render_split=args.render_split,
+                              render_every=args.render_every, max_ls_iters=args.ls_max,
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
