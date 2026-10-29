@@ -319,6 +319,33 @@ def d_exterior(p: torch.Tensor, n: torch.Tensor, sils, shade, views, res: int, e
     return sil, sum((s[c] - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)
 
 
+def d_exterior_masked(p: torch.Tensor, n: torch.Tensor, sils, shade, m_sil, m_shade, views, res: int, extent: float,
+                      k: float = 1.5, w_hole: float = 2.0, w_spray: float = 1.0, ambient: float = 0.25, albedo=None):
+    """D178 (render_split "masked"): (silhouette, shading, masked silhouette, masked shading) of one rendering of the
+    discs. The first two are d_exterior's terms (the same per-pixel penalties and means); the masked ones sum the same
+    per-pixel penalties only where the content mask is set (m_sil (V,res,res); m_shade (V,res,res), or (C,V,res,res)
+    with colour), with the same normalisation, so the full term is the masked one plus the rest. A mask None is a zero
+    term."""
+    from ..losses.silhouette import soft_silhouette_multi
+    a = soft_silhouette_multi(p, views, res, extent, k)                # (V,res,res)
+    a_t = torch.stack(list(sils), 0)
+    pen = w_hole * torch.clamp(a_t - a, min=0.0).pow(2) + w_spray * torch.clamp(a - a_t, min=0.0).pow(2)
+    sil = pen.mean(dim=(1, 2)).mean()
+    sil_m = (pen * m_sil).mean(dim=(1, 2)).mean() if m_sil is not None else sil * 0.0
+    if albedo is None:
+        s, _ = shaded_discs(p, n, views, res, extent, k, ambient)
+        r = (s - torch.stack(list(shade), 0)).pow(2)
+        shd = r.mean(dim=(1, 2)).mean()
+        return sil, shd, sil_m, ((r * m_shade).mean(dim=(1, 2)).mean() if m_shade is not None else shd * 0.0)
+    s, _ = shaded_discs(p, n, views, res, extent, k, ambient, albedo=albedo)       # (C,V,res,res)
+    t = torch.stack(list(shade), 0).movedim(1, 0).contiguous()                     # (C,V,res,res)
+    r = [(s[c] - t[c]).pow(2) for c in range(len(s))]
+    shd = sum(rc.mean(dim=(1, 2)).mean() for rc in r) / len(s)
+    if m_shade is None:
+        return sil, shd, sil_m, shd * 0.0
+    return sil, shd, sil_m, sum((rc * m_shade[c]).mean(dim=(1, 2)).mean() for c, rc in enumerate(r)) / len(s)
+
+
 def count_pictures(x: torch.Tensor, views, res: int, extent: float) -> torch.Tensor:
     """D175b: the projected count picture (an X-ray), (V,res,res): the CIC count of the points per pixel, the coverage
     soft_silhouette_multi takes before its 1 - exp(-k .), in the same views, resolution and camera box."""

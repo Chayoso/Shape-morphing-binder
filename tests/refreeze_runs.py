@@ -27,7 +27,8 @@ CLOCKS = ("t_attempt", "t_start", "t_grad", "t_ls", "t_commit", "prof_run", "sec
 # D164's replay records on the windows the earlier check would have nulled
 RECORDS = ("lam_rule_block", "g_share_dfc", "g_share_u", "g_rend_u_norm", "g_phys_u_norm", "g_rend_dfc_norm", "g_phys_dfc_norm",
            "lam_block_dfc", "lam_block_u", "u_render_nonzero", "replay_rescued", "replay_noise", "replay_res", "replay_pairs",
-           "replay_taped_max", "commit_mismatch", "commit_tol", "commit_replay_start", "commit_reads_accepted")
+           "replay_taped_max", "commit_mismatch", "commit_tol", "commit_replay_start", "commit_reads_accepted",
+           "lam_mask", "g_mask_dfc_norm", "g_share_dfc_masked")
 REFREEZE = dict(relax_driven=True, u_adam_carry=True, spacing_symmetric=True, min_spacing=0.9, volume_exact="carried",
                 assim_volume=True, lambda_ema=1.0)
 

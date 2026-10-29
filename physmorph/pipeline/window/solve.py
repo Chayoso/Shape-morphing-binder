@@ -29,7 +29,7 @@ from .telemetry import below_grid_record, collect_grad_dump, support_record, wor
 _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phys_work_x",
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
 _SPLIT_KEYS = ("lam_rule_block", "g_share_dfc", "g_share_u", "g_rend_u_norm", "g_phys_u_norm", "g_rend_dfc_norm", "g_phys_dfc_norm",
-               "lam_block_dfc", "lam_block_u", "u_render_nonzero")
+               "lam_block_dfc", "lam_block_u", "u_render_nonzero", "lam_mask", "g_mask_dfc_norm", "g_share_dfc_masked")
 _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
               "predicted_decrease") + _TELE_KEYS
 # line-search diagnostics: trials, failure reasons (by state check), the start state's validity
@@ -295,6 +295,12 @@ class WindowOptimizer:
             gdt = torch.autograd.grad(Ldt, leaves, retain_graph=True)
         if cfg.grad_dump and it == 0:
             self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
+        gm_raw = None
+        if self._masked_on(e):
+            # D178 (render_split "masked"): the masked render term's gradient on dFc (one more adjoint sweep, only where
+            # the target carries a content mask); the graph is kept for the render gradient below
+            with timed("adj_render_masked"):
+                gm_raw = torch.autograd.grad(e.lr_m, [leaves[0]], retain_graph=True)[0].detach().clone()
         every = int(getattr(cfg, "render_every", 1) or 1)
         if every > 1 and it % every != 0 and self._gr_last is not None:
             gr_raw = self._gr_last                      # D174 A/B: the window's last render gradient (a k-th iteration's)
@@ -307,7 +313,29 @@ class WindowOptimizer:
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw, e.lr)
         g = [a + lam * b for a, b, lam in zip(gp, gr, self._block_lams())]
+        if gm_raw is not None:
+            g[0] = g[0] + self._masked_extra(gp, gr, gm_raw, it)
         return [gi + di for gi, di in zip(g, gdt)], diag
+
+    def _masked_on(self, e) -> bool:
+        """D178: the masked rule acts in this evaluation (render_split "masked", a content mask on the target, no
+        keyframe segment open: there the storyboard's held weight on both blocks)."""
+        return (getattr(self.cfg, "render_split", "") == "masked" and getattr(e, "lr_m", None) is not None
+                and getattr(self.tgt, "keyframe", None) is None)
+
+    def _masked_extra(self, gp, gr, gm_raw, it):
+        """D178 (render_split "masked", the user's rule of 2026-10-29): the dFc block's render pull is
+        lambda_rule g_r(dFc) + (lambda_h - lambda_rule) grad_dFc sum m (I - T)^2: the held authority only where the
+        pictures say more than the 3D target (target.content_masks), the rule's elsewhere; u keeps the held weight
+        (Hu). The extra pull is projected against the physics on dFc as the render gradient is (PCGrad), and its
+        weight is never negative (lambda_rule above the held weight leaves dFc on the rule). Returns the extra term."""
+        w = max(float(self.lam_r) - float(self.lam_rule), 0.0)
+        gm = pcgrad([gp[0]], [gm_raw])[0]
+        extra = w * gm
+        if it == 0:                                    # a record, every masked window
+            nd, rd = _norm([gp[0]]), _norm([float(self.lam_rule) * gr[0] + extra])
+            self.tele.update(lam_mask=w, g_mask_dfc_norm=float(extra.norm()), g_share_dfc_masked=rd / max(nd + rd, 1e-30))
+        return extra
 
     def _block_lams(self):
         """The render gradient's weight on each leaf ([dFc or the force, u]). D172 (render_split): the run's weight (held

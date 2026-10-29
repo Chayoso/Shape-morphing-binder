@@ -95,7 +95,7 @@ class _AttemptClock:
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
                  on_commit=None, on_iter=None, F_stride: int | None = None, thin=None, surface=None, draws=None,
-                 mesh=None, appearance=None, render_x=None, floor_x=None, target_fill=None, keyframes=None):
+                 mesh=None, appearance=None, render_x=None, floor_x=None, target_fill=None, keyframes=None, content=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
@@ -123,7 +123,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     N = src.shape[0]
     if len(target_x) != N:
         raise ValueError(f"source and target need the same particle count (got {N} vs {len(target_x)})")
-    tgt = build_target(target_x, prm, cfg, draws=draws, mesh=mesh, appearance=appearance, render_x=render_x)
+    tgt = build_target(target_x, prm, cfg, draws=draws, mesh=mesh, appearance=appearance, render_x=render_x,
+                       content=content)       # D178: the 3D target's own samples for the masked rule's content mask
     if surface is not None:
         tgt.relief = target_relief(tgt.pts, surface, cfg)
     calibrate_units(tgt, src, cfg)
@@ -428,7 +429,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             f"(deliver {deliver_n} of {len(frames)} frames; all frames archived)")
     return {"truncation": trunc, "deliver_n": deliver_n, "frames": frames, "history": hist,
             "guards": guards, "Fp": _host(Fp), "n_held": 0, "converged": frozen,
-            "balancer": {"cap": balancer.cap, "cap_rel": balancer.cap_rel, "alpha_lam": balancer.alpha_lam}}
+            "balancer": {"cap": balancer.cap, "cap_rel": balancer.cap_rel, "alpha_lam": balancer.alpha_lam},
+            "content_mask": getattr(tgt.ext, "mask_info", None) if tgt.ext is not None else None}
 
 
 def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, J=None) -> dict:
@@ -470,7 +472,7 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
         rec.update({k: stats.get(k) for k in _FLOOR_FIELDS})                  # a record (those paths only)
     rec.update({k: stats.get(k) for k in ("lam_rule_block", "g_share_dfc", "g_share_u", "g_rend_u_norm", "g_phys_u_norm",   # D173: the
                                           "g_rend_dfc_norm", "g_phys_dfc_norm", "lam_block_dfc", "lam_block_u",       # per-block render
-                                          "u_render_nonzero")})                                                       # shares (a record)
+                                          "u_render_nonzero", "lam_mask", "g_mask_dfc_norm", "g_share_dfc_masked")})  # shares (D178: masked)
     if thin is not None and cfg.work_telemetry:
         m = thin_metrics(x, thin)
         rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))

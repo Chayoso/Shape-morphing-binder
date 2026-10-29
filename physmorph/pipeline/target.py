@@ -43,6 +43,9 @@ class Exterior:
     colour_tau: float | None = None     #   (render/exterior.nearest_weights, tau = half the exterior's pitch)
     counts: list | None = None          # D175b (keyframe_compare column, a keyframe's exterior only): its projected count
                                         #   pictures; the render term is then render_loss.d_count on the particles
+    mask_sil: torch.Tensor | None = None    # D178 (render_split "masked"): the content mask of the silhouettes (V,R,R) and
+    mask_shade: torch.Tensor | None = None  #   of the shading ((V,R,R), or (C,V,R,R) with colour); None = no content there
+    mask_info: dict | None = None           #   the floors and the masks' cover (a record)
 
 
 @dataclass
@@ -165,6 +168,46 @@ def keyframe_pictures(final: TargetPack, samples, cfg: PipelineConfig, views=Non
             [torch.stack(v).mean(0) for v in zip(*[p[1] for p in per])])
 
 
+def content_masks(ext: Exterior, content, cfg: PipelineConfig, views, extent: float):
+    """D178 (render_split "masked", the user's rule of 2026-10-29): where the run's pictures T say more than the 3D target.
+    content = (own, indep): the 3D target's own samples (its sample and its draws: the pictures the run would have without a
+    render target or a paint, T0) and as many further independent draws (T0'). T0 and T0' are grey pictures drawn with the
+    run's exterior constants (pitch, kernel, lattice, camera box); the floor of each term is max |T0 - T0'| over the pixels
+    (what two independent samples of the 3D target differ by, D176: 0.45-0.59 silhouette, 0.20-0.32 shading), and the masks
+    are m = 1[|T - T0| > floor] per pixel and term (with colour, per channel against the grey T0). Sets ext.mask_sil /
+    ext.mask_shade (None where no pixel is set: the rule is then Hu's there) and ext.mask_info (a record)."""
+    own, indep = content
+
+    def grey(samples):
+        per = [sample_pictures(gpu.tensor(np.asarray(s, np.float32)), cfg, ext.pitch, ext.radius, ext.offset,
+                               ext.lattice, ext.h, views, extent)[2] for s in samples]
+        return (torch.stack([torch.stack(list(v)).mean(0) for v in zip(*[p[0] for p in per])]),
+                torch.stack([torch.stack(list(v)).mean(0) for v in zip(*[p[1] for p in per])]))
+    with torch.no_grad():
+        A0, S0 = grey(own)
+        A1, S1 = grey(indep)
+        f_sil, f_shade = float((A0 - A1).abs().max()), float((S0 - S1).abs().max())
+        A = torch.stack(list(ext.sils), 0)
+        S = torch.stack(list(ext.shade), 0)
+        colour = ext.albedo is not None
+        if colour:                                        # (V,C,R,R) -> (C,V,R,R), as d_exterior compares them
+            S = S.movedim(1, 0).contiguous()
+            m_s = (S - S0[None]).abs() > f_shade
+        else:
+            m_s = (S - S0).abs() > f_shade
+        m_a = (A - A0).abs() > f_sil
+        body = float(((A0 > 1e-2) | (A > 1e-2)).sum())
+        cov_a = float(m_a.sum()) / max(body, 1.0)
+        cov_s = float(m_s.float().mean(0).sum() if colour else m_s.sum()) / max(body, 1.0)
+        ext.mask_sil = m_a.float() if bool(m_a.any()) else None
+        ext.mask_shade = m_s.float() if bool(m_s.any()) else None
+    ext.mask_info = dict(floor_sil=f_sil, floor_shade=f_shade, cover_sil=cov_a, cover_shade=cov_s, own=len(own),
+                         indep=len(indep))
+    print(f"[target] content mask (D178): floors silhouette {f_sil:.4f}, shading {f_shade:.4f} (max |T0 - T0'| over "
+          f"{len(own)} / {len(indep)} samples of the 3D target); the pictures differ from the 3D target's beyond them on "
+          f"{100 * cov_a:.2f} % (silhouette) / {100 * cov_s:.2f} % (shading) of the body's pixels", flush=True)
+
+
 def keyframe_counts(final: TargetPack, samples, cfg: PipelineConfig, views=None) -> list:
     """D175b: a keyframe's projected count pictures (render_loss.count_pictures), the mean over its samples, in the final
     pack's views and camera box."""
@@ -176,7 +219,7 @@ def keyframe_counts(final: TargetPack, samples, cfg: PipelineConfig, views=None)
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh=None, appearance=None,
-                 render_x=None) -> TargetPack:
+                 render_x=None, content=None) -> TargetPack:
     """draws: further independent samples of the target in its frame. The render term's target pictures are then the
     mean of the pictures the operator draws of every sample: what it draws of the mesh in expectation. Drawn from
     the one sample, a render arm fitted that sample's noise as well, and half its measured lead over the
@@ -281,6 +324,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
         if cfg.render_target == "mesh_shell":
             ext.sils, ext.shade = shell_pictures(mesh, lattice, h, pitch, radius * pitch, refs, views, extent, cfg, e_sils,
                                                  e_shade)
+        if content is not None:               # D178 (render_split "masked"): where the pictures say more than the 3D target
+            content_masks(ext, content, cfg, views, extent)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range), on the target's own box
     # (D156: the render's box when the pictures are drawn from another sample)
     ext_t = extent if render_x is None else float(tgt_t.abs().max()) * 1.25

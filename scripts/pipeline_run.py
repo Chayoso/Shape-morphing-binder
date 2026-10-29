@@ -76,11 +76,13 @@ def parse_args(argv=None):
                          "window's last one reused between (1 = every iteration, the frozen path)")
     ap.add_argument("--ls_max", type=int, default=10,
                     help="D174 A/B (runtime): the line search's trials per iteration (10 = the frozen path)")
-    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule"],
+    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule", "masked"],
                     help="D172 A/B: the render gradient's weight by control block; \"\" = one weight on both (the frozen "
                          "path); u = the run's weight (held under --lambda_ema 0) on u and the rule's per-window value on dFc; "
                          "dFc = the reverse; the merit keeps the run's weight; u_rule = the run on the rule (its merit and "
-                         "stops too) with u at the first calibration's value (what --lambda_ema 0 holds)")
+                         "stops too) with u at the first calibration's value (what --lambda_ema 0 holds); masked (D178) = u "
+                         "as u, dFc on the rule plus the held weight on the render residual inside the content mask "
+                         "(the pixels where the pictures differ from the 3D target's own beyond the draw-noise floor)")
     ap.add_argument("--keyframe", nargs="+", default=[],
                     help="D175 (off by default): picture keyframes, one .npz per --keyframe_time, each with 'samples' "
                          "(K, N_k, 3): the keyframe's sample and its draws in the target's frame, read through their "
@@ -378,6 +380,26 @@ def load_keyframes(paths, times):
     return out
 
 
+def content_samples(args, prep, tgt, cfg, app):
+    """D178 (render_split "masked"): the 3D target's own samples for the content mask (target.content_masks): its sample
+    and the draws the run would read without a render target (seeds seed + 1 + 100 k, k = 1 .. D - 1: the pictures T0),
+    and D further independent draws (k = 8 .. 7 + D: T0'). None off the rule, and where the pictures are the 3D target's
+    own (no render target, no paint: T = T0 and the mask is empty, the rule is Hu's)."""
+    if cfg.render_split != "masked" or not cfg.render_exterior or (prep.render_x is None and app is None):
+        return None
+    if args.floor:
+        raise ValueError("render_split masked: the content mask's own draws are not lifted onto the floor")
+    from physmorph.sampling.mesh import draws_in_frame
+    n, D = len(tgt), max(int(args.render_target_draws), 1)
+    if prep.render_x is None and prep.tgt_draws is not None:          # the run's own draws are the 3D target's
+        own = [tgt] + list(prep.tgt_draws)
+    else:
+        own = [tgt] + (draws_in_frame(args.tgt, prep.frame, n, [args.seed + 1 + 100 * k for k in range(1, D)])
+                       if D > 1 else [])
+    indep = draws_in_frame(args.tgt, prep.frame, n, [args.seed + 1 + 100 * k for k in range(8, 8 + D)])
+    return own, indep
+
+
 def run_main(args, prep, src, tgt, prm, cfg):
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
@@ -410,7 +432,8 @@ def run_main(args, prep, src, tgt, prm, cfg):
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
                        on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
                        mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x,
-                       target_fill=prep.density["target_fill"] if prep.density else None, keyframes=keyframes)
+                       target_fill=prep.density["target_fill"] if prep.density else None, keyframes=keyframes,
+                       content=content_samples(args, prep, tgt, cfg, app))
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")
@@ -438,7 +461,7 @@ def run_main(args, prep, src, tgt, prm, cfg):
                         "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v) for k, v in gates.items()},
                         "guards": res["guards"], "converged": res["converged"], "balancer": res["balancer"],
                         "deliver_n": int(dn), "truncation": res["truncation"], "n_held": res["n_held"],
-                        "seconds": seconds, "history": res["history"]}
+                        "seconds": seconds, "history": res["history"], "content_mask": res.get("content_mask")}
     print(f"[v2run] ARM {ARM}: chamfer={met['chamfer']:.4f}  silIoU={met['sil_iou']:.4f}  "
           f"hole={met['hole_frac'] * 100:.2f}%  jitter_rel={met['jitter_rel']:.5f}  "
           f"detFmin={met['detF_min']:.4f}  move_cv={met['move_cv']:.2f}  "

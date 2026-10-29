@@ -23,7 +23,7 @@ from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement, gri
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
 from ...render.exterior import make_field, tracked
-from ..render_loss import d_count, d_exterior, d_pbr, d_render
+from ..render_loss import d_count, d_exterior, d_exterior_masked, d_pbr, d_render
 from .setup import Window
 
 
@@ -211,6 +211,7 @@ class Objective:
         than the field's range, about 1.8 pitches (D62's first run: stopped at 9 windows). `ext_builds` counts the
         searches of the window (a record)."""
         cfg, t = self.cfg, self.tgt
+        self.lr_m = None                              # D178: set by _exterior on the masked rule's path only
         if t.ext is None:
             return (d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray),
                     d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
@@ -230,8 +231,24 @@ class Objective:
                                                 device_field=True), e.lattice, e.h, e.skin, e.colour, e.colour_tau)
             self.ext_builds += 1
             p, n, move = self.discs.read(xT)
-        return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
-                          cfg.w_spray, cfg.pbr_ambient)
+        return self._exterior(p, n, e)
+
+    def _exterior(self, p, n, e, c=None):
+        """d_exterior's (silhouette, shading) of the discs (c: their albedos). D178 (render_split "masked"): where the
+        target carries a content mask and no keyframe segment is open, the same rendering also gives the masked render
+        term, self.lr_m = masked silhouette + w_pbr masked shading (the dFc block's extra pull, solve.gradient); else
+        self.lr_m is None and the path is d_exterior's."""
+        cfg, t = self.cfg, self.tgt
+        self.lr_m = None
+        if ((e.mask_sil is None and e.mask_shade is None) or getattr(t, "keyframe", None) is not None
+                or getattr(cfg, "render_split", "") != "masked"):
+            return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
+                              cfg.w_spray, cfg.pbr_ambient, albedo=c)
+        sil, shd, sil_m, shd_m = d_exterior_masked(p, n, e.sils, e.shade, e.mask_sil, e.mask_shade, t.views,
+                                                   cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray,
+                                                   cfg.pbr_ambient, albedo=c)
+        self.lr_m = sil_m + cfg.w_pbr * shd_m
+        return sil, shd
 
     def _render_terms_albedo(self, xT, e):
         """render_terms with the particles' albedos (D160, appearance): the same discs, found and followed as above;
@@ -248,8 +265,7 @@ class Objective:
                                                 device_field=True), e.lattice, e.h, e.skin, e.colour, e.colour_tau)
             self.ext_builds += 1
             p, n, move, c = self.discs.read(xT, e.albedo, e.albedo_ref)
-        return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
-                          cfg.w_spray, cfg.pbr_ambient, albedo=c)
+        return self._exterior(p, n, e, c)
 
     def phys_core(self, e):
         """The physics objective without the cleanup terms, from an Eval: lambda's reference and the direction

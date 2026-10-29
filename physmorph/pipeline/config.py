@@ -149,6 +149,8 @@ class PipelineConfig:
                                     #   frozen path); "u" = the run's weight on u, the rule's per-window value on dFc;
                                     #   "dFc" = the run's weight on dFc, the rule's on u (the merit keeps the run's weight)
                                     #   "u_rule" = the run on the rule (merit, stops) with u at the first calibration's value
+                                    #   "masked" (D178) = "u", and dFc takes lambda_rule g_r + (lambda_h - lambda_rule) x the
+                                    #   gradient of the render residual inside the content mask (target.content_masks)
     render_every: int = 1           # D174 A/B (runtime): the render gradient (its adjoint sweep) at every k-th iteration of a
                                     #   window (0, k, 2k, ...); between, the window's last one, projected against the fresh
                                     #   physics gradient and weighted as always; the render term's value is read at every
@@ -279,6 +281,10 @@ class PipelineConfig:
             raise ValueError("stop_tol must be finite and positive (None = tol)")
         if int(self.render_every) < 1 or int(self.max_ls_iters) < 1:
             raise ValueError("render_every and max_ls_iters must be at least 1")
+        if self.render_split == "masked" and (not self.render_exterior or self.render_target != "samples"
+                                              or self.cleanup_in_phys or self.baseline):
+            raise ValueError("render_split masked reads the content mask of the exterior's sample pictures: it needs "
+                             "render_exterior, render_target samples, no cleanup_in_phys and no baseline")
         self.keyframe_time = tuple(float(t) for t in (self.keyframe_time or ()))
         if self.keyframe_geometry not in ("own", "final"):
             raise ValueError("keyframe_geometry must be \"own\" or \"final\"")
@@ -290,9 +296,9 @@ class PipelineConfig:
             if not self.render_exterior or self.lambda_ema != 0.0:
                 raise ValueError("keyframes read their pictures on the exterior with the held weight: they need "
                                  "render_exterior and lambda_ema 0")
-            if (self.render_split not in ("", "u") or self.render_weight_ref != "residual" or self.baseline
+            if (self.render_split not in ("", "u", "masked") or self.render_weight_ref != "residual" or self.baseline
                     or self.render_target != "samples"):
-                raise ValueError("keyframes run on the held weight's paths only: render_split \"\" or \"u\", "
+                raise ValueError("keyframes run on the held weight's paths only: render_split \"\", \"u\" or \"masked\", "
                                  "render_weight_ref residual, no baseline, render_target samples")
             if any(not (t > 0 and math.isfinite(t)) for t in self.keyframe_time) or list(self.keyframe_time) != sorted(
                     set(self.keyframe_time)):

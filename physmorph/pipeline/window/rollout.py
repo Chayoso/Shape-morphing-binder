@@ -36,6 +36,7 @@ class Eval:
     lk_rel: torch.Tensor | None = None  # record: the released phase's motion, same normalisation
     jt: float | None = None           # whole-trajectory min det (no-grad path)
     in_domain: bool = True
+    lr_m: torch.Tensor | None = None  # D178 (render_split "masked"): the masked render term of the same rendering (or None)
 
     def state(self):
         return (self.xT, self.FT, self.vT)
@@ -65,8 +66,9 @@ def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
     T, norm = obj.cfg.T, V.shape[0] * V.shape[1]
     lk_drv = (V[:T] - V[:T].mean(0)).square().sum() / norm
     lk_rel = V[T:].square().sum() / norm
+    lr_m = getattr(obj, "lr_m", None)                # D178: set by this evaluation's render terms (None off the rule)
     return Eval(xT, FT, vT, lv, lk, lr, lpbr, d_sil, dfc, V, V.pow(2).sum(2).mean(),
-                lk_drv + lk_rel, lstab=lstab, lk_drv=lk_drv, lk_rel=lk_rel, **kw)
+                lk_drv + lk_rel, lstab=lstab, lk_drv=lk_drv, lk_rel=lk_rel, lr_m=lr_m, **kw)
 
 
 def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor, dfc_leaf=None) -> Eval:
