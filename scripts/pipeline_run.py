@@ -124,7 +124,7 @@ def parse_args(argv=None):
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
                     help="D131 (default carried): the motion's own volume J per particle, carried like F in the smoothed F "
                          "itself (det F = J after every step, the stress reading F + dFc); off = the old path bit for bit")
-    ap.add_argument("--appearance", default="", choices=["", "white", "half", "band", "ears", "turn", "texture"],
+    ap.add_argument("--appearance", default="", choices=["", "white", "half", "band", "ears", "turn", "stripes", "texture"],
                     help="D160 (an option, off by default): each particle carries a fixed albedo from the source and the "
                          "render's shading term compares colour pictures of the target's paint (physmorph/pipeline/"
                          "appearance.py: the scenes); the physics never reads it; \"\" (the default) = the frozen path; "

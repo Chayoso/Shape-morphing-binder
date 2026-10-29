@@ -19,6 +19,12 @@ BUNNY_HEAD), measured once on its target samples.
          BUNNY_EAR_BASE): a medium move
   turn   source red above its median height; target red on the head's side of the target's median plane across the
          head's horizontal direction (bunny, BUNNY_HEAD): a long move
+  stripes  (D173) three vertical stripes across the deliverables' front view, the middle one red: s = x . e_h, e_h the front
+         camera's horizontal image axis (render/studio.StudioRaster at azimuth FRONT_AZ: (cos, 0, -sin)), cut at the
+         target's 1/3 and 2/3 quantiles of s; source red its top third (above its 2/3 height quantile), the same budget.
+         The transport carries the source's top to the target's top, which the stripes cut across: the twin's layout
+         meets the paint at chance (Cohen's kappa 0.00-0.01 on the bunny twins at 40k / 300k, 0.02-0.03 on the outer
+         layer; band 0.68 / 0.78, half 0.88; tmp/d173/d173_layout_check.py), so only the render can lay the stripes.
 """
 from __future__ import annotations
 
@@ -28,7 +34,8 @@ import numpy as np
 
 WHITE = (1.0, 1.0, 1.0)
 RED = (0.9, 0.25, 0.2)
-SCENES = ("white", "half", "band", "ears", "turn")              # and "texture" (D173, make_appearance with a TextureMap)
+SCENES = ("white", "half", "band", "ears", "turn", "stripes")   # and "texture" (D173, make_appearance with a TextureMap)
+FRONT_AZ = 35.0                       # D173 (stripes): the deliverables' front camera azimuth, degrees (d160_studio / d170_studio)
 
 
 @dataclass
@@ -133,7 +140,7 @@ def scene_params(scene: str, src: np.ndarray, tgt: np.ndarray) -> dict:
     p = {"scene": scene, "white": WHITE, "red": RED}
     if scene == "white":
         return p
-    p["src_y"] = float(np.quantile(ys, 0.95 if scene == "ears" else 0.5))
+    p["src_y"] = float(np.quantile(ys, {"ears": 0.95, "stripes": 2.0 / 3.0}.get(scene, 0.5)))
     if scene == "half":
         p["tgt_y"] = float(np.quantile(yt, 0.5))
     elif scene == "band":
@@ -145,6 +152,11 @@ def scene_params(scene: str, src: np.ndarray, tgt: np.ndarray) -> dict:
         c = tgt.mean(0).astype(np.float64)
         p["head_dir"], p["centre"] = h.tolist(), c.tolist()
         p["tgt_h"] = float(np.median((tgt - c) @ h))
+    elif scene == "stripes":
+        az = np.radians(FRONT_AZ)
+        e_h = np.array([np.cos(az), 0.0, -np.sin(az)])
+        s = tgt.astype(np.float64) @ e_h
+        p["axis"], p["tgt_s"] = e_h.tolist(), [float(np.quantile(s, 1.0 / 3.0)), float(np.quantile(s, 2.0 / 3.0))]
     return p
 
 
@@ -158,6 +170,9 @@ def target_red(p: dict, x: np.ndarray) -> np.ndarray:
     x = np.asarray(x, np.float64)
     if p["scene"] == "turn":
         return (x - np.asarray(p["centre"])) @ np.asarray(p["head_dir"]) >= p["tgt_h"]
+    if p["scene"] == "stripes":
+        s = x @ np.asarray(p["axis"])
+        return (s >= p["tgt_s"][0]) & (s < p["tgt_s"][1])
     return x[:, 1] >= p["tgt_y"]
 
 

@@ -376,9 +376,9 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None, 
            **{k: v for k, v in stats.items() if k.startswith("force_")}}    # B13's records (baseline force*), else none
     if getattr(cfg, "render_weight_ref", "residual") in ("floor", "shape", "floor_pitch"):   # D162 (1) / b / d: the reference,
         rec.update({k: stats.get(k) for k in _FLOOR_FIELDS})                  # a record (those paths only)
-    if getattr(cfg, "render_split", ""):            # D173: the per-block render shares, a record (split runs only)
-        rec.update({k: stats.get(k) for k in ("lam_rule_block", "g_share_dfc", "g_share_u", "g_rend_u_norm", "g_phys_u_norm",
-                                              "u_render_nonzero")})
+    rec.update({k: stats.get(k) for k in ("lam_rule_block", "g_share_dfc", "g_share_u", "g_rend_u_norm", "g_phys_u_norm",   # D173: the
+                                          "g_rend_dfc_norm", "g_phys_dfc_norm", "lam_block_dfc", "lam_block_u",       # per-block render
+                                          "u_render_nonzero")})                                                       # shares (a record)
     if thin is not None and cfg.work_telemetry:
         m = thin_metrics(x, thin)
         rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))
