@@ -1,6 +1,7 @@
 """D178, the masked rule (render_split "masked": the dFc block's held weight on the render residual inside the content
 mask, target.content_masks), CPU:
-(1) d_exterior_masked's full terms are d_exterior's bit for bit (grey and colour), in value and gradient;
+(1) d_exterior_masked's full terms are d_exterior's bit for bit (grey and colour) in value, and its gradient to rounding
+    (the silhouette and shading branches are summed in another order);
 (2) a mask of ones gives the full terms, a mask of zeros (or None) gives zero, and the masked and unmasked parts add up
     to the full term (the same per-pixel penalties and normalisation);
 (3) the configuration refuses the rule off the exterior's sample pictures.
@@ -63,7 +64,7 @@ def test_the_full_terms_are_d_exterior_bit_for_bit(colour):
     assert float(shd_a) > 0 and torch.equal(sil_a, sil_b) and torch.equal(shd_a, shd_b)
     ga, = torch.autograd.grad(sil_a + shd_a, xa)
     gb, = torch.autograd.grad(sil_b + shd_b, xb, retain_graph=True)
-    assert torch.equal(ga, gb)
+    assert torch.allclose(ga, gb, rtol=1e-12, atol=1e-18)    # the two graphs sum their branches in another order
     assert torch.allclose(sil_m, sil_b, rtol=1e-12, atol=0) and torch.allclose(shd_m, shd_b, rtol=1e-12, atol=0)
 
 
