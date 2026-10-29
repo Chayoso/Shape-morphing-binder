@@ -26,6 +26,8 @@ Then tmp/d175/PREREG.md (arms, metrics, bars; written 11:15 CDT before any run).
     output/gpu/D175_SUMMARY.md.
 - Status log: output/gpu/d175/status.txt.
 
+## State 2026-10-29 12:55 CDT: segment reading done (forensic/seg/seg_read.md: the hole term, met by pole spikes at 30 % of the keyframe mass, carries the pull; exterior steps flip at windows 2/4); D175b (--keyframe_compare column, PREREG_b.md, code 426cc075, gate c PASS) FAIL: X99 PASS all bars (aspect 1.31, 3D +0.148), X97 P1 fail (3 of 6 segment windows lost: 1 commit_replay, 2 ls_exhausted; 3D +0.095). Next: the rejected trials of X97 windows 3/5 split by term. Nothing queued or running.
+
 ## State 2026-10-29 12:20 CDT: 208 FAIL; next measurements (a) (b) (c) DONE (output/gpu/d175/auto/208_next/: pull.md, next.md, gate.md; reading appended to D175_SUMMARY.md). (a) no blurred comparison reaches the bulk: no arm. (b) the segment replay nulls = float32-level render replay noise at the 1e-7 tolerance floor. (c) 1 s is enough (dF_c alone to a 3D stretched target: aspect 1.46 at t = 1 s). Next: the dynamics reading at segment windows 2-6 (needs saved window-start states). Nothing queued or running.
 
 ## State 2026-10-29 12:00 CDT: 208 read, verdict FAIL
