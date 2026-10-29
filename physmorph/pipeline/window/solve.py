@@ -540,6 +540,16 @@ class WindowOptimizer:
                       * max(abs(E_accept or 0.0), win.loss_floor_eff))
         replay_bad = E_accept is not None and commit.E_final > E_accept + replay_tol
         self.tele["commit_reason"] = commit.reason
+        if commit.terms is not None and hist:         # D175 (keyframe runs, a record): the replay's difference by term
+            h, c = hist[-1], commit.terms
+            lr_acc = h["d_render"] + self.cfg.w_pbr * h["d_pbr"]
+            self.tele["replay_split"] = dict(
+                E_accept=E_accept, E_final=float(commit.E_final), tol=float(replay_tol), replay_rel=float(replay_rel),
+                d_lv=c["lv"] - h["d_vol"], d_stab=c["lstab"] - h["stab"], d_render_w=self.lam_r * (c["lr"] - lr_acc),
+                d_rest=float(commit.E_final) - E_accept - (c["lv"] - h["d_vol"]) - (c["lstab"] - h["stab"])
+                - self.lam_r * (c["lr"] - lr_acc), lam=self.lam_r, keyframe=getattr(self.tgt, "keyframe", None),
+                start_dlv=self.tele.get("replay_dlv"), start_dlr=self.tele.get("replay_dlr"),
+                ext_rebuilt=int(self.scored_discs is not self.obj.discs))
         if not commit.valid:
             replay_bad, grad_converged = True, False
             self.tele["null_reason"] = "commit_invalid"
@@ -576,6 +586,8 @@ class WindowOptimizer:
             stats.update({k: self.tele.get(k) for k in ("lam_rule", "lam0", "render_L", "render_floor", "render_excess",
                                                         "render_b", "render_b_se", "render_b_floor",   # weight's reference,
                                                         "render_lp", "render_lp_floor")})   # on those paths only
+        if "replay_split" in self.tele:                     # D175 (keyframe runs): a record
+            stats["replay_split"] = self.tele["replay_split"]
         if getattr(cfg, "settle_u", "zero") == "last":     # D166: the committed u, for the settle windows (runner)
             stats["u"] = self.u.detach().clone()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,

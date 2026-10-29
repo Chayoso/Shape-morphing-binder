@@ -48,6 +48,7 @@ class Ctx:
         args = parse_args(["--src", src_path, "--tgt", tgt_path, "--n", str(n), "--seed", str(seed), *HU])
         cfg0, prep = prepared(args, seed)
         self.cfg = cfg = run_config(args, cfg0, prep)
+        self.prep = prep
         self.final = f = build_target(prep.tgt, prep.prm, cfg, draws=prep.tgt_draws, render_x=prep.render_x)
         self.held = held_views()
         kf = np.load(kf_path)
