@@ -50,3 +50,22 @@ stripes, 222 Bob 300k Rx rerun.
 - If V3t fails: read output/gpu/d173/auto/209_gate_t/summary.md and gates/cmpt*.txt / keys_t.txt; fix; requeue the gate
   and the jobs (they exited on V3t.fail).
 - Never pkill / pgrep -f.
+
+## State at 16:20 CDT (results; all in output/gpu/D173_SUMMARY.md)
+- Real scales / densification: DROPPED by the user (no port, no runs > 500k).
+- Attribution, stylized E, 300k: ATTRIBUTED at both seeds. Share end Hs 1.03 / 0.97, twin -0.01 / -0.02, smooth pictures
+  -0.05 / -0.03; corr 0.33 / 0.32. Render share u 0.97-0.99 (start / arrival / stop), dF_c 0.33 / 0.23-0.29 / 0.18 (Hu: rule on
+  dF_c). u-off arm (dF_c alone): share -0.02 (stopped at window 34; Hs at that time already 1.04-1.13: auto/attr97eq).
+- Option C (K = 6, the smallest passing at 300k; K 2-3 read 0.09-0.14): ATTRIBUTED at both seeds, share end 0.62 / 0.65 vs twin
+  0.05 / 0.08 and smooth -0.00 / -0.09; corr 0.18 / 0.19. The K = 6 target reads as broad low undulation in the raking sheet.
+  Twin | full videos (4K + 1080p) still rendering (d170_render sbs, ~5-6 h each; after_magC2.sh writes them and cleans frames).
+- Bob nearest: 40k kernel PSNR = Rx's, nn PSNR +0.2-0.5 dB; 300k Rxn 15.80 vs Rx 15.89 / rerun 16.29 (kernel); shape at 300k
+  misses the gate for Rx and Rxn (thin +0.06-0.14). Block shares (Rx / Rxn): u 0 / 0.95-0.98 / 0.98, dF_c 0.33 / 0.76-0.84 / 0.87-0.94.
+  Reruns are NOT bit-equal to the first runs (plain pipeline_run, 4 runs a card): rerun spread +-0.2-0.4 dB.
+- Stripes: twin kappa 0.01-0.03 (chance). Rxn 40k r 0.47 / 0.44, kappa 0.38 / 0.36, PSNR +2.75 / +2.52; 300k r 0.39, kappa 0.29,
+  PSNR +2.08; shape held; the stripe forms on the body (deliver/strp40, strp300 paint_nn/end.png), the ears and the head top
+  stay red (the edge fit, 16-48 pitches, is set by those patches).
+- Band 300k nearest s97: edge 2.93 (Rx 2.68) but Rxn stopped at window 42 (merit plateau) vs Rx 82 (convergence); equal time
+  raw 1680: Rxn 2.94 vs Rx 4.28 (auto/band300time). Seed 99 (job 223: T, Rx, Rxn) running -> after_band300s99.sh.
+- D172 seed-99 gallery row (Hu): holds 6/6 vs V 99, two-baseline 6/6 with R 99 (job 212 on repo_d166), rest ok
+  (output/gpu/d172/auto/191_gal99, D172_SUMMARY.md line "B gallery seed 99").
