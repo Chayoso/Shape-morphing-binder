@@ -37,6 +37,27 @@ def layer(X):
     return np.linalg.norm(X - X[nb[:, 1:]].mean(1), axis=1) >= 0.5 * sp
 
 
+def logistic_width(s, red):
+    """The 10-90 % width of a logistic fitted to the points' red indicator against s (|s| < 8 pitches; least squares on
+    the 0.25-pitch bins, weighted by their counts): 2 ln 9 x its scale. Robust to a few stray particles far from the edge,
+    which move a running-maximum profile's 10 % crossing."""
+    from scipy.optimize import curve_fit
+    idx = np.digitize(s, BINS) - 1
+    ok = (idx >= 0) & (idx < len(BINS) - 1)
+    num = np.bincount(idx[ok], weights=red[ok], minlength=len(BINS) - 1)
+    cnt = np.bincount(idx[ok], minlength=len(BINS) - 1)
+    c = 0.5 * (BINS[1:] + BINS[:-1])
+    k = cnt >= 3
+    if k.sum() < 6:
+        return None, None
+    f = lambda x, s0, w: 1.0 / (1.0 + np.exp(-(x - s0) / max(abs(w), 1e-3)))  # noqa: E731
+    try:
+        (s0, w), _ = curve_fit(f, c[k], num[k] / cnt[k], p0=(0.0, 0.5), sigma=1.0 / np.sqrt(cnt[k]), maxfev=5000)
+    except RuntimeError:
+        return None, None
+    return float(2 * np.log(9) * abs(w)), float(s0)
+
+
 def width(s, red):
     """(10-90 % width, the 50 % crossing) of the red share against s; None where the profile does not span 0.1-0.9."""
     idx = np.digitize(s, BINS) - 1
@@ -65,6 +86,7 @@ def read(name, X, red, tgt, tgt_y):
     lay = layer(X)
     s = (X[lay, 1] - tgt_y) / a
     row["particles"] = dict(zip(("width", "mid"), width(s, red[lay].astype(np.float64))[:2]))
+    row["particles"].update(zip(("logistic", "logistic_mid"), logistic_width(s, red[lay].astype(np.float64))))
     row["scatter_2a"] = float((((s > 2) & ~red[lay]) | ((s < -2) & red[lay])).sum() / max(1, ((s > 2) | (s < -2)).sum()))
     Xt = gpu.tensor(X.astype(np.float32))
     alb = gpu.tensor(np.where(red[:, None], RED, 1.0).astype(np.float32))
@@ -83,6 +105,7 @@ def read(name, X, red, tgt, tgt_y):
     for k, v in (("discs_k3", share(k3)), ("discs_k1", share(k1)), ("discs_nn", red[nn].astype(np.float64))):
         w_, m_, prof = width(sd, v)
         row[k] = dict(width=w_, mid=m_)
+        row[k].update(zip(("logistic", "logistic_mid"), logistic_width(sd, v)))
         if k == "discs_k3":
             row["profile_k3"] = prof
     row["discs"] = int(len(P))

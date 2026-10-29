@@ -1,0 +1,13 @@
+band40_Rx_97@tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d166/runs/band_Rx_97_frames12.npz
+band40_Rx_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d166/runs/band_Rx_97_frames12.npz
+band40_T_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d160/runs40/bunny40k_band_P97_frames12.npz
+cmb40_Rx_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d172/runs/cmb_Rx_97_frames12.npz
+cmb40_T_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d172/runs/cmb_T_97_frames12.npz
+band300_Rx_97@tgt /data/relcfd/chayo/physmorph_v2/output/gpu/d170/runs/band300k_Rx_97_frames12.npz
+band300_Rx_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d170/runs/band300k_Rx_97_frames12.npz
+band300_T_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d162f/runs/band300k_T_97_frames12.npz
+cmb300_Rx_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d173/runs/cmb300k_Rx_97_frames12.npz
+band40n_Rxn_97 /data/relcfd/chayo/physmorph_v2/output/gpu/d173/runs/band40k_Rxn_97_frames12.npz
+band40n_Rxn_99 /data/relcfd/chayo/physmorph_v2/output/gpu/d173/runs/band40k_Rxn_99_frames12.npz
+band40_Rx_99 /data/relcfd/chayo/physmorph_v2/output/gpu/d166/runs/band_Rx_99_frames12.npz
+band40_T_99 /data/relcfd/chayo/physmorph_v2/output/gpu/d160/runs40/bunny40k_band_P99_frames12.npz

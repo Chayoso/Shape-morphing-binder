@@ -21,14 +21,14 @@ def main(out_md):
     for p in sorted(glob.glob(str(O / "probe/probe_*.jsonl"))):
         rows += [json.loads(x) for x in open(p) if x.strip()]
     L += ["## 1. Can a perfect sample + the exterior field + the picture carry the real scales? (gate: corr >= 0.25)", "",
-          "| N | surface density F | field radius (pitches) | picture px | pixel (pitches) | layer corr | field corr | picture corr | "
-          "discs | interior discs | probe card memory (GB) | run est.: minutes / card GB |", "|" + "---|" * 12]
+          "| N (interior) | band density F (surface spacing / F^(1/3)) | particles total | field radius (field pitches) | picture px | pixel (base pitches) | layer corr | field corr | picture corr | "
+          "discs | interior discs | probe card memory (GB) | run est.: minutes / card GB |", "|" + "---|" * 13]
     best = None
     for r in rows:
         pic = r.get("picture", {}).get("corr")
-        scale = 0.6 * r["N"] / 300000 + 0.4 * (r.get("discs") or DISCS300) / DISCS300
+        scale = 0.6 * r["n_particles"] / 300000 + 0.4 * (r.get("discs") or DISCS300) / DISCS300
         est = f"{T300_MIN * scale:.0f} / {MEM300_GB * scale:.0f}"
-        L.append(f"| {r['N'] // 1000}k | {r['F']:g} | {r['r']:g} | {r['res']} | {f(r.get('picture', {}).get('pixel_pitch'), 2)} | "
+        L.append(f"| {r['N'] // 1000}k | {r['F']:g} | {r['n_particles'] // 1000}k | {r['r']:g} | {r['res']} | {f(r.get('picture', {}).get('pixel_pitch'), 2)} | "
                  f"{f(r['layer']['corr'])} | {f(r.get('field', {}).get('corr'))} | {f(pic)} | {r.get('discs', '-')} | "
                  f"{f(r.get('discs_deeper_than_3a'), 2)} | {f(r.get('mem_peak_gb'), 1)} | {est} |")
         if pic is not None and pic >= 0.25 and (best is None or scale < best[1]):
@@ -44,15 +44,15 @@ def main(out_md):
                else "none of the settings measured reaches corr 0.25.") + "**"), ""]
     # 2. the colour edge
     E = []
-    for p in [O / "edge/edge.jsonl", O / "auto/cmb300/edge.jsonl"]:
+    for p in [O / "edge2/edge.jsonl", O / "auto/colour/edge.jsonl"]:
         if p.exists():
             E += [json.loads(x) for x in open(p) if x.strip()]
     L += ["## 2. The colour edge (10-90 % rise of the red share across the band plane, pitches)", "",
-          "| state | particles (identity) | displayed discs, kernel (R = 3 pitches) | displayed discs, nearest particle | scatter > 2 pitches |",
+          "| state | particles (identity): logistic fit (running-max profile) | displayed discs, kernel R = 3 pitches | displayed discs, nearest particle | scatter > 2 pitches |",
           "|---|---|---|---|---|"]
     for e in E:
-        L.append(f"| {e['name'].replace('@tgt', ' target paint')} | {f(e['particles']['width'], 2)} | {f(e['discs_k3']['width'], 2)} | "
-                 f"{f(e['discs_nn']['width'], 2)} | {f(e['scatter_2a'], 3)} |")
+        L.append(f"| {e['name'].replace('@tgt', ' target paint')} | {f(e['particles'].get('logistic'), 2)} ({f(e['particles']['width'], 2)}) | {f(e['discs_k3'].get('logistic'), 2)} | "
+                 f"{f(e['discs_nn'].get('logistic'), 2)} | {f(e['scatter_2a'], 3)} |")
     L += ["", "Twins: no 10-90 % crossing near the plane (their boundary sits 6+ pitches off, scatter 8 %). Where the width comes "
           "from: (a) the display / loss colour kernel, render/exterior.py:400-413 found_disc_albedo (weights (1 - d^2/R^2)^3 over the "
           "particles within R = the field radius, 3 pitches, + one pitch of skin; the radius from cfg.exterior_radius, "
@@ -61,8 +61,21 @@ def main(out_md):
           "pitches for Rx at 40k / 300k; displayed width ~ sqrt(a^2 + b^2). Fix made (display, for the target and both arms alike): "
           "each disc shows its nearest particle's own colour (tmp/d173/d173_studio.py +colour=nn): the target edge falls to 1.2-1.3 "
           "pitches (the sampling floor), the arm shows its own 2.1-2.3; nothing hides the physics (the colour is a particle's "
-          "identity). The loss still reads the kernel (unchanged; a narrower colour kernel in the loss is the next definition to test, "
-          "the particle mixing being its own half).", ""]
+          "identity). The loss: --colour_kernel nearest (wip/d173 0ac73e72; render/exterior.nearest_weights, a softmax of -d^2 / (pitch / 2)^2 "
+          "over the disc's particles, in the target's pictures and the body's discs alike, differentiable in the positions that compete to be "
+          "nearest; the rollout untouched): the Rxn rows. Widths are logistic fits (robust to strays; the running-max profile in brackets). "
+          "", ""]
+    cn = O / "auto/colour/read_colour.jsonl"
+    if cn.exists():
+        col = {json.loads(x)["name"]: json.loads(x) for x in open(cn) if x.strip()}
+        L += ["", "The loss on the nearest-particle colour (--colour_kernel nearest, Rxn; job 205) against Rx (the 3-pitch kernel):", "",
+              "| run | colour r end (D160, twin-referenced) | mis end | Rx's r (D166 / D170) |", "|---|---|---|---|"]
+        ref_r = {"band40k_Rxn_97": "0.93", "band40k_Rxn_99": "0.92", "band300k_Rxn_97": "0.92"}
+        for nm, tw in (("band40k_Rxn_97", "band40k_T_97"), ("band40k_Rxn_99", "band40k_T_99"), ("band300k_Rxn_97", "band300k_T_97")):
+            if nm in col and tw in col:
+                mt, fl, m = col[tw]["end"]["mis"], col[nm]["floor"], col[nm]["end"]["mis"]
+                L.append(f"| {nm} | {(mt - m) / (mt - fl):.2f} | {m:.3f} | {ref_r[nm]} |")
+        L.append("")
     rr, cc = O / "auto/cmb300/read_relief.json", O / "auto/cmb300/read_colour.jsonl"
     if rr.exists() and cc.exists():
         rd = json.load(open(rr))

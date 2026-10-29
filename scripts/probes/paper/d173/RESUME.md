@@ -23,6 +23,19 @@ Read ONE file: output/gpu/D173_SUMMARY.md (tmp/d173/d173_summary.py rewrites it;
    (40k 26.6 dB / 0.972, 300k 28.0 dB / 0.970 held-out; flat colour 16.2 / 15.0 dB). Runs: job 200 (gate + 40k twin / Rx x
    97 / 99), job 202 (300k twin / Rx); reads tmp/d173/d173_texread.py -> output/gpu/d173/auto/tex40, tex300.
 
+## State at 11:05 CDT
+- Real scales: no setting within ~600k passes (300k + surface x2.83 band, 550k total: 0.167; surface x8, 1.24M: the field
+  breaks into interior pockets, 64-72 % of discs, pictures OOM). Cheapest measured pass: 1.5M + band x2 (1.94M total) 0.281,
+  3M uniform 0.278 (2M uniform 0.230). Surface densification NOT implemented (the stop rule: nothing <= ~600k passes); the
+  three-arm attribution test waits for the user's go above 600k. D122's sampler (826c4c89, 610 lines over 21 files,
+  removed by D141 63b5a883) would be the port.
+- Colour loss option: --colour_kernel nearest (wip/d173 0ac73e72, gate c PASS). Band 40k Rxn: particle edge (logistic)
+  1.02 / 0.99 pitches vs Rx 1.70 / 1.95, colour r 0.91 / 0.92 vs 0.93 / 0.92, rest 0.003x, shape ~ Rx. Pending: band300k_Rxn_97
+  and tex40k_Rxn_97 (job 209, the OOM retries), read by tmp/d173/after_colour2.sh (PID tmp/d173/after_colour.pid).
+- Texture (Rx vs twin): 40k +2.5 / +2.3 dB held-out PSNR (SSIM 0.82 -> 0.87), 300k +2.3 dB (0.84 -> 0.88); ceilings 26.6 / 28.0.
+- Combined relief + paint 300k (Rx): relief 0.92, colour r 0.86 (twin 0 / 0); rest 0.02x; sil -0.005, thin +0.033.
+- Edge widths now read by a logistic fit (d173_edge.py; the running-max profile was moved by stray particles).
+
 ## Queue (tmp/gpu1_queue; our runner on card 3, PID tmp/d173/runner_card3.pid; cards 0 / 1 held by agent D174;
 ## tmp/d173/card_waiter.sh starts our runners there when they free; never gpu2)
 - 195 probe_a, 197 probe_b, 200 gate + texture 40k, 201 combined relief + paint 300k, 202 texture 300k.

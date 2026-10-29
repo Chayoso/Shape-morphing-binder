@@ -19,6 +19,7 @@ import d173_texprobe as TP  # noqa: E402
 import d170_read as R7  # noqa: E402
 
 D, N, SEEDS = Path(sys.argv[1]), int(sys.argv[2]), [int(s) for s in sys.argv[3].split(",")]
+ARMS = sys.argv[4].split(",") if len(sys.argv) > 4 else ["T", "Rx"]   # T first (the twin each arm is read against)
 D.mkdir(parents=True, exist_ok=True)
 RUNS = Path("/data/relcfd/chayo/physmorph_v2/output/gpu/d173/runs")
 FULL, TWIN = R7.FULL, R7.TWIN
@@ -29,7 +30,7 @@ def main():
             "|" + "---|" * 9]
     V, ceil = {}, {}
     for s in SEEDS:
-        recs = {a: R7.run_rec(str(RUNS / f"tex{N // 1000}k_{a}_{s}")) for a in ("T", "Rx")}
+        recs = {a: R7.run_rec(str(RUNS / f"tex{N // 1000}k_{a}_{s}")) for a in ARMS}
         frame, x_t = TP.target_frame("assets/isosphere.obj", TP.TGT, N, s)
         x_t = x_t.astype(np.float64)
         a = .708 * TP.D7.median_kth_spacing(x_t, 8, 20000)
@@ -41,7 +42,7 @@ def main():
         T = {nn: TP.pictures(x_t, tex.at(x_t), a, res, extent, lat, TP.D7.HELD, nn) for nn in (False, True)}
         ceil[s] = {("nn" if nn else "kernel"): TP.compare(TP.pictures(X2, tex.at(X2), a, res, extent, lat, TP.D7.HELD, nn), T[nn])
                    for nn in (False, True)}
-        for arm in ("T", "Rx"):
+        for arm in ARMS:
             p = RUNS / f"tex{N // 1000}k_{arm}_{s}_frames12.npz"
             r, t = recs[arm], recs["T"]
             if r is None or not p.exists():
@@ -52,15 +53,21 @@ def main():
             m = {("nn" if nn else "kernel"): TP.compare(TP.pictures(X, alb, a, res, extent, lat, TP.D7.HELD, nn), T[nn]) for nn in (False, True)}
             ratio = R7.vx(r, t)
             V[f"{arm}_{s}"] = dict(m, vx=ratio, sil=(r["sil"], t["sil"]), thin=(r["thin"], t["thin"]), windows=r["windows"])
-            rows.append(f"| {'twin' if arm == 'T' else 'Rx (full)'} | {s} | {m['kernel']['psnr']:.2f} | {m['kernel']['ssim']:.3f} | "
+            rows.append(f"| {dict(T='twin', Rx='Rx (full)', Rxn='Rx, nearest colour (full)').get(arm, arm)} | {s} | {m['kernel']['psnr']:.2f} | {m['kernel']['ssim']:.3f} | "
                         f"{m['nn']['psnr']:.2f} | {m['nn']['ssim']:.3f} | {R7.fmt(ratio, '.2f')}x | {r['sil']:.4f} / {t['sil']:.4f} | "
                         f"{r['thin']:.3f} / {t['thin']:.3f} |")
         rows.append(f"| ceiling (a perfect sample painted by the texture) | {s} | {ceil[s]['kernel']['psnr']:.2f} | {ceil[s]['kernel']['ssim']:.3f} | "
                     f"{ceil[s]['nn']['psnr']:.2f} | {ceil[s]['nn']['ssim']:.3f} | - | - | - |")
-    gain = [V[f"Rx_{s}"]["kernel"]["psnr"] - V[f"T_{s}"]["kernel"]["psnr"] for s in SEEDS if f"Rx_{s}" in V and f"T_{s}" in V]
-    gap = [ceil[s]["kernel"]["psnr"] - V[f"Rx_{s}"]["kernel"]["psnr"] for s in SEEDS if f"Rx_{s}" in V]
-    verdict = (f"Rx over the twin: PSNR {', '.join(f'{g:+.2f}' for g in gain)} dB (held-out, the loss's kernel colours); "
-               f"below the ceiling by {', '.join(f'{g:.2f}' for g in gap)} dB; rest {', '.join(R7.fmt(V[f'Rx_{s}']['vx'], '.2f') + 'x' for s in SEEDS if f'Rx_{s}' in V)}")
+    gain = [V[f"{a}_{s}"]["kernel"]["psnr"] - V[f"T_{s}"]["kernel"]["psnr"] for a in ARMS[1:] for s in SEEDS if f"{a}_{s}" in V and f"T_{s}" in V]
+    gap = [ceil[s]["kernel"]["psnr"] - V[f"{a}_{s}"]["kernel"]["psnr"] for a in ARMS[1:] for s in SEEDS if f"{a}_{s}" in V]
+    verdict = "; ".join(
+        f"{a} over the twin: PSNR " + ", ".join(f"{V[f'{a}_{s}']['kernel']['psnr'] - V[f'T_{s}']['kernel']['psnr']:+.2f}" for s in SEEDS
+                                               if f"{a}_{s}" in V and f"T_{s}" in V)
+        + " dB (held-out, kernel colours), nearest-colour PSNR " + ", ".join(
+            f"{V[f'{a}_{s}']['nn']['psnr'] - V[f'T_{s}']['nn']['psnr']:+.2f}" for s in SEEDS if f"{a}_{s}" in V and f"T_{s}" in V)
+        + " dB, below the ceiling by " + ", ".join(f"{ceil[s]['kernel']['psnr'] - V[f'{a}_{s}']['kernel']['psnr']:.2f}" for s in SEEDS if f"{a}_{s}" in V)
+        + " dB, rest " + ", ".join(R7.fmt(V[f"{a}_{s}"]["vx"], ".2f") + "x" for s in SEEDS if f"{a}_{s}" in V) for a in ARMS[1:])
+    del gain, gap
     L = [f"# D173 (3): the textured duck at {N // 1000}k (Keenan Crane's bob_diffuse.png), Rx vs the twin", "", *rows, "",
          f"Arms: Rx = {FULL}, the held weight on both blocks, Rx's settle; twin = {TWIN} (lambda = 0), the same paint. The source "
          "carries the texture projected radially from its centroid (each particle one of the texture's colours, laid out by a "
