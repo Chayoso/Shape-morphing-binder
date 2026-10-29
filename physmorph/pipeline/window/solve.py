@@ -145,6 +145,7 @@ class WindowOptimizer:
         # keeps every other term, the checks and the render telemetry
         self.lam_r = (balancer.lam or 0.0) * float(cfg.render_weight_scale)
         self.lam_rule = self.lam_r                     # D172 (render_split): set at each window's first gradient
+        self.lam_held = self.lam_r                     # D172 (render_split u_rule): the first calibration's value
         self.lam_capped = None
         self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0, "ls_fail_state_reason": {}}, {}
         self.accepted = self.rejected = 0
@@ -275,6 +276,8 @@ class WindowOptimizer:
         split = getattr(self.cfg, "render_split", "")
         if not split:
             return [self.lam_r] * len(self.leaves)
+        if split == "u_rule":                         # Hu_r: the run is on the rule (its merit too); u takes its first value
+            return [self.lam_r, self.lam_held]
         return [self.lam_r, self.lam_rule] if split == "dFc" else [self.lam_rule, self.lam_r]
 
     def _force_units(self, g):
@@ -334,6 +337,10 @@ class WindowOptimizer:
             t = bal.alpha_lam * _norm(gp) / max(_norm(gr), 1e-12)
             self.lam_rule = (min(t, bal.cap) if bal.cap is not None else t) * float(self.cfg.render_weight_scale)
             self.tele.update(lam_rule_block=self.lam_rule)
+            if self.cfg.render_split == "u_rule":
+                if bal.lam0 is None:                  # the first calibration: the value --lambda_ema 0 would hold
+                    bal.lam0 = lam
+                self.lam_held = bal.lam0 * float(self.cfg.render_weight_scale)
         self.lam_capped = int(bool(bal.capped))
         np_, nr_ = _norm(gp), _norm(gr)
         np_raw, nr_raw = np_, _norm(gr_raw)

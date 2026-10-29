@@ -68,10 +68,11 @@ def parse_args(argv=None):
     ap.add_argument("--layer_relax", action=argparse.BooleanOptionalAction, default=True,
                     help="D170 A/B: the outer-layer relaxation in every window (default on, the frozen path); "
                          "--no-layer_relax = its fraction 0 throughout (u and everything else unchanged)")
-    ap.add_argument("--render_split", default="", choices=["", "u", "dFc"],
+    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule"],
                     help="D172 A/B: the render gradient's weight by control block; \"\" = one weight on both (the frozen "
                          "path); u = the run's weight (held under --lambda_ema 0) on u and the rule's per-window value on dFc; "
-                         "dFc = the reverse; the merit keeps the run's weight")
+                         "dFc = the reverse; the merit keeps the run's weight; u_rule = the run on the rule (its merit and "
+                         "stops too) with u at the first calibration's value (what --lambda_ema 0 holds)")
     ap.add_argument("--placement_at_cell", action=argparse.BooleanOptionalAction, default=False,
                     help="D162 (2) A/B (off by default): the placement terms read the body at the loss cell (the "
                          "proximity covers within one loss cell, the near band's band is empty, the spray gate in loss cells)")

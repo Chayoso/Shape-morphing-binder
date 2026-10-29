@@ -141,6 +141,7 @@ class PipelineConfig:
     render_split: str = ""          # D172 A/B: the render gradient's weight by control block; "" = one weight on both (the
                                     #   frozen path); "u" = the run's weight on u, the rule's per-window value on dFc;
                                     #   "dFc" = the run's weight on dFc, the rule's on u (the merit keeps the run's weight)
+                                    #   "u_rule" = the run on the rule (merit, stops) with u at the first calibration's value
     layer_relax: bool = True        # D170 A/B: the outer-layer relaxation in every window (on = the frozen path); off = its
                                     #   fraction 0 throughout, as the xu baseline has it (window/setup.py), u and all else as they are
     settle_windows: int = 0         # D162h / D162i: after the run stops, this many windows of released physics with zero controls
