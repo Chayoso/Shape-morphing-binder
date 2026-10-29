@@ -18,10 +18,30 @@ out, base, n, relief = Path(sys.argv[1]), sys.argv[2], int(sys.argv[3]), sys.arg
 items = [s.split(":", 1) for s in sys.argv[5:]]
 out.mkdir(parents=True, exist_ok=True)
 frame, x_t, c, rad, a = DR.setup(base, n, 97)
-rs = DR.mesh_surf(relief, frame)
+
+
+def mesh_surf(obj, frame):
+    """d170_render.mesh_surf without the faces that repeat a vertex (zero area): with them trimesh's vertex_faces falls back to
+    a Python loop (1.5 h on a 300k relief mesh, D172's close-ups); the surface drawn is the same."""
+    from physmorph.sampling.mesh import _oriented
+    m = _oriented(obj)
+    Vm = (np.asarray(m.vertices, np.float64) - frame["offset"]) * frame["scale"]
+    Fm = np.asarray(m.faces, np.int64)
+    Fm = Fm[(Fm[:, 0] != Fm[:, 1]) & (Fm[:, 1] != Fm[:, 2]) & (Fm[:, 0] != Fm[:, 2])]
+    return DR.D7.Surf(Vm, Fm, cn=DR.D7.corner_normals(Vm, Fm, crease=60.0))
+
+
+rs = mesh_surf(relief, frame)
 V = rs.V
-import trimesh  # noqa: E402
-vn = np.asarray(trimesh.Trimesh(V, rs.F, process=False).vertex_normals)
+# the vertex normals, area-weighted, by hand: trimesh's vertex_faces fails on the relief meshes' degenerate faces
+F = np.asarray(rs.F)
+fn = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
+vn = np.zeros_like(V)
+for k in range(3):
+    np.add.at(vn, F[:, k], fn)
+vn /= np.linalg.norm(vn, axis=1, keepdims=True).clip(1e-30)
+if ((V - V.mean(0)) * vn).sum(1).mean() < 0:
+    vn = -vn
 sub = np.random.default_rng(0).choice(len(V), min(400000, len(V)), replace=False)
 P = Pattern.load(relief + ".pattern.npz").at(V[sub], vn[sub], zpts=V[sub])
 hot = sub[P > 0.5]
