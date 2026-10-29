@@ -1,0 +1,51 @@
+# SHOWCASE queue (sc_chain.sh): run NAME SRC TGT AZ EL [args] | render NAME AZ EL VIEW
+# A: the gallery at 300k, sphere -> mesh, render arm, seed 97
+# the coordinator, 13:15 CDT: one shape-to-shape morph ahead of the gallery for the 17:00 demo (no studio render now; DEMO renders it)
+run bunny2dragon300k_L97 bunny dragon 35 18
+run nefertiti300k_L97 isosphere nefertiti 35 18
+run maxplanck300k_L97 isosphere maxplanck 35 18
+run spot300k_L97 isosphere spot 35 18
+run cow300k_L97 isosphere cow 35 18
+run fandisk300k_L97 isosphere fandisk 35 18
+run bimba300k_L97 isosphere bimba 35 18
+run heart300k_L97 isosphere heart 35 18
+run cheburashka300k_L97 isosphere cheburashka 35 18
+run ogre300k_L97 isosphere ogre 35 18
+run beast300k_L97 isosphere beast 35 18
+run A300k_L97 isosphere A 35 18
+run C300k_L97 isosphere C 35 18
+run V300k_L97 isosphere V 35 18
+# the coordinator, 2026-10-22 00:00: C again at seed 99 (same code) beside the seed-97 early stop; maxplanck P97 again with its
+# kept frames (keep: no render) for the thin forensic (the twin's frames were removed after its readings; the run is deterministic)
+run C300k_L99 isosphere C 70 12 --seed 99
+run maxplanck300k_P97k isosphere maxplanck keep - --render_weight_scale 0
+# SHOWCASE-CV gate (pre-registered in docs/experiments.md): the option's tests on wip/showcase-cellvol 03ad0ab (repo_scv)
+job cvgate repo_scv $PY -m pytest -q -p no:cacheprovider tests/test_cell_from_volume.py tests/test_frozen_recipe.py tests/test_cell_follows_n.py tests/test_match_density.py tests/test_discretisation.py tests/test_refreeze_reference.py
+# A: the twins
+run maxplanck300k_P97 isosphere maxplanck - - --render_weight_scale 0
+run fandisk300k_P97 isosphere fandisk - - --render_weight_scale 0
+# SHOWCASE-CV run (the gate passed: cvgate rc 0, 24 passed, 2026-10-22 01:09)
+run armadilo2homer300k_CV97 armadilo homer 25 12 repo=repo_scvs --cell_from_volume
+# B: shape to shape, render arm, seed 97
+run teapot2bob300k_L97 teapot bob 35 18
+run spot2cow300k_L97 spot cow 35 18
+run armadilo2homer300k_L97 armadilo homer 35 18
+run bunny2happy300k_L97 bunny happy 35 18
+run bunny2dragon300k_P97 bunny dragon - - --render_weight_scale 0
+run teapot2bob300k_P97 teapot bob - - --render_weight_scale 0
+# C: the optional genus-high target the gallery lacks
+run happy300k_L97 isosphere happy 35 18
+# the existing B1 render arms (d145t_b1, the tag), rendered for the montage
+render fandisk300k_L97 150 25 main 1.06
+render cow300k_L97 50 15 main 0.75
+render maxplanck300k_L97 145 10 main 1.12
+render b1_bunny300k_L97 35 18 main 1.06
+render b1_dragon300k_L97 70 15 main 1.06
+render b1_teapot300k_L97 60 20 main 1.06
+render b1_bob300k_L97 310 28 main 1.06
+render b1_armadilo300k_L97 25 12 main 1.08
+render b1_homer300k_L97 25 12 main 1.12
+render bunny2dragon300k_L97 70 15 main 1.06
+# the fix proposed for spot -> cow's head crossing over the back (spot faces +z, the cow +x): the same spot yawed +90 deg
+# (tmp/showcase/assets_extra/spotx.obj: the pipeline's x-90 orientation, then +z -> +x); a scene choice, no pipeline change
+run spotx2cow300k_L97 spotx cow 50 15

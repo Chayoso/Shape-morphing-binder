@@ -338,8 +338,9 @@ class WindowOptimizer:
         """lambda from the PROJECTED render gradient at the window's first gradient, every window (the balancer's
         moving average), and held for the window; the render-influence telemetry of this window. Held from the
         first window on, it was 60-170 times what the rule gives once the body has arrived: the physics gradient
-        decays 30-fold, the render gradient hardly, and the render term was nine tenths of the step and two
-        thirds of the merit (D73, D81). The selection rescales its references when the weight moves.
+        decays 30-fold, the render gradient hardly, and its weighted control-gradient norm share was about nine tenths
+        (measured before Adam, clipping and rigid-mode removal: it does not decompose the accepted control or particle
+        motion), with two thirds of the merit (D73, D81). The selection rescales its references when the weight moves.
         D162 (1), cfg.render_weight_ref "floor": the weight is referenced to the render's own excess over its floor,
         lambda = lambda_0 max(0, 1 - L_floor / L_r), lambda_0 the rule's value at the run's first calibration, L_r the
         render term at the window's first evaluation (lr), L_floor the render term of the pictures' own first sample

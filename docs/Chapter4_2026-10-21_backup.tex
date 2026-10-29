@@ -1,0 +1,1022 @@
+% !TEX root = ../dissertationOG.tex
+
+\clearpage % clear the prior chapter's page
+\chapter{Render-Guided Volumetric Morphing with Differentiable Physics}\label{CH4_PhysMorphGS}
+% Packages used by this chapter: amsmath, graphicx, booktabs, tikz, natbib (\citep).
+% The TikZ libraries below are standard; loading them here, outside any group, is safe in a chapter file,
+% but the dissertation preamble is the better place for this line.
+\usetikzlibrary{positioning,arrows.meta,fit,calc}
+
+% ============================================================================
+\section{Overview}
+\label{sec:overview}
+% ============================================================================
+
+Chapter~\ref{CH3_SHAPEMORPHING} morphed one shape into another by controlling a differentiable material point
+method (MPM) simulation through per-particle increments of the deformation gradient. The control enters the
+simulation only as a stress, so the morph conserves mass and momentum and can change topology, but it was scored
+by a mass residual on a grid, and its appearance was obtained afterwards by surface extraction, outside the
+optimisation. This chapter closes the remaining gap
+between the physics and its picture. We optimise the same kind of physical body so that it also \emph{looks}
+like the target: differentiable rendering terms, evaluated on the body's own surface, steer the simulation through
+its controls, while the physics keeps its conservation properties.
+
+An earlier version of this idea, our PhysMorph-GS preprint~\citep{song2025physmorphgs}, coupled the MPM body to
+Gaussian splats through a surface-aware upsampling bridge and adaptive covariances. Building on it, we found that
+the coupling, the objective and the control all had to change before the render term could act on what a viewer
+sees without breaking the physics (Section~\ref{ch4:sec_from_earlier}). The method of this chapter is the result.
+It keeps the stress control of Chapter~\ref{CH3_SHAPEMORPHING} and the render-guided idea of the preprint, and
+replaces almost everything around them:
+\begin{itemize}
+  \item \textbf{Settled windows.} The body is optimised window by window. Each window runs $T=20$ driven steps
+        with the controls and $T=20$ released steps without them, and every term is evaluated on the released
+        end state. A control is therefore scored by where the body comes to rest once it lets go
+        (Section~\ref{ch4:sec_windows}).
+  \item \textbf{Two controls on two scales.} The capped stress increment $\delta\mathbf{F}_c$ acts through the grid,
+        as in Chapter~\ref{CH3_SHAPEMORPHING}. A normal offset $u$ of the outer particle layer, free of the six
+        rigid modes, acts below the grid, where the rendering asks for changes the grid cannot represent
+        (Section~\ref{ch4:sec_controls}).
+  \item \textbf{A volume-conserving body.} Each particle carries the volume its motion makes, the source and
+        target samples are matched in density, and the plastic assimilation takes the volume the end keeps
+        (Section~\ref{sec:mpm}).
+  \item \textbf{An eight-term objective.} A debiased Sinkhorn transport energy with a surface-proximity term and the
+        released end's drift, the released motion, two local cleanup terms, and the silhouette and shading of the
+        body's exterior surface seen from 18 views (Section~\ref{ch4:sec_objective}).
+  \item \textbf{A measured render influence.} The render weight is recalibrated in every window so that the render
+        term holds one third of the first gradient. Its effect is always reported against a $\lambda=0$ twin:
+        the same code, seed and particles with the render weight set to zero (Section~\ref{sec:results}).
+\end{itemize}
+Figure~\ref{fig:overview} summarises the pipeline. The same body also takes part in physics that a geometric
+interpolant cannot express: two thrown spheres collide, part in the air, and each becomes a bunny that lands and
+tumbles (Section~\ref{ch4:sec_scene}).
+
+\begin{figure*}[t]
+    \centering
+    \resizebox{\textwidth}{!}{\input{figs/ch4/pipeline_overview.tikz}}
+    \caption{The pipeline of this chapter. Top: a morph (sphere to bunny, 300k particles) as a sequence of
+    committed windows. Each window simulates $T$ driven and $T$ released steps of a differentiable MLS-MPM body (1).
+    The physics loss is evaluated on the released end state (transport, surface proximity, end drift and released
+    motion). The exterior surface of the particles (2) is drawn from 18 views, and its silhouette and shading are
+    compared with the target's pictures (3). The physics and render gradients are taken through the same adjoint;
+    the render gradient loses any component that opposes the physics gradient and is weighted so that it holds one
+    third of the first gradient. After the window's iterations the state is committed, its elastic stretch is
+    partly made plastic, and the next window starts from it.}
+    \label{fig:overview}
+\end{figure*}
+
+% ============================================================================
+\section{From the Earlier Formulation to the Present One}
+\label{ch4:sec_from_earlier}
+% ============================================================================
+
+The earlier formulation~\citep{song2025physmorphgs} optimised per-particle control deformation gradients with Adam
+and Lion, scored the body with the log-grid mass loss of Chapter~\ref{CH3_SHAPEMORPHING}~\citep{11088224}, and
+rendered it through a six-stage upsampling bridge (surface detection, density weighting, Gumbel--Softmax importance
+sampling, Taubin smoothing, adaptive covariances) into dense, render-only Gaussians whose covariances followed a
+smoothed deformation gradient. Rendering gradients from several passes were cached and injected into later passes
+as a stale but stable guide. Its released implementation optimised the body window by window: each window
+simulated $T$ driven steps and scored the body at their end against a paced intermediate target, which moved every
+particle one loss cell further along a transport plan toward the mesh. Pursuing that design to high particle counts
+exposed four problems, each measured before it was changed.
+
+\paragraph{Scoring while pushing.} The windowed method scored the body at the end of its driven steps, while the
+control was still pushing. A window could accept a state that sprang back once the next window began, so the outer
+layer reversed direction from one window to the next: at 300k particles, 70\,\% of the windows reversed, and every
+window of the second half did. Scoring the released end instead charges the rebound to the control that caused it.
+
+\paragraph{A loss blind to translation.} A cell-wise mass residual has its gradient only where the density jumps at
+the surface; it cannot see a filled region that is merely in the wrong place. Driven toward a paced intermediate
+target, it stripped the outermost particle layers ahead of the bulk, and thin features grew as a sparse haze. A
+transport divergence to the fixed target replaces it: its gradient is a transport field over the whole body.
+
+\paragraph{Rendering below the grid.} The render covector lives on the outer layer of the body (85--99\,\% of its
+squared norm in our measurements), and much of it varies on the scale of a few particle spacings. After the MPM adjoint, every control
+gradient has the grid's correlation length: the B-spline transfer averages a per-particle request over the
+many particles that share a cell, and a sub-cell bump is not a momentum mode of the discretisation. No
+upsampling of render-only samples changes this, because those samples cannot move the body. The present method
+gives the render term a position channel below the grid, the layer offset $u$, and reads the render terms on a
+surface built from the particles themselves.
+
+\paragraph{Fixes outside the physics.} An intermediate extension of the windowed method stopped the reversals with
+per-particle pins and commit-time position corrections. Those edits moved the body outside the simulation: its
+centre of mass drifted by 0.6--0.8 particle spacings over a morph. The present method has no pins and no
+commit-time position edits. The only position updates below the grid are the layer relaxation, $u$, a minimum
+spacing and the re-coupling of detached fragments, the first three free of rigid motion by construction
+(Section~\ref{ch4:sec_conservation}).
+
+The settled-window design that resulted reached, on the same 300k bunny and seed, a silhouette IoU of 0.9851
+against 0.9769 for the extended windowed method and 0.9646 for the earlier formulation's code, in 7 minutes
+against 12 and 28. The rest of this chapter describes the formulation in its final, frozen form, and the evidence
+for it.
+
+% ============================================================================
+\section{The Simulated Body}
+\label{sec:mpm}
+% ============================================================================
+
+\subsection{Discretisation}
+The source (a sphere) and the target mesh are each sampled into $N$ particles by stratified volume sampling, one
+jittered particle per voxel of the sampler's fill. The source sample is rescaled so that its fill volume equals the
+target sample's; a volume-conserving body can then fill the target exactly. Every particle has the same dynamic
+mass $m_p=\bar m/N$, so the body's mass does not depend on $N$. We call $a=(V/N)^{1/3}$, the edge of the volume
+per particle, the \emph{sampling pitch}; all small lengths below are given in pitches.
+
+We simulate the body with the moving least squares material point method~\citep{hu2018mlsmpm} (MLS-MPM) with
+cubic B-spline weights and APIC transfers~\citep{jiang2016material}. The MPM cell is set by the shape, not by $N$:
+$\Delta x$ is the source's bounding-box diagonal divided by 26, which puts about 23 particles in a cell at
+$N=40{,}000$ and about 183 at $N=300{,}000$. The time step is $\Delta t=1/240$\,s. The elastic response is fixed
+corotated~\citep{2012-FixedCoratedElasticty,stomakhin2013material},
+\begin{equation}
+\label{eq:fc_stress}
+\mathbf{P}(\mathbf{F})=2\mu\,(\mathbf{F}-\mathbf{R})+\lambda_{L}\,(J-1)\,J\,\mathbf{F}^{-\top},
+\qquad J=\det\mathbf{F},
+\end{equation}
+with $\mathbf{R}$ the rotation of the polar decomposition, Lam\'e parameters $\mu,\lambda_L$ from $E=1.4\times10^{5}$
+and $\nu=0.2$, and $J$ floored at $10^{-6}$. We write $\lambda_L$ for the Lam\'e parameter to keep $\lambda$ for
+the render weight.
+
+\subsection{One step}
+Each particle carries its position $\mathbf{x}_p$, velocity $\mathbf{v}_p$, APIC affine matrix $\mathbf{C}_p$,
+deformation gradient $\mathbf{F}_p$, plastic deformation gradient $\mathbf{F}^{\mathrm{P}}_p$, carried volume ratio
+$J_p$ and rest volume $V^0_p$ (from the initial density). In a driven step the control $\delta\mathbf{F}_{c,p}$
+enters the elastic deformation
+\begin{equation}
+\label{eq:control_F}
+\mathbf{F}^{\mathrm{E}}_p=\big(\mathbf{F}_p+\delta\mathbf{F}_{c,p}\big)\big(\mathbf{F}^{\mathrm{P}}_p\big)^{-1},
+\qquad
+\boldsymbol{\tau}_p=\mathbf{P}\big(\mathbf{F}^{\mathrm{E}}_p\big)\,\mathbf{F}^{\mathrm{E}\top}_p ,
+\end{equation}
+and the Kirchhoff stress $\boldsymbol{\tau}_p$ enters the particle-to-grid transfer,
+\begin{equation}
+\label{ch4:eq_p2g}
+m_i\mathbf{v}_i=\sum_p w_{ip}\Big[m_p(1-\kappa\Delta t)\,\mathbf{v}_p
+  +\Big(m_p\mathbf{C}_p-\tfrac{3}{\Delta x^{2}}\Delta t\,V^0_p\,\boldsymbol{\tau}_p\Big)(\mathbf{x}_i-\mathbf{x}_p)\Big],
+\qquad m_i=\sum_p w_{ip}m_p ,
+\end{equation}
+where $w_{ip}$ is the cubic B-spline weight and $\kappa=0.9\,\mathrm{s}^{-1}$ a weak ambient drag. After the grid
+update (external forces and the walls of the domain, when present), the grid-to-particle transfer gathers
+$\mathbf{v}_p=\sum_i w_{ip}\mathbf{v}_i$ and
+$\mathbf{C}_p=\tfrac{3}{\Delta x^2}\sum_i w_{ip}\mathbf{v}_i(\mathbf{x}_i-\mathbf{x}_p)^{\top}$.
+
+\paragraph{Deformation and volume.} The deformation gradient is advected with the control included and then
+relaxed toward its previous value, as in the implementation of Chapter~\ref{CH3_SHAPEMORPHING}:
+\begin{equation}
+\hat{\mathbf{F}}_p=(\mathbf{I}+\Delta t\,\mathbf{C}_p)\big(\mathbf{F}_p+\delta\mathbf{F}_{c,p}\big),\qquad
+\tilde{\mathbf{F}}_p=(1-s)\,\hat{\mathbf{F}}_p+s\,\mathbf{F}_p ,\qquad s=0.955 .
+\end{equation}
+This smoothing keeps 4.5\,\% of each step's increment. Applied to the volume as well, it let thin parts in transit
+stream out as a dilated sheet whose stress read almost no volume change. We therefore carry the motion's own volume
+ratio separately and rescale the smoothed gradient to it after every step,
+\begin{equation}
+\label{ch4:eq_volume}
+J_p\leftarrow J_p\det(\mathbf{I}+\Delta t\,\mathbf{C}_p),\qquad
+\mathbf{F}_p\leftarrow\big(J_p/\det\tilde{\mathbf{F}}_p\big)^{1/3}\,\tilde{\mathbf{F}}_p ,
+\end{equation}
+so that $\det\mathbf{F}_p=J_p$ while the isochoric part keeps the smoothing's shape.
+
+\paragraph{Plastic assimilation.} When a window is committed, half of each particle's elastic stretch becomes
+plastic: with $\mathbf{F}^{\mathrm{E}}=\mathbf{R}_e\mathbf{S}_e$,
+$\mathbf{F}^{\mathrm{P}}\leftarrow\mathbf{S}_e^{\eta}\mathbf{F}^{\mathrm{P}}$ with $\eta=0.5$, and every principal
+stretch of $\mathbf{F}^{\mathrm{P}}$ is kept in $[0.2,5]$. The assimilation takes the volumetric part of the stretch
+as well, so a volume the end state keeps becomes the body's rest volume instead of being held by the control. The
+end of a morph is then the body's own rest: releasing the controls changes almost nothing.
+
+\subsection{Position updates below the grid}
+\label{ch4:sec_below_grid}
+The grid sees a cell, not the arrangement of the particles inside it. Three position updates act at the particle
+scale, each spread over the steps of a window like a constraint projection.
+\begin{itemize}
+  \item \textbf{Minimum spacing.} Each particle is moved away from its neighbours that are nearer than
+        $r_{\min}=0.9\,a$ (the spacing of a Poisson-disk sample of the same density), by half the overlap over one
+        window:
+        $\mathbf{x}_p\mathrel{+}=\tfrac{1}{2T}\sum_{q\in\mathcal{N}_p}\max(0,r_{\min}-\ell_{pq})\,
+        (\mathbf{x}_p-\mathbf{x}_q)/\ell_{pq}$, $\ell_{pq}=\lVert\mathbf{x}_p-\mathbf{x}_q\rVert$.
+        The neighbour lists are the symmetric closure of each particle's 16 nearest neighbours at the window's
+        start, so every push is pairwise, equal and opposite, and central: it moves neither the centre of mass nor
+        any rigid mode.
+  \item \textbf{Outer-layer relaxation.} The outer layer (particles whose offset from the centroid of their 32
+        nearest neighbours exceeds half a spacing) is relaxed toward the plane of its same-side neighbours. With
+        $d_p=\mathbf{n}_p\cdot(\mathbf{x}_p-\sum_q w_{pq}\mathbf{x}_q)$ the plane residual over 24 same-side neighbours
+        and $\bar d_p=\sum_q w_{pq}d_q$, each driven step moves
+        $s_p=-\tfrac{1}{T}\,(d_p-\bar d_p-r_p)$ along $\mathbf{n}_p$. The reference $r_p$ is the same operator applied
+        to the feet of the layer particles on the target mesh (for particles within one spacing of it), so the layer
+        keeps the target's relief below a cell and loses only the sampling noise. The step's components along the six rigid modes of the layer are removed.
+  \item \textbf{Fragments.} A particle that no longer shares grid support with the body (no other particle in the
+        $3^3$ cells around it) takes the mean velocity of its eight source neighbours and is pulled back toward their
+        rest distances over one window.
+\end{itemize}
+The relaxation acts only in the driven half of a window, the steps in which $u$ acts; in the released half the outer
+layer is left to the physics, and the only position updates there are the minimum spacing and the fragments' bonds.
+
+% ============================================================================
+\section{Controls}
+\label{ch4:sec_controls}
+% ============================================================================
+
+\paragraph{The stress increment $\delta\mathbf{F}_c$.} In each of the $T$ driven steps every particle has a
+$3\times3$ increment $\delta\mathbf{F}^{n}_{c,p}$, capped per particle and step at
+$\lVert\delta\mathbf{F}^{n}_{c,p}\rVert_F\le0.02$. It enters only through Eq.~\eqref{eq:control_F}. Because the stress
+enters the grid as $\boldsymbol{\tau}_p(\mathbf{x}_i-\mathbf{x}_p)$ and the B-spline weights satisfy
+$\sum_i w_{ip}(\mathbf{x}_i-\mathbf{x}_p)=\mathbf{0}$, the control cannot change the total linear momentum, and since
+$\boldsymbol{\tau}_p$ is symmetric, APIC keeps the angular momentum as well~\citep{jiang2016material}. A window
+starts from half of the previous window's control.
+
+\paragraph{The layer offset $u$.} Every outer-layer particle has one scalar $u_p$ per window, a displacement along its
+normal applied in $T$ equal parts over the driven steps:
+\begin{equation}
+\label{ch4:eq_u}
+\mathbf{x}_p\leftarrow\mathbf{x}_p+\Big(\tfrac{1}{T}\,g_p\,u_p+s'_p\Big)\mathbf{n}_p ,
+\end{equation}
+where $s'_p$ is the rigid-free relaxation step above and $g_p\in\{0,1\}$ a gate. Its adjoint is the identity times
+the physics' response, so the render covector reaches it without the grid's low-pass. Three rules keep it a surface
+control and not a hand edit:
+\begin{itemize}
+  \item it is gated: $u$ acts only on layer particles whose remaining transport, the label-free transport map of
+        the window's start on the MPM grid, is within one MPM cell, so it shapes an arriving surface rather than
+        carrying material;
+  \item it is projected free of the six rigid modes of the layer after every step of the optimiser, so it moves
+        the body neither along nor about any axis;
+  \item it is bounded by one spacing per window.
+\end{itemize}
+What $u$ moves is held by the released physics or not; the released half decides.
+
+% ============================================================================
+\section{Settled Windows}
+\label{ch4:sec_windows}
+% ============================================================================
+
+A window simulates $2T=40$ steps ($1/6$\,s): $T$ driven steps with the controls, then $T$ released steps with the
+controls set to zero while the physics keeps running. Every term of the objective is evaluated on the released end
+state $(\mathbf{x}_{2T},\mathbf{v}_{2T})$ and on the released velocities. Rebound, ringing and anything else the
+control holds only while it pushes therefore cost the control directly. The optimiser runs eight iterations per
+window; the window is then committed (Section~\ref{sec:optimization}) and the next window starts from the committed
+state. A 300k bunny morph takes 76--106 committed windows, a dragon 139--186.
+
+% ============================================================================
+\section{Objective}
+\label{ch4:sec_objective}
+% ============================================================================
+
+The objective has eight terms in three groups,
+\begin{equation}
+\label{ch4:eq_objective}
+E=\underbrace{\sigma\big(S_\varepsilon+E_{\mathrm{prox}}+E_{\mathrm{drift}}\big)+E_{\mathrm{rel}}}_{E_{\mathrm{phys}}}
+ \;+\;\underbrace{E_{\mathrm{spray}}+E_{\mathrm{near}}}_{E_{\mathrm{clean}}}
+ \;+\;\lambda\underbrace{\big(E_{\mathrm{sil}}+E_{\mathrm{shade}}\big)}_{E_{\mathrm{render}}} .
+\end{equation}
+Which terms are needed was decided by switching terms off on a 19-mesh gallery at $N=40{,}000$ and at 300k. The
+geometry and settling terms carry no weight of their own: $\sigma$ is one constant measured once at the source, which
+gives the geometry energy, there, the gradient norm of a log-mass grid loss of the kind used in
+Chapter~\ref{CH3_SHAPEMORPHING}, and so fixes the unit of the two cleanup weights (0.2 each). There is no regulariser of the control or of the volume: the earlier
+control magnitude and smoothness terms were $10^{-10}$ and $10^{-8}$ of the objective, and removing them together
+with a volume prior changed none of the measured quantities (det\,$\mathbf{F}$, anisotropy, control and surface
+roughness). The cap on $\delta\mathbf{F}_c$, the released half and a validity check of the rollout bound the
+controls instead.
+
+\subsection{Physics core}
+\paragraph{Transport.} The body's mass and the target sample's are rasterised on a loss grid, and $S_\varepsilon$ is
+their debiased Sinkhorn divergence~\citep{feydy2019sinkhorn},
+\begin{equation}
+S_\varepsilon(\alpha,\beta)=\mathrm{OT}_\varepsilon(\alpha,\beta)-\tfrac12\mathrm{OT}_\varepsilon(\alpha,\alpha)
+ -\tfrac12\mathrm{OT}_\varepsilon(\beta,\beta),\quad
+\mathrm{OT}_\varepsilon(\alpha,\beta)=\min_{\pi\in\Pi(\alpha,\beta)}\langle\mathbf{c},\pi\rangle
+ +\varepsilon\,\mathrm{KL}(\pi\,\Vert\,\alpha\otimes\beta),
+\end{equation}
+with the squared Euclidean cost and blur $\varepsilon=\Delta x_\ell^2$, one loss cell. The loss cell equals the MPM
+cell up to $N=40{,}000$ and follows the particle spacing above it,
+$\Delta x_\ell=\Delta x\,(40{,}000/N)^{1/3}$ (about the bounding-box diagonal over 51 at 300k). The problem is solved
+in the log domain with $\varepsilon$-scaling from the squared grid diameter down to the blur. The cost is separable by
+axis, so every Sinkhorn sweep is three one-dimensional log-sum-exp passes on the GPU. Its gradient follows from the
+envelope theorem: the converged potentials, differentiated through the rasterisation weights. The transport moves
+mass and is indifferent to topology; unlike a mass residual, its gradient is a transport field over the whole body.
+
+\paragraph{Surface proximity.} The transport's blur cannot tell apart positions within a loss cell. The proximity
+term asks, at every outer point $\mathbf{y}$ of the target sample, whether body material is there:
+\begin{equation}
+E_{\mathrm{prox}}=\rho^2\,\operatorname*{mean}_{\mathbf{y}}\;
+ \max\!\Big(0,\,1-\frac{K(d_{\min}(\mathbf{y}))}{\tfrac12K(\varsigma)}\Big)^{2},
+ \qquad K(d)=e^{-d^2/2h^2},
+\end{equation}
+where $d_{\min}(\mathbf{y})$ is the distance to the nearest body particle, $\rho$ the target sample's median distance
+to its 8th neighbour, $h=\rho/2$, and $\varsigma$ its median nearest-neighbour spacing. The term is zero where a
+particle sits within about $1.5$ spacings of $\mathbf{y}$ and largest at a gap several spacings wide; it has no
+weight and no bound.
+
+\paragraph{Settling.} Two terms ask for an end at rest:
+\begin{equation}
+E_{\mathrm{drift}}=(T\Delta t)^2\operatorname*{mean}_p\lVert\mathbf{v}_p(t_{2T})\rVert^2 ,\qquad
+E_{\mathrm{rel}}=(T\Delta t)^2\operatorname*{mean}_{t\in\text{released},\,p}\lVert\mathbf{v}_p(t)\rVert^2 .
+\end{equation}
+The end drift is the squared displacement the end velocity would add over one more horizon and belongs to the
+geometry energy. The released motion is the stability term: without it, several gallery meshes stopped after 8--11
+windows while still moving; without the end drift, runs were sound but their released end moved 1.4--2.9 times
+faster.
+
+\subsection{Cleanup}
+Two local terms with fixed weights act on particles the transport cannot resolve.
+The \emph{spray pull} is a one-sided Wasserstein-1 pull, $\sum_p g_p m_p\,d_{\mathcal{T}}(\mathbf{x}_p)$, down the
+target's distance field $d_{\mathcal{T}}$, on the particles an isolation gate $g_p$ marks (a ramp of the distance to
+the 8th neighbour from 1.2 to 1.8 times its median, frozen per window). The \emph{near band} pulls each particle that
+lies between the sampling berth (about two target spacings) and one loss cell from the target toward its nearest
+target point, $\sum_p e_p m_p\max(0,\lVert\mathbf{x}_p-\mathbf{y}_{a(p)}\rVert-b)$, where the transport's blur cannot
+tell positions apart.
+
+\subsection{Render terms on the exterior}
+\label{ch4:sec_exterior}
+The render terms read the surface of the body, not the particle cloud. The body's \emph{exterior} is the zero set of
+Zhu and Bridson's field~\citep{zhu2005sand},
+\begin{equation}
+\phi(\mathbf{q})=\lVert\mathbf{q}-\bar{\mathbf{x}}(\mathbf{q})\rVert-r_o,\qquad
+\bar{\mathbf{x}}(\mathbf{q})=\frac{\sum_p k_p(\mathbf{q})\,\mathbf{x}_p}{\sum_p k_p(\mathbf{q})},\quad
+k_p(\mathbf{q})=\max\!\Big(0,1-\tfrac{\lVert\mathbf{q}-\mathbf{x}_p\rVert^2}{R^2}\Big)^{3},
+\end{equation}
+with kernel radius $R=3a$ and offset $r_o=0.8a$. Surface discs $(\mathbf{p}_j,\mathbf{n}_j)$ sit one to each cell of a
+lattice fixed in space that the zero set crosses (the cell centre projected onto the zero set), at a spacing of
+$\min(\text{half a picture pixel},\,0.92a)$. The discs follow the particles between searches by one Newton step of the
+field and are found again when a tenth of them has moved more than half a lattice spacing; because the lattice is
+fixed, the same surface yields the same discs.
+
+The pictures are 18 orthographic views (six azimuths at elevations $0$ and $\pm0.5$\,rad) at 96\,px for 40k
+particles, a resolution that follows $N$ as $96\,(N/40{,}000)^{1/3}$ (188\,px at 300k). The silhouette splats the discs
+with opacity $\alpha=1-e^{-k\,w}$ ($k=1.5$, $w$ the bilinear coverage) and penalises missing coverage inside the
+target more than excess outside it,
+\begin{equation}
+E_{\mathrm{sil}}=\operatorname*{mean}_{\text{views, pixels}}\Big[w_h\max(0,\alpha^\ast-\alpha)^2
+ +w_s\max(0,\alpha-\alpha^\ast)^2\Big],\qquad w_h=2,\;w_s=1 .
+\end{equation}
+The shading term compares headlight-Lambertian images, $b=0.25+0.75\max(0,\mathbf{n}_j\cdot\mathbf{l})$, each disc
+weighted by its facing cosine and a soft front bias and masked by the coverage:
+$E_{\mathrm{shade}}=\operatorname{mean}(s-s^\ast)^2$. The target pictures $\alpha^\ast,s^\ast$ are drawn by the same
+operator from the discs of the target sample's exterior, averaged over eight independent samples of the mesh, so
+the reference carries no single sample's noise.
+
+\paragraph{Why the exterior.} Read on the particle cloud, the render terms improve the cloud's own silhouette but
+leave the surface a viewer sees where the $\lambda=0$ twin has it. Read on the exterior, they act on the displayed
+surface; the comparison is in Section~\ref{ch4:sec_ablation}.
+
+\paragraph{Display.} The images in this chapter draw the same exterior with surface discs in a studio look. The
+display uses the field with Solenthaler et al.'s correction~\citep{solenthaler2007unified}, which differs from Zhu
+and Bridson's only in concave gaps (0.4--5.2\,\% of the discs move, by a median $10^{-4}$ pitches) and removes blobs the
+uncorrected field draws in the empty space between near surfaces, such as the dragon's mouth. Every image is a
+committed simulated state; every metric is computed on the particles or on the uncorrected field.
+
+% ============================================================================
+\section{Optimisation}
+\label{sec:optimization}
+% ============================================================================
+
+\paragraph{Gradients.} The physics core, the cleanup and the render terms are differentiated separately through the
+same $2T$-step adjoint back to every $\delta\mathbf{F}^n_{c}$ and to $u$. The simulation and its adjoint are recorded on
+a tape and captured as CUDA graphs. Finite differences agree with the adjoint within 3\,\% for every term at windows 1
+and 20 of a 300k run.
+
+\paragraph{Projection and weight.} Let $\mathbf{g}_p$ be the gradient of the physics core and $\mathbf{g}_r$ that of the
+render term, each over all control leaves. The render gradient loses its component against the physics gradient
+when the two conflict~\citep{yu2020pcgrad},
+\begin{equation}
+\tilde{\mathbf{g}}_r=\mathbf{g}_r-\frac{\min(0,\langle\mathbf{g}_p,\mathbf{g}_r\rangle)}{\lVert\mathbf{g}_p\rVert^{2}}\,\mathbf{g}_p ,
+\end{equation}
+and the render weight is set at each window's first gradient by
+\begin{equation}
+\label{ch4:eq_lambda}
+\lambda\,\lVert\tilde{\mathbf{g}}_r\rVert=\tfrac12\,\lVert\mathbf{g}_p\rVert ,
+\end{equation}
+and held for the window. The render term therefore holds exactly one third of the first gradient's norm,
+$\lambda\lVert\tilde{\mathbf{g}}_r\rVert/(\lVert\mathbf{g}_p\rVert+\lambda\lVert\tilde{\mathbf{g}}_r\rVert)=1/3$, in every
+window. The physics gradient falls by two to three orders of magnitude while the body arrives, and $\lambda$ falls with
+it. An earlier form averaged $\lambda$ across windows; it lagged that fall, kept the render at 0.46--0.70 of the step in
+windows 3--11, and there drove protruding particles out of the body. The step direction is
+$\mathbf{g}=\mathbf{g}_p+\lambda\tilde{\mathbf{g}}_r+\mathbf{g}_{\mathrm{clean}}$.
+
+\paragraph{Step.} The step is Adam's~\citep{kingma2017adammethodstochasticoptimization} with a backtracking line search:
+a trial is accepted only when the full objective decreases by the Armijo amount (or by more than the rollout's
+replay noise, measured at each window's start) and the trajectory stays valid (finite, no inverted
+$\mathbf{F}$, inside the domain). After each trial, $\delta\mathbf{F}_c$ is capped and $u$ is bounded and projected free of
+rigid modes. The Adam moments of $\delta\mathbf{F}_c$ start afresh in every window. The moments of $u$ carry from one
+committed window to the next, each coordinate's bias correction counting its own age. Restarted every window, $u$'s
+first step was full-sized whatever its gradient and reversed from one window to the next, half of the late per-window
+wobble; the relaxation pulling the layer back during the released half was the other half
+(Section~\ref{ch4:sec_below_grid}).
+
+\paragraph{Commit, acceptance and stop.} A window's result is committed by replaying the accepted candidate on the
+exterior discs it was scored with; the plastic assimilation is applied; and the committed state is scored by one
+selection merit, the objective at that state. A window that raises the merit by more than 5\,\% is rejected and the
+previous state kept. Because the merit is linear in $\lambda$, the references are rescored whenever $\lambda$ changes.
+The run ends after three consecutive rejections or five windows without a relative improvement of 0.3\,\%, and
+delivers the trajectory up to its best window.
+
+\subsection{What the body conserves}
+\label{ch4:sec_conservation}
+Mass is exact by construction. The stress control cannot change the linear or angular momentum. The minimum
+spacing's push is pairwise and central. The relaxation and $u$ are free of the rigid modes of the layer. The
+drag damps $m_p\mathbf{v}_p$ only, not APIC's affine momentum, so it partly decays a rigid spin and can trade angular
+momentum between the orbital and affine parts; we report rotation as a kinematic quantity and angular momentum through
+per-window records. Over whole 300k morphs the centre of mass moves by $1.6$--$6.9\times10^{-5}$ pitches at most, the
+float32 floor of the grid transfers, and the body's physical volume $\sum_p J_pV^0_p$ stays within $-0.8$\,\% and
+$+3.1$\,\% of the target's over the run and ends $0.1$--$0.4$\,\% above it (bunny and dragon).
+
+% ============================================================================
+\section{Multi-Body Scenes}
+\label{ch4:sec_scene}
+% ============================================================================
+
+A single world-fixed objective cannot let a body fly, spin or land: the target, the cameras and the settling terms
+are fixed in the world, so a falling centre of mass raises the objective whatever the control does. For scenes with
+several bodies, contact and gravity we extend the single-body window with four definitions, keeping every per-body
+term unchanged.
+\begin{itemize}
+  \item \textbf{One grid field per body.} On one grid, every node inside both kernels carries one velocity, so two
+        bodies within two cells of each other move as one and stick. Each body deposits into its own grid field. At a
+        node where both fields have mass, the bodies are in contact when their node volumes fill the cell,
+        $V_0+V_1\ge\Delta x^3$ (the touching condition for any partition-of-unity kernel), and approach,
+        $(\mathbf{v}_0-\mathbf{v}_{cm})\cdot\mathbf{n}>0$, with $\mathbf{n}$ the normalised difference of the fields' mass
+        gradients. Body~0 then loses its normal velocity relative to $\mathbf{v}_{cm}$ with Coulomb friction ($\mu=0.5$),
+        and body~1 takes the opposite change weighted by the masses, following the multi-velocity rule of Bardenhagen
+        et al.~\citep{bardenhagen2000granular}. The changes are equal and opposite at each node, so linear and angular
+        momentum are conserved; the floor is the same rule with a body of infinite mass.
+  \item \textbf{A body frame.} Each body's objective is evaluated in its shape-matching frame, $\mathbf{y}=\mathbf{R}^{\top}
+        (\mathbf{x}-\mathbf{c})$ with $\mathbf{c}$ the centroid and $\mathbf{R}=\operatorname{polar}\big(\sum_p(\mathbf{x}_p-\mathbf{c})
+        (\mathbf{X}_p-\bar{\mathbf{X}})^{\top}\big)$, $\mathbf{X}$ the body's source sample. The polar factor is
+        differentiated exactly, so the objective is invariant to each body's rigid motion and its position gradient
+        carries no net force or torque. The cameras ride with the body, and the velocity terms read the deformation
+        velocity $\mathbf{v}-(\mathbf{v}_c+\boldsymbol{\omega}\times\mathbf{r})$, so flight and tumbling cost nothing.
+  \item \textbf{Time always advances.} Every window commits its line-searched control, or the uncontrolled continuation
+        when no step was accepted; there is no rejection or stop. The ambient drag is replaced by a damping of the
+        deformation velocity alone, which keeps each body's momentum.
+  \item \textbf{A moving target.} Each body's target at time $t$ is the displacement interpolation of its transport
+        read from the target's side, $\mathbf{Z}_s=\mathbf{Y}+(1-s)\,\mathbf{D}_Y(\mathbf{Y})$ with $s=3\tau^2-2\tau^3$,
+        $\tau=t/t_m$, so the bodies meet half-formed instead of as finished shapes~\citep{mccann1997convexity}.
+\end{itemize}
+The single-body path is unchanged by these extensions, bit for bit.
+
+% ============================================================================
+\section{Implementation Details}
+\label{sec:implementation}
+% ============================================================================
+
+The simulation and its adjoint are written in NVIDIA Warp. The run stage is GPU-only: particle states stay on the
+device between windows, and neighbour queries and grid morphology run on the GPU through a device KD-tree; only the
+preparation (mesh loading and sampling) runs on the CPU and is cached. The P2G transfer visits particles in cell order
+so that the 32 lanes of a warp share a stencil and add each node once, which removed most of the same-address atomic
+contention at 183 particles per cell. Two further exact speed-ups skip the layer kernels in steps where neither the
+relaxation nor $u$ acts and reuse the proximity term's neighbour lists within an iteration; they leave every result
+bit for bit identical. The time of an optimiser attempt is dominated by the Sinkhorn solves, the surface proximity and
+the three adjoint sweeps (Section~\ref{ch4:sec_runtime}). The deliverable videos are rendered at $3840\times2160$,
+20 frames per second, from every 12th simulated step.
+
+% ============================================================================
+\section{Results}
+\label{sec:results}
+% ============================================================================
+
+\subsection{Protocol}
+\label{ch4:sec_protocol}
+Every morph starts from a sphere and targets one of six meshes at $N=300{,}000$ (bunny, dragon, teapot, bob, armadillo,
+homer); a 19-mesh gallery runs at $N=40{,}000$. Three of the six main targets are not of genus zero (the dragon has
+genus~15; the teapot and bob have genus~1). Runs use seeds 97, 99 and 101, and the bunny and dragon also 103 and 105.
+
+\paragraph{Independent sample.} No result is scored against the sample it was optimised toward. Every end metric
+compares the result with an \emph{independent} stratified sample of the same mesh, drawn with a seed no run uses for
+its target or its pictures. The \emph{sampling floor} is the same metric between the run's own target sample and the
+independent one: what a perfect placement of the particles would score.
+
+\paragraph{Measures.}
+\begin{itemize}
+  \item \emph{Particle silhouette IoU} over 24 views at 128\,px (a binary $3\times3$-pixel point splat) and the
+        symmetric \emph{chamfer} distance.
+  \item \emph{Exterior silhouette and shading residuals}: the render terms' operators applied to the exterior of the end
+        state and of the independent sample, 18 views at 96\,px.
+  \item \emph{Displayed-surface} $1-\mathrm{IoU}$ of the base display at 4K against the independent sample's, front and
+        back.
+  \item \emph{Thin coverage}: the share of the target's thin outer points (local thickness below two MPM cells) with
+        no particle within 1.5 spacings (against the run's own sample).
+  \item \emph{At rest}: the mean squared particle speed at the last committed window's released end.
+  \item \emph{Momentum}: the largest displacement of the centre of mass and the net rotation over all kept frames.
+  \item \emph{Floating pieces}: sets of particles not linked to the body within 1.5 pitches; a piece is
+        \emph{serious} if it has at least ten particles, lies at least five pitches from the body and persists.
+\end{itemize}
+
+\paragraph{Reading.} Every render result is paired with its $\lambda=0$ twin. We call two arms different on a measure
+only when their seed ranges do not overlap, and changes are median against median (for an IoU, the change of
+$1-\mathrm{IoU}$). Wall-clock times are on one RTX~6000 Ada with nothing else on the card.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ch4/fig_morph_sequence.jpg}
+    \caption{Sphere to bunny (top) and sphere to dragon (bottom), 300k particles, side view, the method as frozen
+    (seed 97). Columns: $t=0$, $0.5$, $1$, $2$ and $4$\,s and the delivered end (12.85\,s and 30.2\,s). The body rises as
+    one piece and the features grow out of it in the first second. Narrow gaps of the dragon, below two MPM cells, open
+    late: at 4\,s the gap between hind leg and body is still opening, with beads of material across it
+    (Section~\ref{ch4:sec_limitations}).}
+    \label{ch4:fig_morph}
+\end{figure*}
+
+\subsection{Morphs}
+Figure~\ref{ch4:fig_morph} shows the bunny and the dragon. The body rises as one piece and the features grow out of it;
+both the physics and the render terms do 90\,\% of their (linear) drop in the first 0.6--1.6\,s while the body travels, the
+render term 0.06--0.40\,s behind the physics because it reads the arriving surface (Figure~\ref{ch4:fig_progress}).
+After 3\,s comes a long tail, 79--91\,\% of the delivered frames, carrying only 2--13\,\% of the particle movement: the
+visible surface creeps by 2--4 pixels at 4K on four meshes, 4--6 on homer and 9--13 on the dragon, while both terms keep
+falling on a logarithmic scale.
+
+At the end, against an independent sample, the particle silhouette IoU is 0.9864--0.9899 on the six meshes (medians
+over seeds) against sampling floors of 0.9883--0.9919, and the chamfer distance lies below the floor on every mesh
+because the ends are more even than any random sample. On the run's own samples, 2.4--4.1\,\% of the target's thin outer
+points are left uncovered. The ends are at rest (mean squared speed $4\times10^{-8}$ to $1.3\times10^{-5}$ in squared world units per
+second squared). No serious
+piece occurs in any of the 44 runs: at the end every piece off the body lies 1.7--3.4 pitches from it, the largest has
+13 particles, and pieces farther than five pitches appear only between 1.6 and 5.8\,s, of two to five particles
+(one 13-particle piece in one frame of a twin).
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\linewidth]{figs/ch4/fig_progress.png}
+    \caption{How the objective falls over a 300k morph (full method; seed 97 thick, other seeds thin). Left: the share of
+    each term's drop already done; right: the share of its decades already fallen; dashed: the share of the total
+    particle movement already done. Both the physics core and the render term do most of their drop in the first one to
+    two seconds; on the logarithmic scale both keep falling to the end.}
+    \label{ch4:fig_progress}
+\end{figure}
+
+\subsection{The effect of the render terms}
+\label{ch4:sec_render_effect}
+Table~\ref{ch4:tab_b1} compares the full method with its $\lambda=0$ twin on the six meshes. On every mesh the full
+method lowers the exterior silhouette residual by 31--57\,\%, the exterior shading residual by 19--35\,\% and the
+displayed surface's $1-\mathrm{IoU}$ by 18--33\,\% (front) and 16--33\,\% (back), with the seed ranges apart. Read on
+every kept frame of the bunny and the dragon, the full method is never behind its twin on these measures: on the bunny
+it leads from 0.1\,s on, the error ratio falling from 0.88 at 0.5\,s to 0.56 at the end; on the dragon the twin catches up
+while the body spreads (ratio 0.99 at 2\,s) and the full method leads without a break from 2.8\,s, ending at 0.44. The
+full method's own silhouette term ends at 0.10--0.26 times the twin's, while the physics objective does not pay for it:
+transport, released motion and end drift end inside the twin's range on five meshes and below it on the teapot.
+
+What the render terms do not move is equally clear. The particle silhouette IoU, the chamfer distance, the thin
+coverage, the centre of mass and the rest at the end lie within the twin's seed range on every mesh. Two measures are
+worse. Bob's net rotation rises from $0.0009^\circ$ to $0.0044^\circ$, and the angular momentum the drag creates grows
+with the extra motion on bunny, bob, armadillo and homer (the grid's summed change of angular momentum $+7$ to
+$+37$\,\%; the largest $\lvert\mathbf{L}\rvert$ at a window start up to $+68$\,\% on bob). The render term deforms these bodies more, and the frozen drag, which does not respect angular momentum,
+acts more on a body that moves more. Homer's runs are 34\,\% longer with the render term.
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\caption{The full method against its $\lambda=0$ twin at the end of 300k morphs (medians over seeds: bunny and dragon
+five, the others three; full method / twin and the change). Exterior residuals and displayed surface against an
+independent sample; $^\ast$: the seed ranges do not overlap.}
+\label{ch4:tab_b1}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lcccccc}
+\toprule
+mesh & silhouette IoU & ext.\ silhouette & ext.\ shading & display front & thin & at rest \\
+ & (indep.) & ($10^{-4}$) & ($10^{-4}$) & $1-\mathrm{IoU}$ (\%) & (\%) & ($10^{-6}$) \\
+\midrule
+bunny    & 0.9873 / 0.9863 & 7.45 / 13.0 ($-43\%^\ast$) & 4.74 / 6.46 ($-27\%^\ast$) & 0.93 / 1.19 ($-22\%^\ast$) & 3.97 / 3.85 & 1.31 / 1.51 \\
+dragon   & 0.9874 / 0.9874 & 5.39 / 12.6 ($-57\%^\ast$) & 4.64 / 7.01 ($-34\%^\ast$) & 0.92 / 1.27 ($-28\%^\ast$) & 3.26 / 3.23 & 7.67 / 7.64 \\
+teapot   & 0.9899 / 0.9892 & 7.02 / 11.8 ($-40\%^\ast$) & 4.15 / 6.40 ($-35\%^\ast$) & 0.85 / 1.11 ($-23\%^\ast$) & 2.42 / 3.28 & 0.35 / 0.82 \\
+bob      & 0.9895 / 0.9886 & 4.39 / 6.67 ($-34\%^\ast$) & 3.20 / 3.94 ($-19\%^\ast$) & 0.61 / 0.75 ($-18\%^\ast$) & 3.83 / 4.29 & 0.04 / 0.10$^\ast$ \\
+armadillo& 0.9864 / 0.9861 & 6.21 / 12.2 ($-49\%^\ast$) & 3.76 / 5.52 ($-32\%^\ast$) & 1.21 / 1.81 ($-33\%^\ast$) & 4.09 / 3.79 & 13.2 / 10.3 \\
+homer    & 0.9882 / 0.9880 & 3.33 / 4.84 ($-31\%^\ast$) & 1.99 / 2.60 ($-23\%^\ast$) & 0.76 / 1.03 ($-26\%^\ast$) & 4.04 / 4.90 & 1.95 / 2.82 \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\paragraph{Why the particle IoU barely registers it.} The binary silhouette IoU splats each particle as a
+$3\times3$-pixel point at 128\,px, about 1.8 pitches a pixel, and 72--89\,\% of the twin's error is the sampling floor
+itself. Moving the full method's outer layer uniformly by 0.1 pitch along its normal changes $1-\mathrm{IoU}$ by
+0.0008--0.0025, as much as the render term's whole effect (0.0005--0.0021); see Figure~\ref{ch4:fig_iou}. The render term
+changes the exterior by fractions of a pitch, concentrated on silhouette rims and thin parts, below what the binary
+splat resolves. The full method's outer layer sits 8--15\,\% nearer the independent sample than the twin's in its normal
+offset, and its own silhouette term falls below what an independent sample of the mesh scores after a tenth to a half
+of the run.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.62\linewidth]{figs/ch4/fig_iou_sensitivity.png}
+    \caption{The particle silhouette IoU (binary splat, 128\,px) against a uniform shift of the full method's outer layer
+    along its normal, bunny and dragon at three seeds each. Dotted: the whole difference between the full method and its
+    twin. A shift of a tenth of a pitch moves this measure as much as the render term's entire effect.}
+    \label{ch4:fig_iou}
+\end{figure}
+
+\paragraph{Against the exact mesh.} An independent sample still carries sampling noise. Read instead against the exact
+target mesh by ray casting, with no sample in the reference (Figure~\ref{ch4:fig_render_end}), the full method's exterior
+outline deviates 14--33\,\% less than the twin's on all six meshes (outline shape error, the spread of the outline's
+offset from the mesh's), and less than a perfect particle sample of the mesh, which the twin's does not. Its exact binary
+silhouette error at 1024\,px is 4--12\,\% lower, its normals 3--8\,\% and its headlight shading 8--13\,\% closer. Every
+particle exterior, a perfect sample included, sits 0.7--0.9 pitch outside the mesh because of the field's offset; this
+shared dilation dominates raw silhouette scores against the mesh, which is why the offset-free measures carry the shape.
+% TODO(results pending: standard metrics of the end states against the exact mesh, full method against its twin on the
+% six 300k meshes and the 40k gallery: boundary IoU and boundary F-score, contour Chamfer, 3D F-score, Chamfer-L1,
+% normal consistency, and novel-view PSNR / SSIM / LPIPS; report them here beside the measures above, or state plainly
+% that none of them sees the render term.)
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ch4/fig_render_effect_end.png}
+    \caption{The end of the run, full method against its $\lambda=0$ twin on six meshes (dot: median over seeds, bar:
+    seed range; dashed: the twin; grey tick: a perfect particle sample of the mesh). Top five rows: against an
+    independent sample of the target; bottom four: against the exact mesh. The render terms lower every measure that
+    reads the surface; the particle silhouette IoU and the chamfer distance barely see the change.}
+    \label{ch4:fig_render_end}
+\end{figure*}
+
+\paragraph{A causal test.} If the late render term maintains the surface it shapes, removing it should lose the lead and
+adding it should build one. We switched the render term off at 6\,s in the full method and on at 6\,s in the twin
+(bunny and dragon, two seeds each; Figure~\ref{ch4:fig_switch}). Switched off, the run loses half of the lead within
+4--6 windows (0.7--1\,s) on the exterior silhouette and within 2--5 on the shading, and 63--92\,\% of it within ten
+windows; 10--26\,\% of the silhouette lead remains, the part made by early pushes. Switched on, the twin builds half the
+lead within 1--2 windows and 82--121\,\% of it after three, and ends level with the run that had the render term
+throughout (1.00--1.07 times its exterior silhouette residual). The pre-registered criterion, half the lead lost or built
+within ten windows and still at twenty on both primary measures for at least three of four mesh-seed pairs, holds on
+all four for both arms. The switch moves no momentum: the centre of mass moves $2.6\times10^{-5}$--$1.5\times10^{-4}$
+pitches and the net rotation is 0.003--0.007$^\circ$, within the range of the unswitched runs.
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ch4/fig_render_switch.png}
+    \caption{The render term switched at 6\,s. Top: off from 6\,s in the full method; bottom: on from 6\,s in the twin.
+    Exterior silhouette residual against an independent sample, relative to the twin's at the same time (twin = 1).
+    Without the render term the lead goes within about a second; with it, the lead comes within a third of a second.}
+    \label{ch4:fig_switch}
+\end{figure*}
+
+\paragraph{Where the render gradient acts.} A per-window counterfactual, the same window optimised again from the same
+start with $\lambda=0$, separates what the render term changes (Figure~\ref{ch4:fig_rgv}). Late in a run, the render's
+displacement of the end state is 75--77\,\% on the outer layer (5.7--8.9\,\% of the particles), 15--18 times the average
+per particle on silhouette rims and 5--8 times on thin parts. On the layer, the render's share of the per-particle pull
+is a median 20\,\% at window~1 on the bunny (35\,\% on the dragon) and 7--19\,\% later, with 37--44\,\% at the
+90th percentile early in the run, on the ears, the face and the feet. Its directions mostly agree with the physics early (63\,\% of the layer where it
+acts against 16\,\% in conflict at window~1) and conflict more late (41\,\% against 32\,\%), where the projection removes
+the opposing part in 29 of 79 windows on the bunny. Most of the render's demand lies below the MPM cell: only 5--9\,\% of
+it is at the cell scale, and late in the run $\delta\mathbf{F}_c$ aligns with that part only (cosine 0.58--0.66) and with
+the render's wanted move as a whole at 0.12--0.14, while $u$ reaches it at 0.79--0.81. The cap on $\delta\mathbf{F}_c$ binds in none of
+the late windows. Late in the run a window without the render term gives back 67--81\,\% of the previous window's
+render-driven displacement: the late render term maintains a sub-pitch offset against the physics' own refit rather than
+accumulating change.
+
+\begin{figure*}[p]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ch4/fig_render_gradient_early.jpg}\\[4pt]
+    \includegraphics[width=\textwidth]{figs/ch4/fig_render_gradient_late.jpg}
+    \caption{The render gradient on the deforming 300k bunny, early ($t=1.2$\,s, top) and late ($t=5.0$\,s, bottom). In
+    each block: where the render acts on $\delta\mathbf{F}_c$ (its share of the pull on each particle's control, grey to
+    orange); how strong its pull is against its typical value at that moment; where the render and the physics pull
+    the same way (blue) or against each other (red), averaged over five windows; and what the render changed in
+    $\delta\mathbf{F}_c$, from a $\lambda=0$ counterfactual of every window (green; arrows: the principal axis of the change,
+    stretch or compression). Hatched: the render barely acts there.}
+    \label{ch4:fig_rgv}
+\end{figure*}
+
+\paragraph{The 40k gallery.} On 19 meshes at $N=40{,}000$ and three seeds, the full method's particle silhouette IoU is
+above its twin's at the three-seed mean on 18 of 19 meshes (bob is level), with all three seeds agreeing on 10; a paired
+Wilcoxon test over the meshes gives $p=1.1\times10^{-5}$. The gains are small in absolute terms (median $+0.0007$), a
+median quarter of the twin's gap to the sampling floor, and the lead has halved relative to the recipe before its three late
+refinements (Section~\ref{ch4:sec_ablation}), because those refinements lifted the twin more than the full method.
+
+Read against the exact meshes (Figure~\ref{ch4:fig_g40}; all 19 meshes, three seeds each), the render term at 40k
+reshapes the outline rather than the silhouette's area. Its outline shape error is 3--15\,\% below the twin's on all 19
+meshes (56 of 57 mesh-seed pairs, Wilcoxon $p=5\times10^{-11}$; median $-10$\,\%, about half the effect at 300k), and its
+normals come about 2\,\% closer (44 of 57, $p=6\times10^{-6}$). Its exact binary silhouette error, in contrast, is about
+1\,\% higher (42 of 57), because its exterior sits slightly farther outside the mesh (45 of 57); at 300k the full method's
+exterior was the nearer one and its exact silhouette error 4--12\,\% lower. An area measure such as the gallery's binary
+IoU therefore shows almost no lead at 40k, while the outline improves on every mesh.
+% TODO(results pending: why the full method's 40k exterior sits slightly farther outside the mesh than its twin's, the
+% opposite of 300k; write the finding here once read.)
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.85\linewidth]{figs/ch4/fig_gallery40k_mesh.png}
+    \caption{The 40k gallery against the exact target meshes: the full method's error relative to its $\lambda=0$ twin
+    (``arm'' in the panel titles; dot: median over three seeds, bar: range, dashed: the twin, grey tick: a perfect
+    particle sample of the mesh). Left: exact binary silhouette $1-\mathrm{IoU}$ at 1024\,px; middle: outline shape error;
+    right: normal angle at the nearest mesh point. The outline improves on all 19 meshes; the silhouette's area does not.}
+    \label{ch4:fig_g40}
+\end{figure}
+
+\paragraph{Materials and external forces.} Every material reaches its target at 300k (particle IoU 0.9863--0.9876):
+a soft solid ($E\times0.1$) arrives more slowly (transport energy at 2\,s 55--178 times the default's), a stiff one
+($E\times7$, the stiffest the fixed step carries) arrives faster but ends less at rest (2.2--3.5 times the default's
+end kinetic measure), and $\nu=0.45$ costs 9--21\,\% on some surface and thin measures. The render term's lead holds in every material: exterior silhouette
+$-29$ to $-57$\,\%, shading $-20$ to $-30$\,\%, displayed surface $-24$ to $-33$\,\% against each material's twin (one
+seed each). Under weak gravity with a floor ($G=\rho g H/E=0.02$) every dragon run reaches its target (particle IoU
+0.9870--0.9887 against the sample lifted onto the floor), and its centre of mass falls and comes to rest at the
+floor-standing target's height ($-0.072$ to $-0.085$ world units against $-0.078$); the render term's lead under gravity is
+$-71$\,\% on the exterior silhouette. On the bunny under the same load, two of three seeds and the twin stop after seven
+windows: the landing raises the selection merit by 7--9\,\%, above the acceptance rule's 5\,\% bound, and three
+rejections in a row end the run (the third seed lands and reaches its target, particle IoU 0.9863). At 40k a stronger
+gravity, $G=0.05$, stops three of four targets early.
+% TODO(results pending: single-body gravity through the multi-body scene path, with each body's objective read in a
+% standing frame against a world-fixed target; the 40k stage has passed and the 300k runs are going. Replace the two
+% sentences above with the 300k result.)
+
+\subsection{Ablations}
+\label{ch4:sec_ablation}
+Table~\ref{ch4:tab_ablation} switches off one part at a time at 300k (bunny and dragon, three seeds each, against the
+full method of the same seeds).
+
+\begin{table}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{Ablations at 300k (bunny / dragon, three seeds; changes against the full method, all with the seed ranges
+apart unless marked ``within''). Exterior residuals against an independent sample.}
+\label{ch4:tab_ablation}
+\begin{tabular}{p{3.6cm}p{9.8cm}}
+\toprule
+part switched off & what changes \\
+\midrule
+layer offset $u$ & exterior silhouette $\times3.0$ / $\times7.7$, shading $\times2.2$ / $\times4.0$, displayed surface
+  $\times2.0$ / $\times3.4$, thin $+26\,\%$ / $\times3.0$; never at rest (end kinetic $\times54$ / $\times53$); early
+  floating particles $-99$ / $-98\,\%$ \\
+relief reference of the relaxation & dragon: exterior silhouette $+16\,\%$, shading $+20\,\%$; bunny thin $-23\,\%$ \\
+volume-conserving body (carried volume, density match, volumetric assimilation) & early floating particles $\times5.0$ /
+  $\times3.4$, end kinetic $+79$ / $+69\,\%$, dragon rotation $\times2.0$; in the kept dragon run, pieces of up to 42
+  particles reach 20 pitches from the body at 0.4--3.6\,s; thin $-25$ / $-21\,\%$ \\
+\quad carried volume alone & early floating particles $\times5.1$ / $\times3.5$ \\
+\quad volumetric assimilation alone & not at rest: end kinetic $\times36$ / $\times23$ \\
+\quad density match alone & within the full method's range \\
+render on the exterior (read on the particle cloud instead) & exterior silhouette $+28$ / $+44\,\%$, shading $+21$ /
+  $+19\,\%$, displayed surface $+27$ / $+20\,\%$; particle IoU and thin within \\
+render weight averaged over windows & render share 0.42--0.80 in windows 3--11; end within the range but for small
+  shading and thin changes \\
+minimum spacing & surface roughness $\times2.1$, thin $\times2.9$ / $\times3.8$, exterior silhouette $+37$ / $+41\,\%$,
+  chamfer $+5$ / $+6\,\%$, visible pieces $\times6.9$ / $\times7.6$ \\
+relaxation in the driven half only (in every step instead) & late wobble returns: in-window normal excursion
+  $\times2.1$ / $\times1.8$; thin $+14$ / $+30\,\%$, shading $+7$ / $+13\,\%$; runs end sooner \\
+carried moments of $u$ (fresh every window instead) & window-to-window reversal returns (cosine $-0.47$ / $-0.31$ at
+  7--15\,s against $-0.01$ / $+0.17$); visible pieces $\times2.0$ / $\times2.3$ \\
+symmetric minimum-spacing pairs & bunny centre-of-mass drift returns ($1.0$--$1.3\times10^{-4}$ against
+  $2.8$--$4.0\times10^{-5}$ pitches); shape within a few per cent \\
+MPM cell following $N$ (instead of the shape's) & mixed: gaps open earlier and thin parts improve on some meshes, while
+  bob's exterior silhouette is $+34\,\%$; bunny and bob end less at rest, armadillo and homer more \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three readings stand out. First, $u$ is the main shape lever: without it every surface measure is two to eight times
+worse and the body never comes to rest, while the early floating particles almost vanish, because $u$ is also their
+source in the first seconds. Second, the exterior read is ahead of the cloud read on every measure of the surface,
+while the cloud read is ahead on the particle measures it optimises; at 40k the cloud read's particle IoU is ahead on 17
+of 19 meshes. Each read wins on the representation it scores, and the exterior is the one a viewer sees. Third, each of
+the three late refinements earns its place on what it was made for (the wobble, the reversal and the centre of mass)
+at a cost in run length on the dragon. We call these three parts (the driven-only
+relaxation, the carried moments of $u$ and the symmetric spacing pairs) the late refinements. At 40k, the driven-only relaxation also improves the particle silhouette on 13 of
+19 meshes, while the carried moments and the symmetric spacing are neutral there.
+
+\subsection{Stress control against force control}
+Classical physics-based shape control drives matter toward a target with external
+forces~\citep{treuille2003keyframe,mcnamara2004adjoint,fattal2004targetdriven,chen2024eigenfluids,li2025flowmapadjoint}.
+To test the choice of control, we replaced $\delta\mathbf{F}_c$ by an optimised external force per particle and driven
+step, keeping everything else (objective, render terms, $u$, optimiser, windows) unchanged. A second arm projects the
+force at every step onto zero net force and zero net torque about the centre of mass, the natural momentum-free
+alternative. On six meshes and three seeds:
+\begin{itemize}
+  \item The plain force puts momentum in at every window: the centre of mass wanders 0.1--2.9 pitches and the body turns by
+        up to $3.9^\circ$, $10^3$--$10^4$ and $10^2$--$10^3$ times the stress control's, with 77--158 times its angular
+        momentum, and the objective has to pull it back.
+  \item The projected force removes the net momentum exactly, but not the shape deficit. Both force arms end with
+        3.1--5.7 times (plain) and 4.5--5.1 times (projected; bob 207 times) the stress control's geometry energy,
+        17--71\,\% and 36--97\,\% more exterior silhouette error, 15--62\,\% more shading error, a 0.3--3.9\,\% worse chamfer
+        distance and 1.5--25 times the surface fragments at the end, with the seed ranges apart in all but one case,
+        at the same render share.
+  \item The projected force morphs 1.6--2.4 times slower and on bob stalls with a lifted skin.
+\end{itemize}
+The force arms do not end less at rest, so the advantage of the stress control is not a spring-back argument: it is exact
+momentum without a projection and a better end that a momentum-free force does not reach with the same objective.
+
+\subsection{Comparison with other methods}
+\label{ch4:sec_comparison}
+We compare with nine methods of five kinds, each run from the same sphere toward the same six targets and read by the
+same probes (Table~\ref{ch4:tab_methods}). The frames of mesh- and SDF-based methods are sampled by our volume sampler
+at 300k in the target's frame; particle methods keep their particles. Thin coverage is read here on one set of thin
+points per mesh, taken from the independent sample and the same for every method (it differs from the run's own thin
+measure used above).
+\begin{itemize}
+  \item \textbf{Chapter~\ref{CH3_SHAPEMORPHING}} (our earlier F-control formulation~\citep{11088224}), reimplemented in our
+        simulator and verified at the published scale ($N=11{,}160$: $-97.9$\,\% loss reduction against the published
+        $-98.3$\,\%). It keeps the published loss, schedule and morph lengths, with the step size chosen by its own loss.
+  \item \textbf{Neural implicit morphs.} The volume-preserving neural shape morph~\citep{buonomo2025vpnsm} and
+        NISE~\citep{novello2023nise}, both from the former's code with the authors' defaults; the implicit surface
+        deformation with explicit velocity fields~\citep{sang2025isd} (ISD) and its follow-up 4Deform~\citep{sang2025fourdeform},
+        with the authors' code and shipped configurations. ISD and 4Deform expect point correspondences, which a
+        sphere-to-target pair does not have, so their matching weight is zero; a second arm gives them radial
+        correspondences (each sphere point paired with the ray hit from the centre) on the bunny and the dragon.
+  \item \textbf{As-rigid-as-possible interpolation}~\citep{alexa2000arap} in gradient-domain
+        form~\citep{sumner2004deftransfer,xu2005poisson}, with the sphere correspondence from conformalized mean curvature
+        flow~\citep{kazhdan2012cmcf}; genus-zero targets only.
+  \item \textbf{Optimal-transport displacement interpolation} on our particles~\citep{mccann1997convexity,bonneel2011displacement}:
+        transport without a body.
+  \item \textbf{Render-only mesh optimisation} from the sphere with our image model: Large
+        Steps~\citep{nicolet2021largesteps} and FlexiCubes~\citep{shen2023flexicubes}, each with our 18 views at 188\,px
+        (a) and with 25 views at 512\,px (b).
+\end{itemize}
+
+\begin{table*}[t]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\caption{Every method on the six 300k targets (one reader for all; per mesh the median over seeds, then the range over
+the meshes the method ran on). Silhouette IoU and chamfer against an independent sample, also as ratios to the sampling
+floor (a second sample of the mesh; for the thin points the floor is 2.9--8.1\,\%). ``Ours ahead'': the meshes on which
+our seed range lies above the method's; no method's range lies above ours on any mesh. Volume: one voxel-occupancy
+routine over every frame. $^a$Counted over the closed ends; the ends are open on two (neural morph) and three (NISE)
+meshes. $^b$Plus 20--39\,min of signed distance fitting per shape. $^c$4Deform stays near the sphere, which matches only
+the genus-zero targets. $^d$Genus-zero targets only.}
+\label{ch4:tab_methods}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccc}
+\toprule
+method & meshes & silhouette IoU & $1-\mathrm{IoU}$ & chamfer & thin uncovered & ours ahead & end genus & volume over & frames with a piece & wall \\
+ & & (indep.) & / floor & / floor & (\%) & (meshes) & = target & the frames & $\geq5$ pitches off & time \\
+\midrule
+ours & 6 & 0.9864--0.9899 & 1.1--1.3 & \textit{pending} % TODO(results pending: the one-sampler chamfer of our display surface)
+ & 4.1--6.1 & -- & \textit{pending} % TODO(results pending: genus and watertightness of our display surface)
+ & 0.96--1.09 & 0--8\,\% & 8.8--33.7\,min \\
+Chapter~\ref{CH3_SHAPEMORPHING} & 6 & 0.9396--0.9754 & 2.2--7.4 & 1.03--2.20 & 30.2--48.4 & 6 of 6 & (particles) & 0.72--1.35 & 7--98\,\% & 2.3--6.8\,min \\
+vol.-preserving neural morph & 6 & 0.9163--0.9688 & 3.8--9.2 & 1.05--1.66 & 29.8--45.1 & 6 of 6 & 0 of 4$^a$ & 0.73--1.47 & 0--71\,\% & 45--47\,min$^b$ \\
+NISE & 6 & 0.9660--0.9830 & 1.9--3.0 & 1.01--1.02 & 20.1--35.2 & 6 of 6 & 3 of 3$^a$ & 0.67--1.01 & 0--24\,\% & 13\,min$^b$ \\
+ISD & 6 & 0.9822--0.9901 & 1.2--1.6 & 1.00--1.01 & 12.2--18.1 & 3 of 6 & 5 of 6 & 0.00--5.09 & 5--38\,\% & 27--39\,min \\
+ISD, radial corr. & 2 & 0.9816--0.9862 & 1.3--1.7 & 1.01 & 14.3--19.0 & 1 of 2 & 1 of 2 & 0.36--3.99 & -- & 27--34\,min \\
+4Deform & 6 & 0.4955--0.7628 & 26--57 & 2.8--10.3 & 67.5--81.5 & 6 of 6 & 3 of 6$^c$ & 0.24--2.10 & 0--10\,\% & 68--138\,min \\
+4Deform, radial corr. & 2 & 0.9329--0.9784 & 2.0--6.0 & 1.04--3.94 & 22.7--32.2 & 2 of 2 & 0 of 2 & 0.86--1.48 & -- & 69--75\,min \\
+ARAP$^d$ & 3 & 0.9849--0.9884 & 1.2--1.3 & 1.01 & 9.7--16.8 & 1 of 3 & 3 of 3 & 0.86--1.02 & 0\,\% & 0.2--12\,min \\
+OT displacement & 2 & 0.9306--0.9440 & 5.0--6.5 & 1.04--1.11 & 24.0--24.7 & 2 of 2 & (particles) & 0.96--1.28 & 76--81\,\% & -- \\
+Large Steps (a) & 6 & 0.9777--0.9881 & 1.2--2.0 & 1.01--1.46 & 9.7--17.7 & 3 of 6 & 3 of 6 & 0.85--1.74 & 0\,\% & 18--33\,s \\
+Large Steps (b) & 6 & 0.9807--0.9897 & 1.2--2.1 & 1.01--1.17 & 9.6--16.3 & 3 of 6 & 3 of 6 & 0.84--1.62 & 0\,\% & 27--53\,s \\
+FlexiCubes (a) & 6 & 0.8307--0.9315 & 7.5--20.7 & 1.21--6.64 & 53.5--70.8 & 6 of 6 & 0 of 6 & 0.76--1.10 & 67--86\,\% & 10--21\,s \\
+FlexiCubes (b) & 6 & 0.9055--0.9803 & 2.2--11.6 & 1.02--3.61 & 31.2--60.8 & 6 of 6 & 0 of 6 & 0.73--1.20 & 57--90\,\% & 17--28\,s \\
+\bottomrule
+\end{tabular}}
+\end{table*}
+
+\paragraph{The end.} No method's silhouette IoU range lies above ours on any mesh. Ours lies above every other method,
+with the seed ranges apart, on the dragon, the teapot and the armadillo, and is level with the best three on the other
+three meshes: on the bunny with ISD's radial arm (0.9862), Large Steps (0.9868--0.9875) and ARAP (0.9874) against our
+0.9860--0.9891; on bob with ISD (0.9894--0.9911) and Large Steps (b) (0.9893--0.9899) against 0.9883--0.9908; on homer
+with ISD (0.9825--0.9878), Large Steps (b) (0.9880--0.9888) and ARAP (0.9884) against 0.9869--0.9890. On the shared thin
+points, ours leaves 4.1--6.1\,\% uncovered, as many as a second sample of the mesh (2.9--8.1\,\%); every other method
+leaves at least 9.2\,\% (Large Steps 9.2--16.4, ARAP 9.7--16.8, ISD 10.5--22.1, NISE 20--35, the volume-preserving morph
+26--62, Chapter~\ref{CH3_SHAPEMORPHING}'s formulation 29--49, FlexiCubes 29--73, 4Deform 30--98\,\%). The margins are
+widest on the surface measures of this chapter, where the render terms act. Where they were read, the bunny's exterior
+silhouette residual is $7.0$--$7.7\times10^{-4}$ against ARAP's $10.7$, ISD's $20.5$--$20.8$,
+Chapter~\ref{CH3_SHAPEMORPHING}'s $90$--$99$ and the volume-preserving morph's $106$ (all $\times10^{-4}$), and the dragon's
+$5.0$--$5.8$ against ISD's $31$--$45$ and Chapter~\ref{CH3_SHAPEMORPHING}'s $68$--$71$; ARAP is level with ours on the
+displayed surface of the armadillo and homer and behind on their exterior silhouette. The formulation of
+Chapter~\ref{CH3_SHAPEMORPHING} also does not come to rest (end kinetic measure 0.0028--0.95, two to seven orders of
+magnitude above ours), since its objective scores only the mass on the grid.
+
+\paragraph{The way there.} What separates the methods most is what happens between the sphere and the target.
+\begin{itemize}
+  \item \textbf{ISD} fits the end but does not keep a body on the way. In every ISD run the volume collapses in mid-run, to
+        0.1--65\,\% of the target's (0.1--0.3\,\% on bob, the dragon and homer), and on bob and the armadillo it swells to
+        five times the target's before ending at 0.98--1.03. Between 6 and 21 of its 21 frames have more than one
+        component, and its transport progress jumps past 0.25, 0.5 and 0.75 within one frame on five meshes.
+  \item \textbf{Large Steps} keeps one genus-zero surface in every frame. It never opens the dragon's fifteen handles, the
+        teapot's handle or bob's ring and imitates them with self-intersecting surfaces (31 of 36 ends self-intersect),
+        and its volume swings to 1.6--1.7 times the target's on the dragon.
+  \item \textbf{FlexiCubes} changes topology without control: spurious genus 4--58 at the end (up to 68 over the frames)
+        on targets of genus 0--15, with up to 149 components.
+  \item \textbf{4Deform} without correspondences does not leave the sphere (silhouette IoU 0.50--0.76, its transport
+        progress at the end at most 0.28); given radial correspondences, it reaches 0.978 on the bunny and 0.933 on the
+        dragon.
+  \item \textbf{The volume-preserving neural morph and NISE} end with open surfaces on two and three meshes, and five runs
+        of the former hold a static field whose zero set contains both shapes at every time (the teapot's three seeds
+        among them). NISE is 3.4 times faster than the volume-preserving morph and ends above it on all six meshes.
+  \item \textbf{Transport alone and Chapter~\ref{CH3_SHAPEMORPHING}'s formulation} keep the mass but tear thin parts into
+        clouds: pieces farther than five pitches from the body appear in 76--81\,\% and 7--98\,\% of their frames, and
+        at transport progress $p=0.5$ (the share of the transport distance to the independent sample already covered)
+        1543--4042 and 788--45009 particles lie outside the largest connected piece.
+\end{itemize}
+Ours stays one body with exact mass. Its physical volume stays within $-0.8$ to $+3.1$\,\% of the target's, the common
+occupancy routine reads 0.96--1.09 over every frame (the high end is the dragon's early transient), pieces farther than
+five pitches occur in 0--8\,\% of the frames with at most 14 particles in them, and it reaches every matched-progress
+point on all six meshes. At $p=0.5$ it has 0--6 particles outside the largest connected piece on four meshes, 93 on the
+bunny (Large Steps 60--85, ARAP 59) and 2622 on the teapot (Large Steps 33--69). In a count over the first seconds on the
+bunny and the dragon, about nine in ten such particles were bumps about half a pitch high on the surface rather than
+separate pieces.
+
+\paragraph{Cost.} On one RTX~6000 Ada, Large Steps (18--53\,s), FlexiCubes (10--28\,s), ARAP (12\,s--12\,min),
+Chapter~\ref{CH3_SHAPEMORPHING}'s formulation (2.3--6.8\,min) and NISE (13\,min) are faster than ours (8.8--33.7\,min);
+ISD (27--39\,min), the volume-preserving morph (45--47\,min plus its signed distance fits) and 4Deform (68--138\,min) are
+slower. In short, no other method is at once a body with exact mass, reaches every target including those of higher
+genus, and keeps thin parts at the sampling floor; the render terms carry the widest margins on the surfaces they read
+(1.4 to 600 times on the exterior silhouette) and the narrowest on the particle silhouette IoU, which they do not move.
+
+\subsection{Runtime}
+\label{ch4:sec_runtime}
+\begin{table}[t]
+\centering
+\footnotesize
+\caption{Wall-clock time of a 300k morph on one RTX 6000 Ada (full method; ranges over seeds) and its committed windows
+(median).}
+\label{ch4:tab_runtime}
+\begin{tabular}{lcc}
+\toprule
+mesh & minutes & windows \\
+\midrule
+bunny & 8.8--11.3 & 87 \\
+dragon & 23.3--28.7 & 165 \\
+teapot & 12.6--13.7 & 123 \\
+bob & 15.5--16.1 & 130 \\
+armadillo & 12.3--14.8 & 90 \\
+homer & 23.4--33.8 & 197 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Table~\ref{ch4:tab_runtime} lists the wall-clock times; the card's peak memory is 19.3--23.9\,GB. An optimiser attempt
+takes 6.5\,s on the bunny and 8.8\,s on the dragon. Early in a dragon run the Sinkhorn solves take 32\,\% of an attempt,
+the surface proximity 17\,\% and the three adjoint sweeps 18\,\%; late, the sweeps take 28\,\% and the Sinkhorn solves
+21\,\%. The two exact speed-ups of Section~\ref{sec:implementation} save 4.4--6.1\,\% a window. The run length is set by
+the stop rule: within one seed standard deviation, the end measures settle 0.6--1.2\,min before the end on the bunny and
+1.2--4.2\,min on the dragon, and no stop rule read from the run's own noise saves more than about a minute, because the
+objective really keeps improving. Stopping at a fixed 5\,s would take 4.0\,min on the bunny and 7.2\,min on the dragon,
+but at 5\,s the exterior silhouette residual is still 1.19 and 2.44 times its end value and neither body is at rest.
+
+\subsection{Two thrown bodies}
+\label{ch4:sec_throw}
+Two spheres of 150k particles each are thrown toward each other, collide in the air while half-formed, part, and each
+becomes a bunny that lands and tumbles (Figure~\ref{ch4:fig_throw}). The scene uses the multi-body definitions of
+Section~\ref{ch4:sec_scene} and the stiff material ($E\times7$), with the gravity and throw of a scene designed for the
+default material at $G=0.02$, re-expressed so that the motion in world units is unchanged. The plastic assimilation is
+off in the scene, so the controls hold each body's shape against the impacts. With the default material the bunnies
+flattened at the landing and their ear tips were drawn out two- to sixfold on average; the stiffer material meets the
+floor at a third of the default material's impact speed relative to the wave speed (0.12 against 0.31) and holds its
+shape.
+
+In the delivered run the bodies first touch at 3.8\,s, when the morph is 43\,\% complete (silhouette progress in each
+body's frame), part in the air at 5.7\,s with a restitution of 0.95, land at 8.95 and 10.95\,s, spring off the floor and
+tumble by $68^\circ$ and $127^\circ$. At the end each body's silhouette IoU against its target in its own frame is 0.985
+and 0.984 (end shape error 0.015), 4.9 and 3.3\,\% of the thin points are uncovered, the ear tips stretch by 23 and 15\,\%
+on average through the landing, and no piece of ten or more particles leaves a body by more than three spacings at any
+time. Momentum is kept within $2.7\times10^{-4}$ of the bodies' momentum in every phase. The bodies are still moving at the
+end: they are tumbling. The render-off twin passes the same checks with one four-particle piece; a second seed lands one
+body on its head, which deforms the head band by about nine spacings for a second before it recovers, and misses the
+angular momentum check by $1.05\times10^{-3}$ against $10^{-3}$. The run takes 50.5\,min. The render term's lead in this
+scene (end silhouette 0.985 / 0.984 against 0.983 / 0.984) is about the size of the seed's spread.
+% TODO(results pending: the 300k showcase run that has just started; add its result and frames here once read.)
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figs/ch4/fig_throw_scene.jpg}
+    \caption{Two thrown bodies (2 $\times$ 150k particles, stiff material). Left to right, top to bottom: launch,
+    $t=2$\,s, first contact (3.85\,s), parted (5.7\,s), 8\,s, after the first landing (9.2\,s), after the second landing
+    (11.2\,s), and the end (16\,s). Each body has its own grid field and its own objective in its own frame, so the
+    bodies part cleanly, fly, land and tumble while each becomes a bunny.}
+    \label{ch4:fig_throw}
+\end{figure*}
+
+% ============================================================================
+\section{Measured Costs and What Was Tried}
+\label{ch4:sec_limitations}
+% ============================================================================
+
+Four costs of the method are measured, and each has been attacked; we report what the attempts did.
+
+\begin{itemize}
+  \item \textbf{Small transient floaters.} The early arrival (windows 3--10) leaves particles apart from the body,
+        mostly relief standing half a pitch outside the displayed surface; a viewer sees a few separate pieces, 2--38
+        particles in all over windows 3--10 (side view, medians over seeds). None persists and none is serious by our
+        definition. $u$ is their main source: without it they almost vanish, and the surface measures are two to eight
+        times worse. Keeping each layer step within the sampling berth of its nearest neighbour removed three quarters of
+        the bunny's visible pieces, but not the dragon's early ones, and it moved the centre of mass at every step (the
+        rigid part of the steps not taken), so it was not adopted.
+  \item \textbf{Narrow gaps.} The cubic kernel averages the grid velocity over about two cells (twelve particle spacings at
+        300k). A gap of the target narrower than about two cells shares grid nodes with both rims, cannot open until late,
+        and tears into beads there (the dragon's gap between hind leg and body at about 3--6\,s). An MPM cell that follows
+        $N$ opens these gaps earlier but prints surface features ahead of the bulk, and neither cell wins on every mesh
+        (Table~\ref{ch4:tab_ablation}). Putting the two sides of each target gap on their own grid fields, with free
+        separation and no tension across the gap, removed the crevice's beads at 3--6\,s in every dragon run, but new
+        beads of one to three particles appeared where the gaps then opened, earlier, and it was not adopted.
+  \item \textbf{Runtime.} A 300k morph takes 9--34 minutes: slower than Large Steps, FlexiCubes, ARAP,
+        Chapter~\ref{CH3_SHAPEMORPHING}'s formulation and NISE, faster than ISD, the volume-preserving neural morph and
+        4Deform (Section~\ref{ch4:sec_comparison}). The exact speed-ups (cell-ordered transfers, skipped
+        idle layer kernels, reused neighbour lists) are in the method; the next exact candidates are each below 2\,\% a
+        window. The rest is the run length, which the objective's own progress sets (Section~\ref{ch4:sec_runtime}).
+  \item \textbf{Angular momentum and the drag.} The frozen drag damps the particle momentum but not APIC's affine part,
+        so it is not angular-momentum consistent, and its effect grows with the motion (bob's rotation and the angular
+        momentum differences above). A drag that damps the whole APIC momentum cut the largest angular momentum about
+        fourfold on the 40k bunny, kept shape and rest within the seed spread, and let the body turn about seven times
+        more from shape change, which the frozen drag had been suppressing; it is not part of the frozen method.
+\end{itemize}
+% TODO(results pending: the late tail. A target that moves along the transport geodesic over the body's elastic
+% period spreads the deformation in time (40k: 81--91 % of the movement after 1 s, against 14--60 %). With u gated on the
+% arrival at the final target, the end came mostly back but stayed a few per cent short on two or three meshes, because
+% the interpolated in-between targets ask for 3--14 % more volume; the next form rescales them to the body's density.
+% Write the outcome here, as a result, once read.)
+% TODO(results pending: the morph toward a target given only by images, the render terms then the only shape signal;
+% add it as a subsection of the results once read.)
+
+% ============================================================================
+\section{Summary}
+\label{ch4:sec_summary}
+% ============================================================================
+
+This chapter turned the render-guided idea of our earlier formulation into a method whose every part is measured. The
+body is a volume-conserving MLS-MPM solid driven by a stress increment and a rigid-free surface offset; it is scored in
+settled windows by a transport energy, two settling terms, two local cleanup terms and the silhouette and shading of its
+own exterior surface; and the render term holds a third of each window's first gradient. Against its $\lambda=0$ twin the render term
+lowers the error of the surface a viewer sees by a fifth to a half on six meshes, with an outline closer to the exact
+mesh than a perfect particle sample, and a causal switch shows that it maintains that surface rather than storing it. The morph keeps
+exact mass and, up to the ambient drag, momentum, ends at rest, opens handles a sphere does not have, and takes part in
+contact and gravity with other bodies. Its measured costs, small transient floaters, late-opening narrow gaps and a run
+time of minutes, are reported with what was tried against each.

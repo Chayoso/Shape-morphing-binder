@@ -1,0 +1,531 @@
+# Paper draft: Related Work positioning and Comparison / Discussion (2026-10-15)
+
+Draft for the SIGGRAPH 2027 submission, written for the reviewers. Rules this draft follows:
+
+- Every number comes from `docs/experiments.md` (D138, D145 and its amendments, D147) or from
+  `output/results_2026-10-14/d145_evidence/d145_first_tables.md`. The source is given in a comment after each paragraph.
+- A number that does not exist yet is written `[TBD: which run]`. No number is estimated.
+- Every citation was checked against its source page: arXiv, OpenReview, CVF, ACM DL / Crossref, PMLR / NeurIPS
+  proceedings, Wiley / EG, or the project's GitHub. The keys are in `docs/paper/related_refs.bib`. A reference that
+  could not be verified there is marked UNVERIFIED in the bib and is not cited in the prose.
+- Our own prior work is cited as prior work, never as a competitor: "our prior F-control formulation [Xu et al. 2025]".
+  The PhysMorph-GS preprint [Song and Hyde 2025] is this project's earlier version.
+
+Citations are written author–year as in the ACM format, e.g. [Alexa et al. 2000]. The bib key is given at the first use
+of each paper as `{key}`.
+
+## Related Work
+
+Our problem is unusual among morphing problems in three ways:
+
+- The source is a sphere, so there is no correspondence to the target and, for most targets, no common genus.
+- The path must be a physical body: mass, momentum, contact, external forces, and an end at rest.
+- Images of the target steer that body, not its surface.
+
+We organise prior work by what each family keeps of these three.
+
+**Surface interpolation.** Classical morphs deform one surface into another:
+
+- As-rigid-as-possible interpolation of local transformations [Alexa et al. 2000] `{alexa2000arap}`, and its
+  gradient-domain forms [Sumner and Popović 2004; Xu et al. 2005] `{sumner2004deftransfer, xu2005poisson}`.
+- Geodesics in shape spaces [Kilian et al. 2007] `{kilian2007shapespace}` and in spaces of shells [Heeren et al. 2012;
+  Heeren et al. 2014] `{heeren2012shells, heeren2014shells}`; intersection-free geodesics via Repulsive Shells
+  [Sassen et al. 2024] `{sassen2024repulsive}`; elastic matching with second-order Sobolev metrics [Hartman et al.
+  2023] `{hartman2023h2}`.
+- Learned or optimised interpolants that also estimate the correspondence: NeuroMorph [Eisenberger et al. 2021]
+  `{eisenberger2021neuromorph}` and Spectral Meets Spatial [Cao et al. 2024] `{cao2024sms}`.
+
+All of them deform one mesh connectivity from the first shape to the second, with a correspondence given, estimated,
+or replaced by an unparametrised matching term. The genus therefore cannot change. A sphere reaches a genus-0 target
+only through a separate parameterisation of the target onto the sphere, such as conformalized mean curvature flow
+[Kazhdan et al. 2012] `{kazhdan2012cmcf}`, which is how we build the ARAP baseline.
+
+These methods produce smooth surface paths (intersection-free in the case of Repulsive Shells), but no body. Closest
+to ours in spirit are the divergence-free and Hamiltonian interpolations of Eisenberger and colleagues
+[Eisenberger et al. 2019; Eisenberger and Cremers 2020] `{eisenberger2019divfree, eisenberger2020hamiltonian}`:
+
+- They keep the volume exactly.
+- The Hamiltonian one also conserves the momentum of a point set.
+- Both work with one connectivity and with (possibly noisy) correspondences.
+- Neither models contact or external forces, and neither opens a handle.
+
+**Transport.** Displacement interpolation moves mass along an optimal plan [McCann 1997] `{mccann1997convexity}`.
+Bonneel et al. brought it to graphics with Lagrangian mass transport [Bonneel et al. 2011]
+`{bonneel2011displacement}`. Convolutional Wasserstein distances make transport barycentres cheap on grids and
+surfaces [Solomon et al. 2015] `{solomon2015convolutional}`. Debiased Sinkhorn divergences give a smooth, positive
+transport loss with gradients for millions of samples [Feydy et al. 2019] `{feydy2019sinkhorn}`. Transport keeps
+mass by construction and is indifferent to topology, which is why our objective uses a Sinkhorn divergence on the
+body's mass. As a path, however, transport has no cohesion. Our displacement-interpolation baseline ends on the target
+sample but tears thin parts into clouds on the way. Our method uses transport as the objective of a body, not as the
+path.
+
+**Neural implicit morphs.** Level-set and velocity-field methods represent the shape as the zero set of a
+time-dependent neural field, so topology may change freely:
+
+- Neural implicit surface evolution [Novello et al. 2023] `{novello2023nise}`.
+- Lipschitz-regularised networks that interpolate between shapes in a latent code [Liu et al. 2022]
+  `{liu2022lipschitz}`.
+- Explicit velocity fields that drive an implicit surface through a modified level-set equation, with a soft
+  divergence term, between point clouds [Sang et al. 2025] `{sang2025isd}`. 4Deform adds distortion and
+  stretching losses and shows topology change [Sang et al. 2025b] `{sang2025fourdeform}`.
+- Volume-preserving neural morphing with an adaptive-divergence velocity [Buonomo et al. 2025]
+  `{buonomo2025vpnsm}`.
+- Flows that are invertible by construction: Occupancy Flow [Niemeyer et al. 2019] `{niemeyer2019occflow}`,
+  ShapeFlow [Jiang et al. 2020] `{jiang2020shapeflow}`, FLOWING [Bizzi et al. 2025] `{bizzi2025flowing}`, and explicit
+  flows for implicit surfaces [Buonomo et al. 2026] `{buonomo2026explicitflows}`. Such a flow is a homeomorphism, so it
+  preserves the source's genus.
+
+These methods give watertight, smooth surfaces at every time. Their "physical plausibility" is a property of the
+velocity field: divergence, rigidity, or strain. A morph is not a body with mass, momentum and contact.
+
+Several also need inputs that a sphere-to-target morph lacks:
+
+- The released code of [Sang et al. 2025] expects correspondences between the two shapes.
+- 4Deform expects estimated sparse correspondences.
+- FLOWING relies on landmarks.
+
+The level-set methods change genus freely, but nothing physical governs how. In our comparison, Buonomo et al.'s bob
+frames pass through genus 31–44 on the way to a genus-1 target.
+
+**Generative 3D morphing.** Structured 3D latents of large generators now support training-free morphing between
+assets, through attention blending [Sun et al. 2026] `{sun2026morphany3d}`, correspondence-aware latent interpolation
+[Liu et al. 2026] `{liu2026interp3d}`, an optimal-transport view of flow-model sampling [Yin et al. 2025]
+`{yin2025wukong}`, or a 3D diffusion prior [Yang et al. 2025] `{yang2025regenerative}`. These methods regenerate each
+frame from a blended latent. They produce semantically plausible in-betweens across categories, but the frames share
+no material, the sequence has no mass or time, and the end is the generator's reconstruction of the target, not the
+target itself. They answer a different question, "what lies semantically between two objects", from ours, "how does
+one body of matter become another".
+
+**Physics-based control toward a target.** Driving a simulation toward a target goes back to spacetime constraints
+[Witkin and Kass 1988] `{witkin1988spacetime}`. The line continued through:
+
+- keyframe and adjoint control of smoke and liquids [Treuille et al. 2003; McNamara et al. 2004; Fattal and Lischinski
+  2004; Thürey et al. 2009] `{treuille2003keyframe, mcnamara2004adjoint, fattal2004targetdriven, thurey2009detail}`,
+  and guide shapes for liquids [Nielsen and Bridson 2011] `{nielsen2011guide}`;
+- reduced optimal control of deformable objects [Barbič et al. 2009] `{barbic2009reduced}`;
+- recent differentiable fluid control that morphs densities into letters [Chen et al. 2024; Li et al. 2025]
+  `{chen2024eigenfluids, li2025flowmapadjoint}`.
+
+These methods control by external forces. A control force adds momentum: the matter is pushed toward the target, and
+whatever the force put in must be taken out again before the matter comes to rest.
+
+The material point method [Stomakhin et al. 2013] `{stomakhin2013snow}` became differentiable in simulators
+[Hu et al. 2019; Hu et al. 2020; Huang et al. 2021] `{hu2019chainqueen, hu2020difftaichi, huang2021plasticinelab}`, as
+did FEM [Du et al. 2022] `{du2022diffpd}`. These made gradient-based control of deformable bodies routine, for
+actuators and for tools that shape plasticine toward a target mass distribution. Point-set transport losses on MPM
+particles appear in dexterous manipulation [Li et al. 2023b] `{li2023dexdeform}`. gradSim [Jatavallabhula et al. 2021]
+`{jatavallabhula2021gradsim}` closes the loop through a differentiable renderer and actuates an FEM object toward a goal
+image. Its object keeps its mesh: it is posed, not morphed into another shape.
+
+Our prior F-control formulation [Xu and Levin 2023; Xu et al. 2025] `{xu2023dgc, xu2025dmpm}` controls an MLS-MPM body
+[Hu et al. 2018] `{hu2018mlsmpm}` through per-particle deformation-gradient increments. The stress cannot create net
+force or torque, so momentum is kept, and the body can change topology. The PhysMorph-GS preprint
+[Song and Hyde 2025] `{song2025physmorphgs}`, this project's earlier version, added splatted silhouette and depth losses
+to that control.
+
+The present work keeps the stress control and changes what the body is and what it is scored on:
+
+- the volume is carried in F and assimilated plastically, and the densities are matched, so mass and volume are the
+  body's own and the end is the body's rest;
+- the transport is a Sinkhorn divergence on the body's mass;
+- the render terms (silhouette and shading) are read on the exterior surface of the body [Zhu and Bridson 2005]
+  `{zhu2005sand}`;
+- their effect is measured against a λ = 0 twin.
+
+To our knowledge, no other work drives a body by differentiable physics from one shape into an arbitrary other shape
+under a rendering loss. The nearest are gradSim (a goal image, one fixed mesh) and the fluid-control methods (shape
+targets, forces, density supervision).
+
+**Rendering and physics.** Differentiable rendering has been coupled to MPM and spring-mass simulation to identify
+materials and animate captured objects:
+
+- PAC-NeRF [Li et al. 2023] `{li2023pacnerf}`;
+- PhysGaussian [Xie et al. 2024] `{xie2024physgaussian}`, which drives 3D Gaussian splats [Kerbl et al. 2023]
+  `{kerbl20233dgs}` by the MPM deformation gradient;
+- Gaussian-informed continuum [Cai et al. 2024] `{cai2024gic}`;
+- Spring-Gaus [Zhong et al. 2024] `{zhong2024springgaus}`;
+- PhysDreamer [Zhang et al. 2024] `{zhang2024physdreamer}`;
+- OmniPhysGS [Lin et al. 2025] `{lin2025omniphysgs}`.
+
+These works fit physical parameters to observed motion, or simulate forward from a fitted asset. None drives a body
+from one shape to another. In our method the image loss is not a reconstruction target for the representation. It
+is a control signal that reaches the body only through the adjoint of the simulation.
+
+**Render-only shape optimisation.** Inverse rendering can also deform a sphere into a target directly:
+
+- Large Steps preconditions mesh gradients with a Laplacian [Nicolet et al. 2021] `{nicolet2021largesteps}`.
+- Continuous remeshing adapts the mesh during the optimisation [Palfinger 2022] `{palfinger2022continuous}`.
+- Isosurface representations make topology differentiable: DMTet in nvdiffrec [Munkberg et al. 2022]
+  `{munkberg2022nvdiffrec}`, FlexiCubes [Shen et al. 2023] `{shen2023flexicubes}`, and SDF rendering
+  [Vicini et al. 2022] `{vicini2022sdf}`.
+- Collections of tetrahedral spheres [Guo et al. 2025] `{guo2025tetsphere}` and differentiable Delaunay meshes
+  [Son et al. 2024] `{son2024dmesh}`.
+
+The mesh-based ones keep the start's genus: Large Steps "cannot change the topology by punching holes", and its
+authors start bob from a torus. A recent high-genus method needs a start primitive of the target's genus
+[Gao et al. 2026] `{gao2026highgenus}`. The isosurface-based ones change topology, but their iterates are an
+optimisation trace, not a motion. These methods are the "rendering without physics" end of our design space, and we
+compare against two of them.
+
+## Comparison and Discussion
+
+### Protocol
+
+All methods run on the six 300k targets used in the paper (bunny, dragon, teapot, bob, armadillo, homer). Each starts
+from the same sphere, and each method's frames are converted to the same representation. The meshes of mesh- and
+SDF-based methods are sampled by our stratified volume sampler at 300k in the target's frame. Particle methods keep
+their particles. All frames are read by the same probes and drawn by the same display.
+
+A method is never scored against the sample it was optimised toward. End metrics compare the result with an
+independent stratified sample of the target, drawn with a seed no run uses. The sampling floor is the IoU / chamfer
+between two independent samples of the same mesh. Intermediate frames are compared at matched transport progress
+p = 1 − S(x_t, I) / S(x_0, I) = 0.25, 0.5 and 0.75, where S is the debiased Sinkhorn divergence [Feydy et al. 2019]
+to the independent sample I. Volume is read by one routine for every method: voxel occupancy at 1.5 sampling pitches,
+one closing, holes filled, against the same routine on the independent sample. Wall-clock times are on one RTX 6000
+Ada with nothing else on the card.
+
+Baselines:
+
+- (i) Our prior F-control formulation [Xu et al. 2025] `{xu2025dmpm}`, reimplemented in our simulator. It was
+  verified against the published scale: −97.9 % loss reduction against the paper's −98.3 % at N = 11,160. It keeps
+  the published loss, schedule and morph lengths at the same N and samples, with step size 1e-2, the best by its own
+  loss.
+- (ii) Volume Preserving Neural Shape Morphing [Buonomo et al. 2025] `{buonomo2025vpnsm}`: the authors' code and
+  defaults.
+- (iii) As-rigid-as-possible interpolation [Alexa et al. 2000] `{alexa2000arap}` in its gradient-domain form
+  [Sumner and Popović 2004; Xu et al. 2005] `{sumner2004deftransfer, xu2005poisson}`. The sphere correspondence comes
+  from conformalized mean curvature flow [Kazhdan et al. 2012] `{kazhdan2012cmcf}`. Genus-0 targets only.
+- (iv) Optimal-transport displacement interpolation on our particles (entropic plan at a blur of one sampling pitch,
+  its barycentric map, linear in time): transport without a body.
+- (v) Render-only mesh optimisation from the sphere: Large Steps [Nicolet et al. 2021] `{nicolet2021largesteps}`
+  and FlexiCubes [Shen et al. 2023] `{shen2023flexicubes}` (B12; bunny read, the other meshes [TBD: B12]).
+- (vi) The implicit velocity-field morph of [Sang et al. 2025] `{sang2025isd}` and its follow-up 4Deform
+  [Sang et al. 2025b] `{sang2025fourdeform}`, with the authors' released code and shipped configurations (B14). Both
+  expect point correspondences between the two shapes, and a sphere-to-target pair has none. The matching weight is
+  therefore zero; a second arm gives them radial correspondences on bunny and dragon [TBD: B14 runs]. 4Deform's
+  repository carries no licence, so it is run for comparison only.
+- (vii) NISE [Novello et al. 2023] `{novello2023nise}` from Buonomo et al.'s repository, on the same SDFs (B15)
+  [TBD: B15 runs].
+
+Buonomo et al.'s correspondence-free re-implementation of [Sang et al. 2025] (about 10 h a pair) is not the published
+method and stays deferred.
+<!-- Sources: D145 "Protocol text for the paper"; amendments 1, 4; B5 deferral note. -->
+
+### Table: what each method models
+
+| | ours | Xu et al. 2025 | Buonomo et al. 2025 | ARAP | OT displacement | Large Steps / FlexiCubes |
+|---|---|---|---|---|---|---|
+| representation | MPM particles + grid | MPM particles + grid | neural SDF + velocity | triangle mesh, fixed connectivity | particles | mesh / SDF grid |
+| genus change from a sphere | yes (dragon genus 15, teapot, bob) | yes | yes (bob frames genus 31–44) | no (genus 0 only) | n/a (no surface) | no / yes |
+| mass | exact by construction | exact by construction | none (volume kept by the velocity's divergence) | none | exact (equal weights) | none |
+| momentum | linear: conserved to the measured drift; angular (APIC's L, from the records): the frozen drag does not respect it (below) | conserved by the stress control | not defined | not defined | not defined | not defined |
+| contact, external forces | multi-body contact, floor, gravity (measured below) | not in our protocol [TBD: what the TVCG paper shows] | none | none | none | none |
+| end at rest | yes (kinetic below 1e-5) | no (0.0028–0.95) | n/a | n/a | n/a | n/a |
+| correspondences | none | none | none | sphere map (CMCF) | none (computed plan) | none |
+| render loss | silhouette + shading, through the physics | none | none | none | none | image losses on the geometry directly (B12's setup [TBD]) |
+
+<!-- Sources: d145_first_tables.md (B4, B5, B11, volume), README "What it conserves", D147. The Large Steps / FlexiCubes
+column is from the papers [Nicolet et al. 2021, Sec. 5; Shen et al. 2023] until B12 reads. -->
+
+### Table: measured results (300k; min–max over seeds where three exist)
+
+| measure | ours | Xu et al. 2025 | Buonomo et al. 2025 | ARAP | OT |
+|---|---|---|---|---|---|
+| end silhouette IoU vs independent sample, bunny (floor 0.9893) | 0.9853–0.9886 | 0.9598 (seed 97) | 0.9601 | 0.9874 | 0.9306 |
+| same, dragon (floor 0.9895) | 0.9865–0.9886 | 0.9710 (seed 97) | 0.9016 | N/A (genus 15) | 0.9440 |
+| end silhouette IoU, own sample, bunny / dragon | 0.987–0.988 | 0.958–0.969 / 0.969–0.971 | — | — | — |
+| thin parts uncovered, own sample | 3.5–4.5 % | 31–50 % | [TBD: thin measure on its frames] | [TBD] | [TBD] |
+| yardstick silhouette (exterior), bunny | 7.2–8.0e-4 (five seeds) | 0.0090–0.0099 | [TBD] | [TBD] | [TBD] |
+| display 1 − IoU front, bunny | 0.0090–0.0098 (five seeds) | 0.039–0.042 | [TBD] | [TBD] | [TBD] |
+| apart particles at p = 0.25 / 0.5 / 0.75, bunny | 90 / 139 / 305 | 6540 / 4522 / 4102 | [TBD: harness] | [TBD: harness] | [TBD: harness] |
+| same, dragon | 1 / 2 / 15 | 14919 / 6785 / 3844 | [TBD] | N/A | [TBD] |
+| occupancy volume over the morph, bunny | 0.986–1.028 (end 1.005) | 0.990–1.070 | 0.971–1.028 | 0.987–1.016 | 0.986–1.088 |
+| same, dragon | 0.964–1.075 (end 1.015) | 1.013–1.294 | 0.896–0.985 | N/A | 0.964–1.277 |
+| end kinetic energy (last record) | below 1e-5 | 0.0028–0.95 | — | — | — |
+| wall clock a pair | bunny 7.1–10.1 min, dragon 17.6–18.8 min (five seeds); others 8.2–18.4 min | 2.3–6.8 min | 44–46 min morph + 20–39 min per SDF (CPU) | [TBD: B11 timing] | [TBD: B6 timing] |
+| largest GPU memory | 18.4–23.0 GB (card peak, six meshes) | [TBD] | 7–8 GB | CPU | [TBD] |
+
+Notes on the table:
+
+- Ours at the end on the own sample, thin coverage and kinetic energy come from the deliverable's bunny and dragon
+  (D138 / D144). The yardstick and display come from B1. The harness rows come from D135's kept runs (SB, FB), read
+  as a dry run [TBD: re-read on B1's L97 when the frames are kept].
+- Buonomo et al. ran at one seed with the authors' defaults. Its teapot morph failed (a static field whose zero set
+  holds both shapes at every t); that row is reported, not dropped.
+- Render-only mesh optimisation from the sphere (B12, bunny, two setups a / b × three seeds; `d145_b12/b12_rows.json`):
+  - Large Steps ends at 0.9869–0.9879 against the independent sample (floor 0.9893), inside our seed range, in
+    21–28 s. It stays one watertight genus-0 surface. It self-intersects in 1–2 of its 21 frames (up to 252 faces), and
+    its occupancy runs 0.985–1.147 over the frames.
+  - FlexiCubes ends at 0.856–0.970, with genus 12–33 at the end (up to 39 in between), up to 357 components, and 12–18
+    of 21 frames watertight.
+  The other five meshes: [TBD: B12].
+- The occupancy routine reads 0.986 (bunny) and 0.964 (dragon) for our source sphere at t = 0, which has exactly the
+  target's volume. This 1–4 % shape bias of voxel occupancy applies to every column.
+
+<!-- Sources: d145_first_tables.md B4, B5/B11 table, volume table, harness dry run, B2 seed 97; D138 batch 7 (runtime);
+D145 B1 bunny; D145 B5 "Morph training 44–46 min a pair (200k points, 7–8 GB), SDFs on the CPU 20–39 min each". -->
+
+### What a physical body buys
+
+Every particle carries mass, and the stress control cannot create momentum. The control enters the grid transfer
+as a stress, and the B-spline weights sum the stress's contributions to zero net force and torque. Mass is therefore
+exact by construction, and the body's momentum changes only by drag and by the few position updates below the grid
+that carry no velocity. We measure what remains on the bunny over three seeds. The largest displacement of the centre
+of mass over the morph is 2e-4 sampling pitches with the render terms and 1e-4 without. About four fifths of either
+arm's drift is the push of the minimum-spacing projection, whose pairwise pushes over frozen neighbour lists need not
+cancel exactly. The grid transfer adds 3–5e-5 pitches, the float32 floor of P2G / G2P, equal in both arms. The
+surface offset u, which is rigid-free by construction, adds about 1e-10.
+<!-- Source: D145 "Where the centre-of-mass drift comes from"; README "What it conserves". -->
+
+The same body takes part in physics that a geometric interpolant cannot express.
+
+- Two separately thrown spheres collide, part in the air, and each becomes a bunny that lands and tumbles. This is the
+  two-body scene, with 2 × 150k particles in 96 windows and 44 min. Each body has its own grid velocity field, with
+  gated multi-field contact after [Bardenhagen et al. 2000] `{bardenhagen2000granular}` [TBD: section reference].
+  At the first contact the morph is 45 % complete (silhouette progress 0.446). The bodies part at 6.25 s, land at 8.9 s and 11.0 s, and end with an end error of
+  0.021 on the scene's own measure (pass at ≤ 0.05) [TBD: define the end error in the paper's terms], tumbled by 26°
+  and 47°.
+- Under gravity with a floor, the 40k morph still reaches its target at G = ρgH/E = 0.02 on bunny, dragon and bob
+  (silhouette IoU 0.9734, 0.9755, 0.9763; bob's is below its no-gravity range of 0.9797–0.9802), but not on the
+  armadillo (0.5937).
+
+We state the limit as found: in a world-fixed objective, a gravity strong enough to move the centre of mass faster
+than the morph (G = 0.05) stops three of four targets. The thrown scene works because its objective is invariant to
+each body's rigid motion [TBD: section reference].
+<!-- Sources: D147 "The 300k s97 on the continuous target"; D145 B9 (iii). -->
+
+The morph also ends at the body's own rest. When the controls are released the end barely moves: the last kinetic
+record is below 1e-5 (1.7–3.4e-6 on the bunny over three seeds). Our prior F-control formulation, run on the same
+particles, ends with 0.0028–0.95 and keeps moving. Its objective scores only the mass on the grid (a log mass residual
+with a minimum-mass term), not the end's motion.
+<!-- Sources: d145_first_tables.md B4 and "Ours (D138 / D144)"; D145 B1. -->
+
+### Topology
+
+Three of the six targets are not genus 0: the dragon has genus 15, and the teapot and bob have genus 1. A sphere
+reaches them only if the morph opens holes. ARAP and any interpolation of fixed connectivity cannot do that, so ARAP
+is reported N/A for them.
+
+Render-only mesh optimisation has the same limit. Its authors state that it "cannot change the topology by punching
+holes or melding overlapping geometry" [Nicolet et al. 2021]. They start bob from a torus, and Planck and the T-shirt
+from spheres with holes cut by hand. A recent fix for high-genus inverse rendering needs a start primitive whose
+genus already matches the target's [Gao et al. 2026] `{gao2026highgenus}`.
+
+Level-set morphs change topology freely, but not always as the target intends:
+
+- Buonomo et al.'s bob frames pass through genus 31–44 with up to 181 components before settling.
+- Its teapot morph found a static field whose zero set contains both shapes at every t.
+
+Our body opens the dragon's 15 handles and the teapot's and bob's holes physically. The material parts where the
+transport pulls it apart, and the end is a single body.
+[TBD: genus / components per frame of ours on the six meshes, same routine as B5's native meshes; the dragon's
+crevice is the known exception (beads 3.2–4.4 s, Limitations).]
+<!-- Sources: d145_first_tables.md B5/B11 table and B11 amendment; Nicolet et al. 2021 Sec. 5 and Sec. 4 (Fig. 7 text);
+Gao et al. 2026 abstract and Sec. on initialisation. -->
+
+### Thin features
+
+Thin parts are where a morph shows whether it carries material or only a surface. On our own samples, 3.5–4.5 % of
+the target's thin outer points have no particle within 1.5 spacings at the end. Our prior F-control formulation leaves
+31–50 % uncovered on the same particles.
+
+In the intermediate frames, the share of material outside the largest connected piece separates the methods:
+
+- Ours: bunny 90 / 139 / 305 particles at p = 0.25 / 0.5 / 0.75; dragon 1 / 2 / 15.
+- Our prior F-control formulation: 4102–6540 on the bunny and 3844–14919 on the dragon.
+- Transport alone (OT displacement): it ends on the target sample (a median 0.57 pitches from the nearest target
+  point), but its occupancy rises to 1.277 on the dragon as torn material spreads.
+
+What a viewer sees as floating pieces is fewer than the apart count. Over the whole morph (seed 97), the display's own
+field splits the material apart from the largest piece into what is hidden, what is joined to the surface as relief,
+and what is a separate visible piece:
+- Ours: 105 / 384 particles in separate pieces (bunny / dragon). Most of the apart count is relief a median 0.5 pitches
+  high.
+- Xu et al.: 373 / 2391.
+- OT displacement: 250 / 581, standing about 1 pitch high.
+<!-- Source: D145 2026-10-15, D148's visible_apart.py, output/gpu/d145_evidence/vis_full.jsonl. -->
+[TBD: apart particles of OT, Buonomo et al. and ARAP at matched p, harness on B5 / B6 / B11 frames.]
+[TBD: a thin-feature comparison against the SDF morph's frames. The plan predicts rounder ears, horns and fingers for
+the SDF morph; not yet measured.]
+<!-- Sources: d145_first_tables.md B4 and harness dry run; D145 first readings (B6 bunny). -->
+
+### The render terms, measured against their own λ = 0 twin
+
+The render terms (silhouette and shading of the exterior surface discs) never move a particle directly. They reach the
+body only through the adjoint of the simulation, as changes of the stress control dFc and of the outer layer's offset
+u. To isolate their effect, every render result is paired with a twin: the same code, seed and particles, with the
+render weight set to zero.
+
+**On the 40k gallery (19 meshes × 3 seeds):**
+
+- The render arm's silhouette IoU against the independent sample is above the twin's at the three-seed mean on 19 of
+  19 meshes; all three seeds agree on 17.
+- Paired Wilcoxon test over the meshes: p = 3.8e-6.
+- The gains are small in absolute terms (+0.0005 to +0.0030), a median 24 % of the twin's gap to the sampling floor.
+
+**At 300k on the bunny (three seeds, ranges apart), against the independent sample:**
+
+- The render arm lowers the exterior silhouette residual by 44 % and the shading residual by 28 %.
+- The display's 1 − IoU falls by 26–31 % (front, thin-feature crop, back).
+- The body's net rotation falls by 39 %.
+- Within the seed spread (no difference): silhouette IoU on the particles, chamfer, thin coverage, end kinetic energy,
+  the number of windows and the wall clock.
+- One measure is worse, and we report it: the centre-of-mass drift, 2e-4 against 1e-4 pitches. Its source is the
+  minimum-spacing projection (see above), not the render gradient.
+
+Mechanism. A per-window counterfactual (the same window from the same start, render weight zero) shows where the
+render acts:
+
+- Its gradient on dFc is 7–9× larger per particle on the outer layer, 10–15× on the silhouette rim and 8–10× on thin
+  parts than in the bulk.
+- It falls to about a tenth of the layer's value at two MPM cells depth, the B-spline's reach.
+- It lowers the window's silhouette term by 8 %, 23 %, 60 % and 78 % at windows 5, 10, 20 and 40.
+- It leaves the transport term within ±4 % and moves the centre of mass by at most 6e-6 pitches.
+
+The render weight is set every window so that the render gradient is half the physics gradient's norm: one third of
+the step. Gradient components that oppose the physics are removed [Yu et al. 2020] `{yu2020pcgrad}`.
+
+**At 300k on all six meshes (B1; bunny and dragon five seeds, the others three; ranges apart unless said):**
+
+- Exterior silhouette residual: −48 % bunny, −49 % dragon, −33 % teapot, −29 % bob, −50 % armadillo, −39 % homer.
+- Shading residual: −13 % to −36 % on all six.
+- Display 1 − IoU: −14 % to −33 %, apart on five meshes (bob only on the back view).
+- Within the seed spread everywhere: silhouette IoU on the particles, chamfer and the centre of mass. Thin coverage is
+  also within the spread, except bob, where the render arm is 17 % better.
+- Worse, and reported: bob's net rotation (0.0039–0.0051° against 0.0003–0.0005°) and the frame-to-frame net / gross
+  angular move on bob (+50 %) and homer (+33 %). Both are kinematic measures. Their source is the frozen drag, which
+  does not respect angular momentum and acts more on a body that deforms more; it is not the render gradient directly
+  (see Angular momentum below).
+<!-- Source: D145 overnight readings 2026-10-15, output/gpu/d145_evidence/band_1015.txt. -->
+<!-- (was: [TBD: B1's five other meshes and the dragon's seeds]) -->
+
+**Across materials (one seed each):** with a soft solid, a stiff solid or a Poisson ratio of 0.45, the render arm still
+lowers the exterior silhouette residual by 38–51 % and the shading residual by 15–30 % against its twin, on bunny and
+dragon.
+<!-- Sources: d145_first_tables.md B3; D145 B1 bunny; B7 render-gradient proof; README "Gradients". -->
+
+One design choice is visible in this comparison. The render terms read the exterior surface discs, not the particle
+cloud. On the bunny at 300k (three seeds), this puts the display 16 % and the exterior yardstick 24 % ahead of a
+cloud-read render. The cloud read is ahead on thin coverage (4.1–4.5 % against 4.6–4.8 %) and, at 40k, on the
+particle silhouette IoU. Each read is ahead on the representation it optimises. We report both.
+<!-- Source: D145 B2 three seeds; B3 ablations (no-render_exterior above V on 13 of 19). -->
+
+### Where we lose
+
+**Surface smoothness.** A neural SDF morph produces a watertight, smooth zero set at every frame. Our surface is the
+exterior of a particle body. Relief below the sampling pitch is limited by the 300k sample. The display draws the
+surface discs of Zhu and Bridson's field with Solenthaler et al.'s correction [Solenthaler et al. 2007]
+`{solenthaler2007unified}`, which moves 0.4–5.2 % of the discs by a median 1e-4 pitches.
+[TBD: one roughness measure read on both ours and Buonomo et al.'s frames. None exists in D145 yet.]
+
+**Runtime and memory.**
+
+- A 300k morph takes 7.1–10.1 min (bunny) and 17.6–18.8 min (dragon) on one RTX 6000 Ada (five seeds each), and
+  8.2–18.4 min on the other four meshes.
+- That is slower than our prior F-control formulation on the same particles (2.3–6.8 min), and slower than ARAP and
+  OT, which are CPU- or seconds-scale [TBD: B11 / B6 timings].
+- It is faster than the SDF morph at this scale: 44–46 min of morph training a pair at 200k points, plus 20–39 min
+  per target SDF on the CPU.
+- Our memory is much larger than the SDF morph's 7–8 GB. On the deliverable code, the card's peak during a 300k morph
+  is 18.4–23.0 GB across the six meshes (homer the largest). Before the runtime work, 36.1 GB was recorded for the dragon.
+- Render-only mesh optimisation is far cheaper still: Large Steps reaches the bunny in about 20 s.
+
+**Angular momentum.** We report two kinds of measure and keep them apart.
+
+- *The conserved quantity.* This is APIC's angular momentum, L = Σ m x × v + Σ m D axial(C) with D = dx² / 3. The
+  particle–grid transfer keeps it exactly [Jiang et al. 2015], and our per-window records measure it (L at each window
+  start and its change by the grid step and by each position update). With the drag off, the grid changes L only at
+  its float32 floor: 0.1–0.2 per window, against 20–56 with the drag on.
+- *Kinematic measures.* The net rotation (the best-fit rigid rotation between kept frames) and the net / gross angular
+  move are kinematic, not conservation measures. A deforming body can reorient at zero L, as a falling cat does.
+  - The frozen drag (0.9 / s) acts in the particle-to-grid transfer on m v only, not on m C or the stress impulse.
+    It is an external damping that does not respect L:
+    - It partly decays a rigid spin.
+    - Where the orbital and affine parts of L are opposite, it creates hidden affine spin. On the 300k bunny, |L| at
+      a window start peaks at 180–270 in windows 7–8, higher in the render arm, and the grid's change of L sums to
+      500–600 against 70–80 for all the position updates.
+    - It damps the orbital part directly, so it also suppresses visible rotation, including a turn at zero L.
+  - The position updates below the grid inject Σ m δ × v, which the drag absorbs. The largest is u's switch-on: about
+    40 at window 4 of the 300k bunny.
+- *Bob and homer.* The render arm deforms these two more than its twin does, so the drag makes more L. On bob, the
+  grid's change of L sums to 885–964 against 646–683; on homer, 1470–1550 against 1210–1310. This shows as a higher
+  net / gross angular move on both, and on bob as a higher net rotation (0.0039–0.0051° against 0.0003–0.0005°). All
+  of it is tiny, a property of the frozen drag, and reported as found.
+  On the bunny with the 10/18 code (two runs each), the render arm is at or ahead of its twin on every momentum
+  measure:
+  - centre of mass 3.4e-5 against 3.9–4.0e-5 pitches;
+  - net rotation 0.0030–0.0032° against 0.0044–0.0045°;
+  - net / gross overlapping.
+- *An L-consistent drag.* A drag that damps the whole APIC momentum (D150) cuts the largest |L| from 54–57 to 13–16
+  on the 40k bunny. It also lets the body turn more (net rotation 0.005–0.006° → 0.037–0.039°), because the frozen
+  drag had been damping the turn at zero L. Shape and rest are within spread either way, and an earlier 300k bunny
+  test found the same (0.0040° → 0.0334°). It is not part of the frozen method. The paper therefore reports the net
+  rotation as kinematic and L through the records.
+<!-- Sources: D145 "Where bob's rotation and the bob / homer angular ratio come from" (2026-10-15); D149 / D150 on
+wip/d149 (the D149 agent, relayed 2026-10-15). -->
+
+**The run's net rotation** stays below 0.014° on all six meshes (B1).
+
+**Volume on the common measure.** We do not claim better volume preservation on the occupancy measure. The claims
+are separate:
+
+- Mass is exact by construction.
+- The body's physical volume, Σ J V0 from the carried J, stays within −0.9 % … +3.1 % of the target's over the morph.
+  The bunny reads 0.9976–1.0128 (1.0067 at the end); the dragon reads 0.9908–1.0314 (1.0079 at the end).
+- On the occupancy routine shared by all methods, ours is comparable to the baselines: bunny 0.986–1.028, dragon
+  0.964–1.075.
+- There is an early transient while the surface is spread (the dragon peaks at 1.075 at τ 0.06–0.10). On the dragon,
+  Buonomo et al.'s range is narrower early (0.896–0.985), while ours ends nearer 1 (1.015 against 0.897 at the end).
+
+**ARAP on genus-0 targets.** Where ARAP applies (bunny, armadillo, homer), it reaches the target's end shape almost at
+the sampling floor: silhouette IoU 0.9874, 0.9849 and 0.9884 against floors of 0.9893, 0.9883 and 0.9916. It also
+keeps one closed surface throughout, as an interpolation of fixed connectivity must. Ours reads 0.9853–0.9886,
+0.9851–0.9870 and 0.9874–0.9890 on the same three meshes (three seeds). ARAP lies inside our seed range on the bunny
+and homer, and just below it on the armadillo. We do not claim a better end shape than ARAP on these meshes, nor than
+Large Steps, which ends the bunny at 0.9869–0.9879. What ARAP does not
+give is a body: no mass, no momentum, no contact, no rest. It also has no route to the other three targets.
+
+### What we do not claim
+
+- We do not claim the best end shape on every target. On genus-0 meshes, ARAP is at the sampling floor, and render-only
+  Large Steps reaches the bunny inside our seed range in about 20 s. The comparison rests on the intermediate frames
+  (harness, visible pieces, volume, self-intersection), on the genus ≥ 1 targets, and on the physical body, not on
+  genus-0 end shapes.
+- We do not claim better volume preservation on the occupancy measure.
+- We do not claim speed or memory parity with geometric interpolants.
+- The render terms' gains on the particle silhouette are small. Their effect is larger on the surface they read (the
+  exterior discs) and, at 300k, on rotation and the display.
+
+The claims are:
+
+- a morph that is a simulated body throughout, with exact mass and momentum change bounded by the measured drift,
+  that ends at rest and takes part in contact and external forces;
+- topology change from a sphere to genus 15;
+- thin parts carried as material;
+- a render channel that steers that body through its physics, with its effect measured against its λ = 0 twin.
+
+## Open [TBD] items in this draft
+
+Status 2026-10-15 (D145): items 1, 9 (memory) and 10 are filled. Item 4 is filled for the bunny. Items 5 and 14 are
+replaced by B14 (the authors' ISD / 4Deform code), B15 (NISE) and B13 (the force-controlled ablation).
+
+1. ~~Ours against the independent sample at 300k on the six meshes~~ (filled: B12 agent's `ours_endcheck.jsonl`).
+2. Xu et al., OT: the same independent-sample metric (`d145_evidence/endgen_1015.jsonl`, queued), plus the yardstick
+   and display for every method on all six meshes.
+3. The harness at matched p on the baselines' frames (B5, B6, B11, B12, B14, B15): apart particles, visible pieces
+   (`visible_apart.py`), volume, display holes. Ours re-read on B1's L97 / L97-dragon instead of D135's SB / FB.
+4. B12 on the other five meshes (the bunny is filled).
+5. B14: ISD and 4Deform (authors' code, matching weight 0, plus a radial-correspondence arm on bunny and dragon). B15:
+   NISE. LF-INSD stays deferred.
+6. Genus and components per frame of ours on the six meshes (same routine as B5's native meshes).
+7. A roughness measure read on both ours and Buonomo et al.'s frames.
+8. A thin-feature comparison against Buonomo et al.'s frames.
+9. The timings of B11 (ARAP) and B6 (OT). (Our memory is filled.)
+10. ~~The dragon's physical volume and the dragon's B1 / B2 seeds~~ (filled).
+11. The section reference for the two-body scene's rigid-invariant objective.
+12. Buonomo et al. at seeds 2 and 3 (ran overnight: `results/endcheck.jsonl`, not yet in the table).
+13. The two-body scene's end-error definition in the paper's terms, and whether the TVCG paper [Xu et al. 2025] shows
+    contact or external forces (the methods table says only "not in our protocol").
+14. B13, the force-controlled ablation inside our pipeline (waits for the re-freeze tag).
+15. ~~Whether the re-freeze adopts an L-consistent drag~~ (decided: D150 and the torque-free layer stay out of the
+    10/18 freeze; net rotation is reported as kinematic, L via the records). The momentum rows are re-read on the tag.

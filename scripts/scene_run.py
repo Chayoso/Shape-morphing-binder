@@ -28,6 +28,7 @@ import torch  # noqa: E402
 from physmorph import gpu, metrics  # noqa: E402
 from physmorph.pipeline.scene.frame import body_frame  # noqa: E402
 from physmorph.pipeline.scene.runner import run_scene  # noqa: E402
+from physmorph.pipeline.scene.schedule import MorphSchedule  # noqa: E402
 from physmorph.pipeline.scene.spec import SceneSpec, layout  # noqa: E402
 from physmorph.pipeline.scene.window import Body  # noqa: E402
 from physmorph.pipeline.target import build_target, calibrate_units, target_relief  # noqa: E402
@@ -59,7 +60,7 @@ def main():
     base = run_args(["--n", str(a.n), "--src", a.src, "--tgt", a.tgt, "--seed", str(a.seed),
                      "--render_weight_scale", str(a.render_weight_scale), "--drag", "0", "--out", a.out]
                     + ([] if a.young is None else ["--young", str(a.young)]) + a.flags.split())
-    bodies, srcs, vps, thins, tgts, start = [], [], [], [], [], 0
+    bodies, srcs, vps, thins, tgts, prms, start = [], [], [], [], [], [], 0
     cfg = None
     for b, seed in enumerate((a.seed, a.seed + 1000)[:spec.bodies]):   # body 1: its own samples (none of body 0's)
         cfg0, prep = prepared(base, seed)
@@ -80,6 +81,7 @@ def main():
         srcs.append(X)
         vps.append(vp)
         tgts.append(prep.tgt)
+        prms.append(prep.prm)
         thins.append(thin_set(prep.tgt, prep.cell_shape or prep.prm.dx, cfg_b.mass_ref_n))
         if b == 0:
             dx, dt, prov = prep.prm.dx, prep.prm.dt, provenance(base, prep.prm)
@@ -92,8 +94,9 @@ def main():
     windows = a.windows or info["windows"]
     log(f"[scene] {json.dumps(info)}")
     t0 = time.time()
+    schedule = MorphSchedule(bodies, prms, spec.morph_time) if spec.morph_time > 0 else None
     res = run_scene(bodies, gpu.tensor(x0), gpu.tensor(v0), prm, cfg, windows, spec.mu, log=log, F_stride=cfg.T,
-                    assim_free=spec.assim_free)
+                    assim_free=spec.assim_free, schedule=schedule)
     seconds = time.time() - t0
     frames = res["frames"]
     n_frames = len(frames.x)

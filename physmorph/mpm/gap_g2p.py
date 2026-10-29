@@ -32,6 +32,7 @@ def k_g2p_gap(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
               q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
               near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
               boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
+                clampk: int, gidx: wp.array(dtype=int), pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int), lmax: int,
               gmin: wp.vec3, dx: float, inv_dx: float, dt: float,
               nx: int, ny: int, nz: int):
     """kernels.k_g2p, each gap node's velocity by the particle's share of side 1."""
@@ -58,7 +59,8 @@ def k_g2p_gap(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     g = gid(i, j, k, ny, nz)
                     vg = grid_v[g]
                     if nr != 0:
-                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
+                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk,
+                                   b, gidx, pairtab, pcode, lmax, wp.vec3i(nx, ny, nz))
                         if s > 0.0:
                             vg = blend(s, sig, vg, grid_v1[g])
                     vnew = vnew + w * vg
@@ -74,6 +76,7 @@ def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: 
                   q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
                   near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
               boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
+                clampk: int, gidx: wp.array(dtype=int), pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int), lmax: int,
                   gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
                   adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33), adj_Fnew: wp.array(dtype=wp.mat33),
                   adj_x: wp.array(dtype=wp.vec3), adj_F: wp.array(dtype=wp.mat33), adj_dFc: wp.array(dtype=wp.mat33),
@@ -100,7 +103,8 @@ def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: 
                     g = gid(i, j, k, ny, nz)
                     vg = grid_v[g]
                     if nr != 0:
-                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
+                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk,
+                                   b, gidx, pairtab, pcode, lmax, wp.vec3i(nx, ny, nz))
                         if s > 0.0:
                             vg = blend(s, sig, vg, grid_v1[g])
                     Cnew = Cnew + C0 * w * wp.outer(vg, dgp)
@@ -127,7 +131,8 @@ def k_g2p_adj_gap(x: wp.array(dtype=wp.vec3), F: wp.array(dtype=wp.mat33), dFc: 
                     g = gid(i, j, k, ny, nz)
                     s = float(0.0)
                     if nr != 0:
-                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
+                        s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk,
+                                   b, gidx, pairtab, pcode, lmax, wp.vec3i(nx, ny, nz))
                     vg = grid_v[g]
                     if s > 0.0:
                         vg = blend(s, sig, vg, grid_v1[g])
@@ -153,6 +158,7 @@ def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
                        q: wp.array(dtype=wp.vec3), plane_m: wp.array(dtype=wp.vec3), plane_n: wp.array(dtype=wp.vec3),
                        near: wp.array(dtype=int), sig: float, box0: wp.array(dtype=wp.vec3i), boxd: wp.array(dtype=wp.vec3i),
               boxi: wp.array(dtype=wp.vec3i), boxlab: wp.array(dtype=int), ncell: wp.vec3i, rep: wp.array(dtype=int),
+                clampk: int, gidx: wp.array(dtype=int), pairtab: wp.array(dtype=int), pcode: wp.array(dtype=int), lmax: int,
                        gmin: wp.vec3, dx: float, inv_dx: float, dt: float, nx: int, ny: int, nz: int,
                        adj_v: wp.array(dtype=wp.vec3), adj_C: wp.array(dtype=wp.mat33),
                        adj_Fnew: wp.array(dtype=wp.mat33), adj_x: wp.array(dtype=wp.vec3),
@@ -213,7 +219,8 @@ def k_g2p_adj_gap_warp(order: wp.array(dtype=int), n: int,
                         g = gid(i, j, k, ny, nz)
                         s = float(0.0)
                         if nr != 0:
-                            s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep)
+                            s = side_share(p, g, qp, plane_m, plane_n, sig, box0, boxd, boxi, boxlab, ncell, rep, clampk,
+                                   b, gidx, pairtab, pcode, lmax, wp.vec3i(nx, ny, nz))
                         vg = grid_v[g]
                         if s > 0.0:
                             vg = blend(s, sig, vg, grid_v1[g])

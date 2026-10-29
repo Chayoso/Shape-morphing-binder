@@ -302,7 +302,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
     gap = gap_walls = None
     if cfg.gap_split != "off":                # D148: the target's gaps at the kernel's scale, once a run
         from ..mpm.gap_split import GapPlanes
-        walls = cfg.gap_split == "walls"
+        walls = cfg.gap_split in ("walls", "nearest", "carry")
         gp = GapPlanes(target_x if isinstance(target_x, np.ndarray) else tgt_t.cpu().numpy(), prm.dx, prm.grid_min,
                        (prm.nx, prm.ny, prm.nz), ldx, keep_boxes=walls, margin=int(walls))
         pn = gp.n.copy()
@@ -310,12 +310,19 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
               f"loss cell {ldx:.4f} wu", flush=True)
         if walls:                             # D148c: each node's pieces, the particles' sides by them
             from ..mpm.gap_walls import BoxPieces
-            bp = BoxPieces(gp)
+            bp = BoxPieces(gp, nearest_pieces=cfg.gap_split == "nearest")    # D148d: the nearest piece outside the box
             dev = gpu.DEVICE
             gap_walls = dict(box0=torch.as_tensor(bp.box0, device=dev), boxd=torch.as_tensor(bp.boxd, device=dev),
                              boxi=torch.as_tensor(bp.boxi, device=dev), labels=torch.as_tensor(bp.labels, device=dev),
                              occ=torch.as_tensor(bp.occ, device=dev), nearest=torch.as_tensor(bp.nearest, device=dev),
-                             lo=bp.lo, cell=bp.cell, nc=bp.nc)
+                             lo=bp.lo, cell=bp.cell, nc=bp.nc,
+                             clamp={"walls": 0, "nearest": 1, "carry": 2}[cfg.gap_split])
+            if cfg.gap_split == "carry":         # D148e: the walls carried between overlapping boxes
+                from ..mpm.gap_walls import CarryTables
+                ct = CarryTables(gp)
+                gap_walls.update(gidx=ct.gidx, pairtab=ct.pairtab, pcode=ct.pcode, lmax=ct.lmax)
+                print(f"[gap] carry: {ct.n_pairs} pairs of overlapping gap nodes, {ct.lmax - 1} pieces at most a box",
+                      flush=True)
             print(f"[gap] pieces: {bp.n_nodes} gap nodes with their boxes' pieces (joined through the one-cell ring)",
                   flush=True)
         gap = (torch.as_tensor(gp.m, device=gpu.DEVICE), torch.as_tensor(pn, device=gpu.DEVICE))

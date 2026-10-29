@@ -133,7 +133,8 @@ def parse_args(argv=None):
                     help="D146 (the re-freeze's default): the layer relaxation acts in the T driven steps only, the steps "
                          "u acts in, so the released half has no position edit; --no-relax_driven = every step of the "
                          "window, the path of freeze-2026-10-09b")
-    ap.add_argument("--gap_split", default="off", choices=["off", "on", "interface", "soft", "fine", "walls"],
+    ap.add_argument("--gap_split", default="off", choices=["off", "on", "interface", "soft", "fine", "walls", "nearest",
+                                                          "carry"],
                     help="D148 A/B: the two sides of a target gap on their own grid fields (mpm/gap_kernels.py); on = at "
                          "every gap node (variant A), interface = where the node's particle volume is below one cell "
                          "(variant B); off (the default) = the single field, the frozen path")
@@ -325,7 +326,7 @@ def run_config(args, cfg0, prep):
                               u_off=args.u_off, relax_driven=args.relax_driven,
                               gap_split=args.gap_split,
                               gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
-                                      if args.gap_split in ("interface", "walls") else 0.0),
+                                      if args.gap_split in ("interface", "walls", "nearest", "carry") else 0.0),
                               u_adam_carry=args.u_adam_carry,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,

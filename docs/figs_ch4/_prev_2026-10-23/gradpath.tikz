@@ -1,0 +1,125 @@
+% Chapter 4: how the render reaches the controls (FIGS_V2, 2026-10-23; label ch4:fig_gradpath; style of the user's PPT
+% figure fig_controls_ppt.png: flat greys, blue accent, black cameras, dashed target). Left: the render loss draws the
+% body's own exterior discs from several views and compares them with the target pictures. Right: the gradient path,
+% render loss -> discs -> particles (through the field) -> PCGrad with the physics gradient, the render scaled by lambda
+% (its authority) -> the two controls: u (outer-layer normal offset, below the grid: carves the surface) and dF_c
+% (stress increment through the grid, the adjoint over the driven steps: reshapes the body).
+% Include with  \resizebox{\textwidth}{!}{\input{figs/ch4/gradpath.tikz}}  (needs tikz, amsmath, arrows.meta);
+% the text takes the document font (Times). Drawn at 16.5 cm. Schematic, not data.
+\begin{tikzpicture}[
+  font=\fontsize{8}{9.6}\selectfont,
+  body/.style={fill=black!10},
+  pin/.style={fill=black!40},
+  outer/.style={fill=blue!65!black, draw=black!80, line width=0.4pt},
+  target/.style={draw=black, line width=0.8pt, dash pattern=on 3.2pt off 2.2pt},
+  band/.style={draw=blue!55!black!70, line width=7pt, opacity=0.30, line cap=round},
+  uarr/.style={-{Stealth[length=1.6mm,width=1.3mm]}, draw=blue!70!black, line width=0.9pt},
+  ray/.style={draw=black!55, line width=0.45pt, dash pattern=on 0.6pt off 1.6pt},
+  box/.style={draw, rounded corners=3pt, align=center, inner sep=3.5pt, line width=0.7pt, minimum height=0.95cm},
+  rg/.style={-{Stealth[length=2.6mm,width=2mm]}, draw=orange!85!black, line width=1.4pt},
+  pg/.style={-{Stealth[length=2.6mm,width=2mm]}, draw=black!55, line width=1.4pt},
+  cg/.style={-{Stealth[length=2.6mm,width=2mm]}, draw=black!85, line width=1.4pt},
+  ttl/.style={font=\fontsize{9.4}{11}\selectfont\bfseries},
+  small/.style={font=\fontsize{7.2}{8.4}\selectfont, align=center},
+  camera/.pic={
+    \fill[black, rounded corners=1.2pt] (-0.34,-0.22) rectangle (0.34,0.24);
+    \fill[black] (0.08,0.22) rectangle (0.26,0.33);
+    \fill[white] (0,0.01) circle (0.11);
+    \draw[black, fill=white, line width=0.5pt] (-0.14,-0.22) -- (0.14,-0.22) -- (0.2,-0.36) -- (-0.2,-0.36) -- cycle;
+  },
+]
+% ================================================================================== (a) the render loss on the exterior
+\node[ttl, anchor=west] at (0.0,7.55) {(a) The render loss reads the exterior};
+% legend
+\draw[target] (0.1,6.95) -- (0.7,6.95);  \node[small, anchor=west] at (0.75,6.95) {target surface};
+\draw[band, line width=5pt] (2.55,6.95) -- (2.95,6.95);  \node[small, anchor=west] at (3.1,6.95) {surface discs};
+\draw[uarr] (4.65,6.95) -- (5.1,6.95);  \node[small, anchor=west] at (5.12,6.95) {$u_p\mathbf{n}_p$};
+% body
+\fill[body] (0.2,0.35) -- (0.2,0.6) arc[start angle=180, end angle=0, x radius=2.8, y radius=2.4] -- (5.8,0.35) -- cycle;
+\foreach \ii in {0,...,21} {\foreach \jj in {0,...,9} {
+  \pgfmathsetmacro\px{0.42+0.25*\ii}
+  \pgfmathsetmacro\py{0.55+0.25*\jj}
+  \pgfmathsetmacro\inside{((\px-3)/2.55)^2+((\py-0.6)/2.12)^2 < 1 ? 1 : 0}
+  \ifnum\inside=1 \fill[pin] (\px,\py) circle (0.03); \fi
+}}
+\draw[black!70, line width=0.7pt] (0.2,0.6) arc[start angle=180, end angle=0, x radius=2.8, y radius=2.4];
+% discs, target, outer layer and its offsets
+\draw[band] (0.25,0.75) arc[start angle=176, end angle=4, x radius=2.8, y radius=2.4];
+\draw[target] plot[domain=6:174, samples=220, variable=\t]
+  ({3+(2.8+0.28+0.16*sin(7*\t))*cos(\t)}, {0.6+(2.4+0.28+0.16*sin(7*\t))*sin(\t)});
+\foreach \t in {12,20,...,172} {
+  \pgfmathsetmacro\nx{cos(\t)/2.8}  \pgfmathsetmacro\ny{sin(\t)/2.4}
+  \pgfmathsetmacro\nn{sqrt(\nx*\nx+\ny*\ny)}
+  \pgfmathsetmacro\ox{3+2.72*cos(\t)}  \pgfmathsetmacro\oy{0.6+2.33*sin(\t)}
+  \pgfmathsetmacro\ul{0.30+0.16*sin(7*\t)}
+  \draw[uarr] (\ox,\oy) -- ++({\ul*\nx/\nn},{\ul*\ny/\nn});
+  \fill[outer] (\ox,\oy) circle (0.065);
+}
+% cameras and rays
+\foreach \cx/\cy/\a/\b in {1.05/4.35/1.2/2.55, 3.0/4.7/2.6/3.4, 4.95/4.35/4.6/5.1} {
+  \draw[ray] (\cx,\cy-0.36) -- (\a,{0.6+2.4*sqrt(max(0,1-((\a-3)/2.8)^2))+0.05});
+  \draw[ray] (\cx,\cy-0.36) -- (\b,{0.6+2.4*sqrt(max(0,1-((\b-3)/2.8)^2))+0.05});
+  \pic at (\cx,\cy) {camera};
+}
+\node[small] at (3.0,5.45) {the body's exterior, drawn from 18 views};
+% ================================================================================== (b) the gradient path
+\node[ttl, anchor=west] at (6.65,7.55) {(b) The gradient path to the two controls};
+\node[small, anchor=west] at (6.7,6.98) {\textcolor{orange!85!black}{$\boldsymbol{\longleftarrow}$}\ render gradient\quad
+  \textcolor{black!55}{$\boldsymbol{\longleftarrow}$}\ physics gradient\quad $\boldsymbol{\longleftarrow}$\ combined};
+% the render branch
+\node[box, draw=orange!80!black, fill=orange!8, text width=2.55cm] (R) at (8.25,6.05)
+  {$\mathcal{L}_{\mathrm{render}}$\\[-1pt]{\fontsize{7.2}{8.4}\selectfont silhouette + shading vs.\ target pictures}};
+\node[box, draw=blue!55!black, fill=blue!6, text width=2.15cm] (D) at (11.25,6.05)
+  {surface discs\\[-1pt]{\fontsize{7.2}{8.4}\selectfont positions, normals}};
+\node[box, draw=black!60, fill=black!4, text width=2.45cm] (P) at (14.45,6.05)
+  {particles $\mathbf{x}_p$\\[-1pt]{\fontsize{7.2}{8.4}\selectfont through the exterior field}};
+\draw[rg] (R) -- (D);
+\draw[rg] (D) -- (P);
+\draw[rg] (5.55,4.55) to[out=20, in=200] (R.west);
+% the physics branch and the combination
+\node[box, draw=black!55, fill=black!6, text width=2.55cm] (Ph) at (8.25,4.15)
+  {$\mathcal{L}_{\mathrm{phys}}$\\[-1pt]{\fontsize{7.2}{8.4}\selectfont transport to the target volume}};
+\node[draw=black!85, circle, fill=white, line width=0.9pt, minimum size=1.25cm, inner sep=0pt] (C) at (12.35,4.15)
+  {\fontsize{8.5}{9}\selectfont PCGrad};
+\draw[pg] (Ph) -- (C);
+\draw[rg] (P.south) |- (C.east);
+% the lambda knob on the render branch
+\begin{scope}[shift={(14.45,4.95)}]
+  \fill[white] (0,0) circle (0.26); \draw[black!80, line width=0.7pt] (0,0) circle (0.26);
+  \foreach \k in {-120,-60,0,60,120} \draw[black!60, line width=0.4pt] ({90+\k}:0.30) -- ({90+\k}:0.36);
+  \draw[orange!85!black, line width=1.2pt] (0,0) -- (55:0.24);
+  \node[small, anchor=west] at (0.4,0.02) {$\lambda$: the render's\\authority};
+\end{scope}
+% the two controls
+\node[box, draw=black!75, fill=black!8, text width=3.6cm] (F) at (9.25,2.3)
+  {$\delta\mathbf{F}_c$: through the grid\\[-1pt]{\fontsize{7.2}{8.4}\selectfont adjoint over the $T$ driven steps}};
+\node[box, draw=blue!65!black, fill=blue!8, text width=3.1cm] (U) at (14.45,2.3)
+  {$u_p$: outer-layer offset\\[-1pt]{\fontsize{7.2}{8.4}\selectfont along the normal, below the grid}};
+\draw[cg] (C.south) to[out=-90, in=0] (F.east);
+\draw[cg, draw=blue!70!black] (C.east) ++(0.02,-0.15) to[out=-20, in=90] (U.north);
+% the adjoint's grid icons under dF_c
+\begin{scope}[shift={(6.85,0.55)}, scale=0.5]
+  \foreach \g/\lab in {0/P2G, 2.0/grid, 4.0/G2P} {
+    \fill[blue!8] (\g,0) rectangle (\g+1.2,1.2);
+    \draw[black!35, line width=0.3pt, step=0.4] (\g,0) grid (\g+1.2,1.2);
+    \node[small, font=\fontsize{6.4}{7}\selectfont] at (\g+0.6,-0.32) {\lab};
+  }
+  \foreach \x/\y in {0.3/0.5, 0.7/0.8, 0.9/0.4, 4.3/0.6, 4.75/0.85, 4.9/0.35} \fill[black!80] (\x,\y) circle (0.06);
+  \foreach \x/\y in {2.4/0.4, 2.8/0.8, 2.4/0.8, 2.8/0.4} \fill[red!70!black] (\x,\y) circle (0.06);
+  \draw[-{Stealth[length=1.2mm]}, black!70, line width=0.5pt] (1.3,0.6) -- (1.9,0.6);
+  \draw[-{Stealth[length=1.2mm]}, black!70, line width=0.5pt] (3.3,0.6) -- (3.9,0.6);
+\end{scope}
+% what each control changes
+\node[small, anchor=west, text width=3.0cm, align=left] at (10.0,0.85)
+  {\textbf{reshapes the body}\\at cell scale};
+\draw[-{Stealth[length=2mm]}, black!70, line width=0.8pt] (F.south) ++(0.9,0) -- (10.05,1.2);
+\begin{scope}[shift={(12.5,0.45)}]
+  \fill[black!10] (0,0) rectangle (1.6,0.55);
+  \draw[black!75, line width=0.6pt] plot[domain=0:1.6, samples=60] (\x,{0.55+0.09*sin(720*\x/1.6*2)});
+\end{scope}
+\node[small, anchor=west, text width=2.4cm, align=left] at (14.2,0.95)
+  {\textbf{carves the surface}\\relief, letters};
+\node[small, anchor=west, text width=2.4cm, align=left, font=\fontsize{6.6}{7.6}\selectfont\itshape] at (14.2,0.35)
+  {coin letters: ${\approx}\,2/3$\\written through $u$};
+\draw[-{Stealth[length=2mm]}, blue!70!black, line width=0.8pt] (U.south) -- ++(0,-0.6);
+\end{tikzpicture}

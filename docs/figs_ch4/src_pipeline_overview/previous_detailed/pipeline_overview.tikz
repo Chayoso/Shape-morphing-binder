@@ -1,0 +1,69 @@
+% Chapter 4 pipeline overview (TikZ). Included by Chapter4.tex / Chapter4_ko.tex with
+%   \resizebox{\textwidth}{!}{\input{figs/ch4/pipeline_overview.tikz}}
+% Needs \usepackage{tikz} and \usetikzlibrary{positioning,arrows.meta,fit,calc} (standard TikZ libraries), loaded
+% once outside any group: the chapter files do it at their top; the dissertation preamble is the better place.
+% The same diagram, hand-written, is pipeline_overview.svg in this folder: keep the two in sync.
+% Coordinates are in cm. Colours: blue = simulation, orange = physics and cleanup terms, green = render term,
+% grey = gradient and step, plain = input / commit / output.
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw=black!55, rounded corners=2pt, align=center, inner sep=3pt, line width=0.5pt,
+    execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}},
+  group/.style={draw=black!40, dashed, rounded corners=4pt, inner sep=6pt, line width=0.5pt},
+  flow/.style={-{Latex[length=2.2mm]}, line width=0.7pt, draw=black!70},
+  note/.style={font=\scriptsize, text=black!70, align=center},
+]
+% ---------------------------------------------------------------- inputs
+\node[box, text width=3.0cm] (src) at (1.6,1.35)
+  {\textbf{Source}\\ sphere sampled with $N$ particles, fill volume matched to the target's};
+\node[box, text width=3.9cm] (tgt) at (13.8,4.75)
+  {\textbf{Target}\\ mesh $\rightarrow$ volume sample ($N$ points) and eight further samples for the pictures};
+
+% ---------------------------------------------------------------- one window of the simulation
+\node[box, fill=blue!7, text width=2.8cm] (drv) at (6.0,2.35)
+  {\textbf{Driven half}\\ $T = 20$ steps\\ controls $\delta\mathbf{F}_c$ and $u$ act;\\ outer-layer relaxation};
+\node[box, fill=blue!7, text width=2.8cm] (rel) at (9.3,2.35)
+  {\textbf{Released half}\\ $T = 20$ steps\\ controls set to zero;\\ the physics keeps running};
+\node[box, fill=white, text width=6.3cm] (stp) at (7.65,0.45)
+  {every step: P2G with the stress $\boldsymbol{\tau}(\mathbf{F}+\delta\mathbf{F}_c)$
+   $\rightarrow$ grid update $\rightarrow$ G2P $\rightarrow$ position update (minimum spacing,
+   outer-layer projection with $u$) $\rightarrow$ $\mathbf{F}$ and $J$ carried};
+\draw[flow] (drv) -- (rel);
+\node[group, fit=(drv) (rel) (stp)] (win) {};
+\node[note, anchor=south] at (win.north) {one window ($2T$ steps, $1/6$\,s) of differentiable MLS-MPM};
+
+% ---------------------------------------------------------------- the objective on the released end state
+\node[box, fill=orange!9, text width=3.9cm] (phy) at (13.8,2.85)
+  {\textbf{Physics core}: Sinkhorn transport $S_\varepsilon$, surface proximity, end drift; released motion};
+\node[box, fill=orange!9, text width=3.9cm] (cln) at (13.8,1.55)
+  {\textbf{Cleanup}: spray pull ($W_1$), near band};
+\node[box, fill=green!9, text width=3.9cm] (ren) at (13.8,0.25)
+  {\textbf{Render}: exterior field $\rightarrow$ surface discs $\rightarrow$ silhouette and shading, 18 views};
+\node[group, fit=(phy) (cln) (ren)] (obj) {};
+\node[note, anchor=north] at (obj.south) {objective on the released end state};
+\draw[flow] (tgt) -- (obj.north);
+\draw[flow] (rel.east) -- node[note, above, pos=0.62] {$\mathbf{x}_{2T}$, $\mathbf{v}$} (obj.west |- rel.east);
+\draw[flow] (src.east) -- (win.west |- src.east);
+
+% ---------------------------------------------------------------- gradient and step
+\node[box, fill=black!6, text width=3.9cm] (adj) at (13.8,-2.45)
+  {adjoint through the $2T$ steps:\\ $\mathbf{g}_{\mathrm{phys}}$, $\mathbf{g}_{\mathrm{render}}$, $\mathbf{g}_{\mathrm{clean}}$};
+\node[box, fill=black!6, text width=4.1cm] (bal) at (9.35,-2.45)
+  {PCGrad on $\mathbf{g}_{\mathrm{render}}$; weight $\lambda$ with
+   $\lambda\,\|\mathbf{g}_{\mathrm{render}}\| = \tfrac12\,\|\mathbf{g}_{\mathrm{phys}}\|$};
+\node[box, fill=black!6, text width=3.4cm] (opt) at (4.9,-2.45)
+  {Adam step with a backtracking line search; $\delta\mathbf{F}_c$ capped, $u$ free of rigid modes};
+\draw[flow] ($(obj.south)+(0,-0.35)$) -- (adj.north);
+\draw[flow] (adj) -- (bal);
+\draw[flow] (bal) -- (opt);
+\draw[flow] (opt.north) -- node[note, right, pos=0.5] {new controls} (opt.north |- win.south);
+
+% ---------------------------------------------------------------- commit and output
+\node[box, text width=4.9cm] (com) at (4.9,-4.55)
+  {\textbf{Commit} after the window's iterations: plastic assimilation of $\mathbf{F}_p$; selection merit, accept or reject; stop rule};
+\node[box, text width=3.9cm] (out) at (13.8,-4.55)
+  {\textbf{Output}: the committed trajectory, displayed as surface discs of the corrected field};
+\draw[flow] (opt) -- (com);
+\draw[flow] (com) -- (out);
+\draw[flow] (com.west) -- ++(-0.6,0) |- node[note, above, pos=0.75] {next window} ($(win.south west)+(0,0.5)$);
+\end{tikzpicture}

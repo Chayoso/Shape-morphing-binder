@@ -3,6 +3,7 @@
 videos' renderer (studio look, 3840 x 2160): a run's kept frames (frames12, tmp/frames12.py) drawn as the base display
 (+fit=0) or with D115's display-only detail layer (+fit=1 +steps=15 +carry=h +decay=1), frames in OUT_DIR/frames/NNNN.jpg
 (NNNN the kept frame's index, 20 per second); join them with ffmpeg -framerate 20.
++viz=A,B,C,D,U hands the call to scripts/render_gradient_viz.py (the render gradient's videos, RGV; off by default).
 
 The display's field: +field=zb, Zhu and Bridson's (the field the simulation, the loss and the metrics read), or
 +field=zbs, the same with Solenthaler et al.'s correction (D144: adopted for the images only; it differs from zb only in
@@ -54,6 +55,10 @@ argv = [s for s in sys.argv if not s.startswith("+")]
 if opts.get("scene") == "1":                                 # the two-body scene (D147): scripts/render_scene.py
     from scripts.render_scene import main as _scene_main
     _scene_main()
+    sys.exit(0)
+if opts.get("viz"):                                          # the render gradient's videos (RGV, off by default):
+    from scripts.render_gradient_viz import main as _viz_main   # scripts/render_gradient_viz.py
+    _viz_main()
     sys.exit(0)
 CARRY_H = opts.get("carry", "v") == "h"
 FIT_UNTIL = float(opts.get("fit_until", 1.0))                # diagnostic: fit only over this share of the frames

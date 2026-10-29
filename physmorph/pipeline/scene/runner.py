@@ -51,9 +51,11 @@ def cross_gap(x, bodies) -> dict:
 
 
 def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, windows: int, mu: float, log=print,
-              F_stride: int | None = None, assim_free: bool = True) -> dict:
+              F_stride: int | None = None, assim_free: bool = True, schedule=None) -> dict:
     """bodies: scene/window.Body per body (rows, the frame's reference, its built and calibrated TargetPack, the sample's
-    volume per particle, the dynamics mass); x0, v0: the launch state in body order (CUDA tensors)."""
+    volume per particle, the dynamics mass); x0, v0: the launch state in body order (CUDA tensors); schedule:
+    scene/schedule.MorphSchedule (each window's target on the way, by the window's end time) or None (the final target
+    from the start)."""
     gpu.require_cuda()
     N = x0.shape[0]
     tgt = SceneTarget(bodies, mu)
@@ -70,6 +72,7 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
     log(f"[scene] {len(bodies)} bodies, N={N} ({', '.join(str(bd.n) for bd in bodies)}), {windows} windows, "
         f"grid {prm.nx}x{prm.ny}x{prm.nz}, g={-prm.f_ext[1]:.4g}, floor {prm.floor_y:.3f}, mu {mu:g}")
     for a in range(windows):
+        s = None if schedule is None else schedule.apply(bodies, (a + 1) * 2 * cfg.T * prm.dt)
         bonds = []
         with timed("frag_bonds"):
             for b, bd in enumerate(bodies):
@@ -116,7 +119,7 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
                    "contact_impulse": impulse, **(cross_gap(x, bodies) if len(bodies) == 2 else {}), **counts,
                    "lambda": res.hist[-1]["lambda"] if res.hist else opt.lam_r, "loss": stats.get("commit_E_final"),
                    "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj, **device_memory(),
-                   **{k: stats.get(k) for k in _STATS}}
+                   **{k: stats.get(k) for k in _STATS}, "morph_s": s}
         res.commit = commit = None
         hist.append(rec)
         P = [sum(bp["P"][k] for bp in per) for k in range(3)]

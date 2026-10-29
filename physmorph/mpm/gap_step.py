@@ -1,7 +1,7 @@
 """The split step's Python (D148, `--gap_split`): the arrays a Trajectory carries for it, its deposit, grid operation
 and G2P per step with their hand adjoints on a hand tape (generated ones otherwise), and the record of the split.
 
-gap = (plane_m (ngrid, 3), plane_n (ngrid, 3), q (N, 3) or None, vp[, sig]): the target's gap planes (gap_split.py),
+gap = (plane_m (ngrid, 3), plane_n (ngrid, 3), q (N, 3) or None, vp[, sig[, pieces]]): the target's gap planes (gap_split.py),
 the particles' side points, vp = 0 for variant A (vp > 0: variant B, the node volume's particle volume), sig = 0 for
 hard sides (sig > 0: soft sides, D148c). near (one int a node): 1 where a gap node lies in the 4^3 stencil of a particle
 whose base node it is; the particles without one skip the split's kernels (an exact speed-up: their shares are 0).
@@ -41,7 +41,8 @@ def attach(tr, gap, A, Z, n_grid: int, rg: bool):
     tr.gap_q = A(q, wp.vec3) if q is not None else Z(wp.vec3)
     tr.gap_vp = float(vp)
     tr.gap_sig = float(gap[4]) if len(gap) > 4 else 0.0
-    pieces = gap[5] if len(gap) > 5 else None         # D148c: (box0, boxd, boxi, labels, nc, rep) of gap_walls.py
+    pieces = gap[5] if len(gap) > 5 else None         # D148c: (box0, boxd, boxi, labels, nc, rep[, clamp[, carry]]) of gap_walls.py
+    tr.gap_clamp = int(pieces[6]) if pieces is not None and len(pieces) > 6 else 0     # D148d: the nearest piece
 
     def ints(a, vec):
         t = torch.as_tensor(np.asarray(a) if isinstance(a, np.ndarray) else a, device=str(dev)).int()
@@ -53,11 +54,19 @@ def attach(tr, gap, A, Z, n_grid: int, rg: bool):
         tr.gap_boxi = wp.full(prm.ngrid, wp.vec3i(-1, -1, -1), dtype=wp.vec3i, device=dev)
         tr.gap_boxlab, tr.gap_ncell = wp.zeros(1, dtype=wp.int32, device=dev), wp.vec3i(1, 1, 1)
     else:
-        box0, boxd, boxi, labels, nc, rep = pieces
+        box0, boxd, boxi, labels, nc, rep = pieces[:6]
         tr.gap_box0, tr.gap_boxd, tr.gap_boxi = ints(box0, True), ints(boxd, True), ints(boxi, True)
         tr.gap_boxlab, tr.gap_ncell = ints(labels, False), wp.vec3i(*[int(v) for v in nc])
         if rep is not None:
             wp.to_torch(tr.gap_rep).copy_(torch.as_tensor(rep, device=str(dev)).int())
+    carry = pieces[7:11] if pieces is not None and len(pieces) > 10 else None   # D148e: CarryTables' arrays, lmax
+    if carry is None:
+        tr.gap_gidx = tr.gap_pairtab = tr.gap_pcode = wp.full(1, -1, dtype=wp.int32, device=dev)
+        tr.gap_lmax = 0
+    else:
+        tr.gap_gidx, tr.gap_pairtab, tr.gap_pcode = (ints(carry[0], False), ints(carry[1], False),
+                                                      ints(carry[2], False))
+        tr.gap_lmax = int(carry[3])
     g1 = [wp.zeros(prm.ngrid, dtype=wp.float32, device=dev, requires_grad=rg) for _ in range(n_grid)]
     p1 = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=dev, requires_grad=rg) for _ in range(n_grid)]
     v1 = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=dev, requires_grad=rg) for _ in range(n_grid)]
@@ -86,7 +95,8 @@ def p2g_side1(tr, t: int, dfc, bnb, bnc, bK: int, tape=None):
         tr.gmom1[t].zero_()
     x, v, C, F, P, gm1, gp1 = tr.x[t], tr.v[t], tr.C[t], tr.F[t], tr.P[t], tr.gm1[t], tr.gmom1[t]
     head = [x, v, C, F, dfc, P, tr.m, tr.vol, bnb, bnc, bK, tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig,
-            tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab, tr.gap_ncell, tr.gap_rep]
+            tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab, tr.gap_ncell, tr.gap_rep, tr.gap_clamp,
+            tr.gap_gidx, tr.gap_pairtab, tr.gap_pcode, tr.gap_lmax]
     wp.launch(GKK.k_p2g_side1, dim=tr.N, inputs=head + [gm1, gp1, gmin, dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny,
                                                         prm.nz], device=dev, record_tape=tape is None)
     if tape is None:
@@ -113,6 +123,13 @@ def grid_op(tr, t: int):
         J = tr.J[t] if tr.carries else tr.gap_ones
         wp.launch(k_node_volume, dim=tr.N, inputs=[tr.x[t], J, tr.gap_vp, gv, wp.vec3(*p.grid_min), p.dx, 1.0 / p.dx,
                                                    p.nx, p.ny, p.nz], device=dev, record_tape=False)
+        if tr.gap_clamp == 2:                           # D148e: the nodes with an uncertain wall whole for the step
+            wp.launch(GKK.k_gap_uncertain, dim=tr.N, inputs=[tr.x[t], tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig,
+                                                            tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab,
+                                                            tr.gap_ncell, tr.gap_rep, tr.gap_clamp, tr.gap_gidx,
+                                                            tr.gap_pairtab, tr.gap_pcode, tr.gap_lmax, gv,
+                                                            wp.vec3(*p.grid_min), 1.0 / p.dx, p.nx, p.ny, p.nz],
+                      device=dev, record_tape=False)
     tr.gap_stats[t].zero_()
     wp.launch(GKK.k_grid_op_gap, dim=p.ngrid, inputs=[tr.gm[t], tr.gmom[t], tr.gm1[t], tr.gmom1[t], tr.gap_n, gv,
                                                       int(tr.gap_vp > 0), tr.gvel[t], tr.gvel1[t], p.dt,
@@ -128,7 +145,7 @@ def g2p(tr, t: int, dfc, tape):
     gmin, dx, inv_dx = _geo(tr)
     x, F, gv, gv1, v1, C1, Fn = tr.x[t], tr.F[t], tr.gvel[t], tr.gvel1[t], tr.v[t + 1], tr.C[t + 1], tr.Fraw[t + 1]
     sides = [tr.gap_q, tr.gap_m, tr.gap_n, tr.gap_near, tr.gap_sig, tr.gap_box0, tr.gap_boxd, tr.gap_boxi, tr.gap_boxlab,
-             tr.gap_ncell, tr.gap_rep]
+             tr.gap_ncell, tr.gap_rep, tr.gap_clamp, tr.gap_gidx, tr.gap_pairtab, tr.gap_pcode, tr.gap_lmax]
     wp.launch(GG.k_g2p_gap, dim=N, inputs=[x, v1, C1, F, dfc, Fn, gv, gv1] + sides + [gmin, dx, inv_dx, prm.dt, prm.nx,
                                                                                     prm.ny, prm.nz],
               device=dev, record_tape=tape is None)
