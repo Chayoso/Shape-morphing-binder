@@ -26,6 +26,28 @@ Then tmp/d175/PREREG.md (arms, metrics, bars; written 11:15 CDT before any run).
     output/gpu/D175_SUMMARY.md.
 - Status log: output/gpu/d175/status.txt.
 
+## State 2026-10-29 12:00 CDT: DONE, verdict FAIL (nothing queued, nothing running)
+- Gate PASS:
+  - G1-G4 bit-SAME, so the defaults, Hu, Hu on the coin, and the settle through the shared hold() are all unchanged;
+  - 5 unit tests pass;
+  - K1-K3 + kf_check pass: the segment ends at frames 40 / 80 / 120, the segment merit = soundness + held render (residual
+    ≤ 5e-10), one held λ, epoch 1 on the final target.
+- 208 FAIL on P1 only:
+  - the 3D IoU gain over the twin is +0.058 / +0.060 (bar +0.10);
+  - S99's G on the run views is 0.578 (bar 0.6);
+  - P2 and P3 pass on both seeds;
+  - KF-IoU: S 0.926 / 0.918, twin 0.805, D 0.689 / 0.691, N 0.777.
+- Cause, measured:
+  - the silhouette is met by ~1.5 % of the particles pulled to the poles; the bulk did not stretch (aspect 1.06 / 1.07, against
+    the keyframe's 1.48);
+  - 86-89 % of the render's position pull lands on the outermost pitch (forensic_pull.md, job 208_dump);
+  - S99 also lost 2 of 6 segment windows to commit_replay nulls (committed as holds).
+- No showcase: it is gated on a pass. 209_d175_show300.sh, post_show.sh, make_kf_letter.py and d175_video.py are ready but
+  not queued.
+- Next measurement: see output/gpu/D175_SUMMARY.md, "Reading": (a) the blurred comparison's position pull on S97's dumps;
+  (b) the S99 replay split.
+- Disk: output/gpu/d175 is 0.7 GB.
+
 ## Resume
 - A failed run: delete its .rc and re-queue the job (finished runs skip; the gate skips once gates/V3.done exists — delete
   it to re-gate).

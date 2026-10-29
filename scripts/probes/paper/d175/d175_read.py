@@ -13,7 +13,9 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import torch
+sys.path.insert(0, str(Path.cwd()))
+import physmorph  # noqa: E402,F401  (before torch: CuPy's CUDA 12 compiler loads first)
+import torch  # noqa: E402
 
 sys.path.insert(0, str(Path.cwd()))
 from scipy.sparse import coo_matrix  # noqa: E402
