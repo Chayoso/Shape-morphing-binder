@@ -26,6 +26,8 @@ Then tmp/d175/PREREG.md (arms, metrics, bars; written 11:15 CDT before any run).
     output/gpu/D175_SUMMARY.md.
 - Status log: output/gpu/d175/status.txt.
 
+## State 2026-10-29 13:50 CDT: D175d (PREREG_d, D175b + the segment replay measure, e45e6fb4, gate f PASS) FAIL: W99 PASS every bar; W97 passes P1 (3D +0.173, KF 0.952, aspect 1.37) and P2 but P3 fails on one 10-12-particle ear-tip piece in the final epoch (frames 612-840). Render share in the segment dF_c 0.56-0.58 / u 0.999; after t_k dF_c 0.24 / u 0.95-0.96. Showcase NOT queued (needs both seeds). Next: frame-by-frame forensics of the ear-tip piece. Nothing queued or running.
+
 ## State 2026-10-29 13:35 CDT: (1) line-search split (auto/200_ls/ls.md): every later segment step brakes (soundness), all 156 failed trials = count rises; (2) the segment replay check now reads D164's measure (keyframe segments only, gate d SAME): 18/18 kept; D175c (--keyframe_soundness final, PREREG_c.md, 20ad30f8, gate e PASS) FAIL: the pose reaches 1.48 at frame 120 then overshoots to 2.19 because the selection's 5 % brake rejects the braking windows 4-6 and the clock commits a zero-control coast. Next: in a segment, an outer reject compares against the window's own hold (not run). Nothing queued or running.
 
 ## State 2026-10-29 12:55 CDT: segment reading done (forensic/seg/seg_read.md: the hole term, met by pole spikes at 30 % of the keyframe mass, carries the pull; exterior steps flip at windows 2/4); D175b (--keyframe_compare column, PREREG_b.md, code 426cc075, gate c PASS) FAIL: X99 PASS all bars (aspect 1.31, 3D +0.148), X97 P1 fail (3 of 6 segment windows lost: 1 commit_replay, 2 ls_exhausted; 3D +0.095). Next: the rejected trials of X97 windows 3/5 split by term. Nothing queued or running.
