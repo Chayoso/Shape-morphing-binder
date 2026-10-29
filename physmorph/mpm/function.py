@@ -237,8 +237,13 @@ class PersistentAdjoint:
         _release_idle_cuda_cache(dev)
         self.N, self.T, self.dev = N, T, dev
         self.cuda = str(dev).startswith("cuda")
-        self.dc = torch.zeros(T, N, 3, 3, device=dev)
-        self.dc_wp = [wp.from_torch(self.dc[t], dtype=wp.mat33, requires_grad=True) for t in range(T)]
+        # D174 (exact, memory): the released steps read the trajectory's release_dFc, never their entries of the control
+        # sequence, so only the driven steps have a buffer and a gradient; the released entries are one placeholder no kernel
+        # reads (apply takes the driven control, or the expanded one as before)
+        self.Tc = Tc = T if spec.control_steps is None else int(spec.control_steps)
+        self.dc = torch.zeros(Tc, N, 3, 3, device=dev)
+        self.dc_wp = [wp.from_torch(self.dc[t], dtype=wp.mat33, requires_grad=True) for t in range(Tc)]
+        dc_seq = self.dc_wp + [wp.zeros(N, dtype=wp.mat33, device=dev)] * (T - Tc)
         bonds = ((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None)
         # position-mode control leaf buffer (§7): a persistent (N,) tensor the bridge copies into
         self.u = torch.zeros(N, device=dev)
@@ -252,7 +257,7 @@ class PersistentAdjoint:
             self.f_wp = [wp.from_torch(self.f[t], dtype=wp.vec3, requires_grad=True) for t in range(Tc)]
             force = (self.f_wp, *spec.force)
         self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
-                               Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp,
+                               Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dc_seq,
                                device=dev, requires_grad=True, vol0=spec.vol0,
                                Fg0=spec.Fg0, track_geom=spec.track_geom, bonds=bonds, persistent=True,
                                layer=spec.layer, layer_u=self.u_wp, bond_history=spec.bond_history,
@@ -332,8 +337,9 @@ class _WarpMPMPersistent(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, dFc_t: torch.Tensor, u_t, adj: PersistentAdjoint, f_t=None):
-        N, T = adj.N, adj.T
-        adj.dc.copy_(dFc_t.detach().reshape(T, N, 3, 3))
+        N, T, Tc = adj.N, adj.T, adj.Tc
+        ctx.full = dFc_t.shape[0] == T and Tc < T     # the expanded control (its released half is never read)
+        adj.dc.copy_(dFc_t.detach()[:Tc].reshape(Tc, N, 3, 3))
         if adj.u_wp is not None:
             adj.u.copy_(u_t.detach() if u_t is not None else torch.zeros(N, device=adj.u.device))
         ctx.u_req = u_t is not None and u_t.requires_grad and adj.u_wp is not None
@@ -372,7 +378,9 @@ class _WarpMPMPersistent(torch.autograd.Function):
             adj.backward()
             g = None
             if ctx.needs_input_grad[0]:            # (B13 holds dFc at zero without a gradient)
-                g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3) for d in adj.dc_wp]).reshape(T, N, 3, 3)
+                g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3) for d in adj.dc_wp]).reshape(adj.Tc, N, 3, 3)
+                if ctx.full:                       # the released steps' entries: never read, zero (as their grads were)
+                    g = torch.cat((g, torch.zeros(T - adj.Tc, N, 3, 3, device=g.device, dtype=g.dtype)))
             g_u = wp.to_torch(adj.u_wp.grad).clone() if ctx.u_req else None
             g_f = torch.stack([wp.to_torch(d.grad) for d in adj.f_wp]) if ctx.f_req else None
         return g, g_u, None, g_f

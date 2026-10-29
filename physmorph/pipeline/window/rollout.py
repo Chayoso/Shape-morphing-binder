@@ -76,11 +76,11 @@ def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor
         from ..scene import rollout as SR
         return SR.graph_terms(win, obj, leaf, u)
     if getattr(win, "force", None):
-        dfc = win.dc_buf if dfc_leaf is None else win.expand(dfc_leaf)
+        dfc = win.dc_buf if dfc_leaf is None else dfc_leaf         # D174: the driven control (the released half is zero)
         with timed("mpm_tape"):
             xT, FT, vT, _, V = win.adjoint().apply(dfc, u, leaf)
         return _evaluate(obj, xT, FT, vT, dfc, V)
-    dfc = win.expand(leaf)
+    dfc = leaf                     # D174 (exact, memory): the driven control; the tape's released steps read zero
     with timed("mpm_tape"):
         xT, FT, vT, _, V = win.adjoint().apply(dfc, u)
     return _evaluate(obj, xT, FT, vT, dfc, V)
@@ -91,13 +91,15 @@ def _trajectory_min_det(win: Window, dc: torch.Tensor) -> float:
     is smoothed, so an inversion of the EFFECTIVE deformation could hide in it. With the exact
     volume (D129) the tracked J of every step is a determinant the stress reads, and counts too.
     Step by step on the trajectory's own buffers (D138 batch 5): the same determinants as one batched call over the
-    stacked steps, without the stack's copies."""
+    stacked steps, without the stack's copies. dc: the driven control (D174: the released steps' is zero, win.dc_zero, the
+    zero the expanded control held there), or the expanded one."""
     tr, T, N = win.tr, win.T, win.N
-    dcs = dc.view(T, N, 3, 3)
+    dcs = dc.view(-1, N, 3, 3)
+    zero = getattr(win, "dc_zero", None)
     mins = []
     for t in range(T):
         F_t = wp.to_torch(tr.F[t]).reshape(N, 3, 3)
-        mins.append(torch.linalg.det(F_t + dcs[t]).min())
+        mins.append(torch.linalg.det(F_t + (dcs[t] if t < len(dcs) else zero)).min())
         mins.append(torch.linalg.det(wp.to_torch(tr.F[t + 1]).reshape(N, 3, 3)).min())
         if tr.volume_exact:
             mins.append(wp.to_torch(tr.J[t + 1]).min())
@@ -121,6 +123,7 @@ def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor)
         V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
         with timed("eval_losses"):
             e = _evaluate(obj, xT, FT, vT, dc, V)
+        e.V = None                      # D174 (memory): the velocity stack is read by the terms above only
         with timed("eval_checks"):
             e.jt = _trajectory_min_det(win, dc)
             e.in_domain = win.positions_in_domain()

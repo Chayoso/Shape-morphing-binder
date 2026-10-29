@@ -104,9 +104,14 @@ class Window:
                                 force=force)
         # the persistent no-grad trajectory: allocated once, rolled out as a CUDA graph for
         # every candidate, the warm-start comparison and the commit rollout; the control is
-        # copied into dc_buf, which its dFc sequence views
-        self.dc_buf = torch.zeros(T, N, 3, 3, device=cfg.device)
-        seq = [wp.from_torch(self.dc_buf[t], dtype=wp.mat33) for t in range(T)]
+        # copied into dc_buf, which its dFc sequence views. D174 (exact, memory): the released steps read the trajectory's
+        # release_dFc, never their entries of the sequence, so only the driven steps have a buffer; the released entries are
+        # one shared placeholder no kernel reads, and dc_zero stands for their (zero) control in the det check
+        Tc = cfg.T
+        self.dc_buf = torch.zeros(Tc, N, 3, 3, device=cfg.device)
+        self.dc_zero = torch.zeros(N, 3, 3, device=cfg.device)
+        rest = [wp.zeros(N, dtype=wp.mat33, device=cfg.device)] * (T - Tc)
+        seq = [wp.from_torch(self.dc_buf[t], dtype=wp.mat33) for t in range(Tc)] + rest
         if self.force:                                # B13: the eval trajectory's force views f_buf
             force = ([wp.from_torch(self.f_buf[t], dtype=wp.vec3) for t in range(cfg.T)], *force)
         with timed("tr_build"):
@@ -152,22 +157,25 @@ class Window:
             wp.to_torch(self.tr.gap_rep).copy_(rep.int())
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
-        """Copy a candidate into the eval trajectory's buffers; returns the expanded control (B13: the leaf is the
-        external force, and the control returned is dFc, zero: dc_buf is never written)."""
+        """Copy a candidate into the eval trajectory's buffers; returns the driven control the trajectory now holds (dc_buf
+        itself, valid until the next load; D174: the released half, zero, is implied) (B13: the leaf is the external force,
+        and the control returned is dFc, zero: dc_buf is never written)."""
         if self.force:
             self.f_buf.copy_(leaf.detach())
             dc = self.dc_buf
         else:
-            dc = self.expand(leaf.detach()).detach().contiguous()
-            self.dc_buf.copy_(dc.view(self.T, self.N, 3, 3))
+            self.dc_buf.copy_(leaf.detach().view(self.Tc, self.N, 3, 3))
+            dc = self.dc_buf
         if u is not None:
             wp.to_torch(self.tr.layer_u).copy_(u.detach())
         return dc
 
     def positions_in_domain(self) -> bool:
-        """Every frame of the last eval rollout inside the runner's two-cell safety margin."""
-        x = torch.stack([wp.to_torch(p) for p in self.tr.x])
-        return positions_in_domain(x, self.prm)
+        """Every frame of the last eval rollout inside the runner's two-cell safety margin (D174, memory: frame by frame, the
+        same test without the stack of every frame's positions)."""
+        frames = [wp.to_torch(p) for p in self.tr.x]
+        lo, hi = domain_bounds(self.prm, frames[0].device)
+        return bool(torch.stack([(torch.isfinite(x) & (x >= lo) & (x <= hi)).all() for x in frames]).all())
 
 
 def domain_bounds(prm: MPMParams, device="cuda"):

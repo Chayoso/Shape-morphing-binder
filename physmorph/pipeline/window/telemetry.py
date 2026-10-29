@@ -96,9 +96,9 @@ def write_grad_dump(directory, dump, win, leaf0, leaf_final, u_final, commit_dc,
         red[name + "_tmean"] = gpu.host(g4.mean(0))
         gn = float(gl.norm())
         if gn > 0 and step > 0:
-            win.dc_buf.copy_(win.expand(leaf0 - (step / gn) * gl).view(T, N, 3, 3))
+            win.dc_buf.copy_((leaf0 - (step / gn) * gl).view(win.Tc, N, 3, 3))      # D174: the driven steps' buffer
             resp["xT_" + name[3:]] = end_positions()
-    win.dc_buf.copy_(win.expand(leaf0).view(T, N, 3, 3))
+    win.dc_buf.copy_(leaf0.view(win.Tc, N, 3, 3))
     resp["xT_base"] = end_positions()
     layer_u = wp.to_torch(tr.layer_u)
     u_step = float(u_final.norm())
@@ -113,7 +113,7 @@ def write_grad_dump(directory, dump, win, leaf0, leaf_final, u_final, commit_dc,
     resp["xT_base_u0"] = end_positions()
     u_red.update(u_final=gpu.host(u_final), u_step=u_step, layer_mask=gpu.host(win.lmask))
     layer_u.copy_(u_final)
-    win.dc_buf.copy_(commit_dc.view(T, N, 3, 3))
+    win.dc_buf.copy_(commit_dc.view(T, N, 3, 3)[:win.Tc])
     tr.run()
     os.makedirs(directory, exist_ok=True)
     k_win = len([f for f in os.listdir(directory) if f.startswith("win_")])
