@@ -156,6 +156,7 @@ class WindowOptimizer:
         # moved the discs (D130 (1): D129's source-window commit_replay nulls were the render term read on discs found
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
+        self.replays = []                   # D175 (D164's pairs): the window's taped replay pairs (a keyframe segment's check)
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
         self._zd = None                     # B13: a zero dFc with a gradient, for the run's one ratio measurement
         # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
@@ -405,6 +406,14 @@ class WindowOptimizer:
                 noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0 / self.tgt.unit_ratio)
                 required = max(cfg.armijo_c1 * pred, noise_floor) if pred > 0.0 else noise_floor
             merit_ok, st_ok = bool(np.isfinite(new) and new <= cur - required), state_ok(e_n)
+            if getattr(cfg, "keyframe_time", ()):        # D175 (keyframe runs, a record): the trial's merit change by term
+                with torch.no_grad():
+                    vs = lambda v: float(v.norm(dim=1).mean())  # noqa: E731
+                    self.tele.setdefault("ls_split", []).append(dict(
+                        it=self._it, a=float(a_try), ok=int(merit_ok and st_ok), merit_ok=int(merit_ok), d=new - cur,
+                        req=required, pred=pred, d_lv=float(e_n.lv - e.lv), d_stab=float(e_n.lstab - e.lstab),
+                        d_lr_w=self.lam_r * float(e_n.lr - e.lr), v_end0=vs(e.vT), v_end=vs(e_n.vT),
+                        v_rel0=float(e.V[cfg.T:].norm(dim=2).mean()), v_rel=float(e_n.V[cfg.T:].norm(dim=2).mean())))
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
                 self.scored_discs = self.obj.discs
@@ -486,6 +495,11 @@ class WindowOptimizer:
                 log(f"[win] iter {it}: non-finite loss, aborting window")
                 self.tele["null_reason"] = "nonfinite_loss"
                 break
+            if hist and hist[-1]["iter"] == it - 1:
+                # D175 (D164's pairs): this gradient's point is the candidate the last search accepted, so its taped
+                # rollout is a second rollout of that control, a replay pair at the window's own state (no extra cost)
+                a_ = hist[-1]["loss"]
+                self.replays.append(abs(cur - a_) / max(abs(a_), self.win.loss_floor_eff))
             L_start = cur if L_start is None else L_start
             gn = _norm(g)
             g0_norm = max(gn, 1e-12) if g0_norm is None else g0_norm
@@ -536,7 +550,16 @@ class WindowOptimizer:
             ot._solved, ot.repeat = self.acc_solved, True       # D142: the accepted candidate's potentials, no sweep
         commit = commit_rollout(win, self.obj, self.leaves[0], self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
-        replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
+        noise = replay_rel
+        if getattr(self.tgt, "keyframe", None) is not None and E_accept is not None:
+            # D175: inside a keyframe segment the objective carries no transport, so the check's floor (ls_noise_rel) is
+            # ~1 ulp of E, and the start pair (the body at rest at the first window) reads 0: below the comparison's
+            # resolution, not zero, while the moving candidate's render replays differ by a few ulps (D175 (b): 1.1-3.7
+            # ulps at the nulled first windows). The noise there is D164's measure: the largest of the start pair, the
+            # window's taped pairs and one float32 ulp of E. Outside segments the check is the tag's, bit for bit
+            noise = max([replay_rel, float(np.spacing(np.float32(abs(E_accept)))) / max(abs(E_accept), win.loss_floor_eff)]
+                        + self.replays)
+        replay_tol = (max(cfg.ls_noise_rel, 10.0 * noise)
                       * max(abs(E_accept or 0.0), win.loss_floor_eff))
         replay_bad = E_accept is not None and commit.E_final > E_accept + replay_tol
         self.tele["commit_reason"] = commit.reason
@@ -587,7 +610,9 @@ class WindowOptimizer:
                                                         "render_b", "render_b_se", "render_b_floor",   # weight's reference,
                                                         "render_lp", "render_lp_floor")})   # on those paths only
         if "replay_split" in self.tele:                     # D175 (keyframe runs): a record
-            stats["replay_split"] = self.tele["replay_split"]
+            stats["replay_split"] = dict(self.tele["replay_split"], noise=noise, pairs=len(self.replays))
+        if "ls_split" in self.tele:                         # D175 (keyframe runs): the trials' merit change by term
+            stats["ls_split"] = self.tele["ls_split"]
         if getattr(cfg, "settle_u", "zero") == "last":     # D166: the committed u, for the settle windows (runner)
             stats["u"] = self.u.detach().clone()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
