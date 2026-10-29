@@ -28,6 +28,8 @@ from .telemetry import below_grid_record, collect_grad_dump, support_record, wor
 
 _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phys_work_x",
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
+_SPLIT_KEYS = ("lam_rule_block", "g_share_dfc", "g_share_u", "g_rend_u_norm", "g_phys_u_norm", "g_rend_dfc_norm", "g_phys_dfc_norm",
+               "lam_block_dfc", "lam_block_u", "u_render_nonzero")
 _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
               "predicted_decrease") + _TELE_KEYS
 # line-search diagnostics: trials, failure reasons (by state check), the start state's validity
@@ -348,6 +350,20 @@ class WindowOptimizer:
                 if bal.lam0 is None:                  # the first calibration: the value --lambda_ema 0 would hold
                     bal.lam0 = lam
                 self.lam_held = bal.lam0 * float(self.cfg.render_weight_scale)
+        if len(gp) >= 2:
+            # D173: the render's share of each block's step (telemetry, every run): lam_b |g_r,b| / (|g_p,b| + lam_b |g_r,b|),
+            # b = dFc (or the force) and u, g_r after PCGrad, lam_b the weight the block's step takes (_block_lams: the run's on
+            # both, or under --render_split the held / rule pair), and the share of the outer layer's particles whose u has a
+            # non-zero render gradient. Read only: nothing here enters the step.
+            lam_d, lam_u = self._block_lams()[:2]
+            nd, nu, rd, ru = _norm([gp[0]]), _norm([gp[1]]), _norm([gr[0]]), _norm([gr[1]])
+            lm = getattr(self.win, "lmask", None)
+            lay = None if lm is None else lm > 0.5
+            self.tele.update(g_share_dfc=lam_d * rd / max(nd + lam_d * rd, 1e-30), g_share_u=lam_u * ru / max(nu + lam_u * ru, 1e-30),
+                             g_rend_u_norm=lam_u * ru, g_phys_u_norm=nu, g_rend_dfc_norm=lam_d * rd, g_phys_dfc_norm=nd,
+                             lam_block_dfc=lam_d, lam_block_u=lam_u,
+                             u_render_nonzero=None if lay is None else
+                             float(((gr[1].detach().abs() > 0) & lay).sum()) / max(float(lay.sum()), 1.0))
         self.lam_capped = int(bool(bal.capped))
         np_, nr_ = _norm(gp), _norm(gr)
         np_raw, nr_raw = np_, _norm(gr_raw)
@@ -581,6 +597,7 @@ class WindowOptimizer:
             stats.update({k: self.tele.get(k) for k in ("lam_rule", "lam0", "render_L", "render_floor", "render_excess",
                                                         "render_b", "render_b_se", "render_b_floor",   # weight's reference,
                                                         "render_lp", "render_lp_floor")})   # on those paths only
+        stats.update({k: self.tele.get(k) for k in _SPLIT_KEYS})   # D173: the per-block render shares (every run, a record)
         if getattr(cfg, "settle_u", "zero") == "last":     # D166: the committed u, for the settle windows (runner)
             stats["u"] = self.u.detach().clone()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,

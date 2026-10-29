@@ -129,11 +129,17 @@ def parse_args(argv=None):
     ap.add_argument("--volume_exact", default="carried", choices=["off", "carried"],
                     help="D131 (default carried): the motion's own volume J per particle, carried like F in the smoothed F "
                          "itself (det F = J after every step, the stress reading F + dFc); off = the old path bit for bit")
-    ap.add_argument("--appearance", default="", choices=["", "white", "half", "band", "ears", "turn"],
+    ap.add_argument("--appearance", default="", choices=["", "white", "half", "band", "ears", "turn", "stripes", "texture"],
                     help="D160 (an option, off by default): each particle carries a fixed albedo from the source and the "
                          "render's shading term compares colour pictures of the target's paint (physmorph/pipeline/"
                          "appearance.py: the scenes); the physics never reads it; \"\" (the default) = the frozen path; "
                          "white = one channel of ones against a white target, the frozen path bit for bit")
+    ap.add_argument("--colour_kernel", default="kernel", choices=["kernel", "nearest"],
+                    help="D173 A/B: the render loss's disc colours (target and body alike): kernel = D160's 3-pitch weights (the "
+                         "frozen path); nearest = the nearest particle's colour, a softmax of -d^2 / (pitch / 2)^2 (differentiable)")
+    ap.add_argument("--texture", default="",
+                    help="D173 (with --appearance texture): OBJ,PNG -- the textured OBJ (UVs; vertices in the --tgt mesh's raw "
+                         "coordinates) and its image (map_Kd)")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--render_target", default="samples", choices=["samples", "mesh_shell"],
@@ -308,7 +314,7 @@ def run_config(args, cfg0, prep):
                               nn_berth_k=prep.nn_berth_k, proximity_berth=args.proximity_berth,
                               render_weight_ref=args.render_weight_ref, placement_at_cell=args.placement_at_cell, settle_windows=args.settle_windows,
                               settle_u=args.settle_u, settle_relax=args.settle_relax, layer_relax=args.layer_relax,
-                              render_split=args.render_split,
+                              render_split=args.render_split, colour_kernel=args.colour_kernel,
                               render_every=args.render_every, max_ls_iters=args.ls_max,
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
@@ -342,7 +348,12 @@ def run_main(args, prep, src, tgt, prm, cfg):
     app = None
     if args.appearance:                                     # D160: the scene's albedos (source, target, its draws)
         from physmorph.pipeline.appearance import make_appearance
-        app = make_appearance(args.appearance, src, tgt, prep.tgt_draws)
+        tex = None
+        if args.appearance == "texture":                    # D173: the textured OBJ (the --tgt mesh's raw coordinates) and its image
+            from physmorph.pipeline.appearance import TextureMap
+            obj, img = args.texture.split(",")
+            tex = TextureMap(obj, img, prep.frame, args.tgt)
+        app = make_appearance(args.appearance, src, tgt, prep.tgt_draws, texture=tex)
         out["provenance"]["appearance"] = app.params
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
                        on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,

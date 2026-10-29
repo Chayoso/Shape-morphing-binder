@@ -39,6 +39,8 @@ class Exterior:
     field: str = "zb"                   # D140: "zb" Zhu and Bridson's field, "aniso" the anisotropic one
     albedo: torch.Tensor | None = None  # D160 (appearance): the body particles' fixed albedos (N, C), carried by index
     albedo_ref: torch.Tensor | None = None  #   and their mean (C,), about which the discs' albedos are written
+    colour: str = "kernel"              # D173: the discs' colour weights, "kernel" (D160's, the frozen path) or "nearest"
+    colour_tau: float | None = None     #   (render/exterior.nearest_weights, tau = half the exterior's pitch)
 
 
 @dataclass
@@ -223,14 +225,15 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
                 fld = make_field(cfg.exterior_field, s, pitch, radius=radius, offset=offset,
                                  device_field=cfg.exterior_field == "zbs")
                 p_t, g_t, _, _ = lattice.discs(fld, h, refine=False)
-                c_t = None if appearance is None else found_disc_albedo(fld, p_t, t_alb[i], b_ref, pitch)
+                c_t = None if appearance is None else found_disc_albedo(fld, p_t, t_alb[i], b_ref, pitch, getattr(cfg, "colour_kernel", "kernel"),
+                                                                        0.5 * pitch)
             if cfg.render_target == "mesh_shell":
                 refs.append(p_t)
             per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
                                         extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t))
         e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
         ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset, cfg.exterior_field,
-                       albedo=b_alb, albedo_ref=b_ref)
+                       albedo=b_alb, albedo_ref=b_ref, colour=getattr(cfg, "colour_kernel", "kernel"), colour_tau=0.5 * pitch)
         if appearance is not None:
             print(f"[target] appearance (D160): scene {appearance.scene}, {b_alb.shape[1]} channel(s); body albedo "
                   f"mean {[round(float(v), 4) for v in b_ref]}, target discs' (last sample) mean "
@@ -327,7 +330,7 @@ def render_floor(tgt: TargetPack, cfg: PipelineConfig, x_floor, albedo=None) -> 
     x = gpu.tensor(x_floor)
     with torch.no_grad():
         discs = tracked(make_field(e.field, x, e.pitch, radius=e.radius, offset=e.offset, device_field=True),
-                        e.lattice, e.h, e.skin)
+                        e.lattice, e.h, e.skin, e.colour, e.colour_tau)
         if albedo is None:
             p, n, _ = discs.read(x)
             sil, pbr = d_exterior(p, n, e.sils, e.shade, tgt.views, cfg.render_res, tgt.extent, cfg.sil_k, cfg.w_hole,
@@ -369,7 +372,7 @@ def render_term_lowpass(tgt: TargetPack, cfg: PipelineConfig, x, albedo=None, si
     blur = (lambda t: t) if sig_px < 1e-3 else (lambda t: _gauss_blur(t, sig_px))  # noqa: E731
     with torch.no_grad():
         discs = tracked(make_field(e.field, xg, e.pitch, radius=e.radius, offset=e.offset, device_field=True),
-                        e.lattice, e.h, e.skin)
+                        e.lattice, e.h, e.skin, e.colour, e.colour_tau)
         if albedo is None:
             p, n, _ = discs.read(xg)
             c = None

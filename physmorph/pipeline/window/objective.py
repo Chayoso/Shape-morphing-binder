@@ -220,7 +220,7 @@ class Objective:
         if self.discs is None:
             with torch.no_grad(), timed("exterior"):
                 self.discs = tracked(make_field(e.field, xT.detach(), e.pitch, radius=e.radius, offset=e.offset,
-                                                device_field=True), e.lattice, e.h, e.skin)
+                                                device_field=True), e.lattice, e.h, e.skin, e.colour, e.colour_tau)
             self.ext_builds += 1
             p, n, move = self.discs.read(xT)
         return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
@@ -238,7 +238,7 @@ class Objective:
         if self.discs is None:
             with torch.no_grad(), timed("exterior"):
                 self.discs = tracked(make_field(e.field, xT.detach(), e.pitch, radius=e.radius, offset=e.offset,
-                                                device_field=True), e.lattice, e.h, e.skin)
+                                                device_field=True), e.lattice, e.h, e.skin, e.colour, e.colour_tau)
             self.ext_builds += 1
             p, n, move, c = self.discs.read(xT, e.albedo, e.albedo_ref)
         return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
