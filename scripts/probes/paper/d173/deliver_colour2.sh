@@ -5,7 +5,7 @@
 B=/data/relcfd/chayo/physmorph_v2; W=$B/tmp/d173; O=$B/output/gpu/d173; G=$B/output/gpu
 N=$1; F=$2; T=$3; S=${4:-3}; SC=${5:-band}; D=$O/deliver/$N; mkdir -p $D
 export PHYSMORPH_RUN_REPO=$B/repo_d173 PHYSMORPH_OUT=$G; source $B/repo_d173/scripts/ops/hyde06_env.sh > /dev/null 2>&1
-source $B/tmp/d146/cache_env.sh; export TMPDIR=$W/tmpdir CUDA_VISIBLE_DEVICES=3; mkdir -p $TMPDIR; cd $B/repo_d173
+source $B/tmp/d146/cache_env.sh; export TMPDIR=$W/tmpdir CUDA_VISIBLE_DEVICES=${READ_CARD:-0}; mkdir -p $TMPDIR; cd $B/repo_d173
 log() { echo "$(date '+%m-%d %H:%M:%S') [deliver $N] $*" >> $O/status.txt; }
 for c in kernel nn; do
   $PY $W/d173_studio.py $D/paint_$c $SC ${F}_frames12.npz ${T}_frames12.npz ${F}_frames12.npz +endonly=1 +w=1280 +h=720 +colour=$c > $D/paint_$c.log 2>&1

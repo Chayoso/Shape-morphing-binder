@@ -63,6 +63,19 @@ def main(out_md):
           "pitches (the sampling floor), the arm shows its own 2.1-2.3; nothing hides the physics (the colour is a particle's "
           "identity). The loss still reads the kernel (unchanged; a narrower colour kernel in the loss is the next definition to test, "
           "the particle mixing being its own half).", ""]
+    rr, cc = O / "auto/cmb300/read_relief.json", O / "auto/cmb300/read_colour.jsonl"
+    if rr.exists() and cc.exists():
+        rd = json.load(open(rr))
+        cA = sum(v["relief"]["A"] for k, v in rd["refs"].items() if k.startswith("relief_s")) / max(1, sum(1 for k in rd["refs"] if k.startswith("relief_s")))
+        col = {json.loads(x)["name"]: json.loads(x) for x in open(cc) if x.strip()}
+        L += ["", "Combined relief + paint at 300k (job 201; D161's / D160's fast readers):", "",
+              "| arm | relief share end | colour r end | mis end |", "|---|---|---|---|"]
+        mt, fl = col["cmb300k_T_97"]["end"]["mis"], col["cmb300k_Rx_97"]["floor"]
+        for lab, nm, arm in (("full97", "cmb300k_Rx_97", "Rx (full)"), ("twin97", "cmb300k_T_97", "twin")):
+            ser = [q for q in rd["runs"][lab]["series"] if q["relief"].get("A") is not None]
+            m = col[nm]["end"]["mis"]
+            L.append(f"| {arm} | {ser[-1]['relief']['A'] / cA:.2f} | {(mt - m) / (mt - fl):.2f} | {m:.3f} |")
+        L.append("")
     for d in sorted(glob.glob(str(O / "deliver/*"))):
         files = [Path(x).relative_to(O) for x in glob.glob(d + "/**/*", recursive=True) if x.endswith((".png", ".mp4", ".jpg"))]
         if files:
