@@ -33,7 +33,8 @@ NAMES = {"Hu": "held weight on u, the rule's on dF_c", "Hf": "held weight on dF_
          "T": "twin"}
 R7.ARM_NAMES.update(Hu="Hu (held on u, rule on dF_c)", Hf="Hf (held on dF_c, rule on u)", Rx="Rx (held on both)")
 R6.NAMES.update(Hu="held on u, the rule on dF_c, settle 30 (relaxation off in the settle)",
-                Hf="held on dF_c, the rule on u, settle 30 (relaxation off in the settle)")
+                Hf="held on dF_c, the rule on u, settle 30 (relaxation off in the settle)",
+                Hur="Hu's step (held on u, the rule on dF_c), the rule in the merit and the stops, settle 30")
 VAR = (A2 / "variant.txt").read_text().strip() if (A2 / "variant.txt").exists() else ""
 
 
@@ -60,9 +61,12 @@ for n, k in ((40000, "scl40"), (300000, "scl300")):
                         s_bg=SCL.get(VAR, 4) / 2.0,
                         runs={f"{a}_{s}": RUNS / f"scl{n // 1000}k_{a}_{s}" for a in arms for s in seeds})
 R7.JOB_DETAIL.update(scales40=("scl40",), scales300=("scl300",))
-for a in ("Hu", "Hf"):
+for a in ("Hu", "Hf", "Hur"):
     R7.CARVE[f"plq{a}"] = dict(R7.CARVE["plq"], name=f"SIGGRAPH plaque, {a}", full=RUNS / f"plq300k_{a}_97")
 R7.JOB_SCENES["plq"] = ("plqHu", "plqHf")
+R7.JOB_SCENES["plqr"] = ("plqHur",)
+NAMES["Hur"] = "Hu's step, the rule in the merit and the stops"
+R7.ARM_NAMES["Hur"] = "Hu_r (Hu's step, the rule's merit and stops)"
 
 
 def ref_rows(path, codes):
@@ -108,6 +112,30 @@ def gal(D):
 
 def plq(D):
     carve("plq", D)
+
+
+def hur(D):
+    """Hu_r on the same set as Hu: the scenes (D166's reader), the gallery seed 97, the 300k plaque."""
+    S, Gd, P = D / "scenes", D / "gal", D / "plq"
+    for x in (S, Gd, P):
+        x.mkdir(parents=True, exist_ok=True)
+    R7.wait_rc([str(RUNS / f"{sc}_Hur_{s}") for sc in ("coin", "bunny", "band") for s in (97, 99)])
+    cwd = os.getcwd()
+    R6.scenes(str(S), str(RUNS), "D172 B: Hu_r (Hu's step, the rule's merit and stops), 40k scenes", "Hur:T")
+    os.chdir(cwd)
+    R7.RUNS = RUNS
+    R7.gal(Gd, "Hur", (97,), "D172 B: Hu_r on the 6-mesh 40k gallery, seed 97")
+    carve("plqr", P)
+    V = dict(Hur=json.load(open(S / "verdict.json"))["arms"]["Hur"], Hur_gal=json.load(open(Gd / "verdict.json"))["arms"]["Hur"],
+             plqHur=json.load(open(P / "verdict.json"))["arms"]["plqHur"])
+    L = ["# D172 B: Hu_r (Hu's step: held on u, the rule on dF_c; the rule's weight in the merit, the line search and the stops)", ""]
+    for x in (S, Gd, P):
+        L += [y for y in open(x / "summary.md").read().splitlines()[2:] if y.strip()] + [""]
+    verdict = "; ".join(next((y[9:] for y in open(x / "summary.md").read().splitlines() if y.startswith("VERDICT: ")), "-")
+                        for x in (S, Gd, P))
+    L.append("VERDICT: " + verdict)
+    open(D / "summary.md", "w").write("\n".join(L) + "\n")
+    json.dump(dict(arms=V, verdict=verdict), open(D / "verdict.json", "w"), indent=1, default=float)
 
 
 def combined(D):
@@ -198,6 +226,8 @@ def aggregate(out_md):
                 f"{fmt(s.get('vx_max'), '.1f')} | {gh} | {sh} | {shp} |")
     rows += [row("Hu (held on u, rule on dF_c)", sc.get("Hu", {}), ga.get("Hu", {}), pq.get("plqHu", {})),
              row("Hf (held on dF_c, rule on u)", sc.get("Hf", {}), ga.get("Hf", {}), pq.get("plqHf", {})),
+             row("Hu_r (Hu's step; the rule in the merit and the stops)", get("194_hur").get("Hur", {}), get("194_hur").get("Hur_gal", {}),
+                 get("194_hur").get("plqHur", {})),
              row("Rx (held on both; D166 / D170)", rx6, dict(rxg, n=rxg.get("n"), held=rxg.get("held")), rxp),
              row("R (the rule on both; D167, no settle)", r7, rg, {})]
     L += ["## B: which channel carries the content, which breaks arrival?", "", *rows, "",
@@ -205,7 +235,7 @@ def aggregate(out_md):
           "band; kept = end / stop through the settle; rest = end v_mean / twin; gallery holds = sil_iou / chamfer / thin within "
           "0.003 / 0.002 / 0.02 of the tag's rule (R 97, d167 job 114) per mesh; the 300k plaque against its twin (d163). R's "
           "gallery row is against the tag's V (d167 job 114's own reading). Adoption: none here (the user's call).", ""]
-    for j, t in (("185_scenes", "B scenes"), ("186_gal", "B gallery"), ("187_plq", "B plaque 300k"), ("188_combined", "C combined"),
+    for j, t in (("185_scenes", "B scenes"), ("186_gal", "B gallery"), ("187_plq", "B plaque 300k"), ("194_hur", "B Hu_r"), ("188_combined", "C combined"),
                  ("189_scales40", "D scales 40k"), ("190_scales300", "D scales 300k")):
         v = S.get(j, {}).get("verdict")
         if v is None and (O / f"auto/{j}/summary.md").exists():
@@ -237,5 +267,5 @@ if __name__ == "__main__":
     else:
         D = Path(out)
         D.mkdir(parents=True, exist_ok=True)
-        {"scenes": scenes, "gal": gal, "plq": plq, "combined": combined,
+        {"scenes": scenes, "gal": gal, "plq": plq, "combined": combined, "hur": hur,
          "scales40": lambda D: scales("scales40", D), "scales300": lambda D: scales("scales300", D)}[mode](D)

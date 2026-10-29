@@ -20,6 +20,8 @@ Read ONE file: output/gpu/D172_SUMMARY.md (rewritten by every job's reader): the
 
 ## Queue (tmp/gpu1_queue; card_runner_n.sh on cards 0 / 1 / 3, PIDs tmp/d172/runner_card*.pid; never gpu2)
 - 184 V3 gate (defaults SAME vs d153/rt1/S1; Rx flags SAME vs repo_d166's X0; --render_split differs; band SAME vs repo_d166).
+- 194 Hu_r (--render_split u_rule, e8dc5941: Hu's step, the rule in the merit / line search / stops): gate b (defaults SAME,
+  Hu SAME as job 184's X2, u_rule differs), then coin / bunny / band 40k x 97 / 99, gallery seed 97, 300k plaque -> auto/194_hur.
 - 185 Hu / Hf on coin / bunny relief / band 40k x 97 / 99. 186 Hu / Hf on the 6-mesh gallery 40k seed 97 (191 = seed 99 for an
   arm holding 6/6, armed by post172.sh). 187 Hu / Hf on the 300k plaque. 188 combined scene 40k (T, Rx, Hu, Hf x 97 / 99;
   192 = the painted end frames, armed after the read). 189 scales 40k (T, Rx, Hu, Hf x 97 / 99; 190 = 300k with the best arm).
