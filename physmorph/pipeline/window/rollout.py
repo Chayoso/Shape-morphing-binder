@@ -123,6 +123,8 @@ def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor)
         V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
         with timed("eval_losses"):
             e = _evaluate(obj, xT, FT, vT, dc, V)
+        if getattr(win.cfg, "keyframe_time", ()):   # D175 (keyframe runs, a record): the released half's mean speed
+            e.v_rel = float(V[win.cfg.T:].norm(dim=2).mean())
         e.V = None                      # D174 (memory): the velocity stack is read by the terms above only
         with timed("eval_checks"):
             e.jt = _trajectory_min_det(win, dc)

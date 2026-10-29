@@ -256,7 +256,7 @@ class WindowOptimizer:
         comparison; inside a D175 keyframe segment "start" still reads this measure (D175's check there: no transport,
         the start pair of a body at rest reads 0, below the comparison's resolution)."""
         if E is None or (getattr(self.cfg, "replay_noise", "window") == "start"
-                         and getattr(self.tgt, "keyframe", None) is None):
+                         and getattr(getattr(self, "tgt", None), "keyframe", None) is None):
             return replay_rel, None
         res = float(np.spacing(np.float32(abs(E)))) / max(abs(E), self.win.loss_floor_eff)
         return max([replay_rel, res] + self.replays), res
@@ -390,7 +390,7 @@ class WindowOptimizer:
             # non-zero render gradient. Read only: nothing here enters the step.
             lam_d, lam_u = self._block_lams()[:2]
             nd, nu, rd, ru = _norm([gp[0]]), _norm([gp[1]]), _norm([gr[0]]), _norm([gr[1]])
-            lm = getattr(self.win, "lmask", None)
+            lm = getattr(getattr(self, "win", None), "lmask", None)
             lay = None if lm is None else lm > 0.5
             self.tele.update(g_share_dfc=lam_d * rd / max(nd + lam_d * rd, 1e-30), g_share_u=lam_u * ru / max(nu + lam_u * ru, 1e-30),
                              g_rend_u_norm=lam_u * ru, g_phys_u_norm=nu, g_rend_dfc_norm=lam_d * rd, g_phys_dfc_norm=nd,
@@ -473,7 +473,7 @@ class WindowOptimizer:
                         it=self._it, a=float(a_try), ok=int(merit_ok and st_ok), merit_ok=int(merit_ok), d=new - cur,
                         req=required, pred=pred, d_lv=float(e_n.lv - e.lv), d_stab=float(e_n.lstab - e.lstab),
                         d_lr_w=self.lam_r * float(e_n.lr - e.lr), v_end0=vs(e.vT), v_end=vs(e_n.vT),
-                        v_rel0=float(e.V[cfg.T:].norm(dim=2).mean()), v_rel=float(e_n.V[cfg.T:].norm(dim=2).mean())))
+                        v_rel0=float(e.V[cfg.T:].norm(dim=2).mean()), v_rel=getattr(e_n, "v_rel", None)))
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
                 self.scored_discs = self.obj.discs

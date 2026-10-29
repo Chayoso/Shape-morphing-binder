@@ -64,6 +64,12 @@ D135_RUN_ARGS = {
     "telemetry": False, "term_dump": "", "u_off": False, "volume_exact": "carried", "xu_form": "oracle",
     "young": None, "render_tgt": None, "proximity_berth": False, "render_weight_ref": "residual",
     "placement_at_cell": False, "replay_noise": "start",
+    # options added after the tag, at the values that run its path (wip/final, D178): D162h / D166 the settle (0 windows,
+    # u zero, its relaxation on), D170 the layer relaxation (on), D172 render_split (off), D173 colour kernel and texture,
+    # D174 render_every / ls_max (every iteration, 10 trials), D175 keyframes (none), the cleanup switch (off)
+    "settle_windows": 0, "settle_u": "zero", "settle_relax": True, "layer_relax": True, "render_split": "",
+    "colour_kernel": "kernel", "texture": "", "render_every": 1, "ls_max": 10, "keyframe": [], "keyframe_time": [],
+    "keyframe_compare": "silhouette", "keyframe_geometry": "own", "keyframe_soundness": "every", "cleanup_off": False,
 }
 # the re-freeze: D135's configuration with D146's, D146b's and D149's switches on, nothing else changed
 REFREEZE_RUN_ARGS = {**D135_RUN_ARGS, "relax_driven": True, "u_adam_carry": True, "spacing_symmetric": True}
