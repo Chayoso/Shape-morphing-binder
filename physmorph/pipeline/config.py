@@ -28,6 +28,8 @@ class PipelineConfig:
     patience: int = 5               # windows without a merit improvement before stopping
     reject_stop: int = 3            # consecutive rejected windows that stop the run
     tol: float = 0.003              # relative merit improvement that counts as progress
+    stop_tol: float | None = None   # D174 A/B: the stop's own tolerance (its best, last improving window, stale count, the
+                                    #   plateau and the patience stop); the step anneal and the latch keep tol; None = tol
     anneal_stale: float = 0.7       # step scale x this after a non-improving window
     best_truncate: bool = True      # deliver the trajectory up to its best-merit window
     hold_after_converge: bool = True  # append one held frame when the run stops
@@ -249,5 +251,7 @@ class PipelineConfig:
                              "(use render_weight_scale 0 for the render-off twin)")
         if self.T < 1 or self.iters < 1 or self.animations < 1:
             raise ValueError("T, iters and animations must be positive")
+        if self.stop_tol is not None and not (math.isfinite(self.stop_tol) and self.stop_tol > 0):
+            raise ValueError("stop_tol must be finite and positive (None = tol)")
         if int(self.render_every) < 1 or int(self.max_ls_iters) < 1:
             raise ValueError("render_every and max_ls_iters must be at least 1")
