@@ -55,3 +55,9 @@ Read ONE file first: output/gpu/D174_SUMMARY.md (profile table, each speed-up wi
 - tmp/d174/d174_stop.py replays the stop rule for other tolerances on recorded runs (no anneal feedback).
 - Withdrawn before they ran (redundant once Ht07 stopped like Ht10): tmp/d174/*07.sh.withdrawn, the t10 gate.
 - Nothing committed as a default; the stop-tolerance definition change awaits the user.
+
+## --stop_tol (user GO; 14:10-15:55 CDT)
+- Code wip/d174 228ee3a7 (selection.py second counter set; config stop_tol; CLI --stop_tol); gate s PASS; repo_d174 and
+  repo_d174s = HEAD. Chosen value 0.12 (dragon 300k 8.0 min); A/B in D174_SUMMARY.md section 6 (STOPTOL_SUMMARY.md,
+  auto/ss_*). The 0.10 arm's scales (share 1.13) and plaque are read by tmp/d174/d174_after6.sh (PID after6.pid) into
+  auto/ss10_*; it was still on the plaque at 15:55 (hyde06 load ~600). Runs Hs10 / Hs12 in output/gpu/d174/runs.
