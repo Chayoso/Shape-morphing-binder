@@ -152,7 +152,10 @@ class PipelineConfig:
                                     #   "masked" (D178) = "u", and dFc takes lambda_rule g_r + max(lambda_h - lambda_rule, 0) x the
                                     #   gradient of the render residual inside the content mask (target.content_masks); "content"
                                     #   (D178, M2) = "masked", and with an appearance target the held term is the appearance part
-                                    #   of the residual everywhere plus its geometry part inside the geometry mask (d_exterior_content)
+                                    #   of the residual everywhere plus its geometry part inside the geometry mask (d_exterior_content);
+                                    #   "appearance" (D178, M3, freeze-2026-11) = "u", and with an appearance target dFc also takes
+                                    #   max(lambda_h - lambda_rule, 0) x the appearance part's gradient (the 3D target fixes no
+                                    #   colour); the geometry the 3D target fixes stays on the rule for dFc (below the cell through u)
     render_every: int = 1           # D174 A/B (runtime): the render gradient (its adjoint sweep) at every k-th iteration of a
                                     #   window (0, k, 2k, ...); between, the window's last one, projected against the fresh
                                     #   physics gradient and weighted as always; the render term's value is read at every
@@ -286,7 +289,7 @@ class PipelineConfig:
             raise ValueError("stop_tol must be finite and positive (None = tol)")
         if int(self.render_every) < 1 or int(self.max_ls_iters) < 1:
             raise ValueError("render_every and max_ls_iters must be at least 1")
-        if self.render_split in ("masked", "content") and (not self.render_exterior or self.render_target != "samples"
+        if self.render_split in ("masked", "content", "appearance") and (not self.render_exterior or self.render_target != "samples"
                                               or self.cleanup_in_phys or self.baseline):
             raise ValueError("render_split masked reads the content mask of the exterior's sample pictures: it needs "
                              "render_exterior, render_target samples, no cleanup_in_phys and no baseline")
@@ -305,7 +308,8 @@ class PipelineConfig:
             if not self.render_exterior or self.lambda_ema != 0.0:
                 raise ValueError("keyframes read their pictures on the exterior with the held weight: they need "
                                  "render_exterior and lambda_ema 0")
-            if (self.render_split not in ("", "u", "masked", "content") or self.render_weight_ref != "residual" or self.baseline
+            if (self.render_split not in ("", "u", "masked", "content", "appearance") or self.render_weight_ref != "residual"
+                    or self.baseline
                     or self.render_target != "samples"):
                 raise ValueError("keyframes run on the held weight's paths only: render_split \"\", \"u\" or \"masked\", "
                                  "render_weight_ref residual, no baseline, render_target samples")

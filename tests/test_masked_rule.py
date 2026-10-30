@@ -113,3 +113,21 @@ def test_m2_split_is_exact():
     g_full, = torch.autograd.grad(sil + w_pbr * shd, xs, retain_graph=True)
     g_held, = torch.autograd.grad(held, xs)
     assert torch.allclose(g_held, g_full, rtol=1e-7, atol=1e-14)
+
+
+def test_m3_held_term_is_the_appearance_part():
+    """D178 (M3, render_split "appearance"): with no geometry mask the held term is the appearance part alone; with every
+    mask set it adds the geometry part, and the two gradients add up to the render loss's (to rounding)."""
+    from physmorph.pipeline.render_loss import d_exterior_content
+    x, tr, alb, views, res, extent, sils, shade = _setup(True)
+    xs = (x + torch.tensor([.6, -.3, .2], dtype=x.dtype)).requires_grad_(True)
+    p, n, c = _read(tr, xs, alb)
+    ones = torch.ones(len(views), res, res, dtype=x.dtype)
+    sil, shd, h_app = d_exterior_content(p, n, sils, shade, None, None, views, res, extent, albedo=c, w_pbr=2.0)
+    _, _, h_all = d_exterior_content(p, n, sils, shade, ones, ones, views, res, extent, albedo=c, w_pbr=2.0)
+    g_app, = torch.autograd.grad(h_app, xs, retain_graph=True)
+    g_all, = torch.autograd.grad(h_all, xs, retain_graph=True)
+    g_full, = torch.autograd.grad(sil + 2.0 * shd, xs)
+    assert float(g_app.norm()) > 0 and float((g_all - g_app).norm()) > 0
+    assert torch.allclose(g_all, g_full, rtol=1e-7, atol=1e-14)
+    PipelineConfig(render_split="appearance", render_exterior=True)

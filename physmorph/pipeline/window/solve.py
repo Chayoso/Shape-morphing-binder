@@ -320,7 +320,7 @@ class WindowOptimizer:
     def _masked_on(self, e) -> bool:
         """D178: the masked rule acts in this evaluation (render_split "masked", a content mask on the target, no
         keyframe segment open: there the storyboard's held weight on both blocks)."""
-        return (getattr(self.cfg, "render_split", "") in ("masked", "content") and getattr(e, "lr_m", None) is not None
+        return (getattr(self.cfg, "render_split", "") in ("masked", "content", "appearance") and getattr(e, "lr_m", None) is not None
                 and getattr(self.tgt, "keyframe", None) is None)
 
     def _masked_extra(self, gp, gr, gm_raw, it):

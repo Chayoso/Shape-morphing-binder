@@ -76,7 +76,7 @@ def parse_args(argv=None):
                          "window's last one reused between (1 = every iteration, the frozen path)")
     ap.add_argument("--ls_max", type=int, default=10,
                     help="D174 A/B (runtime): the line search's trials per iteration (10 = the frozen path)")
-    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule", "masked", "content"],
+    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule", "masked", "content", "appearance"],
                     help="D172 A/B: the render gradient's weight by control block; \"\" = one weight on both (the frozen "
                          "path); u = the run's weight (held under --lambda_ema 0) on u and the rule's per-window value on dFc; "
                          "dFc = the reverse; the merit keeps the run's weight; u_rule = the run on the rule (its merit and "
@@ -84,7 +84,9 @@ def parse_args(argv=None):
                          "as u, dFc on the rule plus the held weight on the render residual inside the content mask "
                          "(the pixels where the pictures differ from the 3D target's own beyond the draw-noise floor); content "
                          "(D178, M2) = masked, and with an appearance target the held term is the appearance part of the "
-                         "render residual everywhere plus its geometry part inside the geometry content mask")
+                         "render residual everywhere plus its geometry part inside the geometry content mask; appearance "
+                         "(D178, M3) = u, and with an appearance target dFc takes the held weight on the appearance part "
+                         "of the residual (the 3D target fixes no colour); geometry stays on the rule for dFc (through u)")
     ap.add_argument("--keyframe", nargs="+", default=[],
                     help="D175 (off by default): picture keyframes, one .npz per --keyframe_time, each with 'samples' "
                          "(K, N_k, 3): the keyframe's sample and its draws in the target's frame, read through their "

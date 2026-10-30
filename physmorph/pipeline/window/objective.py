@@ -250,10 +250,14 @@ class Objective:
         cfg, t = self.cfg, self.tgt
         self.lr_m = None
         split = getattr(cfg, "render_split", "")
-        if split == "content" and c is not None and getattr(t, "keyframe", None) is None:
+        if split in ("content", "appearance") and c is not None and getattr(t, "keyframe", None) is None:
             # D178 (M2): with an appearance target the held term is the appearance part everywhere and the geometry part
-            # inside the geometry content mask (render_loss.d_exterior_content); without one M2 is the masked rule below
-            sil, shd, self.lr_m = d_exterior_content(p, n, e.sils, e.shade, e.mask_sil, getattr(e, "mask_geo", None),
+            # inside the geometry content mask (render_loss.d_exterior_content); without one M2 is the masked rule below.
+            # D178 (M3, "appearance"): the appearance part alone, no geometry term (the geometry the 3D target fixes is
+            # written below the cell through u, as Hu); without an appearance target M3 is Hu
+            geo = split == "content"
+            sil, shd, self.lr_m = d_exterior_content(p, n, e.sils, e.shade, e.mask_sil if geo else None,
+                                                     getattr(e, "mask_geo", None) if geo else None,
                                                      t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray,
                                                      cfg.pbr_ambient, albedo=c, w_pbr=cfg.w_pbr)
             return sil, shd
