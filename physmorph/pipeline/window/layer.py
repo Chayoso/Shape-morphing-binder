@@ -92,3 +92,34 @@ def layer_spacing(x0: torch.Tensor) -> float:
     """The window's particle spacing: the median 8th-neighbour distance of a 20000-particle
     subsample, rescaled to the full density."""
     return gpu.median_kth_spacing(x0, 8, subsample=20000)
+
+
+def layer_smooth_rows(x0: torch.Tensor, mask: torch.Tensor, nrm: torch.Tensor, spacing: float, k: int = 24,
+                      groups: list | None = None):
+    """D181 (--u_render_smooth): (rows (M,), nbr (M,k+1), w (M,k+1)), the averaging operator the render's gradient on u
+    is read through. Each layer particle's row holds itself and its k nearest layer particles of its own group (a body
+    of a scene; the whole window otherwise), weighted by the Gaussian exp(-d^2 / 2 spacing^2) of one particle spacing
+    times the normal agreement max(n_i . n_j, 0) (same side only, as the layer graph of layer_relax_data), rows
+    normalised to 1 (the particle's own weight is 1 before the normalisation). The scale is the spacing itself: a
+    particle that stands out of the layer alone shares its render push with the patch it sits on, so u moves as a field
+    over the outer layer. A group with no more than k layer particles keeps its per-particle gradient."""
+    N = x0.shape[0]
+    on = mask > 0.5
+    if groups is None:
+        groups = [torch.arange(N, device=x0.device)]
+    rows, nbrs, ws = [], [], []
+    for g in groups:
+        idx = g[on[g]]
+        if int(idx.numel()) <= k:
+            continue
+        d, nb = knn_self_torch(x0[idx].contiguous(), k + 1)
+        R = nrm[idx]
+        w = torch.exp(-0.5 * (d / spacing) ** 2) * torch.clamp((R[nb] * R[:, None, :]).sum(-1), min=0.0)
+        w = w / w.sum(1, keepdim=True).clamp_min(1e-12)
+        rows.append(idx)
+        nbrs.append(idx[nb])
+        ws.append(w.float())
+    if not rows:
+        e = torch.zeros(0, dtype=torch.long, device=x0.device)
+        return e, torch.zeros(0, k + 1, dtype=torch.long, device=x0.device), torch.zeros(0, k + 1, device=x0.device)
+    return torch.cat(rows), torch.cat(nbrs), torch.cat(ws)

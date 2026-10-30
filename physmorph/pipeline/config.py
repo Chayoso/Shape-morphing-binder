@@ -225,6 +225,11 @@ class PipelineConfig:
     u_adam_carry: bool = False      # D146b A/B: u's Adam moments carry from one committed window to the next (u itself still
                                     #   starts at zero), each coordinate's bias correction counting its own age; reset on an
                                     #   outer reject; dFc's stay per window; off = fresh moments every window (the frozen path)
+    u_render_smooth: bool = False   # D181 (user-approved 2026-10-30): the render gradient on u, after PCGrad and the window's
+                                    #   lambda calibration and before Adam, is averaged over each layer particle's same-side
+                                    #   layer neighbours (the layer graph's layer_k nearest, itself included) with the Gaussian
+                                    #   exp(-d^2 / 2 sp0^2), sp0 the window's particle spacing, times the normal agreement;
+                                    #   only where the u block's render weight is nonzero; off = the per-particle step (the tag)
     coh_k: int = 8                  # material bond neighbours (source kNN)
 
     # ---- outer acceptance ----

@@ -23,6 +23,7 @@ from ..target import TargetPack
 from ...prof import STATE as PROF_STATE, count, take as prof_take, timed
 from .objective import Objective, end_drift
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
+from .layer import layer_smooth_rows
 from .setup import StartState, Window
 from .telemetry import below_grid_record, collect_grad_dump, support_record, work_record, write_grad_dump
 
@@ -159,6 +160,7 @@ class WindowOptimizer:
         # by the rejected trials after the accepted one, 3.9e-5 apart; the rollout itself replayed to 7e-7 wu)
         self.scored_discs = None
         self._gr_last = None                # D174 (render_every): the render gradient of the last k-th iteration
+        self._u_smooth = None               # D181 (u_render_smooth): the layer averaging rows, built at first use
         self.replays = []                   # D164 (D175 in keyframe segments): the window's replay pairs (window_replay_noise)
         self.acc_solved = None              # D142: the accepted candidate's transport potentials
         self.acc_sup = None                 # D164 amendment 1: and its proximity lists
@@ -288,6 +290,7 @@ class WindowOptimizer:
             gr = pcgrad(gp, gr_raw)
             if it == 0:
                 self._calibrate_lambda(gp, gr, gr_raw, e.lr)
+            gr = self._u_render_smoothed(gr, it)       # D181: off (the default) returns gr itself
             return [a + lam * b for a, b, lam in zip(gp, gr, self._block_lams())], diag
         with timed("adj_phys"):
             gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
@@ -312,10 +315,41 @@ class WindowOptimizer:
         gr = pcgrad(gp, gr_raw)
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw, e.lr)
+        gr = self._u_render_smoothed(gr, it)           # D181: off (the default) returns gr itself
         g = [a + lam * b for a, b, lam in zip(gp, gr, self._block_lams())]
         if gm_raw is not None:
             g[0] = g[0] + self._masked_extra(gp, gr, gm_raw, it)
         return [gi + di for gi, di in zip(g, gdt)], diag
+
+    def _u_render_smoothed(self, gr, it: int):
+        """D181 (cfg.u_render_smooth, the user's approval of 2026-10-30): the render gradient on u read through the layer's
+        averaging operator (window/layer.layer_smooth_rows: each layer particle and its same-side layer neighbours, the
+        Gaussian of one particle spacing). D180 measured the per-particle step: a particle that stands out covers picture
+        pixels nearly alone, takes about a hundred times the median render push, stands out further and detaches
+        (droplets, grain off the content). Applied after PCGrad and the window's lambda calibration, before Adam, and
+        on the u block only: dFc's gradient, the weights and every run whose u block carries no render weight (the twin)
+        are untouched. Off, gr is returned as it is (the tag's path)."""
+        if not getattr(self.cfg, "u_render_smooth", False) or len(gr) < 2 or float(self._block_lams()[1]) == 0.0:
+            return gr
+        win = self.win
+        if self._u_smooth is None:
+            groups = None
+            bodies = getattr(win, "bodies", None)
+            if bodies:                                  # a scene (D147): each body's layer is averaged on its own
+                ar = torch.arange(int(win.x0.shape[0]), device=win.x0.device)
+                groups = [ar[b.rows] for b in bodies]
+            with timed("u_smooth_rows"):
+                self._u_smooth = layer_smooth_rows(win.x0, win.lmask, win.lnrm, float(win.sp0),
+                                                   k=int(self.cfg.layer_k), groups=groups)
+        rows, nbr, w = self._u_smooth
+        gu = gr[1]
+        out = gu.clone()
+        if rows.numel():
+            out[rows] = (w * gu[nbr]).sum(1)
+        if it == 0:                                     # a record
+            self.tele.update(u_smooth_rows=int(rows.numel()),
+                             g_rend_u_smooth_ratio=float(out.norm()) / max(float(gu.norm()), 1e-30))
+        return [gr[0], out]
 
     def _masked_on(self, e) -> bool:
         """D178: the masked rule acts in this evaluation (render_split "masked", a content mask on the target, no
