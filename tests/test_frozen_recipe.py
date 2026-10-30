@@ -17,7 +17,7 @@ def _args(monkeypatch, *argv):
 def test_the_defaults_are_the_frozen_recipe(monkeypatch):
     a = _args(monkeypatch)
     assert a.render_exterior and a.min_spacing == 0.9 and a.exterior_radius == 3.0          # D62, D70/D72, D123
-    assert a.layer_relief and a.lambda_ema == 1.0                                           # D105, D120
+    assert a.layer_relief and a.lambda_ema == 0.0                                           # D105; D166 (held, freeze-2026-11)
     assert a.volume_exact == "carried" and a.match_density and a.assim_volume               # D131, D132, D135
     assert not a.cell_follows_n                                                             # the shape's cell (D139)
     assert not a.u_off and a.render_weight_scale == 1.0 and not a.baseline                  # D124 not adopted
@@ -27,6 +27,8 @@ def test_the_defaults_are_the_frozen_recipe(monkeypatch):
     assert a.gap_split == "off"                                                              # D148 not adopted
     assert a.spacing_symmetric                                                              # D149: the re-freeze
     assert a.replay_noise == "window"                                                       # D164 (wip/d164)
+    assert (a.render_split, a.settle_windows, a.settle_relax, a.colour_kernel, a.stop_tol) == (   # freeze-2026-11 (D178)
+        "appearance", 30, False, "nearest", 0.12)
 
 
 def test_every_switch_reaches_the_old_path(monkeypatch):
@@ -78,6 +80,12 @@ REFREEZE_RUN_ARGS = {**D135_RUN_ARGS, "relax_driven": True, "u_adam_carry": True
 # wip/d164: the tag's configuration with the commit check reading the window's own replay pairs (D164, the user's decision of
 # 2026-10-22); --replay_noise start is the tag's measure
 D164_RUN_ARGS = {**REFREEZE_RUN_ARGS, "replay_noise": "window"}
+# freeze-2026-11 (D178): D164 with the held render weight (D166), the settle (30 windows, no relaxation in it), the nearest
+# colour kernel (D173), the appearance rule M3 (D178) and the stop's own tolerance 0.12 (D174, the user's decision)
+FINAL_RUN_ARGS = {**D164_RUN_ARGS, "lambda_ema": 0.0, "settle_windows": 30, "settle_relax": False, "colour_kernel": "nearest",
+                  "render_split": "appearance", "stop_tol": 0.12}
+BACK = ("--lambda_ema", "1", "--settle_windows", "0", "--settle_relax", "--colour_kernel", "kernel", "--render_split", "",
+        "--stop_tol", "0.003")   # freeze-2026-11 -> the earlier defaults (stop_tol 0.003 = tol: the same stop, recorded as its own)
 
 
 def _plain(a) -> dict:
@@ -87,19 +95,24 @@ def _plain(a) -> dict:
     return a
 
 
-def test_the_defaults_are_the_refreeze_configuration_with_d164(monkeypatch):
-    assert _plain(_args(monkeypatch)) == D164_RUN_ARGS
+def test_the_defaults_are_the_freeze_2026_11_configuration(monkeypatch):
+    assert _plain(_args(monkeypatch)) == FINAL_RUN_ARGS
+
+
+def test_the_refreeze_configuration_with_d164_is_six_switches_back(monkeypatch):
+    a = _plain(_args(monkeypatch, *BACK))
+    assert a == {**D164_RUN_ARGS, "lambda_ema": 1.0, "stop_tol": 0.003}
 
 
 def test_the_tag_configuration_is_one_switch_back(monkeypatch):
     """The tag's defaults (the re-freeze) stay reachable: D164's commit-check measure back to the start pair, nothing
     else changed."""
-    assert _plain(_args(monkeypatch, "--replay_noise", "start")) == REFREEZE_RUN_ARGS
+    assert _plain(_args(monkeypatch, *BACK, "--replay_noise", "start")) == {**REFREEZE_RUN_ARGS, "stop_tol": 0.003}
 
 
 def test_the_09b_configuration_is_three_switches_off(monkeypatch):
     """freeze-2026-10-09b's defaults (D135's configuration) stay reachable: the re-freeze's three switches off and
     the tag's commit-check measure, nothing else changed."""
-    a = _plain(_args(monkeypatch, "--no-relax_driven", "--no-u_adam_carry", "--no-spacing_symmetric",
+    a = _plain(_args(monkeypatch, *BACK, "--no-relax_driven", "--no-u_adam_carry", "--no-spacing_symmetric",
                      "--replay_noise", "start"))
-    assert a == D135_RUN_ARGS
+    assert a == {**D135_RUN_ARGS, "stop_tol": 0.003}

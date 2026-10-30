@@ -59,16 +59,17 @@ def parse_args(argv=None):
                          "L_floor read on pictures low-passed at one pitch")
     ap.add_argument("--cleanup_off", action="store_true",
                     help="29b (render-centric recipe): the cleanup off, w_dt = w_nn = 0 (the spray W1 pull and the near band)")
-    ap.add_argument("--settle_windows", type=int, default=0,
-                    help="D162h / D162i: windows of released physics with zero controls after the run stops (delivered)")
+    ap.add_argument("--settle_windows", type=int, default=30,
+                    help="D162h / D162i: windows of released physics with zero controls after the run stops (delivered); "
+                         "30 = freeze-2026-11 (0 = the earlier tag)")
     ap.add_argument("--settle_u", default="zero", choices=["zero", "last"],
                     help="D166 A/B: u in the settle windows; zero (the default, D162h) or last = the last committed u held")
-    ap.add_argument("--settle_relax", action=argparse.BooleanOptionalAction, default=True,
-                    help="D166 A/B: the outer-layer relaxation in the settle windows (default on, D162h)")
+    ap.add_argument("--settle_relax", action=argparse.BooleanOptionalAction, default=False,
+                    help="D166: the outer-layer relaxation in the settle windows (freeze-2026-11: off; --settle_relax = D162h)")
     ap.add_argument("--layer_relax", action=argparse.BooleanOptionalAction, default=True,
                     help="D170 A/B: the outer-layer relaxation in every window (default on, the frozen path); "
                          "--no-layer_relax = its fraction 0 throughout (u and everything else unchanged)")
-    ap.add_argument("--stop_tol", type=float, default=None,
+    ap.add_argument("--stop_tol", type=float, default=0.12,
                     help="D174 A/B: the stop's own relative-improvement tolerance (the plateau and the patience stop); the "
                          "step anneal and the latch keep the config's tol (0.003); unset = tol, the frozen path")
     ap.add_argument("--render_every", type=int, default=1,
@@ -76,7 +77,7 @@ def parse_args(argv=None):
                          "window's last one reused between (1 = every iteration, the frozen path)")
     ap.add_argument("--ls_max", type=int, default=10,
                     help="D174 A/B (runtime): the line search's trials per iteration (10 = the frozen path)")
-    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule", "masked", "content", "appearance"],
+    ap.add_argument("--render_split", default="appearance", choices=["", "u", "dFc", "u_rule", "masked", "content", "appearance"],
                     help="D172 A/B: the render gradient's weight by control block; \"\" = one weight on both (the frozen "
                          "path); u = the run's weight (held under --lambda_ema 0) on u and the rule's per-window value on dFc; "
                          "dFc = the reverse; the merit keeps the run's weight; u_rule = the run on the rule (its merit and "
@@ -122,7 +123,7 @@ def parse_args(argv=None):
     # (D91, D92; the minimum spacing D70/D72, the exterior D62, the layer relief D105), with the render weight at the
     # rule's value (D120) and the volume-conserving body (D131, D132, D135), on the MPM cell from the shape (D137's cell
     # following N is an option); each stays an A/B switch back to the code as it was
-    ap.add_argument("--lambda_ema", type=float, default=1.0,
+    ap.add_argument("--lambda_ema", type=float, default=0.0,
                     help="D120: the render weight's moving average per window; 1 (the default) = the calibration rule's "
                          "value at every window; 0.3 = the average before the freeze (config.lambda_ema)")
     ap.add_argument("--render_exterior", action=argparse.BooleanOptionalAction, default=True,
@@ -168,7 +169,7 @@ def parse_args(argv=None):
                     help="D178 (the placebo arm, off by default): the scene's paint is carried and archived (src_albedo, "
                          "tgt_albedo: the colour readers' input), but the render loss reads the 3D target's own grey "
                          "pictures (no appearance in the loss): content-free colour pictures")
-    ap.add_argument("--colour_kernel", default="kernel", choices=["kernel", "nearest"],
+    ap.add_argument("--colour_kernel", default="nearest", choices=["kernel", "nearest"],
                     help="D173 A/B: the render loss's disc colours (target and body alike): kernel = D160's 3-pitch weights (the "
                          "frozen path); nearest = the nearest particle's colour, a softmax of -d^2 / (pitch / 2)^2 (differentiable)")
     ap.add_argument("--texture", default="",

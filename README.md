@@ -68,6 +68,17 @@ the state stays valid.
 A result that raises the merit by more than 5 % is rejected and the state is kept. The run ends at the best state after 3 consecutive rejections, or when the
 merit stops improving for 5 windows.
 
+**freeze-2026-11 (D178).** The defaults add, on top of the recipe below: the render weight held from the first calibration
+(`--lambda_ema 0`, D166); the appearance rule (`--render_split appearance`, D178 M3): the render holds authority on the
+stress control where the 3D target is silent. u takes the render at the held weight (geometry below the grid is written
+through the layer); dF_c takes the rule's weight plus max(held - rule, 0) on the appearance part of the render residual
+(the gradient through the shade-weighted albedo image of the same splat, s_c = A_c G; the physics objective never reads
+a colour), and keyframe segments hold the weight on both blocks (the storyboard); without an appearance target the rule
+is Hu bit for bit; 30 settle windows of released physics without the layer relaxation (`--settle_windows 30
+--no-settle_relax`, D162h / D166); the nearest-particle disc colour (`--colour_kernel nearest`, D173); the commit check on
+the window's own replay pairs (`--replay_noise window`, D164); the stop's own tolerance 0.12 (`--stop_tol 0.12`, D174).
+tests/test_frozen_recipe.py asserts them and the switches back.
+
 **The frozen recipe (the re-freeze candidate, branch `refreeze-cand`, the user's decision of 2026-10-15: tag
 `freeze-2026-10-09b` plus D146, D146b and D149; the tag is to come).** `scripts/pipeline_run.py`'s
 defaults; `config.py` keeps the code as
