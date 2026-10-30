@@ -28,6 +28,10 @@ class Selection:
         st = getattr(cfg, "stop_tol", None)
         self.stop_tol = cfg.tol if st is None else float(st)
         self.stop_own = st is not None
+        # D181b (stop_physics): the stop's counters and plateau read the physics part of the merit, q - lambda x render (the
+        # merit is linear in lambda, check_lambda); acceptance, the latch, the anneal and the delivered slice keep q. With
+        # lambda = 0 (the twin) the two are the same number
+        self.stop_phys = bool(getattr(cfg, "stop_physics", False))
         self.stop_stale = 0
         self.anneal = 1.0                # the next window's step scale
         self.reject_streak = 0
@@ -127,9 +131,14 @@ class Selection:
         if self.last is None or q < self.best - cfg.tol * abs(self.best):
             self.best, self.last, self.best_render = q, a, self._render
         # D174 (stop_tol): the stop's own improvement, best and stale count (the plateau reads stop_last)
-        stop_improved = self.stop_last is None or q < self.stop_best - self.stop_tol * abs(self.stop_best)
+        qs = q
+        if self.stop_phys:                  # D181b: the physics part (its best is never rescored: stop_best_render 0)
+            qs = q - float(self.lam or 0.0) * self._render
+            rec["stop_merit_phys"] = qs
+        stop_improved = self.stop_last is None or qs < self.stop_best - self.stop_tol * abs(self.stop_best)
         if stop_improved:
-            self.stop_best, self.stop_last, self.stop_best_render = q, a, self._render
+            self.stop_best, self.stop_last = qs, a
+            self.stop_best_render = 0.0 if self.stop_phys else self._render
         self.reject_streak, self.last_reject_score = 0, None
         self.stale = 0 if improved else self.stale + 1
         self.stop_stale = 0 if stop_improved else self.stop_stale + 1

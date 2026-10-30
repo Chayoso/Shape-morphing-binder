@@ -225,6 +225,9 @@ class PipelineConfig:
     u_adam_carry: bool = False      # D146b A/B: u's Adam moments carry from one committed window to the next (u itself still
                                     #   starts at zero), each coordinate's bias correction counting its own age; reset on an
                                     #   outer reject; dFc's stay per window; off = fresh moments every window (the frozen path)
+    stop_physics: bool = False      # D181b (user GO 2026-10-30): the stop rule (its best, last improving window, stale count,
+                                    #   plateau) reads the physics part of the merit, q - lambda x render; acceptance, latch,
+                                    #   anneal, delivery keep q; off = the tag's stop on the full merit
     u_render_smooth: bool = False   # D181 (user-approved 2026-10-30): the render gradient on u, after PCGrad and the window's
                                     #   lambda calibration and before Adam, is averaged over each layer particle's same-side
                                     #   layer neighbours (the layer graph's layer_k nearest, itself included) with the Gaussian

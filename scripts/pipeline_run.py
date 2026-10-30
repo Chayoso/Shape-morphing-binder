@@ -155,6 +155,10 @@ def parse_args(argv=None):
                     help="D146b (the re-freeze's default): u's Adam moments carry from one committed window to the next "
                          "(u still starts at zero; each coordinate's bias correction counts its own age; reset on an outer "
                          "reject); --no-u_adam_carry = fresh moments every window, the path of freeze-2026-10-09b")
+    ap.add_argument("--stop_physics", action=argparse.BooleanOptionalAction, default=False,
+                    help="D181b: the stop rule (its best, last improving window, stale count, plateau) reads the physics part "
+                         "of the merit (q - lambda x render); acceptance, the latch, the anneal and the delivery keep the full "
+                         "merit; off (the default) = the stop of freeze-2026-11. The twin (lambda 0) is unchanged")
     ap.add_argument("--u_render_smooth", action=argparse.BooleanOptionalAction, default=False,
                     help="D181: the render's gradient on u is averaged over each layer particle's same-side layer "
                          "neighbours (Gaussian of one particle spacing, sigma = sp0, times the normal agreement), after "
@@ -350,7 +354,7 @@ def run_config(args, cfg0, prep):
                               gap_split=args.gap_split,
                               gap_vp=((prep.density["target_fill"] if prep.density else prep.v_src) / args.n
                                       if args.gap_split in ("interface", "walls", "nearest", "carry") else 0.0),
-                              u_adam_carry=args.u_adam_carry, u_render_smooth=args.u_render_smooth,
+                              u_adam_carry=args.u_adam_carry, u_render_smooth=args.u_render_smooth, stop_physics=args.stop_physics,
                               volume_exact=args.volume_exact, assim_volume=args.assim_volume,
                               cell_shape=prep.cell_shape or 0.0,
                               ot_iters=args.ot_iters, ot_warm_trials=args.ot_warm_trials,
