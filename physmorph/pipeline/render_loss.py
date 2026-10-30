@@ -346,6 +346,76 @@ def d_exterior_masked(p: torch.Tensor, n: torch.Tensor, sils, shade, m_sil, m_sh
     return sil, shd, sil_m, sum((rc * m_shade[c]).mean(dim=(1, 2)).mean() for c, rc in enumerate(r)) / len(s)
 
 
+def shaded_discs_split(p: torch.Tensor, n: torch.Tensor, views, res: int, extent: float, k: float = 1.5,
+                       ambient: float = 0.25, beta: float = 3.0, albedo: torch.Tensor | None = None):
+    """D178 (render_split "content"): shaded_discs with the discs' albedos (M, C), and from the same splat the grey image
+    G (V,res,res) and the shade-weighted albedo image A (C,V,res,res): channel c's image is s_c = sum w pw b a_c / sum w pw
+    * alpha = A_c G exactly, A_c = sum w pw b a_c / sum w pw b (an albedo buffer), G = sum w pw b / sum w pw * alpha (the
+    grey image). The colour images and alpha are _shaded_discs_albedo's operations in the same order (one more numerator).
+    Returns (s, G, A, alpha)."""
+    from ..losses.silhouette import _view_basis
+    right, up = _view_basis(p, views)
+    V = right.shape[0]
+    l_dir = torch.linalg.cross(right, up)
+    facing = (n @ l_dir.T).clamp(min=0)
+    b = ambient + (1 - ambient) * facing
+    z = p @ l_dir.T
+    zr = (z - z.min(0).values) / (z.max(0).values - z.min(0).values).clamp_min(1e-6)
+    pw = facing * torch.exp(beta * (zr - 1.0))
+    rel = (torch.stack([p @ right.T, p @ up.T], -1) + extent) / (2 * extent) * res
+    voff = (torch.arange(V, device=p.device) * (res * res)).view(1, V)
+    C = albedo.shape[1]
+    num = [rel.new_zeros(V * res * res) for _ in range(C)]
+    num_g = rel.new_zeros(V * res * res)
+    den = rel.new_zeros(V * res * res)
+    cov = rel.new_zeros(V * res * res)
+    for ii, jj, w0 in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (voff + ii * res + jj).clamp(0, V * res * res - 1).reshape(-1)
+        w = torch.where(valid, w0, torch.zeros_like(w0))
+        for c in range(C):
+            num[c] = num[c].index_add(0, idx, (w * pw * (b * albedo[:, c:c + 1])).reshape(-1))
+        num_g = num_g.index_add(0, idx, (w * pw * b).reshape(-1))
+        den = den.index_add(0, idx, (w * pw).reshape(-1))
+        cov = cov.index_add(0, idx, w.reshape(-1))
+    alpha = 1.0 - torch.exp(-k * cov)
+    s = torch.stack([(nc / den.clamp_min(1e-6) * alpha).reshape(V, res, res) for nc in num])
+    G = (num_g / den.clamp_min(1e-6) * alpha).reshape(V, res, res)
+    A = torch.stack([(nc / num_g.clamp_min(1e-12)).reshape(V, res, res) for nc in num])
+    return s, G, A, alpha.reshape(V, res, res)
+
+
+def d_exterior_content(p: torch.Tensor, n: torch.Tensor, sils, shade, m_sil, m_geo, views, res: int, extent: float,
+                       k: float = 1.5, w_hole: float = 2.0, w_spray: float = 1.0, ambient: float = 0.25, albedo=None,
+                       w_pbr: float = 1.0):
+    """D178 (render_split "content", M2): (silhouette, shading, the dFc block's held term) of one rendering of coloured
+    discs. The first two are d_exterior's colour terms. The held term splits the render loss exactly into its appearance
+    and geometry parts by the product rule on s_c = A_c G (shaded_discs_split): the appearance part, w_pbr mean_c
+    (A_c G.detach() - t_c)^2, whose gradient is the loss's gradient through the albedo image A (where the material's colours
+    land), everywhere; plus the geometry part (the silhouette and w_pbr mean_c (A_c.detach() G - t_c)^2, the gradient
+    through the coverage and the shading) inside the geometry content mask only (m_sil on the silhouettes, m_geo on the
+    shading; None = nowhere). The 3D target determines no colour (the physics objective never reads an albedo), so the
+    whole appearance mismatch is content; the geometry part is content only where the pictures' shape differs from the
+    3D target's."""
+    from ..losses.silhouette import soft_silhouette_multi
+    a = soft_silhouette_multi(p, views, res, extent, k)
+    a_t = torch.stack(list(sils), 0)
+    pen = w_hole * torch.clamp(a_t - a, min=0.0).pow(2) + w_spray * torch.clamp(a - a_t, min=0.0).pow(2)
+    sil = pen.mean(dim=(1, 2)).mean()
+    s, G, A, _ = shaded_discs_split(p, n, views, res, extent, k, ambient, albedo=albedo)
+    t = torch.stack(list(shade), 0).movedim(1, 0).contiguous()                     # (C,V,res,res)
+    shd = sum((s[c] - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)
+    Gd = G.detach()
+    held = w_pbr * sum((A[c] * Gd - t[c]).pow(2).mean(dim=(1, 2)).mean() for c in range(len(s))) / len(s)
+    if m_sil is not None:
+        held = held + (pen * m_sil).mean(dim=(1, 2)).mean()
+    if m_geo is not None:
+        Ad = A.detach()
+        held = held + w_pbr * sum(((Ad[c] * G - t[c]).pow(2) * m_geo).mean(dim=(1, 2)).mean()
+                                  for c in range(len(s))) / len(s)
+    return sil, shd, held
+
+
 def count_pictures(x: torch.Tensor, views, res: int, extent: float) -> torch.Tensor:
     """D175b: the projected count picture (an X-ray), (V,res,res): the CIC count of the points per pixel, the coverage
     soft_silhouette_multi takes before its 1 - exp(-k .), in the same views, resolution and camera box."""

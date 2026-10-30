@@ -90,3 +90,26 @@ def test_the_rule_needs_the_exterior_sample_pictures():
     with pytest.raises(ValueError):
         PipelineConfig(render_split="masked", render_exterior=True, render_target="mesh_shell")
     PipelineConfig(render_split="masked", render_exterior=True)
+
+
+def test_m2_split_is_exact():
+    """D178 (M2, render_split "content"): the split splat's colour and grey images are shaded_discs' bit for bit, s = A G,
+    the full terms are d_exterior's, and with every mask set the held term's gradient is the render loss's (the product
+    rule: appearance through A plus geometry through G and the silhouette), to rounding."""
+    from physmorph.pipeline.render_loss import d_exterior_content, shaded_discs, shaded_discs_split
+    x, tr, alb, views, res, extent, sils, shade = _setup(True)
+    xs = (x + torch.tensor([.6, -.3, .2], dtype=x.dtype)).requires_grad_(True)
+    p, n, c = _read(tr, xs, alb)
+    s0, _ = shaded_discs(p, n, views, res, extent, albedo=c)
+    g0, _ = shaded_discs(p, n, views, res, extent)
+    s, G, A, _ = shaded_discs_split(p, n, views, res, extent, albedo=c)
+    assert torch.equal(s, s0) and torch.equal(G, g0)
+    assert torch.allclose(A * G, s, rtol=1e-9, atol=1e-12)
+    w_pbr = 2.0
+    sil0, shd0 = d_exterior(p, n, sils, shade, views, res, extent, albedo=c)
+    ones = torch.ones(len(views), res, res, dtype=x.dtype)
+    sil, shd, held = d_exterior_content(p, n, sils, shade, ones, ones, views, res, extent, albedo=c, w_pbr=w_pbr)
+    assert torch.equal(sil, sil0) and torch.equal(shd, shd0)
+    g_full, = torch.autograd.grad(sil + w_pbr * shd, xs, retain_graph=True)
+    g_held, = torch.autograd.grad(held, xs)
+    assert torch.allclose(g_held, g_full, rtol=1e-7, atol=1e-14)

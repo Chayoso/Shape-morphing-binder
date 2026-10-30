@@ -76,13 +76,15 @@ def parse_args(argv=None):
                          "window's last one reused between (1 = every iteration, the frozen path)")
     ap.add_argument("--ls_max", type=int, default=10,
                     help="D174 A/B (runtime): the line search's trials per iteration (10 = the frozen path)")
-    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule", "masked"],
+    ap.add_argument("--render_split", default="", choices=["", "u", "dFc", "u_rule", "masked", "content"],
                     help="D172 A/B: the render gradient's weight by control block; \"\" = one weight on both (the frozen "
                          "path); u = the run's weight (held under --lambda_ema 0) on u and the rule's per-window value on dFc; "
                          "dFc = the reverse; the merit keeps the run's weight; u_rule = the run on the rule (its merit and "
                          "stops too) with u at the first calibration's value (what --lambda_ema 0 holds); masked (D178) = u "
                          "as u, dFc on the rule plus the held weight on the render residual inside the content mask "
-                         "(the pixels where the pictures differ from the 3D target's own beyond the draw-noise floor)")
+                         "(the pixels where the pictures differ from the 3D target's own beyond the draw-noise floor); content "
+                         "(D178, M2) = masked, and with an appearance target the held term is the appearance part of the "
+                         "render residual everywhere plus its geometry part inside the geometry content mask")
     ap.add_argument("--keyframe", nargs="+", default=[],
                     help="D175 (off by default): picture keyframes, one .npz per --keyframe_time, each with 'samples' "
                          "(K, N_k, 3): the keyframe's sample and its draws in the target's frame, read through their "
@@ -161,8 +163,9 @@ def parse_args(argv=None):
                          "appearance.py: the scenes); the physics never reads it; \"\" (the default) = the frozen path; "
                          "white = one channel of ones against a white target, the frozen path bit for bit")
     ap.add_argument("--appearance_placebo", action="store_true",
-                    help="D178 (the placebo arm, off by default): the body keeps the scene's paint, the target samples are "
-                         "painted white everywhere (content-free colour pictures: the 3D target's own grey pictures)")
+                    help="D178 (the placebo arm, off by default): the scene's paint is carried and archived (src_albedo, "
+                         "tgt_albedo: the colour readers' input), but the render loss reads the 3D target's own grey "
+                         "pictures (no appearance in the loss): content-free colour pictures")
     ap.add_argument("--colour_kernel", default="kernel", choices=["kernel", "nearest"],
                     help="D173 A/B: the render loss's disc colours (target and body alike): kernel = D160's 3-pitch weights (the "
                          "frozen path); nearest = the nearest particle's colour, a softmax of -d^2 / (pitch / 2)^2 (differentiable)")
@@ -392,7 +395,7 @@ def content_samples(args, prep, tgt, cfg, app):
     and the draws the run would read without a render target (seeds seed + 1 + 100 k, k = 1 .. D - 1: the pictures T0),
     and D further independent draws (k = 8 .. 7 + D: T0'). None off the rule, and where the pictures are the 3D target's
     own (no render target, no paint: T = T0 and the mask is empty, the rule is Hu's)."""
-    if cfg.render_split != "masked" or not cfg.render_exterior or (prep.render_x is None and app is None):
+    if cfg.render_split not in ("masked", "content") or not cfg.render_exterior or (prep.render_x is None and app is None):
         return None
     if args.floor:
         raise ValueError("render_split masked: the content mask's own draws are not lifted onto the floor")
@@ -434,18 +437,13 @@ def run_main(args, prep, src, tgt, prm, cfg):
             obj, img = args.texture.split(",")
             tex = TextureMap(obj, img, prep.frame, args.tgt)
         app = make_appearance(args.appearance, src, tgt, prep.tgt_draws, texture=tex)
-        if args.appearance_placebo:                         # D178: content-free pictures (the target white), the body painted
-            white = lambda a: np.ones_like(np.asarray(a, np.float32))  # noqa: E731
-            app.tgt, app.draws = white(app.tgt), [white(d) for d in app.draws]
-            app.note = app.note + "; placebo (D178): the target white, no paint layout"
-            app.albedo_at = lambda x, c=app.tgt.shape[1]: np.ones((len(x), c), np.float32)  # noqa: E731  (render_x too)
         out["provenance"]["appearance"] = app.params
     keyframes = load_keyframes(args.keyframe, cfg.keyframe_time) if cfg.keyframe_time else None
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
                        on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws,
-                       mesh=prep.tgt_mesh, appearance=app, render_x=prep.render_x,
+                       mesh=prep.tgt_mesh, appearance=None if args.appearance_placebo else app, render_x=prep.render_x,
                        target_fill=prep.density["target_fill"] if prep.density else None, keyframes=keyframes,
-                       content=content_samples(args, prep, tgt, cfg, app))
+                       content=content_samples(args, prep, tgt, cfg, None if args.appearance_placebo else app))
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

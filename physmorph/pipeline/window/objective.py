@@ -23,7 +23,7 @@ from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement, gri
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
 from ...render.exterior import make_field, tracked
-from ..render_loss import d_count, d_exterior, d_exterior_masked, d_pbr, d_render
+from ..render_loss import d_count, d_exterior, d_exterior_content, d_exterior_masked, d_pbr, d_render
 from .setup import Window
 
 
@@ -219,7 +219,7 @@ class Objective:
         e = t.ext
         if getattr(e, "counts", None) is not None:    # D175b: a keyframe compared on projected counts (the particles)
             if (e.mask_sil is not None and getattr(t, "keyframe", None) is None
-                    and getattr(cfg, "render_split", "") == "masked"):
+                    and getattr(cfg, "render_split", "") in ("masked", "content")):
                 # D178 (render_compare column + the masked rule): the count term and its part inside the content mask
                 from ..render_loss import count_pictures
                 c_k = torch.stack(list(e.counts), 0)
@@ -249,8 +249,16 @@ class Objective:
         self.lr_m is None and the path is d_exterior's."""
         cfg, t = self.cfg, self.tgt
         self.lr_m = None
+        split = getattr(cfg, "render_split", "")
+        if split == "content" and c is not None and getattr(t, "keyframe", None) is None:
+            # D178 (M2): with an appearance target the held term is the appearance part everywhere and the geometry part
+            # inside the geometry content mask (render_loss.d_exterior_content); without one M2 is the masked rule below
+            sil, shd, self.lr_m = d_exterior_content(p, n, e.sils, e.shade, e.mask_sil, getattr(e, "mask_geo", None),
+                                                     t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray,
+                                                     cfg.pbr_ambient, albedo=c, w_pbr=cfg.w_pbr)
+            return sil, shd
         if ((e.mask_sil is None and e.mask_shade is None) or getattr(t, "keyframe", None) is not None
-                or getattr(cfg, "render_split", "") != "masked"):
+                or split not in ("masked", "content")):
             return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
                               cfg.w_spray, cfg.pbr_ambient, albedo=c)
         sil, shd, sil_m, shd_m = d_exterior_masked(p, n, e.sils, e.shade, e.mask_sil, e.mask_shade, t.views,
