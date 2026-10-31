@@ -193,6 +193,9 @@ class PipelineConfig:
                                     #   read by the target's pictures and the render terms alike
     render_target_shading: str = "loss"  # E3 (2026-10-31, pictures only): the target pictures' shading model, "loss" (the
                                     #   loss's head-on Lambert, the tag) or "studio" (render_loss.studio_shade: key, fill, highlight)
+    render_target_pictures: str = "discs"  # E3' (2026-10-31, pictures only): the target pictures' renderer, "discs" (the tag: the
+                                    #   samples' Zhu-Bridson discs) or "mesh_raster" (render/mesh_raster.py: the render target mesh ray-cast
+                                    #   with its vertex normals, the same views, box, resolution and lighting; no sample, no discs)
     render_target: str = "samples"  # D159 A/B: the render's target pictures; "samples" = the target sample and its draws
                                     #   through the exterior (the frozen path), "mesh_shell" = the target mesh grown by the
                                     #   run's own measured exterior offset (render/mesh_shell.py), needs the mesh and the exterior

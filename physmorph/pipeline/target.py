@@ -352,6 +352,24 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, mesh
         if cfg.render_target == "mesh_shell":
             ext.sils, ext.shade = shell_pictures(mesh, lattice, h, pitch, radius * pitch, refs, views, extent, cfg, e_sils,
                                                  e_shade)
+        if getattr(cfg, "render_target_pictures", "discs") == "mesh_raster":
+            # E3' (pictures only): the render target mesh ray-cast with its vertex normals, the same views, box, resolution
+            # and lighting as the loss (render/mesh_raster.py); no particle sample, no discs. The RMS against the discs'
+            # pictures is recorded (how different the renderer is)
+            if mesh is None or appearance is not None or getattr(ext, "counts", None) is not None:
+                raise ValueError("render_target_pictures mesh_raster: needs the render target mesh, grey pictures, the exterior comparison")
+            from ..render.mesh_raster import mesh_pictures
+            m_sils, m_shade, info = mesh_pictures(mesh, views, cfg.render_res, extent, cfg.pbr_ambient, device=gpu.DEVICE)
+            d_a = torch.stack(m_sils) - torch.stack(list(ext.sils))
+            d_s = torch.stack(m_shade) - torch.stack(list(ext.shade))
+            body = (torch.stack(m_sils) > 1e-2) | (torch.stack(list(ext.sils)) > 1e-2)
+            print(f"[target] E3' target pictures by the mesh raster ({info}): RMS against the discs' pictures over all pixels: "
+                  f"silhouette {float(d_a.pow(2).mean().sqrt()):.5f}, shading {float(d_s.pow(2).mean().sqrt()):.5f}; over the "
+                  f"body's pixels ({100 * float(body.float().mean()):.1f} %): silhouette {float(d_a[body].pow(2).mean().sqrt()):.5f}, "
+                  f"shading {float(d_s[body].pow(2).mean().sqrt()):.5f}; max |d| {float(d_a.abs().max()):.4f} / "
+                  f"{float(d_s.abs().max()):.4f}; mean shading on the body discs {float(torch.stack(list(ext.shade))[body].mean()):.4f}, "
+                  f"raster {float(torch.stack(m_shade)[body].mean()):.4f}", flush=True)
+            ext.sils, ext.shade = m_sils, m_shade
         if getattr(cfg, "render_compare", "exterior") == "column":   # D178 (the J5 attempt): the count pictures
             from .render_loss import count_pictures
             with torch.no_grad():

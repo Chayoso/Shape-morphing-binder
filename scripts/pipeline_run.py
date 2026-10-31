@@ -242,6 +242,8 @@ def parse_args(argv=None):
     ap.add_argument("--floor_friction", type=float, default=0.0, help="Coulomb friction of the floor")
     ap.add_argument("--telemetry", action="store_true",
                     help="diagnostic: the per-iteration steering telemetry and the per-window records (support split, active sets, scale, control, thin, OT divergence)")
+    ap.add_argument("--render_target_pictures", default="discs", choices=["discs", "mesh_raster"],
+                    help="E3': the target pictures drawn by another renderer (mesh_raster: the render target mesh ray-cast with its vertex normals, the loss's views, box, resolution and lighting); discs = the tag")
     ap.add_argument("--render_target_shading", default="loss", choices=["loss", "studio"],
                     help="E3: the target pictures drawn with another shading model (studio: key + fill + highlight); loss = the tag")
     ap.add_argument("--empty_cache", action="store_true",
@@ -308,7 +310,8 @@ def prepared(args, seed: int):
                    draws=args.render_target_draws,
                    match_density=args.match_density,
                    cell_ref_n=cfg0.mass_ref_n if args.cell_follows_n else 0,
-                   mesh=args.render_target == "mesh_shell" or getattr(args, "render_weight_ref", "residual") == "shape",
+                   mesh=args.render_target == "mesh_shell" or getattr(args, "render_weight_ref", "residual") == "shape"
+                   or getattr(args, "render_target_pictures", "discs") == "mesh_raster",
                    render_tgt=getattr(args, "render_tgt", None))
     return cfg0, prep
 
@@ -368,6 +371,7 @@ def run_config(args, cfg0, prep):
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               empty_cache=args.empty_cache, render_target_shading=args.render_target_shading,
+                              render_target_pictures=args.render_target_pictures,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale)
     if getattr(args, "cleanup_off", False):  # 29b: the cleanup off (the spray W1 pull, the near band)
