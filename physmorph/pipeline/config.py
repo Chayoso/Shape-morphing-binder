@@ -239,6 +239,8 @@ class PipelineConfig:
                                     # det F quantiles and the thin metrics (about 2 s a window at 300k); off in production
     profile: bool = False           # diagnostic: wall-clock split of a window (synchronises the GPU around each part)
     term_dump: str = ""             # diagnostic: directory of each term's per-particle position gradient per window
+    empty_cache: bool = False       # exact memory relief (2026-10-31, the 1M teaser): torch.cuda.empty_cache() before each window,
+                                    #   so the per-window Warp buffers can take what the torch cache held; no number changes
     device: str = "cuda"
 
     def xu_kw(self) -> dict:

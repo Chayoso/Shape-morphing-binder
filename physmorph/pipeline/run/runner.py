@@ -286,6 +286,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             t0s = time.time()
             tgt.render_lp = render_term_lowpass(tgt, cfg, x_start, None if appearance is None else appearance.src)
             shape_at, t_shape = x_start.clone(), time.time() - t0s
+        if getattr(cfg, "empty_cache", False):          # exact: the torch cache gives its free blocks back before the window
+            torch.cuda.empty_cache()
         res = optimize_window(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C, J=J), prm, cfg, tgt, balancer,
                               vol0, (coh_nbr, bond_rest, frag.float()), dfc_init=dfc_prev,
                               alpha_scale=sel.anneal, on_iter=on_iter, log=lambda *_: None)

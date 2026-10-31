@@ -242,6 +242,8 @@ def parse_args(argv=None):
     ap.add_argument("--floor_friction", type=float, default=0.0, help="Coulomb friction of the floor")
     ap.add_argument("--telemetry", action="store_true",
                     help="diagnostic: the per-iteration steering telemetry and the per-window records (support split, active sets, scale, control, thin, OT divergence)")
+    ap.add_argument("--empty_cache", action="store_true",
+                    help="exact memory relief: torch.cuda.empty_cache() before each window (the 1M runs); no number changes")
     ap.add_argument("--term_dump", default="",
                     help="diagnostic: directory of each term's per-particle position gradient at every committed window")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
@@ -363,6 +365,7 @@ def run_config(args, cfg0, prep):
                               keyframe_soundness=getattr(args, "keyframe_soundness", "every"),
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
+                              empty_cache=args.empty_cache,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale)
     if getattr(args, "cleanup_off", False):  # 29b: the cleanup off (the spray W1 pull, the near band)
