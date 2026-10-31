@@ -92,11 +92,14 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
         settling = settle_from is not None and a >= settle_from
         if settling:
             # the scene's settle (2026-10-31, a scene option): zero controls and no layer relaxation, as the single-body
-            # runs' settle windows (--settle_windows with --no-settle_relax); the body comes to rest under the loads alone
+            # runs' settle windows (--settle_windows with --no-settle_relax), in the single-body world: every velocity
+            # damped at the single-body drag (MPMParams.drag; the scene's flight runs without it, so its deformation drag
+            # then reads zero, mpm/bodies.deformation_drag_rate); the body comes to rest under the loads alone
             import dataclasses
             from types import SimpleNamespace
             from .rollout import commit_rollout
-            opt = SceneOptimizer(start, prm, dataclasses.replace(cfg, layer_relax=False), tgt, balancer, vol0, bonds, 1.0,
+            prm_s = dataclasses.replace(prm, drag=float(type(prm).drag))
+            opt = SceneOptimizer(start, prm_s, dataclasses.replace(cfg, layer_relax=False), tgt, balancer, vol0, bonds, 1.0,
                                  None, lambda *_: None)
             with torch.no_grad():
                 opt.dFc.zero_()
