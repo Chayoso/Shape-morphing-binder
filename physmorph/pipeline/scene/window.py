@@ -107,7 +107,7 @@ class SceneWindow:
             self.lmask[r], self.lnrm[r] = lmask, lnrm
             with timed("layer_relief"):          # the target's relief, read in the body's frame
                 ref = None if body.tgt.relief is None else body.tgt.relief.at(y0, lmask, lnrm @ R0, lnbr, lw)
-            layer = (lmask, lnrm, lnbr, lw, 1.0 / float(cfg.T), None, ref,     # as window/setup.Window's, D146 too
+            layer = (lmask, lnrm, lnbr, lw, 1.0 / float(cfg.T) if getattr(cfg, "layer_relax", True) else 0.0, None, ref,   # as window/setup.Window's, D146 too; the scene settle: no relaxation
                      cfg.T if cfg.relax_driven else None)
             spacing = None
             if cfg.min_spacing > 0:

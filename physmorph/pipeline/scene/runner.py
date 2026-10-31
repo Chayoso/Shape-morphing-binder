@@ -52,7 +52,8 @@ def cross_gap(x, bodies) -> dict:
 
 
 def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, windows: int, mu: float, log=print,
-              F_stride: int | None = None, assim_free: bool = True, schedule=None, dump: dict | None = None) -> dict:
+              F_stride: int | None = None, assim_free: bool = True, schedule=None, dump: dict | None = None,
+              settle_from: int | None = None) -> dict:
     """bodies: scene/window.Body per body (rows, the frame's reference, its built and calibrated TargetPack, the sample's
     volume per particle, the dynamics mass); x0, v0: the launch state in body order (CUDA tensors); schedule:
     scene/schedule.MorphSchedule (each window's target on the way, by the window's end time) or None (the final target
@@ -88,7 +89,23 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
         # no simulated time, solved again from the same start with the attempt's controls as its warm start, up to the
         # single-body patience; then the uncontrolled continuation is committed and recorded as such
         retries = []
-        while True:
+        settling = settle_from is not None and a >= settle_from
+        if settling:
+            # the scene's settle (2026-10-31, a scene option): zero controls and no layer relaxation, as the single-body
+            # runs' settle windows (--settle_windows with --no-settle_relax); the body comes to rest under the loads alone
+            import dataclasses
+            from types import SimpleNamespace
+            from .rollout import commit_rollout
+            opt = SceneOptimizer(start, prm, dataclasses.replace(cfg, layer_relax=False), tgt, balancer, vol0, bonds, 1.0,
+                                 None, lambda *_: None)
+            with torch.no_grad():
+                opt.dFc.zero_()
+                opt.u.zero_()
+            c_ = commit_rollout(opt.win, opt.obj, opt.dFc, opt.u, 0.0)
+            res = SimpleNamespace(commit=c_ if c_.valid else None, hist=[],
+                                  stats={"dfc": opt.dFc.detach()[:cfg.T].clone(), "settle": 1, "commit_reason": c_.reason,
+                                         "commit_E_final": float(c_.E_final), "selection_merit": float(c_.E_final)})
+        while not settling:
             opt = SceneOptimizer(start, prm, cfg, tgt, balancer, vol0, bonds, 1.0, None, lambda *_: None,
                                  retry_mismatch=len(retries) < cfg.patience)
             res = opt.run(dfc_prev)
@@ -134,7 +151,7 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
                    "contact_impulse": impulse, **(cross_gap(x, bodies) if len(bodies) == 2 else {}), **counts,
                    "lambda": res.hist[-1]["lambda"] if res.hist else opt.lam_r, "loss": stats.get("commit_E_final"),
                    "selection_merit": stats.get("selection_merit"), "Jmin_traj": commit.jmin_traj, **device_memory(),
-                   **{k: stats.get(k) for k in _STATS}, "morph_s": s, "replay_retries": retries}
+                   **{k: stats.get(k) for k in _STATS}, "morph_s": s, "replay_retries": retries, "settle": stats.get("settle")}
         if dump is not None and dump["t0"] <= a * 2 * cfg.T * prm.dt < dump["t1"]:
             from .dump import window_dump
             window_dump(dump["path"], a, a * 2 * cfg.T * prm.dt, opt, commit, dump["bodies"])
