@@ -225,6 +225,10 @@ class PipelineConfig:
     u_adam_carry: bool = False      # D146b A/B: u's Adam moments carry from one committed window to the next (u itself still
                                     #   starts at zero), each coordinate's bias correction counting its own age; reset on an
                                     #   outer reject; dFc's stay per window; off = fresh moments every window (the frozen path)
+    render_normal_radius: float = 0.0  # D183 (the user's last attempt, 2026-10-30): the render loss's disc normals (the run's
+                                    #   tracked discs and the target pictures' discs) from Zhu and Bridson's gradient at this kernel
+                                    #   radius in pitches (D182 (b): the 3-pitch field passes 40 % of a 1-pitch bump's slope, 1.5
+                                    #   pitches 84 %, 1 pitch spikes on a lattice); 0 = the field's own gradient (the tag)
     stop_physics: bool = False      # D181b (user GO 2026-10-30): the stop rule (its best, last improving window, stale count,
                                     #   plateau) reads the physics part of the merit, q - lambda x render; acceptance, latch,
                                     #   anneal, delivery keep q; off = the tag's stop on the full merit

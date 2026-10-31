@@ -376,6 +376,17 @@ class ZhuBridsonSolenthaler(ZhuBridson):
         return torch.where(s > 1e-6, f, f.new_full((), float("inf"))), torch.cat(g) if grad else None, s
 
 
+def narrow_normals(x, q, pitch, radius, fallback):
+    """D183 (render_normal_radius): unit normals at the points q, the gradient of Zhu and Bridson's field of the particles x
+    with the kernel radius `radius` pitches (the offset in proportion); `fallback` where no particle lies within it. The
+    target pictures' side of Tracked._narrow."""
+    f = make_field("zb", x, pitch, radius=radius, offset=0.8 * radius / 3.0, device_field=True)
+    _, g, s = f(q)
+    n = nnf.normalize(g, dim=1)
+    ok = (s > 1e-6)[:, None] & torch.isfinite(n).all(1, keepdim=True)
+    return torch.where(ok, n, fallback)
+
+
 def make_field(kind, x, pitch, radius=3., offset=.8, device_field=False):
     """The exterior's field by its name (D140's switch): "zb" Zhu and Bridson's, "aniso" the anisotropic one (D140),
     "zbs" Zhu and Bridson's with Solenthaler et al.'s correction (D144)."""
@@ -441,6 +452,28 @@ class Tracked:
         self.radius, self.offset, self.h = field.radius, field.offset, h
         self.colour, self.tau = colour, tau            # D173: the discs' colour weights ("kernel" = D160's, "nearest")
 
+    normal_radius = None    # D183 (render_normal_radius): the discs' normals from the Zhu-Bridson gradient at this kernel radius (wu)
+
+    def _narrow(self, u, p, valid, normal):
+        """D183: the disc's normal as the gradient at p0 of Zhu and Bridson's field with the kernel radius normal_radius
+        (narrower than the field's: the 3-pitch kernel passes 40 % of a 1-pitch bump's slope, 1.5 pitches 84 %, D182 (b)),
+        from the disc's own particle list (a superset); where no particle lies within that radius, the field's normal.
+        None (the default): `normal` itself."""
+        Rn = self.normal_radius
+        if not Rn:
+            return normal
+        t = (1. - u.square().sum(-1) / (Rn * Rn)).clamp_min(0.) * valid
+        w = t ** 3
+        swr = w.sum(1)
+        sw = swr.clamp_min(1e-12)
+        xbar = (w[..., None] * p).sum(1) / sw[:, None]
+        d = self.p0 - xbar
+        dhat = d / d.norm(dim=1).clamp_min(1e-12)[:, None]
+        dw = (-6. / (Rn * Rn)) * (t * t)[..., None] * u
+        J = (torch.einsum("nsa,nsb->nab", p, dw) - xbar[:, :, None] * dw.sum(1)[:, None, :]) / sw[:, None, None]
+        nr = nnf.normalize(dhat - torch.einsum("nab,na->nb", J, dhat), dim=1)
+        return torch.where((swr > 1e-6)[:, None], nr, normal)
+
     def read(self, x, albedo=None, ref=None):
         """(points, unit normals, displacement along n0) of the discs at the particles x; with the particles'
         albedos (N, C) and their mean `ref` (D160), the discs' albedos (M, C) as a fourth item."""
@@ -458,6 +491,7 @@ class Tracked:
         J = (torch.einsum("nsa,nsb->nab", p, dw) - xbar[:, :, None] * dw.sum(1)[:, None, :]) / sw[:, None, None]
         dhat = d / dist[:, None]
         normal = nnf.normalize(dhat - torch.einsum("nab,na->nb", J, dhat), dim=1)     # the field's gradient in q
+        normal = self._narrow(u, p, valid, normal)          # D183: off (normal_radius None) returns normal itself
         move = -(dist - self.offset) / self.slope
         if albedo is None:
             return p0 + move[:, None] * self.n0, normal, move
@@ -527,6 +561,7 @@ class TrackedSolenthaler(Tracked):
         J = (torch.einsum("nsa,nsb->nab", p, dw) - xbar[:, :, None] * dw.sum(1)[:, None, :]) / sw[:, None, None]
         dhat = d / dist[:, None]
         normal = nnf.normalize(dhat - torch.einsum("nab,na->nb", J, dhat) - self.offset * self.gf0, dim=1)
+        normal = self._narrow(u, p, valid, normal)          # D183: off (normal_radius None) returns normal itself
         move = -(dist - self.offset * self.f0) / self.slope
         if albedo is None:
             return p0 + move[:, None] * self.n0, normal, move

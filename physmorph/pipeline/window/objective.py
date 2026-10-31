@@ -238,6 +238,8 @@ class Objective:
             with torch.no_grad(), timed("exterior"):
                 self.discs = tracked(make_field(e.field, xT.detach(), e.pitch, radius=e.radius, offset=e.offset,
                                                 device_field=True), e.lattice, e.h, e.skin, e.colour, e.colour_tau)
+                if getattr(self.cfg, "render_normal_radius", 0.0):   # D183: the discs' normals at the narrower kernel
+                    self.discs.normal_radius = float(self.cfg.render_normal_radius) * e.pitch
             self.ext_builds += 1
             p, n, move = self.discs.read(xT)
         return self._exterior(p, n, e)
@@ -284,6 +286,8 @@ class Objective:
             with torch.no_grad(), timed("exterior"):
                 self.discs = tracked(make_field(e.field, xT.detach(), e.pitch, radius=e.radius, offset=e.offset,
                                                 device_field=True), e.lattice, e.h, e.skin, e.colour, e.colour_tau)
+                if getattr(self.cfg, "render_normal_radius", 0.0):   # D183: the discs' normals at the narrower kernel
+                    self.discs.normal_radius = float(self.cfg.render_normal_radius) * e.pitch
             self.ext_builds += 1
             p, n, move, c = self.discs.read(xT, e.albedo, e.albedo_ref)
         return self._exterior(p, n, e, c)

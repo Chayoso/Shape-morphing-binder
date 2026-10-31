@@ -20,7 +20,7 @@ from ..losses.volumetric import (d_vol, d_vol_density, density_units, rasterize_
                                  target_mass_grid)
 from ..mpm.state import MPMParams
 from .config import PipelineConfig
-from ..render.exterior import Lattice, found_disc_albedo, make_field
+from ..render.exterior import Lattice, found_disc_albedo, make_field, narrow_normals
 from .render_loss import exterior_targets, make_views, shade_targets, target_silhouettes
 
 
@@ -156,7 +156,11 @@ def sample_pictures(s, cfg, pitch, radius, offset, lattice, h, views, extent, al
         p_t, g_t, _, _ = lattice.discs(fld, h, refine=False)
         c_t = None if alb is None else found_disc_albedo(fld, p_t, alb, b_ref, pitch, getattr(cfg, "colour_kernel", "kernel"),
                                                          0.5 * pitch)
-    return p_t, c_t, exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
+        n_t = torch.nn.functional.normalize(g_t, dim=1)
+        rn = float(getattr(cfg, "render_normal_radius", 0.0) or 0.0)
+        if rn > 0:                        # D183: the pictures' normals at the run's discs' narrower scale (Tracked._narrow)
+            n_t = narrow_normals(s, p_t, pitch, rn, n_t)
+    return p_t, c_t, exterior_targets(p_t, n_t, views, cfg.render_res,
                                       extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t)
 
 
