@@ -242,6 +242,8 @@ def parse_args(argv=None):
     ap.add_argument("--floor_friction", type=float, default=0.0, help="Coulomb friction of the floor")
     ap.add_argument("--telemetry", action="store_true",
                     help="diagnostic: the per-iteration steering telemetry and the per-window records (support split, active sets, scale, control, thin, OT divergence)")
+    ap.add_argument("--render_target_shading", default="loss", choices=["loss", "studio"],
+                    help="E3: the target pictures drawn with another shading model (studio: key + fill + highlight); loss = the tag")
     ap.add_argument("--empty_cache", action="store_true",
                     help="exact memory relief: torch.cuda.empty_cache() before each window (the 1M runs); no number changes")
     ap.add_argument("--term_dump", default="",
@@ -365,7 +367,7 @@ def run_config(args, cfg0, prep):
                               keyframe_soundness=getattr(args, "keyframe_soundness", "every"),
                               grad_dump=args.grad_dump,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
-                              empty_cache=args.empty_cache,
+                              empty_cache=args.empty_cache, render_target_shading=args.render_target_shading,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale)
     if getattr(args, "cleanup_off", False):  # 29b: the cleanup off (the spray W1 pull, the near band)

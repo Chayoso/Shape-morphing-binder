@@ -157,7 +157,8 @@ def sample_pictures(s, cfg, pitch, radius, offset, lattice, h, views, extent, al
         c_t = None if alb is None else found_disc_albedo(fld, p_t, alb, b_ref, pitch, getattr(cfg, "colour_kernel", "kernel"),
                                                          0.5 * pitch)
     return p_t, c_t, exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
-                                      extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t)
+                                      extent, cfg.sil_k, cfg.pbr_ambient, albedo=c_t,
+                                      shade_model=getattr(cfg, "render_target_shading", "loss"))
 
 
 def keyframe_pictures(final: TargetPack, samples, cfg: PipelineConfig, views=None):

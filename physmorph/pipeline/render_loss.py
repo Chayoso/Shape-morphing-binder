@@ -233,8 +233,21 @@ class LambdaBalancer:
 
 # ---- the render terms read on the exterior (D62): surface discs in place of the particle cloud ----
 
+def studio_shade(n: torch.Tensor, right: torch.Tensor, up: torch.Tensor, l_dir: torch.Tensor) -> torch.Tensor:
+    """E3 (2026-10-31, pictures only): a different shading model for the TARGET pictures, the studio display's kind of
+    lighting in each view's camera frame: a key light from the upper left, a weaker fill from the right, an ambient term and a
+    Blinn-Phong highlight of the key (in place of the loss's head-on Lambert). (M, V) shades in [0, 1]."""
+    def cam(a, b, c):                                     # a direction in camera coordinates (right, up, toward the camera)
+        d = a * right + b * up + c * l_dir
+        return d / d.norm(dim=1, keepdim=True)
+    key, fill = cam(-0.55, 0.6, 0.58), cam(0.65, 0.15, 0.74)
+    half = (key + l_dir) / (key + l_dir).norm(dim=1, keepdim=True)
+    s = 0.12 + 0.62 * (n @ key.T).clamp(min=0) + 0.2 * (n @ fill.T).clamp(min=0) + 0.18 * (n @ half.T).clamp(min=0) ** 24
+    return s.clamp(max=1.0)
+
+
 def shaded_discs(p: torch.Tensor, n: torch.Tensor, views, res: int, extent: float, k: float = 1.5,
-                 ambient: float = 0.25, beta: float = 3.0, albedo: torch.Tensor | None = None):
+                 ambient: float = 0.25, beta: float = 3.0, albedo: torch.Tensor | None = None, shade_model: str = "loss"):
     """All views of the shaded image of surface discs: (V,res,res) shade*alpha and alpha.
 
     A disc is drawn where it faces the camera: its splat weight is CIC x its facing cosine max(n.l, 0) (its
@@ -248,6 +261,8 @@ def shaded_discs(p: torch.Tensor, n: torch.Tensor, views, res: int, extent: floa
     l_dir = torch.linalg.cross(right, up)                         # (V,3) toward the camera
     facing = (n @ l_dir.T).clamp(min=0)                           # (M,V)
     b = ambient + (1 - ambient) * facing
+    if shade_model == "studio":                                   # E3: the target pictures' different shading (visibility unchanged)
+        b = studio_shade(n, right, up, l_dir)
     z = p @ l_dir.T
     zr = (z - z.min(0).values) / (z.max(0).values - z.min(0).values).clamp_min(1e-6)
     pw = facing * torch.exp(beta * (zr - 1.0))
@@ -291,16 +306,17 @@ def _shaded_discs_albedo(rel, voff, pw, b, albedo, V: int, res: int, k: float):
 
 
 def exterior_targets(p_t: torch.Tensor, n_t: torch.Tensor, views, res: int, extent: float, k=1.5, ambient=0.25,
-                     albedo=None):
+                     albedo=None, shade_model: str = "loss"):
     """The target's silhouettes and shaded images, drawn by the same operators from the target's own discs.
-    D160 (albedo: the target discs' colours (M, C)): the shaded images are colour pictures, one (C,res,res) per view."""
+    D160 (albedo: the target discs' colours (M, C)): the shaded images are colour pictures, one (C,res,res) per view.
+    E3 (shade_model "studio"): the shaded images drawn with a different lighting model (studio_shade); "loss" = the loss's."""
     from ..losses.silhouette import soft_silhouette_multi
     with torch.no_grad():
         if albedo is not None:
             return (list(soft_silhouette_multi(p_t, views, res, extent, k)),
-                    list(shaded_discs(p_t, n_t, views, res, extent, k, ambient, albedo=albedo)[0].movedim(1, 0)))
+                    list(shaded_discs(p_t, n_t, views, res, extent, k, ambient, albedo=albedo, shade_model=shade_model)[0].movedim(1, 0)))
         return (list(soft_silhouette_multi(p_t, views, res, extent, k)),
-                list(shaded_discs(p_t, n_t, views, res, extent, k, ambient)[0]))
+                list(shaded_discs(p_t, n_t, views, res, extent, k, ambient, shade_model=shade_model)[0]))
 
 
 def d_exterior(p: torch.Tensor, n: torch.Tensor, sils, shade, views, res: int, extent: float, k: float = 1.5,
