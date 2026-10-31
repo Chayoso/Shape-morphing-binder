@@ -46,8 +46,9 @@ class MorphSchedule:
     """bodies: scene/window.Body with their final, calibrated targets; prms: each target's build grid (the single-body
     preparation's MPM parameters, as scene_run builds the targets); morph_time: the ramp's length, seconds."""
 
-    def __init__(self, bodies: list, prms: list, morph_time: float):
+    def __init__(self, bodies: list, prms: list, morph_time: float, morph_start: float = 0.0):
         self.t_m, self.prms = float(morph_time), prms
+        self.t0 = float(morph_start)            # 2026-10-31 (scene option): the ramp starts at this time (0: from the start, D147)
         self.final = [bd.tgt for bd in bodies]
         self.D = []                                     # D_Y at each body's target sample
         for bd, pack in zip(bodies, self.final):
@@ -67,7 +68,7 @@ class MorphSchedule:
 
     def apply(self, bodies: list, t: float) -> float:
         """Each body's target for the window ending at time t (the objective reads its released end); returns s."""
-        s = ramp(t, self.t_m)
+        s = ramp(t - self.t0, self.t_m)
         for b, bd in enumerate(bodies):
             if s >= 1.0:
                 bd.tgt = self.final[b]

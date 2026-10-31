@@ -39,6 +39,7 @@ class SceneSpec:
     morph_time: float = 0.0      # s: each body's target on its way from the source over this time (scene/schedule.py,
                                  # the bodies meet mid-morph); 0: the target from the start
     margin: float = 0.0          # wu added to the horizontal reach (the drop: no throw speed, room to tip over)
+    morph_start: float = 0.0     # s (2026-10-31, scene option): the morph ramp starts here, e.g. after the landing; 0 = from the start
 
 
 def yaw_matrix(deg: float) -> np.ndarray:

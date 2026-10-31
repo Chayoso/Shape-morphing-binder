@@ -99,7 +99,7 @@ def main():
     windows = a.windows or info["windows"]
     log(f"[scene] {json.dumps(info)}")
     t0 = time.time()
-    schedule = MorphSchedule(bodies, prms, spec.morph_time) if spec.morph_time > 0 else None
+    schedule = MorphSchedule(bodies, prms, spec.morph_time, spec.morph_start) if spec.morph_time > 0 else None
     dump = None
     if a.dump:
         d0, d1, db = a.dump.split(",")
