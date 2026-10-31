@@ -130,7 +130,8 @@ def run_scene(bodies: list, x0: torch.Tensor, v0: torch.Tensor, prm, cfg, window
             x, F, v, C, J, counts = promote(commit, lo, hi)
         for k in GUARDS:
             guards[k] += counts[k]
-        if cfg.assim > 0:
+        # the settle's controls are zero, so the controls' share the scene assimilates (assim_free) is nothing there
+        if cfg.assim > 0 and not (settling and assim_free):
             with timed("assim"):
                 # the controls' deformation without the loads (scene/window.free_end_F), or (assim_free False) the
                 # loaded end as the frozen rule reads it: the impact's compression, the weight's sag made rest shape
