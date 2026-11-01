@@ -208,7 +208,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # 2026-11-01 (the twist scene, a prescribed load before the morph; accel None = the frozen path): zero controls
             # and a per-particle external acceleration accel (N, 3) in the window's driven steps, through B13's force path
             # (mpm/force.kick: P2G reads v_p + c f_p, c = dt A0 force_scale, so f_p = accel_p / (A0 force_scale)); forward only
-            opt = WindowOptimizer(start_k, prm, dataclasses.replace(cfg, baseline="force"), tgt, balancer, vol0, bonds_k, 1.0,
+            # (render_split cleared: its content rule refuses a baseline; the hold optimises nothing and records E at lambda 0)
+            opt = WindowOptimizer(start_k, prm, dataclasses.replace(cfg, baseline="force", render_split=""), tgt, balancer, vol0,
+                                  bonds_k, 1.0,
                                   None, lambda *_: None)
             with torch.no_grad():
                 opt.force.copy_((accel / (opt.win.force_A0 * float(cfg.force_scale))).unsqueeze(0).expand_as(opt.force))
