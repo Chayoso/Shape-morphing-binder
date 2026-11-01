@@ -193,6 +193,12 @@ class PipelineConfig:
                                     #   read by the target's pictures and the render terms alike
     render_target_shading: str = "loss"  # E3 (2026-10-31, pictures only): the target pictures' shading model, "loss" (the
                                     #   loss's head-on Lambert, the tag) or "studio" (render_loss.studio_shade: key, fill, highlight)
+    twist_seconds: float = 0.0      # 2026-11-01 (the twist scene, a prescribed load; 0 = off, the frozen path): the source bar is
+                                    #   twisted before the morph by opposite torques about its long axis on its end regions for
+                                    #   these seconds (zero-control hold windows, run/runner.py), then twist_hold seconds held
+    twist_hold: float = 0.5
+    twist_alpha: float = 0.0        # rad / s^2: the end regions' angular acceleration (sign * alpha * e x r_perp)
+    twist_end: float = 0.2          # the share of the length at each end that takes the torque
     render_target_pictures: str = "discs"  # E3' (2026-10-31, pictures only): the target pictures' renderer, "discs" (the tag: the
                                     #   samples' Zhu-Bridson discs) or "mesh_raster" (render/mesh_raster.py: the render target mesh ray-cast
                                     #   with its vertex normals, the same views, box, resolution and lighting; no sample, no discs)

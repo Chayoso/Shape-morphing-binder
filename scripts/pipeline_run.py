@@ -242,6 +242,10 @@ def parse_args(argv=None):
     ap.add_argument("--floor_friction", type=float, default=0.0, help="Coulomb friction of the floor")
     ap.add_argument("--telemetry", action="store_true",
                     help="diagnostic: the per-iteration steering telemetry and the per-window records (support split, active sets, scale, control, thin, OT divergence)")
+    ap.add_argument("--twist_seconds", type=float, default=0.0, help="the twist scene: seconds of opposite torques on the bar's end regions before the morph (0 = off)")
+    ap.add_argument("--twist_hold", type=float, default=0.5, help="the twist scene: seconds held after the torque")
+    ap.add_argument("--twist_alpha", type=float, default=0.0, help="the twist scene: the end regions' angular acceleration (rad/s^2)")
+    ap.add_argument("--twist_end", type=float, default=0.2, help="the twist scene: the share of the length at each end")
     ap.add_argument("--render_target_pictures", default="discs", choices=["discs", "mesh_raster"],
                     help="E3': the target pictures drawn by another renderer (mesh_raster: the render target mesh ray-cast with its vertex normals, the loss's views, box, resolution and lighting); discs = the tag")
     ap.add_argument("--render_target_shading", default="loss", choices=["loss", "studio"],
@@ -372,6 +376,8 @@ def run_config(args, cfg0, prep):
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               empty_cache=args.empty_cache, render_target_shading=args.render_target_shading,
                               render_target_pictures=args.render_target_pictures,
+                              twist_seconds=args.twist_seconds, twist_hold=args.twist_hold, twist_alpha=args.twist_alpha,
+                              twist_end=args.twist_end,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form,
                               force_scale=args.force_scale)
     if getattr(args, "cleanup_off", False):  # 29b: the cleanup off (the spray W1 pull, the near band)

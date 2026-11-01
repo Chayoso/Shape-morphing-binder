@@ -189,7 +189,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim}")
     PROF_STATE["on"] = bool(cfg.profile)
 
-    def hold(x, F, v, C, J, Fp, u_hold=None, release=False):
+    def hold(x, F, v, C, J, Fp, u_hold=None, release=False, accel=None):
         """A window of released physics with zero controls (the same material and assimilation): the settle window
         (D162h), and (D175) a keyframe segment's window without an accepted step. Returns the promoted state, Fp, the
         trajectory's min det F and the guard counts.
@@ -204,7 +204,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         relax = getattr(cfg, "settle_relax", True)
         start_k = StartState(x=x.clone(), Fp=Fp, F=F, v=v, C=C, J=J)
         bonds_k = (coh_nbr, bond_rest, fragment_mask(x, prm).float())
-        if release and u_hold is None and cfg.gap_split == "off" and not cfg.baseline.startswith("force"):
+        if accel is not None:
+            # 2026-11-01 (the twist scene, a prescribed load before the morph; accel None = the frozen path): zero controls
+            # and a per-particle external acceleration accel (N, 3) in the window's driven steps, through B13's force path
+            # (mpm/force.kick: P2G reads v_p + c f_p, c = dt A0 force_scale, so f_p = accel_p / (A0 force_scale)); forward only
+            opt = WindowOptimizer(start_k, prm, dataclasses.replace(cfg, baseline="force"), tgt, balancer, vol0, bonds_k, 1.0,
+                                  None, lambda *_: None)
+            with torch.no_grad():
+                opt.force.copy_((accel / (opt.win.force_A0 * float(cfg.force_scale))).unsqueeze(0).expand_as(opt.force))
+                commit = commit_rollout(opt.win, opt.obj, opt.force, opt.u, 0.0)
+        elif release and u_hold is None and cfg.gap_split == "off" and not cfg.baseline.startswith("force"):
             opt = Window(start_k, prm, cfg if relax else dataclasses.replace(cfg, layer_relax=False), tgt, vol0, bonds_k)
             commit = release_rollout(opt)
         else:
@@ -247,6 +256,45 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                              (coh_nbr, (src[coh_nbr] - src[:, None, :]).norm(dim=2),
                               fragment_mask(src, prm).float()), log)
     clock = _AttemptClock(hist)
+    if getattr(cfg, "twist_seconds", 0.0) > 0:
+        # 2026-11-01 (the twist scene; twist_seconds 0 = the frozen path): before the morph, the source bar is twisted by
+        # opposite torques about its long axis on its two end regions (the outer twist_end of its length at each end, by
+        # the source's coordinates), a per-particle acceleration sign * twist_alpha * (e x r_perp) (e the source's principal
+        # axis, r_perp the offset from the axis through the window start's centroid), in the driven steps of each window
+        # for twist_seconds, then twist_hold seconds of zero controls; every window is a zero-control hold (the material and
+        # its assimilation as the settle's), so the morph starts from the twisted bar
+        dt_w = 2 * cfg.T * prm.dt
+        n_tw, n_h = int(round(cfg.twist_seconds / dt_w)), int(round(getattr(cfg, "twist_hold", 0.0) / dt_w))
+        s0 = src - src.mean(0)
+        e = torch.linalg.eigh(s0.T.double() @ s0.double())[1][:, -1].float()
+        sc = s0 @ e
+        L = float(sc.max() - sc.min())
+        sign = torch.zeros(N, device=src.device)
+        sign[sc >= float(sc.max()) - cfg.twist_end * L] = 1.0
+        sign[sc <= float(sc.min()) + cfg.twist_end * L] = -1.0
+        ends = (sign > 0, sign < 0)
+
+        def perp(xx):
+            r = xx - xx.mean(0)
+            return r - (r @ e)[:, None] * e[None, :]
+        p0 = perp(src)
+
+        def twist_deg(xx):
+            p = perp(xx)
+            ang = torch.atan2(((torch.linalg.cross(p0, p, dim=1)) @ e), (p0 * p).sum(1))
+            return float(torch.rad2deg(ang[ends[0]].mean() - ang[ends[1]].mean()))
+        bond_rest = (src[coh_nbr] - src[:, None, :]).norm(dim=2)
+        log(f"[twist] axis {[round(float(c), 4) for c in e]}, length {L:.3f} wu, ends {int(ends[0].sum())} / {int(ends[1].sum())} "
+            f"particles (outer {cfg.twist_end:g}), alpha {cfg.twist_alpha:g} rad/s^2 for {n_tw} windows, then {n_h} held")
+        for k in range(n_tw + n_h):
+            acc = None
+            if k < n_tw:
+                acc = sign[:, None] * cfg.twist_alpha * torch.linalg.cross(e.expand(N, 3), perp(x), dim=1)
+            x, F, v, C, J, Fp, jmin, counts = hold(x, F, v, C, J, Fp, accel=acc)
+            for kk in GUARDS:
+                guards[kk] += counts[kk]
+            log(f"[twist] window {k + 1}/{n_tw + n_h} ({'torque on' if acc is not None else 'held'}): twist {twist_deg(x):.1f} deg, "
+                f"min det F {jmin:.3f}, frames {len(frames)}")
     for a in range(cfg.animations):
         clock.lap()                    # the last attempt's wall seconds (and, with --profile, the runner's sections)
         seg = None
